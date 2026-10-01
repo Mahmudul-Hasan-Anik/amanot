@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "আমানত",
+    "slug": "amanot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#134E4A"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.amanot.app"
+    },
+    "scheme": "amanot",
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
