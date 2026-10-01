@@ -14,17 +14,19 @@ import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
 import { SearchBar } from '../../../src/components/SearchBar';
 import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
-import { mockMembers, Member } from '../../../src/mocks/mockData';
+import { Member } from '../../../src/mocks/mockData';
+import { useSomitiStore } from '../../../src/store/somitiStore';
 
 type FilterType = 'all' | 'active' | 'due' | 'inactive';
 
 export default function MembersScreen() {
   const router = useRouter();
+  const { members } = useSomitiStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   const filteredMembers = useMemo(() => {
-    return mockMembers.filter((m) => {
+    return members.filter((m) => {
       if (activeFilter === 'active' && m.status === 'inactive') return false;
       if (activeFilter === 'due' && m.status !== 'due' && m.status !== 'partial') return false;
       if (activeFilter === 'inactive' && m.status !== 'inactive') return false;
@@ -39,7 +41,7 @@ export default function MembersScreen() {
       }
       return true;
     });
-  }, [searchQuery, activeFilter]);
+  }, [members, searchQuery, activeFilter]);
 
   const renderMemberItem = ({ item }: { item: Member }) => {
     let tagBg = '#DCFCE7';
@@ -115,7 +117,9 @@ export default function MembersScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>সদস্য</Text>
-          <Text style={styles.headerSubtitle}>১০০ জন · ৯৬ সক্রিয়</Text>
+          <Text style={styles.headerSubtitle}>
+            {toBengaliDigits(members.length)} জন · {toBengaliDigits(members.filter((m) => m.status !== 'inactive').length)} সক্রিয়
+          </Text>
         </View>
 
         <TouchableOpacity style={styles.menuBtn} activeOpacity={0.7}>
@@ -138,7 +142,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('all')}
           >
             <Text style={[styles.filterText, activeFilter === 'all' && styles.filterTextActive]}>
-              {activeFilter === 'all' ? '✓ ' : ''}সব ১০০
+              {activeFilter === 'all' ? '✓ ' : ''}সব {toBengaliDigits(members.length)}
             </Text>
           </TouchableOpacity>
 
@@ -147,7 +151,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('active')}
           >
             <Text style={[styles.filterText, activeFilter === 'active' && styles.filterTextActive]}>
-              সক্রিয় ৯৬
+              সক্রিয় {toBengaliDigits(members.filter((m) => m.status !== 'inactive').length)}
             </Text>
           </TouchableOpacity>
 
@@ -156,7 +160,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('due')}
           >
             <Text style={[styles.filterText, activeFilter === 'due' && styles.filterTextActive]}>
-              বকেয়া ২২
+              বকেয়া {toBengaliDigits(members.filter((m) => m.status === 'due' || m.status === 'partial').length)}
             </Text>
           </TouchableOpacity>
 
@@ -165,7 +169,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('inactive')}
           >
             <Text style={[styles.filterText, activeFilter === 'inactive' && styles.filterTextActive]}>
-              নিষ্ক্রিয় ৪
+              নিষ্ক্রিয় {toBengaliDigits(members.filter((m) => m.status === 'inactive').length)}
             </Text>
           </TouchableOpacity>
         </View>

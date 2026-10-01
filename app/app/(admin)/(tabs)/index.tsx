@@ -15,13 +15,13 @@ import { Card } from '../../../src/components/Card';
 import { ProgressRing } from '../../../src/components/ProgressRing';
 import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
 import {
-  mockSomitiInfo,
   mockTodayFollowups,
-  mockPendingApprovals,
 } from '../../../src/mocks/mockData';
+import { useSomitiStore } from '../../../src/store/somitiStore';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
+  const { somitiInfo, approvals, members } = useSomitiStore();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -34,9 +34,9 @@ export default function HomeDashboardScreen() {
             <Text style={styles.logoText}>স</Text>
           </View>
           <View>
-            <Text style={styles.somitiName}>[সমিতির নাম]</Text>
+            <Text style={styles.somitiName}>{somitiInfo.name}</Text>
             <Text style={styles.subHeader}>
-              সেপ্টেম্বর ২০২৬ · {toBengaliDigits(mockSomitiInfo.totalMembersCount)} জন সদস্য
+              সেপ্টেম্বর ২০২৬ · {toBengaliDigits(members.length)} জন সদস্য
             </Text>
           </View>
         </View>
@@ -47,10 +47,10 @@ export default function HomeDashboardScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="notifications-outline" size={22} color={colors.textMain} />
-          {mockPendingApprovals.length > 0 && (
+          {approvals.length > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                {toBengaliDigits(mockPendingApprovals.length)}
+                {toBengaliDigits(approvals.length)}
               </Text>
             </View>
           )}
@@ -68,13 +68,13 @@ export default function HomeDashboardScreen() {
             <View style={styles.growthBadge}>
               <Ionicons name="arrow-up" size={12} color={colors.primary} />
               <Text style={styles.growthText}>
-                {toBengaliDigits(mockSomitiInfo.monthlyFundGrowth)}% এ মাসে
+                {toBengaliDigits(somitiInfo.monthlyFundGrowth)}% এ মাসে
               </Text>
             </View>
           </View>
 
           <Text style={styles.heroAmount}>
-            {formatBengaliMoney(mockSomitiInfo.totalFund)}
+            {formatBengaliMoney(somitiInfo.totalFund)}
           </Text>
 
           {/* Allocation Bar */}
@@ -82,13 +82,13 @@ export default function HomeDashboardScreen() {
             <View
               style={[
                 styles.barSegment,
-                { width: `${mockSomitiInfo.projectInvestedPct}%`, backgroundColor: '#2DD4BF' },
+                { width: `${somitiInfo.projectInvestedPct}%`, backgroundColor: '#2DD4BF' },
               ]}
             />
             <View
               style={[
                 styles.barSegment,
-                { width: `${mockSomitiInfo.cashAndBankPct}%`, backgroundColor: '#99F6E4' },
+                { width: `${somitiInfo.cashAndBankPct}%`, backgroundColor: '#99F6E4' },
               ]}
             />
           </View>
@@ -98,13 +98,13 @@ export default function HomeDashboardScreen() {
             <View style={styles.heroFooterCol}>
               <Text style={styles.heroFooterLabel}>প্রজেক্টে বিনিয়োগ</Text>
               <Text style={styles.heroFooterValue}>
-                {formatBengaliMoney(mockSomitiInfo.projectInvested)} · {toBengaliDigits(mockSomitiInfo.projectInvestedPct)}%
+                {formatBengaliMoney(somitiInfo.projectInvested)} · {toBengaliDigits(somitiInfo.projectInvestedPct)}%
               </Text>
             </View>
             <View style={[styles.heroFooterCol, { alignItems: 'flex-end' }]}>
               <Text style={styles.heroFooterLabel}>হাতে ও ব্যাংকে</Text>
               <Text style={styles.heroFooterValue}>
-                {formatBengaliMoney(mockSomitiInfo.cashAndBank)} · {toBengaliDigits(mockSomitiInfo.cashAndBankPct)}%
+                {formatBengaliMoney(somitiInfo.cashAndBank)} · {toBengaliDigits(somitiInfo.cashAndBankPct)}%
               </Text>
             </View>
           </View>
@@ -166,7 +166,7 @@ export default function HomeDashboardScreen() {
 
           <View style={styles.collectionBody}>
             <ProgressRing
-              progress={mockSomitiInfo.monthlyCollectedPct}
+              progress={somitiInfo.monthlyCollectedPct}
               size={80}
               strokeWidth={8}
               color={colors.primary}
@@ -174,24 +174,24 @@ export default function HomeDashboardScreen() {
 
             <View style={styles.collectionStats}>
               <Text style={styles.collectionAmount}>
-                {formatBengaliMoney(mockSomitiInfo.monthlyCollected)}
+                {formatBengaliMoney(somitiInfo.monthlyCollected)}
               </Text>
               <Text style={styles.collectionSub}>
-                লক্ষ্য {formatBengaliMoney(mockSomitiInfo.monthlyTarget)} · বাকি {formatBengaliMoney(mockSomitiInfo.monthlyRemaining)}
+                লক্ষ্য {formatBengaliMoney(somitiInfo.monthlyTarget)} · বাকি {formatBengaliMoney(somitiInfo.monthlyRemaining)}
               </Text>
             </View>
           </View>
 
           <View style={styles.collectionFooterRow}>
             <Text style={styles.paidText}>
-              {toBengaliDigits(mockSomitiInfo.paidCount)} জন জমা দিয়েছেন
+              {toBengaliDigits(somitiInfo.paidCount)} জন জমা দিয়েছেন
             </Text>
             <TouchableOpacity
               onPress={() => router.push('/(admin)/(tabs)/collection')}
               style={styles.dueLink}
             >
               <Text style={styles.dueText}>
-                {toBengaliDigits(mockSomitiInfo.dueMembersCount)} জন বাকি ›
+                {toBengaliDigits(somitiInfo.dueMembersCount)} জন বাকি ›
               </Text>
             </TouchableOpacity>
           </View>
@@ -211,10 +211,10 @@ export default function HomeDashboardScreen() {
                 <Text style={styles.halfCardTitle}>বকেয়া</Text>
               </View>
               <Text style={[styles.halfCardAmount, { color: colors.danger }]}>
-                {formatBengaliMoney(mockSomitiInfo.totalDueAmount)}
+                {formatBengaliMoney(somitiInfo.totalDueAmount)}
               </Text>
               <Text style={styles.halfCardSub}>
-                {toBengaliDigits(mockSomitiInfo.dueMembersCount)} জন · ৩ জন ৩+ মাস
+                {toBengaliDigits(somitiInfo.dueMembersCount)} জন · ৩ জন ৩+ মাস
               </Text>
             </Card>
           </TouchableOpacity>
@@ -234,7 +234,7 @@ export default function HomeDashboardScreen() {
                 {toBengaliDigits(4)}টি
               </Text>
               <Text style={[styles.halfCardSub, { color: colors.success }]}>
-                এ বছর লাভ {formatBengaliMoney(mockSomitiInfo.yearlyProjectProfit, { showPlusSign: true })}
+                এ বছর লাভ {formatBengaliMoney(somitiInfo.yearlyProjectProfit, { showPlusSign: true })}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -250,21 +250,21 @@ export default function HomeDashboardScreen() {
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>এ মাসের আয়</Text>
                 <Text style={styles.colValue}>
-                  {formatBengaliMoney(mockSomitiInfo.monthlyIncome)}
+                  {formatBengaliMoney(somitiInfo.monthlyIncome)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>এ মাসের ব্যয়</Text>
                 <Text style={styles.colValue}>
-                  {formatBengaliMoney(mockSomitiInfo.monthlyExpense)}
+                  {formatBengaliMoney(somitiInfo.monthlyExpense)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>নিট</Text>
                 <Text style={[styles.colValue, { color: colors.primary }]}>
-                  {formatBengaliMoney(mockSomitiInfo.monthlyNet)}
+                  {formatBengaliMoney(somitiInfo.monthlyNet)}
                 </Text>
               </View>
             </View>
@@ -324,43 +324,38 @@ export default function HomeDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Item 1 */}
-          <TouchableOpacity
-            style={styles.approvalItem}
-            onPress={() => router.push('/(admin)/approvals')}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.approvalItemTitle}>ব্যয়: সভার আপ্যায়ন · ৳১২,৫০০</Text>
-              <Text style={styles.approvalItemSub}>কোষাধ্যক্ষ · আজ সকাল ১০:২০</Text>
+          {approvals.length === 0 ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: colors.textMuted }}>বর্তমানে কোনো অপেক্ষমাণ অনুমোদন নেই</Text>
             </View>
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>নতুন</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Item 2 */}
-          <TouchableOpacity
-            style={styles.approvalItem}
-            onPress={() => router.push('/(admin)/approvals')}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.approvalItemTitle}>বিনিয়োগ: সাইট বি · ৳২,০০,০০০</Text>
-              <Text style={styles.approvalItemSub}>কোষাধ্যক্ষ · গতকাল</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          {/* Item 3 */}
-          <TouchableOpacity
-            style={[styles.approvalItem, { borderBottomWidth: 0 }]}
-            onPress={() => router.push('/(admin)/approvals')}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.approvalItemTitle}>সংশোধন: রসিদ #১০৭১</Text>
-              <Text style={styles.approvalItemSub}>সম্পাদক · গতকাল</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          ) : (
+            approvals.slice(0, 3).map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.approvalItem,
+                  index === Math.min(approvals.length, 3) - 1 && { borderBottomWidth: 0 },
+                ]}
+                onPress={() => router.push('/(admin)/approvals')}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.approvalItemTitle}>
+                    {item.title} · {formatBengaliMoney(item.amount)}
+                  </Text>
+                  <Text style={styles.approvalItemSub}>
+                    {item.createdBy} · {item.dateStr}
+                  </Text>
+                </View>
+                {item.isNew ? (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>নতুন</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                )}
+              </TouchableOpacity>
+            ))
+          )}
         </Card>
 
         <View style={{ height: 80 }} />

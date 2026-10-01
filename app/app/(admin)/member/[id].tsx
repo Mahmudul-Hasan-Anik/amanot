@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
 import { formatBengaliMoney } from '../../../src/lib/money';
-import { mockMembers, Member } from '../../../src/mocks/mockData';
+import { Member } from '../../../src/mocks/mockData';
+import { useSomitiStore } from '../../../src/store/somitiStore';
 
 const MONTH_PILLS = [
   { name: 'জানু', status: 'paid', label: 'জমা ✓' },
@@ -35,8 +36,9 @@ const MONTH_PILLS = [
 export default function MemberProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { getMemberById, members } = useSomitiStore();
 
-  const member = mockMembers.find((m: Member) => m.id === id) || mockMembers[1];
+  const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
 
   const handleCall = () => {
     Linking.openURL(`tel:${member.phone.replace(/[^0-9]/g, '')}`);

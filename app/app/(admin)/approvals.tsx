@@ -11,68 +11,31 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
-interface ApprovalItem {
-  id: string;
-  tag: string;
-  time: string;
-  title: string;
-  amount: string;
-  description: string;
-  entryBy: string;
-  attachmentName?: string;
-  attachmentIcon?: 'image-outline' | 'document-text-outline';
-}
-
-const INITIAL_APPROVALS: ApprovalItem[] = [
-  {
-    id: '1',
-    tag: 'ব্যয়',
-    time: 'আজ ১০:২০',
-    title: 'সভার আপ্যায়ন',
-    amount: '৳১২,৫০০',
-    description: 'বার্ষিক সাধারণ সভার দুপুরের খাবার (১০০ জন) · উৎস: কোষাধ্যক্ষের হাতে',
-    entryBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
-    attachmentName: 'রসিদের ছবি দেখুন',
-    attachmentIcon: 'image-outline',
-  },
-  {
-    id: '2',
-    tag: 'বিনিয়োগ',
-    time: 'গতকাল',
-    title: 'সাইট বি: নির্মাণ',
-    amount: '৳২,০০,০০০',
-    description: '৩য় কিস্তি · ব্যাংক থেকে প্রদান · প্রজেক্ট বর্তমানে বিলম্বিত',
-    entryBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
-    attachmentName: 'চুক্তিপত্র',
-    attachmentIcon: 'document-text-outline',
-  },
-  {
-    id: '3',
-    tag: 'সংশোধন',
-    time: 'গতকাল',
-    title: 'রসিদ #১০৭১',
-    amount: '৳২,০০০ → ৳১,৫০০',
-    description: 'কারণ: ভুল পরিমাণ এন্ট্রি হয়েছিল। মূল এন্ট্রি মুছে যাবে না, বিপরীত এন্ট্রি যোগ হবে।',
-    entryBy: 'জাহিদ হাসান (সম্পাদক)',
-  },
-];
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
 
 export default function ApprovalsScreen() {
   const router = useRouter();
+  const { approvals, approveRequest, rejectRequest } = useSomitiStore();
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(INITIAL_APPROVALS);
 
   const handleAction = (id: string, action: 'approve' | 'reject') => {
     Alert.alert(
       action === 'approve' ? 'অনুমোদন নিশ্চিতকরণ' : 'প্রত্যাখ্যান নিশ্চিতকরণ',
-      action === 'approve' ? 'অনুরোধটি কি অনুমোদন করতে চান?' : 'অনুরোধটি কি প্রত্যাখ্যান করতে চান?',
+      action === 'approve' ? 'অনুরোধটি কি অনুমোদন করতে চান? অনুমোদিত হলে ফান্ড থেকে অর্থ সমন্বয় হবে।' : 'অনুরোধটি কি প্রত্যাখ্যান করতে চান?',
       [
         { text: 'বাতিল', style: 'cancel' },
         {
-          text: 'হ্যাঁ',
+          text: action === 'approve' ? 'হ্যাঁ, অনুমোদন করুন' : 'হ্যাঁ, প্রত্যাখ্যান করুন',
+          style: action === 'approve' ? 'default' : 'destructive',
           onPress: () => {
-            setApprovals((prev) => prev.filter((a) => a.id !== id));
+            if (action === 'approve') {
+              approveRequest(id);
+              Alert.alert('সফল', 'অনুরোধটি সফলভাবে অনুমোদিত হয়েছে।');
+            } else {
+              rejectRequest(id);
+              Alert.alert('প্রত্যাখ্যাত', 'অনুরোধটি প্রত্যাখ্যান করা হয়েছে।');
+            }
           },
         },
       ]
@@ -108,7 +71,7 @@ export default function ApprovalsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-              অপেক্ষমাণ ৩
+              অপেক্ষমাণ {toBengaliDigits(approvals.length)}
             </Text>
           </TouchableOpacity>
 
@@ -128,68 +91,72 @@ export default function ApprovalsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'rejected' && styles.tabTextActive]}>
-              প্রত্যাখ্যাত
+              বাতিল
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Cards List */}
+        {/* Approvals List */}
         <View style={styles.cardsList}>
-          {approvals.map((item) => (
-            <View key={item.id} style={styles.approvalCard}>
-              {/* Card Top Row: Tag and Time */}
-              <View style={styles.cardTopRow}>
-                <View style={styles.tagBadge}>
-                  <Text style={styles.tagText}>{item.tag}</Text>
-                </View>
-                <Text style={styles.timeText}>{item.time}</Text>
-              </View>
-
-              {/* Title & Amount Row */}
-              <View style={styles.titleAmountRow}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardAmount}>{item.amount}</Text>
-              </View>
-
-              {/* Description */}
-              <Text style={styles.descriptionText}>{item.description}</Text>
-
-              {/* Entry By */}
-              <Text style={styles.entryByText}>এন্ট্রি: {item.entryBy}</Text>
-
-              {/* Attachment Link if any */}
-              {item.attachmentName && (
-                <TouchableOpacity style={styles.attachmentLink} activeOpacity={0.7}>
-                  <Ionicons
-                    name={item.attachmentIcon || 'document-text-outline'}
-                    size={16}
-                    color="#0F766E"
-                  />
-                  <Text style={styles.attachmentText}>{item.attachmentName}</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Buttons: Reject & Approve */}
-              <View style={styles.buttonsRow}>
-                <TouchableOpacity
-                  style={styles.rejectBtn}
-                  onPress={() => handleAction(item.id, 'reject')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.rejectBtnText}>প্রত্যাখ্যান</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.approveBtn}
-                  onPress={() => handleAction(item.id, 'approve')}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  <Text style={styles.approveBtnText}>অনুমোদন</Text>
-                </TouchableOpacity>
-              </View>
+          {activeTab === 'pending' && approvals.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="checkmark-done-circle-outline" size={56} color="#0F766E" />
+              <Text style={styles.emptyTitle}>সব অনুরোধ সম্পন্ন হয়েছে</Text>
+              <Text style={styles.emptySub}>বর্তমানে কোনো অপেক্ষমাণ অনুরোধ নেই।</Text>
             </View>
-          ))}
+          ) : activeTab === 'pending' ? (
+            approvals.map((item) => (
+              <View key={item.id} style={styles.approvalCard}>
+                {/* Card Top Row */}
+                <View style={styles.cardTopRow}>
+                  <View style={styles.tagPill}>
+                    <Text style={styles.tagPillText}>
+                      {item.type === 'expense' ? 'ব্যয়' : item.type === 'investment' ? 'বিনিয়োগ' : 'সংশোধন'}
+                    </Text>
+                  </View>
+                  <Text style={styles.timeText}>{item.dateStr}</Text>
+                </View>
+
+                {/* Title & Amount */}
+                <View style={styles.titleRow}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.itemAmount}>{formatBengaliMoney(item.amount)}</Text>
+                </View>
+
+                {/* Description */}
+                <Text style={styles.itemDescription}>{item.detail}</Text>
+
+                {/* Entry By */}
+                <Text style={styles.entryByText}>এন্ট্রি করেছেন: {item.createdBy}</Text>
+
+                {/* Buttons Row: প্রত্যাখ্যান / অনুমোদন */}
+                <View style={styles.cardActionsRow}>
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    onPress={() => handleAction(item.id, 'reject')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="close" size={16} color="#DC2626" />
+                    <Text style={styles.rejectBtnText}>প্রত্যাখ্যান</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.approveBtn}
+                    onPress={() => handleAction(item.id, 'approve')}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    <Text style={styles.approveBtnText}>অনুমোদন করুন</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="time-outline" size={56} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>কোনো রেকর্ড নেই</Text>
+            </View>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -215,7 +182,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
     fontFamily: 'HindSiliguri-Bold',
@@ -229,23 +196,23 @@ const styles = StyleSheet.create({
   segmentedTabs: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    borderRadius: 24,
-    padding: 4,
+    borderRadius: 12,
+    padding: 3,
     marginBottom: 16,
   },
   tabBtn: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 9,
   },
   tabBtnActive: {
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
   tabText: {
     fontFamily: 'HindSiliguri-Medium',
@@ -254,20 +221,22 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontFamily: 'HindSiliguri-Bold',
-    color: '#1E293B',
+    color: '#0F766E',
   },
   cardsList: {
     gap: 14,
   },
   approvalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -275,95 +244,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  tagBadge: {
-    backgroundColor: '#E2E8F0',
+  tagPill: {
+    backgroundColor: '#CCFBF1',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  tagText: {
-    fontFamily: 'HindSiliguri-SemiBold',
+  tagPillText: {
+    fontFamily: 'HindSiliguri-Bold',
     fontSize: 11,
-    color: '#475569',
+    color: '#0F766E',
   },
   timeText: {
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
   },
-  titleAmountRow: {
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
   },
-  cardTitle: {
+  itemTitle: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 16,
     color: '#1E293B',
   },
-  cardAmount: {
+  itemAmount: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 16,
-    color: '#1E293B',
+    color: '#134E4A',
   },
-  descriptionText: {
+  itemDescription: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
+    fontSize: 13,
     color: '#475569',
     lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   entryByText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginBottom: 10,
-  },
-  attachmentLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     marginBottom: 14,
   },
-  attachmentText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#0F766E',
-  },
-  buttonsRow: {
+  cardActionsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 12,
   },
   rejectBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 22,
-  },
-  rejectBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
-  },
-  approveBtn: {
-    flex: 1,
-    backgroundColor: '#134E4A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 22,
     gap: 4,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  rejectBtnText: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: '#DC2626',
+  },
+  approveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#134E4A',
   },
   approveBtnText: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 13,
     color: '#FFFFFF',
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+  },
+  emptyTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 16,
+    color: '#1E293B',
+    marginTop: 12,
+  },
+  emptySub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
   },
 });

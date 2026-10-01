@@ -9,16 +9,40 @@ import {
   StatusBar,
   Share,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../../src/store/somitiStore';
+import { formatBengaliMoney } from '../../../src/lib/money';
 
 export default function ReceiptScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
+  const { getTransactionById, getMemberById, transactions, members, somitiInfo } = useSomitiStore();
+
+  const txn = getTransactionById(id as string) || transactions[0];
+  const member = txn ? getMemberById(txn.memberId) || members.find((m) => m.id === txn.memberId) : members[0];
+
+  const receiptNo = txn?.receiptNo || '#১০৮৮';
+  const amount = txn?.amount || 4100;
+  const memberName = txn?.memberName || member?.name || 'করিম উদ্দিন';
+  const memberCode = txn?.memberCode || member?.code || 'SM-042';
+  const monthsStr = txn?.months?.join(', ') || 'আগস্ট, সেপ্টেম্বর ২০২৬';
+  const lateFee = txn?.lateFee || 0;
+  const baseDeposit = amount - lateFee;
+  const dateStr = txn?.date || '২ অক্টোবর ২০২৬';
+  const methodStr =
+    txn?.paymentMethod === 'bkash'
+      ? `বিকাশ ${txn.trxId ? `· ${txn.trxId}` : ''}`
+      : txn?.paymentMethod === 'nagad'
+      ? `নগদ ${txn.trxId ? `· ${txn.trxId}` : ''}`
+      : txn?.paymentMethod === 'bank'
+      ? 'ব্যাংক ট্রান্সফার'
+      : 'হাতে নগদ';
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `আমানত - জমা রসিদ #১০৮৮\nসদস্য: করিম উদ্দিন (SM-042)\nমাস: আগস্ট, সেপ্টেম্বর ২০২৬\nজমা: ৳৪,০০০\nবিলম্ব ফি: ৳১০০\nমোট আদায়: ৳৪,১০০\nতারিখ: ৩০ সেপ্টেম্বর ২০২৬, ১১:৪২\nএখন মোট জমা: ৳১,১২,০০০`,
+        message: `${somitiInfo.name} - জমা রসিদ ${receiptNo}\nসদস্য: ${memberName} (${memberCode})\nমাস: ${monthsStr}\nজমা: ${formatBengaliMoney(baseDeposit)}\n${lateFee > 0 ? `বিলম্ব ফি: ${formatBengaliMoney(lateFee)}\n` : ''}মোট আদায়: ${formatBengaliMoney(amount)}\nমাধ্যম: ${methodStr}\nতারিখ: ${dateStr}\nএখন মোট জমা: ${formatBengaliMoney(member?.totalDeposit || amount)}`,
       });
     } catch (e) {}
   };
@@ -38,7 +62,7 @@ export default function ReceiptScreen() {
           </View>
 
           <Text style={styles.successTitle}>জমা সফল হয়েছে</Text>
-          <Text style={styles.amountLarge}>৳৪,১০০</Text>
+          <Text style={styles.amountLarge}>{formatBengaliMoney(amount)}</Text>
 
           <View style={styles.whatsappNoticePill}>
             <Text style={styles.whatsappNoticeText}>হোয়াটসঅ্যাপে রসিদ পাঠানো হয়েছে ✓</Text>
@@ -48,39 +72,41 @@ export default function ReceiptScreen() {
         {/* Voucher Card */}
         <View style={styles.voucherCard}>
           <View style={styles.voucherTop}>
-            <Text style={styles.voucherNo}>রসিদ #১০৮৮</Text>
-            <Text style={styles.voucherSomiti}>[সমিতির নাম]</Text>
+            <Text style={styles.voucherNo}>রসিদ {receiptNo}</Text>
+            <Text style={styles.voucherSomiti}>{somitiInfo.name}</Text>
           </View>
 
           <View style={styles.detailList}>
             <View style={styles.row}>
               <Text style={styles.label}>সদস্য</Text>
-              <Text style={styles.value}>করিম উদ্দিন (SM-042)</Text>
+              <Text style={styles.value}>{memberName} ({memberCode})</Text>
             </View>
 
             <View style={styles.row}>
               <Text style={styles.label}>মাস</Text>
-              <Text style={styles.value}>আগস্ট, সেপ্টেম্বর ২০২৬</Text>
+              <Text style={styles.value}>{monthsStr}</Text>
             </View>
 
             <View style={styles.row}>
               <Text style={styles.label}>জমা</Text>
-              <Text style={styles.value}>৳৪,০০০</Text>
+              <Text style={styles.value}>{formatBengaliMoney(baseDeposit)}</Text>
             </View>
 
-            <View style={styles.row}>
-              <Text style={styles.label}>বিলম্ব ফি</Text>
-              <Text style={styles.value}>৳১০০</Text>
-            </View>
+            {lateFee > 0 && (
+              <View style={styles.row}>
+                <Text style={styles.label}>বিলম্ব ফি</Text>
+                <Text style={styles.value}>{formatBengaliMoney(lateFee)}</Text>
+              </View>
+            )}
 
             <View style={styles.row}>
               <Text style={styles.label}>মাধ্যম</Text>
-              <Text style={styles.value}>বিকাশ · BK7X29QM4L</Text>
+              <Text style={styles.value}>{methodStr}</Text>
             </View>
 
             <View style={styles.row}>
               <Text style={styles.label}>তারিখ</Text>
-              <Text style={styles.value}>৩০ সেপ্টেম্বর ২০২৬, ১১:৪২</Text>
+              <Text style={styles.value}>{dateStr}</Text>
             </View>
 
             <View style={styles.row}>
@@ -93,7 +119,7 @@ export default function ReceiptScreen() {
 
           <View style={styles.rowTotal}>
             <Text style={styles.labelTotal}>এখন মোট জমা</Text>
-            <Text style={styles.valueTotal}>৳১,১২,০০০</Text>
+            <Text style={styles.valueTotal}>{formatBengaliMoney(member?.totalDeposit || amount)}</Text>
           </View>
         </View>
 
@@ -169,16 +195,16 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   whatsappNoticePill: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
     marginTop: 6,
   },
   whatsappNoticeText: {
-    fontFamily: 'HindSiliguri-SemiBold',
+    fontFamily: 'HindSiliguri-Medium',
     fontSize: 12,
-    color: '#0F766E',
+    color: '#15803D',
   },
   voucherCard: {
     backgroundColor: '#FFFFFF',
@@ -186,29 +212,34 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   voucherTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 14,
   },
   voucherNo: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#1E293B',
+    fontSize: 15,
+    color: '#0F766E',
   },
   voucherSomiti: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
   },
   detailList: {
-    gap: 10,
+    gap: 12,
   },
   row: {
     flexDirection: 'row',
@@ -226,9 +257,10 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   dottedDivider: {
-    borderTopWidth: 1,
+    height: 1,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     borderStyle: 'dashed',
-    borderColor: '#E2E8F0',
     marginVertical: 14,
   },
   rowTotal: {
@@ -237,28 +269,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   labelTotal: {
-    fontFamily: 'HindSiliguri-Medium',
+    fontFamily: 'HindSiliguri-Bold',
     fontSize: 14,
-    color: '#64748B',
+    color: '#1E293B',
   },
   valueTotal: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#134E4A',
+    fontSize: 17,
+    color: '#0F766E',
   },
   buttonsGroup: {
     gap: 12,
   },
   shareBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#134E4A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 28,
     gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#134E4A',
+    borderRadius: 12,
+    paddingVertical: 14,
   },
   shareBtnText: {
     fontFamily: 'HindSiliguri-Bold',
@@ -266,13 +298,13 @@ const styles = StyleSheet.create({
     color: '#134E4A',
   },
   anotherBtn: {
-    backgroundColor: '#134E4A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#134E4A',
+    borderRadius: 12,
     paddingVertical: 14,
-    borderRadius: 28,
-    gap: 6,
   },
   anotherBtnText: {
     fontFamily: 'HindSiliguri-Bold',
@@ -286,6 +318,6 @@ const styles = StyleSheet.create({
   homeLinkText: {
     fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 14,
-    color: '#134E4A',
+    color: '#64748B',
   },
 });

@@ -23,3 +23,6 @@ export function getBengaliMonthShort(monthIndex: number): string {
 export function getBengaliMonthFull(monthIndex: number): string {
   return BENGALI_MONTHS_FULL[monthIndex] || '';
 }
+
+export { toBengaliDigits, toEnglishDigits } from './money';
+

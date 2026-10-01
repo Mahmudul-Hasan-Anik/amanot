@@ -13,13 +13,18 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
+import { useSomitiStore } from '../../../src/store/somitiStore';
+import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 
 export default function NewMemberScreen() {
   const router = useRouter();
+  const { addMember, members } = useSomitiStore();
+
+  const nextCodeNum = members.length + 1;
+  const memberCode = `SM-${nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`}`;
 
   // Form states matching Page 6
   const [name, setName] = useState('');
-  const [memberCode] = useState('SM-101');
   const [nid, setNid] = useState('');
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,7 +33,7 @@ export default function NewMemberScreen() {
   const [nomineeName, setNomineeName] = useState('');
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
-  const [joinDate] = useState('৩০/০৯/২০২৬');
+  const [joinDate] = useState('২ অক্টোবর ২০২৬');
   const [monthlyAmount, setMonthlyAmount] = useState('২,০০০');
   const [admissionFee, setAdmissionFee] = useState('৫০০');
 
@@ -37,9 +42,29 @@ export default function NewMemberScreen() {
       Alert.alert('ত্রুটি', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন');
       return;
     }
+    if (!phone.trim()) {
+      Alert.alert('ত্রুটি', 'অনুগ্রহ করে সদস্যের মোবাইল নম্বর লিখুন');
+      return;
+    }
+
+    const cleanMonthly = Number(toEnglishDigits(monthlyAmount.replace(/[^\d]/g, ''))) || 2000;
+    const cleanFee = Number(toEnglishDigits(admissionFee.replace(/[^\d]/g, ''))) || 500;
+
+    const newMember = addMember({
+      name: name.trim(),
+      phone: phone.trim(),
+      nid: nid.trim(),
+      address: address.trim() || 'ঠিকানা দেওয়া হয়নি',
+      nomineeName: nomineeName.trim() || 'নমিনি দেওয়া হয়নি',
+      nomineeRelation: nomineeRelation.trim() || 'সম্পর্ক দেওয়া হয়নি',
+      nomineePhone: nomineePhone.trim(),
+      monthlyAmount: cleanMonthly,
+      admissionFee: cleanFee,
+    });
+
     Alert.alert(
       'সদস্য যোগ সফল',
-      `সদস্য ${name} (SM-101) সফলভাবে যুক্ত হয়েছেন!`,
+      `সদস্য ${newMember.name} (${newMember.code}) সফলভাবে যুক্ত হয়েছেন!`,
       [{ text: 'ঠিক আছে', onPress: () => router.replace('/(admin)/(tabs)/members') }]
     );
   };
