@@ -13,7 +13,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
-import { LanguageToggle } from '../../../src/components/LanguageToggle';
 
 export default function MoreScreen() {
   const router = useRouter();
@@ -45,7 +44,6 @@ export default function MoreScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{l('More', 'আরও')}</Text>
-        <LanguageToggle />
       </View>
 
       <ScrollView

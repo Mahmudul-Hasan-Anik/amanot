@@ -18,7 +18,6 @@ import {
 } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
-import { LanguageToggle } from '../../../src/components/LanguageToggle';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
@@ -43,23 +42,20 @@ export default function HomeDashboardScreen() {
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <LanguageToggle />
-          <TouchableOpacity
-            style={styles.notificationBtn}
-            onPress={() => router.push('/(admin)/approvals')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={22} color={colors.textMain} />
-            {approvals.length > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {formatNum(approvals.length)}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.notificationBtn}
+          onPress={() => router.push('/(admin)/approvals')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.textMain} />
+          {approvals.length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {formatNum(approvals.length)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
