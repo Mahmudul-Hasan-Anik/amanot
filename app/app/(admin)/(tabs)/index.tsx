@@ -190,25 +190,7 @@ export default function HomeDashboardScreen() {
   };
 
   const handleQuickApprove = (item: { id: string; title: string; amount: number }) => {
-    Alert.alert(
-      l('Quick Approval', 'দ্রুত অনুমোদন'),
-      `${item.title} · ${formatMoney(item.amount)}\n\n${l('Do you want to approve this request right now?', 'আপনি কি এখনই এই অনুরোধটি অনুমোদন করতে চান?')}`,
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('View Details', 'বিস্তারিত দেখুন'),
-          onPress: () => router.push('/(admin)/approvals'),
-        },
-        {
-          text: l('Approve Now', 'অনুমোদন করুন'),
-          style: 'default',
-          onPress: () => {
-            approveRequest(item.id);
-            Alert.alert(l('Approved', 'অনুমোদিত'), l('Request approved and funds adjusted successfully.', 'অনুরোধটি অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।'));
-          },
-        },
-      ]
-    );
+    router.push('/(admin)/approvals');
   };
 
   return (

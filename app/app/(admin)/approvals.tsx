@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
-  Alert,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { PendingApproval } from '../../src/mocks/mockData';
 
 interface AttachmentModalState {
   type: 'image' | 'document';
@@ -22,6 +25,25 @@ interface AttachmentModalState {
   date?: string;
   detail?: string;
 }
+
+interface ConfirmModalState {
+  item: PendingApproval;
+  action: 'approve' | 'reject';
+}
+
+interface ToastState {
+  message: string;
+  type: 'success' | 'danger';
+  targetTab?: 'approved' | 'rejected';
+}
+
+const REJECTION_REASONS = [
+  'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার',
+  'বাজেট বহির্ভূত ব্যয়',
+  'যথাযথ মেমো বা রসিদ সংযুক্ত নেই',
+  'অননুমোদিত অতিরিক্ত খরচ',
+  'অন্যান্য কারণ',
+];
 
 export default function ApprovalsScreen() {
   const router = useRouter();
@@ -36,43 +58,64 @@ export default function ApprovalsScreen() {
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [selectedAttachment, setSelectedAttachment] = useState<AttachmentModalState | null>(null);
 
-  const handleAction = (id: string, action: 'approve' | 'reject') => {
-    Alert.alert(
-      action === 'approve'
-        ? l('Confirm Approval', 'অনুমোদন নিশ্চিতকরণ')
-        : l('Confirm Rejection', 'প্রত্যাখ্যান নিশ্চিতকরণ'),
-      action === 'approve'
-        ? l(
-            'Do you want to approve this request? Funds will be adjusted upon approval.',
-            'অনুরোধটি কি অনুমোদন করতে চান? অনুমোদিত হলে ফান্ড থেকে অর্থ সমন্বয় হবে।'
-          )
-        : l('Do you want to reject this request?', 'অনুরোধটি কি প্রত্যাখ্যান করতে চান?'),
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text:
-            action === 'approve'
-              ? l('Yes, Approve', 'হ্যাঁ, অনুমোদন করুন')
-              : l('Yes, Reject', 'হ্যাঁ, প্রত্যাখ্যান করুন'),
-          style: action === 'approve' ? 'default' : 'destructive',
-          onPress: () => {
-            if (action === 'approve') {
-              approveRequest(id, 'আনোয়ার হোসেন (সভাপতি)');
-              Alert.alert(
-                l('Success', 'সফল'),
-                l('Request approved successfully. Funds have been adjusted.', 'অনুরোধটি সফলভাবে অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।')
-              );
-            } else {
-              rejectRequest(id, 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার', 'আনোয়ার হোসেন (সভাপতি)');
-              Alert.alert(
-                l('Rejected', 'প্রত্যাখ্যাত'),
-                l('Request has been rejected and moved to rejected records.', 'অনুরোধটি প্রত্যাখ্যান করা হয়েছে এবং বাতিল তালিকায় রাখা হয়েছে।')
-              );
-            }
-          },
-        },
-      ]
-    );
+  // In-app interactive confirmation dialog state
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string>('অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার');
+  const [customReason, setCustomReason] = useState<string>('');
+
+  // Toast notification state
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  // Auto-hide toast after 5 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const triggerToast = (
+    message: string,
+    type: 'success' | 'danger',
+    targetTab?: 'approved' | 'rejected'
+  ) => {
+    setToast({ message, type, targetTab });
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmModal) return;
+    const { item, action } = confirmModal;
+
+    if (action === 'approve') {
+      approveRequest(item.id, 'আনোয়ার হোসেন (সভাপতি)');
+      setConfirmModal(null);
+      triggerToast(
+        l(
+          `"${item.title}" approved successfully. Funds adjusted.`,
+          `"${item.title}" সফলভাবে অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।`
+        ),
+        'success',
+        'approved'
+      );
+    } else {
+      const finalReason =
+        selectedReason === 'অন্যান্য কারণ' && customReason.trim()
+          ? customReason.trim()
+          : selectedReason || 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার';
+
+      rejectRequest(item.id, finalReason, 'আনোয়ার হোসেন (সভাপতি)');
+      setConfirmModal(null);
+      triggerToast(
+        l(
+          `"${item.title}" has been rejected.`,
+          `"${item.title}" বাতিল করা হয়েছে।`
+        ),
+        'danger',
+        'rejected'
+      );
+    }
   };
 
   const getTagColor = (type: string) => {
@@ -107,6 +150,48 @@ export default function ApprovalsScreen() {
         <Text style={styles.headerTitle}>{l('Approvals', 'অনুমোদন')}</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      {/* In-app Toast Banner */}
+      {toast && (
+        <View
+          style={[
+            styles.toastContainer,
+            toast.type === 'success' ? styles.toastSuccess : styles.toastDanger,
+          ]}
+        >
+          <View style={styles.toastLeft}>
+            <Ionicons
+              name={toast.type === 'success' ? 'checkmark-circle' : 'close-circle'}
+              size={20}
+              color={toast.type === 'success' ? '#0F766E' : '#DC2626'}
+            />
+            <Text style={styles.toastText} numberOfLines={2}>
+              {toast.message}
+            </Text>
+          </View>
+          <View style={styles.toastRight}>
+            {toast.targetTab && (
+              <TouchableOpacity
+                style={styles.toastActionBtn}
+                onPress={() => {
+                  setActiveTab(toast.targetTab!);
+                  setToast(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.toastActionText}>{l('View', 'দেখুন')}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setToast(null)}
+              style={styles.toastCloseBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -232,19 +317,25 @@ export default function ApprovalsScreen() {
                     <View style={styles.cardActionsRow}>
                       <TouchableOpacity
                         style={styles.rejectBtn}
-                        onPress={() => handleAction(item.id, 'reject')}
-                        activeOpacity={0.8}
+                        onPress={() => {
+                          setSelectedReason('অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার');
+                          setCustomReason('');
+                          setConfirmModal({ item, action: 'reject' });
+                        }}
+                        activeOpacity={0.75}
                       >
-                        <Ionicons name="close" size={16} color="#DC2626" />
+                        <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
                         <Text style={styles.rejectBtnText}>{l('Reject', 'প্রত্যাখ্যান')}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.approveBtn}
-                        onPress={() => handleAction(item.id, 'approve')}
+                        onPress={() => {
+                          setConfirmModal({ item, action: 'approve' });
+                        }}
                         activeOpacity={0.85}
                       >
-                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                        <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
                         <Text style={styles.approveBtnText}>{l('Approve', 'অনুমোদন')}</Text>
                       </TouchableOpacity>
                     </View>
@@ -366,6 +457,175 @@ export default function ApprovalsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Action Confirmation Modal (Approve / Reject) */}
+      <Modal
+        visible={!!confirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.confirmModalCard}>
+            {/* Modal Icon & Header */}
+            <View style={styles.confirmHeader}>
+              <View
+                style={[
+                  styles.confirmIconCircle,
+                  confirmModal?.action === 'approve'
+                    ? styles.confirmIconApprove
+                    : styles.confirmIconReject,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    confirmModal?.action === 'approve'
+                      ? 'shield-checkmark'
+                      : 'alert-circle'
+                  }
+                  size={28}
+                  color={confirmModal?.action === 'approve' ? '#0F766E' : '#DC2626'}
+                />
+              </View>
+              <Text style={styles.confirmTitle}>
+                {confirmModal?.action === 'approve'
+                  ? l('Confirm Approval', 'অনুমোদন নিশ্চিতকরণ')
+                  : l('Confirm Rejection', 'প্রত্যাখ্যান নিশ্চিতকরণ')}
+              </Text>
+              <Text style={styles.confirmSubtitle}>
+                {confirmModal?.action === 'approve'
+                  ? l(
+                      'Please verify the details before approving this request.',
+                      'অনুরোধটি অনুমোদন করার পূর্বে বিবরণ যাচাই করে নিশ্চিত করুন।'
+                    )
+                  : l(
+                      'Please specify the reason for rejecting this request.',
+                      'অনুরোধটি বাতিল বা প্রত্যাখ্যানের কারণ উল্লেখ করুন।'
+                    )}
+              </Text>
+            </View>
+
+            {/* Target Item Summary Box */}
+            {confirmModal && (
+              <View style={styles.confirmItemBox}>
+                <View style={styles.confirmItemTop}>
+                  <Text style={styles.confirmItemTitle} numberOfLines={2}>
+                    {confirmModal.item.title}
+                  </Text>
+                  <Text style={styles.confirmItemAmount}>
+                    {confirmModal.item.amountDisplay ||
+                      formatMoney(confirmModal.item.amount)}
+                  </Text>
+                </View>
+                <Text style={styles.confirmItemDetail} numberOfLines={2}>
+                  {confirmModal.item.detail}
+                </Text>
+                <Text style={styles.confirmItemMeta}>
+                  {l('Entered by:', 'এন্ট্রি:')} {confirmModal.item.createdBy}
+                </Text>
+              </View>
+            )}
+
+            {/* Approve Notice or Reject Reason Selector */}
+            {confirmModal?.action === 'approve' ? (
+              <View style={styles.approveNoticeBox}>
+                <Ionicons name="information-circle-outline" size={18} color="#0F766E" />
+                <Text style={styles.approveNoticeText}>
+                  {l(
+                    'Upon approval, this amount will be recorded into expenses and deducted from available funds.',
+                    'অনুমোদনের সাথে সাথে সমিতির ফান্ড ও কোষাধ্যক্ষের ক্যাশ হিসাব থেকে অর্থ স্বয়ংক্রিয়ভাবে সমন্বয় হবে।'
+                  )}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.rejectReasonSection}>
+                <Text style={styles.rejectSectionLabel}>
+                  {l('Select Rejection Reason:', 'প্রত্যাখ্যানের কারণ নির্বাচন করুন:')}
+                </Text>
+                <View style={styles.reasonChipsContainer}>
+                  {REJECTION_REASONS.map((reason) => {
+                    const isSelected = selectedReason === reason;
+                    return (
+                      <TouchableOpacity
+                        key={reason}
+                        style={[
+                          styles.reasonChip,
+                          isSelected && styles.reasonChipSelected,
+                        ]}
+                        onPress={() => setSelectedReason(reason)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.reasonChipText,
+                            isSelected && styles.reasonChipTextSelected,
+                          ]}
+                        >
+                          {reason}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {selectedReason === 'অন্যান্য কারণ' && (
+                  <TextInput
+                    style={styles.customReasonInput}
+                    placeholder={l(
+                      'Type rejection reason here...',
+                      'প্রত্যাখ্যানের সুনির্দিষ্ট কারণ লিখুন...'
+                    )}
+                    placeholderTextColor="#94A3B8"
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                    multiline
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Modal Action Buttons */}
+            <View style={styles.confirmActionsRow}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setConfirmModal(null)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.confirmCancelBtnText}>{l('Cancel', 'বাতিল')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmSubmitBtn,
+                  confirmModal?.action === 'approve'
+                    ? styles.confirmSubmitApprove
+                    : styles.confirmSubmitReject,
+                ]}
+                onPress={handleConfirmAction}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={
+                    confirmModal?.action === 'approve'
+                      ? 'checkmark-circle'
+                      : 'close-circle'
+                  }
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.confirmSubmitBtnText}>
+                  {confirmModal?.action === 'approve'
+                    ? l('Yes, Approve', 'অনুমোদন করুন')
+                    : l('Yes, Reject', 'প্রত্যাখ্যান করুন')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Attachment Preview Modal */}
       <Modal
@@ -906,6 +1166,250 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalPrimaryBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+
+  // Toast Banner Styles
+  toastContainer: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toastSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  toastDanger: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  toastLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  toastRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 6,
+  },
+  toastText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 13,
+    color: '#1E293B',
+    flex: 1,
+  },
+  toastActionBtn: {
+    backgroundColor: '#134E4A',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  toastActionText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+  toastCloseBtn: {
+    padding: 4,
+  },
+
+  // Confirm Modal Styles
+  confirmModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    width: '100%',
+    maxWidth: 420,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  confirmHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  confirmIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  confirmIconApprove: {
+    backgroundColor: '#CCFBF1',
+  },
+  confirmIconReject: {
+    backgroundColor: '#FEE2E2',
+  },
+  confirmTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 18,
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  confirmSubtitle: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  confirmItemBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  confirmItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  confirmItemTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#1E293B',
+    flex: 1,
+    marginRight: 6,
+  },
+  confirmItemAmount: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 15,
+    color: '#134E4A',
+  },
+  confirmItemDetail: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  confirmItemMeta: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  approveNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0FDFA',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    marginBottom: 18,
+  },
+  approveNoticeText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 12,
+    color: '#0F766E',
+    flex: 1,
+    lineHeight: 17,
+  },
+  rejectReasonSection: {
+    marginBottom: 16,
+  },
+  rejectSectionLabel: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: '#334155',
+    marginBottom: 8,
+  },
+  reasonChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  reasonChip: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  reasonChipSelected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#F87171',
+  },
+  reasonChipText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 12,
+    color: '#475569',
+  },
+  reasonChipTextSelected: {
+    fontFamily: 'HindSiliguri-Bold',
+    color: '#DC2626',
+  },
+  customReasonInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 13,
+    color: '#1E293B',
+    minHeight: 50,
+    textAlignVertical: 'top',
+  },
+  confirmActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  confirmCancelBtnText: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 14,
+    color: '#475569',
+  },
+  confirmSubmitBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  confirmSubmitApprove: {
+    backgroundColor: '#134E4A',
+  },
+  confirmSubmitReject: {
+    backgroundColor: '#DC2626',
+  },
+  confirmSubmitBtnText: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 14,
     color: '#FFFFFF',
