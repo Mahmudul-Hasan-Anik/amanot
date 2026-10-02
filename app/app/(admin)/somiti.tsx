@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
 
 const AVATAR_COLORS = [
   { bg: '#E0F2FE', text: '#0284C7' },
@@ -131,7 +132,7 @@ export default function SomitiProfileScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/more')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

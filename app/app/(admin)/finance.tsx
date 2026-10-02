@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   SafeAreaView,
   StatusBar,
@@ -11,12 +12,48 @@ import {
   TextInput,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore, Transaction } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
+import { safeBack } from '../../src/utils/navigation';
+
+interface AppModalProps {
+  visible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  animationType?: 'fade' | 'slide' | 'none';
+}
+
+function AppModal({ visible, onClose, children, animationType = 'fade' }: AppModalProps) {
+  if (!visible) return null;
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.webModalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {children}
+      </View>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType={animationType}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {children}
+      </View>
+    </Modal>
+  );
+}
 
 const MONTHS_LIST = [
   { key: '2026-09', bn: 'সেপ্টেম্বর ২০২৬', en: 'September 2026', income: 182400, expense: 12800 },
@@ -47,6 +84,19 @@ export default function FinanceScreen() {
 
   // Transaction Detail Modal State
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef<number>(0);
+
+  const closeTxnModal = () => {
+    const savedY = scrollOffsetRef.current;
+    setSelectedTxn(null);
+    if (Platform.OS === 'web') {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ y: savedY, animated: false });
+      });
+    }
+  };
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -181,7 +231,7 @@ export default function FinanceScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router)}
           style={styles.headerBtn}
           activeOpacity={0.7}
         >
@@ -209,8 +259,13 @@ export default function FinanceScreen() {
       )}
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={(e) => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {/* Month Selector Pill */}
         <TouchableOpacity
@@ -391,305 +446,299 @@ export default function FinanceScreen() {
       </TouchableOpacity>
 
       {/* Month Selector Modal */}
-      <Modal visible={showMonthModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowMonthModal(false)}
-        >
-          <View style={styles.monthModalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Select Month', 'মাস নির্বাচন করুন')}</Text>
-              <TouchableOpacity onPress={() => setShowMonthModal(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
+      <AppModal
+        visible={showMonthModal}
+        onClose={() => setShowMonthModal(false)}
+      >
+        <View style={styles.monthModalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{l('Select Month', 'মাস নির্বাচন করুন')}</Text>
+            <TouchableOpacity onPress={() => setShowMonthModal(false)} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
 
-            {MONTHS_LIST.map((m) => {
-              const isSelected = selectedMonthKey === m.key;
+          {MONTHS_LIST.map((m) => {
+            const isSelected = selectedMonthKey === m.key;
+            return (
+              <TouchableOpacity
+                key={m.key}
+                style={[styles.monthOptionRow, isSelected && styles.monthOptionRowActive]}
+                onPress={() => {
+                  setSelectedMonthKey(m.key);
+                  setShowMonthModal(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View>
+                  <Text style={[styles.monthOptionTitle, isSelected && styles.monthOptionTitleActive]}>
+                    {l(m.en, m.bn)}
+                  </Text>
+                  <Text style={styles.monthOptionSub}>
+                    {l('Income:', 'আয়:')} {formatMoney(m.income)} · {l('Expense:', 'ব্যয়:')} {formatMoney(m.expense)}
+                  </Text>
+                </View>
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </AppModal>
+
+      {/* Cash Transfer Modal */}
+      <AppModal
+        visible={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+      >
+        <View style={styles.transferModalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{l('Account Transfer', 'হিসাব স্থানান্তর')}</Text>
+            <TouchableOpacity onPress={() => setShowTransferModal(false)} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {/* From Account */}
+          <Text style={styles.modalFieldLabel}>
+            {l('From which account?', 'কোন হিসাব থেকে?')}
+          </Text>
+          <View style={styles.modalPickerRow}>
+            {cashAccounts.map((acc) => {
+              const isActive = fromAccount === acc.id;
               return (
                 <TouchableOpacity
-                  key={m.key}
-                  style={[styles.monthOptionRow, isSelected && styles.monthOptionRowActive]}
-                  onPress={() => {
-                    setSelectedMonthKey(m.key);
-                    setShowMonthModal(false);
-                  }}
+                  key={acc.id}
+                  style={[styles.accountChip, isActive && styles.accountChipActive]}
+                  onPress={() => setFromAccount(acc.id)}
                   activeOpacity={0.7}
                 >
-                  <View>
-                    <Text style={[styles.monthOptionTitle, isSelected && styles.monthOptionTitleActive]}>
-                      {l(m.en, m.bn)}
-                    </Text>
-                    <Text style={styles.monthOptionSub}>
-                      {l('Income:', 'আয়:')} {formatMoney(m.income)} · {l('Expense:', 'ব্যয়:')} {formatMoney(m.expense)}
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
-                  )}
+                  <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
+                    {acc.name} ({formatMoney(acc.amount)})
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </TouchableOpacity>
-      </Modal>
 
-      {/* Cash Transfer Modal */}
-      <Modal visible={showTransferModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.transferModalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Account Transfer', 'হিসাব স্থানান্তর')}</Text>
-              <TouchableOpacity onPress={() => setShowTransferModal(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* From Account */}
-            <Text style={styles.modalFieldLabel}>
-              {l('From which account?', 'কোন হিসাব থেকে?')}
-            </Text>
-            <View style={styles.modalPickerRow}>
-              {cashAccounts.map((acc) => {
-                const isActive = fromAccount === acc.id;
-                return (
-                  <TouchableOpacity
-                    key={acc.id}
-                    style={[styles.accountChip, isActive && styles.accountChipActive]}
-                    onPress={() => setFromAccount(acc.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
-                      {acc.name} ({formatMoney(acc.amount)})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* To Account */}
-            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
-              {l('To which account?', 'কোন হিসাবে জমা হবে?')}
-            </Text>
-            <View style={styles.modalPickerRow}>
-              {cashAccounts.map((acc) => {
-                const isActive = toAccount === acc.id;
-                return (
-                  <TouchableOpacity
-                    key={acc.id}
-                    style={[styles.accountChip, isActive && styles.accountChipActive]}
-                    onPress={() => setToAccount(acc.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
-                      {acc.name} ({formatMoney(acc.amount)})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Amount */}
-            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
-              {l('Amount (৳)', 'টাকার পরিমাণ (৳)')}
-            </Text>
-            <TextInput
-              style={styles.amountInput}
-              keyboardType="numeric"
-              value={transferAmount}
-              onChangeText={setTransferAmount}
-              placeholder="৫০০০"
-            />
-
-            {/* Quick Amount Pills */}
-            <View style={styles.quickAmtRow}>
-              {['1000', '2000', '5000', '10000'].map((amt) => (
+          {/* To Account */}
+          <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
+            {l('To which account?', 'কোন হিসাবে জমা হবে?')}
+          </Text>
+          <View style={styles.modalPickerRow}>
+            {cashAccounts.map((acc) => {
+              const isActive = toAccount === acc.id;
+              return (
                 <TouchableOpacity
-                  key={amt}
-                  style={styles.quickAmtBtn}
-                  onPress={() => setTransferAmount(amt)}
+                  key={acc.id}
+                  style={[styles.accountChip, isActive && styles.accountChipActive]}
+                  onPress={() => setToAccount(acc.id)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.quickAmtText}>{formatMoney(Number(amt))}</Text>
+                  <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
+                    {acc.name} ({formatMoney(acc.amount)})
+                  </Text>
                 </TouchableOpacity>
-              ))}
+              );
+            })}
+          </View>
+
+          {/* Amount */}
+          <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
+            {l('Amount (৳)', 'টাকার পরিমাণ (৳)')}
+          </Text>
+          <TextInput
+            style={styles.amountInput}
+            keyboardType="numeric"
+            value={transferAmount}
+            onChangeText={setTransferAmount}
+            placeholder="৫০০০"
+          />
+
+          {/* Quick Amount Pills */}
+          <View style={styles.quickAmtRow}>
+            {['1000', '2000', '5000', '10000'].map((amt) => (
               <TouchableOpacity
+                key={amt}
                 style={styles.quickAmtBtn}
-                onPress={() => {
-                  const src = cashAccounts.find((a) => a.id === fromAccount);
-                  if (src) setTransferAmount(String(src.amount));
-                }}
+                onPress={() => setTransferAmount(amt)}
               >
-                <Text style={styles.quickAmtText}>{l('All', 'সব')}</Text>
+                <Text style={styles.quickAmtText}>{formatMoney(Number(amt))}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.quickAmtBtn}
+              onPress={() => {
+                const src = cashAccounts.find((a) => a.id === fromAccount);
+                if (src) setTransferAmount(String(src.amount));
+              }}
+            >
+              <Text style={styles.quickAmtText}>{l('All', 'সব')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Note */}
+          <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>
+            {l('Note / Reference (Optional)', 'বিবরণ / নোট (ঐচ্ছিক)')}
+          </Text>
+          <TextInput
+            style={styles.noteInput}
+            value={transferNote}
+            onChangeText={setTransferNote}
+            placeholder={l('e.g. Field collection handover', 'যেমন: মাঠের কালেকশন জমা')}
+          />
+
+          <TouchableOpacity
+            style={styles.transferSubmitBtn}
+            onPress={handleExecuteTransfer}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.transferSubmitBtnText}>
+              {l('Complete Transfer', 'স্থানান্তর সম্পন্ন করুন')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </AppModal>
+
+      {/* Transaction Detail Modal */}
+      <AppModal
+        visible={!!selectedTxn}
+        onClose={closeTxnModal}
+      >
+        <View style={styles.detailModalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{l('Transaction Details', 'লেনদেন বিবরণ')}</Text>
+            <TouchableOpacity onPress={closeTxnModal} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {selectedTxn && (
+            <View style={styles.detailBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{l('Receipt / Voucher No:', 'রসিদ / ভাউচার নং:')}</Text>
+                <Text style={styles.detailValBold}>{selectedTxn.receiptNo}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{l('Type:', 'ধরণ:')}</Text>
+                <Text style={styles.detailVal}>
+                  {selectedTxn.type === 'deposit'
+                    ? l('Member Deposit', 'সদস্যের জমা')
+                    : selectedTxn.type === 'profit'
+                    ? l('Project Profit', 'প্রজেক্ট লাভ')
+                    : selectedTxn.type === 'transfer'
+                    ? l('Cash Transfer', 'হিসাব স্থানান্তর')
+                    : l('Expense', 'সমিতির খরচ')}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{l('Amount:', 'পরিমাণ:')}</Text>
+                <Text
+                  style={[
+                    styles.detailValBold,
+                    { color: selectedTxn.type === 'expense' ? '#DC2626' : '#059669', fontSize: 16 },
+                  ]}
+                >
+                  {formatMoney(selectedTxn.amount)}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{l('Date:', 'তারিখ:')}</Text>
+                <Text style={styles.detailVal}>{selectedTxn.date}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{l('Payment Method:', 'পরিশোধ মাধ্যম:')}</Text>
+                <Text style={styles.detailVal}>
+                  {selectedTxn.paymentMethod === 'bkash'
+                    ? 'বিকাশ'
+                    : selectedTxn.paymentMethod === 'bank'
+                    ? 'ব্যাংক'
+                    : 'হাতে নগদ'}
+                </Text>
+              </View>
+              {selectedTxn.note && (
+                <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
+                  <Text style={styles.detailLabel}>{l('Note:', 'বিবরণ:')}</Text>
+                  <Text style={[styles.detailVal, { flex: 1, textAlign: 'right' }]}>{selectedTxn.note}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.closeDetailBtn}
+                onPress={closeTxnModal}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeDetailBtnText}>{l('Close', 'বন্ধ করুন')}</Text>
               </TouchableOpacity>
             </View>
+          )}
+        </View>
+      </AppModal>
 
-            {/* Note */}
-            <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>
-              {l('Note / Reference (Optional)', 'বিবরণ / নোট (ঐচ্ছিক)')}
-            </Text>
-            <TextInput
-              style={styles.noteInput}
-              value={transferNote}
-              onChangeText={setTransferNote}
-              placeholder={l('e.g. Field collection handover', 'যেমন: মাঠের কালেকশন জমা')}
-            />
+      {/* Export / Report Modal */}
+      <AppModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        animationType="slide"
+      >
+        <View style={styles.exportModalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{l('Export Statement', 'স্টেটমেন্ট এক্সপোর্ট')}</Text>
+            <TouchableOpacity onPress={() => setShowExportModal(false)} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.exportSub}>
+            {l('Uttara Model Samity', 'উত্তরা মডেল সমবায় সমিতি')} · {selectedMonthObj.bn}
+          </Text>
+
+          <View style={styles.exportOptions}>
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={() => {
+                setShowExportModal(false);
+                triggerToast(l('PDF statement downloaded successfully!', 'PDF স্টেটমেন্ট ডাউনলোড সম্পন্ন হয়েছে!'));
+              }}
+            >
+              <Ionicons name="document-text-outline" size={22} color="#0F766E" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.exportBtnTitle}>{l('Download PDF Report', 'PDF রিপোর্ট ডাউনলোড')}</Text>
+                <Text style={styles.exportBtnSub}>{l('Official signed statement copy', 'দাপ্তরিক ও নিরীক্ষিত স্টেটমেন্ট')}</Text>
+              </View>
+              <Ionicons name="download-outline" size={20} color="#64748B" />
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.transferSubmitBtn}
-              onPress={handleExecuteTransfer}
-              activeOpacity={0.88}
+              style={styles.exportBtn}
+              onPress={() => {
+                setShowExportModal(false);
+                triggerToast(l('Excel sheet exported successfully!', 'Excel ফাইল এক্সপোর্ট সম্পন্ন হয়েছে!'));
+              }}
             >
-              <Text style={styles.transferSubmitBtnText}>
-                {l('Complete Transfer', 'স্থানান্তর সম্পন্ন করুন')}
-              </Text>
+              <Ionicons name="grid-outline" size={22} color="#059669" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.exportBtnTitle}>{l('Export Excel Sheet', 'Excel ফাইল এক্সপোর্ট')}</Text>
+                <Text style={styles.exportBtnSub}>{l('Full ledger spreadsheet (.xlsx)', 'পূর্ণাঙ্গ আর্থিক স্প্রেডশিট')}</Text>
+              </View>
+              <Ionicons name="download-outline" size={20} color="#64748B" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={handleShareStatement}
+            >
+              <Ionicons name="share-social-outline" size={22} color="#0284C7" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.exportBtnTitle}>{l('Share via WhatsApp', 'হোয়াটসঅ্যাপে শেয়ার')}</Text>
+                <Text style={styles.exportBtnSub}>{l('Send monthly financial summary', 'কমিটিকে সারসংক্ষেপ প্রেরণ')}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color="#64748B" />
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-
-      {/* Transaction Detail Modal */}
-      <Modal visible={!!selectedTxn} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSelectedTxn(null)}
-        >
-          <View style={styles.detailModalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Transaction Details', 'লেনদেন বিবরণ')}</Text>
-              <TouchableOpacity onPress={() => setSelectedTxn(null)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {selectedTxn && (
-              <View style={styles.detailBox}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{l('Receipt / Voucher No:', 'রসিদ / ভাউচার নং:')}</Text>
-                  <Text style={styles.detailValBold}>{selectedTxn.receiptNo}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{l('Type:', 'ধরণ:')}</Text>
-                  <Text style={styles.detailVal}>
-                    {selectedTxn.type === 'deposit'
-                      ? l('Member Deposit', 'সদস্যের জমা')
-                      : selectedTxn.type === 'profit'
-                      ? l('Project Profit', 'প্রজেক্ট লাভ')
-                      : selectedTxn.type === 'transfer'
-                      ? l('Cash Transfer', 'হিসাব স্থানান্তর')
-                      : l('Expense', 'সমিতির খরচ')}
-                  </Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{l('Amount:', 'পরিমাণ:')}</Text>
-                  <Text
-                    style={[
-                      styles.detailValBold,
-                      { color: selectedTxn.type === 'expense' ? '#DC2626' : '#059669', fontSize: 16 },
-                    ]}
-                  >
-                    {formatMoney(selectedTxn.amount)}
-                  </Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{l('Date:', 'তারিখ:')}</Text>
-                  <Text style={styles.detailVal}>{selectedTxn.date}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{l('Payment Method:', 'পরিশোধ মাধ্যম:')}</Text>
-                  <Text style={styles.detailVal}>
-                    {selectedTxn.paymentMethod === 'bkash'
-                      ? 'বিকাশ'
-                      : selectedTxn.paymentMethod === 'bank'
-                      ? 'ব্যাংক'
-                      : 'হাতে নগদ'}
-                  </Text>
-                </View>
-                {selectedTxn.note && (
-                  <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
-                    <Text style={styles.detailLabel}>{l('Note:', 'বিবরণ:')}</Text>
-                    <Text style={[styles.detailVal, { flex: 1, textAlign: 'right' }]}>{selectedTxn.note}</Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={styles.closeDetailBtn}
-                  onPress={() => setSelectedTxn(null)}
-                >
-                  <Text style={styles.closeDetailBtnText}>{l('Close', 'বন্ধ করুন')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Export / Report Modal */}
-      <Modal visible={showExportModal} transparent animationType="slide">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowExportModal(false)}
-        >
-          <View style={styles.exportModalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Export Statement', 'স্টেটমেন্ট এক্সপোর্ট')}</Text>
-              <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.exportSub}>
-              {l('Uttara Model Samity', 'উত্তরা মডেল সমবায় সমিতি')} · {selectedMonthObj.bn}
-            </Text>
-
-            <View style={styles.exportOptions}>
-              <TouchableOpacity
-                style={styles.exportBtn}
-                onPress={() => {
-                  setShowExportModal(false);
-                  triggerToast(l('PDF statement downloaded successfully!', 'PDF স্টেটমেন্ট ডাউনলোড সম্পন্ন হয়েছে!'));
-                }}
-              >
-                <Ionicons name="document-text-outline" size={22} color="#0F766E" />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.exportBtnTitle}>{l('Download PDF Report', 'PDF রিপোর্ট ডাউনলোড')}</Text>
-                  <Text style={styles.exportBtnSub}>{l('Official signed statement copy', 'দাপ্তরিক ও নিরীক্ষিত স্টেটমেন্ট')}</Text>
-                </View>
-                <Ionicons name="download-outline" size={20} color="#64748B" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.exportBtn}
-                onPress={() => {
-                  setShowExportModal(false);
-                  triggerToast(l('Excel sheet exported successfully!', 'Excel ফাইল এক্সপোর্ট সম্পন্ন হয়েছে!'));
-                }}
-              >
-                <Ionicons name="grid-outline" size={22} color="#059669" />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.exportBtnTitle}>{l('Export Excel Sheet', 'Excel ফাইল এক্সপোর্ট')}</Text>
-                  <Text style={styles.exportBtnSub}>{l('Full ledger spreadsheet (.xlsx)', 'পূর্ণাঙ্গ আর্থিক স্প্রেডশিট')}</Text>
-                </View>
-                <Ionicons name="download-outline" size={20} color="#64748B" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.exportBtn}
-                onPress={handleShareStatement}
-              >
-                <Ionicons name="share-social-outline" size={22} color="#0284C7" />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.exportBtnTitle}>{l('Share via WhatsApp', 'হোয়াটসঅ্যাপে শেয়ার')}</Text>
-                  <Text style={styles.exportBtnSub}>{l('Send monthly financial summary', 'কমিটিকে সারসংক্ষেপ প্রেরণ')}</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -981,6 +1030,18 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 15,
     color: '#FFFFFF',
+  },
+  webModalOverlay: {
+    position: 'fixed' as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 99999,
   },
   modalOverlay: {
     flex: 1,

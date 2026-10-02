@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function RecordDepositScreen() {
   const router = useRouter();
@@ -87,7 +88,7 @@ export default function RecordDepositScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/collection')}
           style={styles.closeBtn}
           activeOpacity={0.7}
         >

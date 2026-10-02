@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function NewExpenseScreen() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function NewExpenseScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/finance')}
           style={styles.closeBtn}
           activeOpacity={0.7}
         >
