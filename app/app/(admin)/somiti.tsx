@@ -28,7 +28,7 @@ const AVATAR_COLORS = [
 
 export default function SomitiProfileScreen() {
   const router = useRouter();
-  const { l, formatMoney, formatNum } = useLanguage();
+  const { l, formatMoney, formatNum, language } = useLanguage();
   const { somitiInfo, members, projects, updateSomitiInfo } = useSomitiStore();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -139,21 +139,21 @@ export default function SomitiProfileScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Somiti Profile', 'সমিতির প্রোফাইল')}</Text>
         <TouchableOpacity
-          style={styles.editBtn}
+          style={styles.backBtn}
           onPress={handleOpenEdit}
           activeOpacity={0.7}
         >
-          <Ionicons name="pencil-sharp" size={19} color="#0F766E" />
+          <Ionicons name="pencil-outline" size={20} color="#1E293B" />
         </TouchableOpacity>
       </View>
 
       {/* Toast Notification Banner */}
       {toastMessage && (
         <View style={styles.toastContainer}>
-          <Ionicons name="checkmark-circle" size={18} color="#0F766E" />
+          <Ionicons name="checkmark-circle" size={16} color="#0F766E" />
           <Text style={styles.toastText}>{toastMessage}</Text>
           <TouchableOpacity onPress={() => setToastMessage(null)} style={styles.toastCloseBtn}>
-            <Ionicons name="close" size={16} color="#64748B" />
+            <Ionicons name="close" size={15} color="#64748B" />
           </TouchableOpacity>
         </View>
       )}
@@ -165,18 +165,15 @@ export default function SomitiProfileScreen() {
         {/* Somiti Identity Hero */}
         <View style={styles.identityArea}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>{somitiInfo.name.charAt(0) || 'A'}</Text>
+            <Text style={styles.logoText}>{somitiInfo.name.charAt(0) || 'স'}</Text>
           </View>
           <Text style={styles.somitiName}>{somitiInfo.name}</Text>
-          {somitiInfo.tagline ? (
-            <Text style={styles.somitiTagline}>{somitiInfo.tagline}</Text>
-          ) : null}
           <Text style={styles.somitiSub}>
-            {somitiInfo.regNo} · {l('Est.', 'প্রতিষ্ঠা')} {formatNum(somitiInfo.establishedYear)}
+            {l('Reg. No', 'নিবন্ধন নং')} {somitiInfo.regNo} · {l('Est.', 'প্রতিষ্ঠা')} {formatNum(somitiInfo.establishedYear)}
           </Text>
         </View>
 
-        {/* 3 Stats Cards in a Row (Navigable) */}
+        {/* 3 Stats Cards in a Row */}
         <View style={styles.threeStatsRow}>
           <TouchableOpacity
             style={styles.statCard}
@@ -185,7 +182,6 @@ export default function SomitiProfileScreen() {
           >
             <Text style={styles.statCardLabel}>{l('Members', 'সদস্য')}</Text>
             <Text style={styles.statCardVal}>{formatNum(members.length)}</Text>
-            <Text style={styles.statCardHint}>{l('View list ›', 'তালিকা দেখুন ›')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -193,9 +189,12 @@ export default function SomitiProfileScreen() {
             onPress={() => router.push('/(admin)/finance')}
             activeOpacity={0.75}
           >
-            <Text style={styles.statCardLabel}>{l('Total Fund', 'মোট তহবিল')}</Text>
-            <Text style={styles.statCardVal}>{formatMoney(somitiInfo.totalFund)}</Text>
-            <Text style={styles.statCardHint}>{l('Finance ›', 'হিসাব ›')}</Text>
+            <Text style={styles.statCardLabel}>{l('Fund', 'তহবিল')}</Text>
+            <Text style={styles.statCardVal}>
+              {somitiInfo.totalFund >= 100000
+                ? (language === 'bn' ? `৳${formatNum((somitiInfo.totalFund / 100000).toFixed(1))}ল` : `৳${(somitiInfo.totalFund / 100000).toFixed(1)}L`)
+                : formatMoney(somitiInfo.totalFund)}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -204,18 +203,12 @@ export default function SomitiProfileScreen() {
             activeOpacity={0.75}
           >
             <Text style={styles.statCardLabel}>{l('Projects', 'প্রজেক্ট')}</Text>
-            <Text style={styles.statCardVal}>{formatNum(projects.length)}</Text>
-            <Text style={styles.statCardHint}>{l('Projects ›', 'প্রজেক্ট ›')}</Text>
+            <Text style={styles.statCardVal}>{formatNum(projects.length)}{language === 'bn' ? 'টি' : ''}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Section: যোগাযোগ */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>{l('Contact & Address', 'যোগাযোগ ও ঠিকানা')}</Text>
-          <TouchableOpacity onPress={handleOpenEdit} activeOpacity={0.7}>
-            <Text style={styles.editSectionLink}>{l('Edit', 'পরিবর্তন')}</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionTitle}>{l('Contact', 'যোগাযোগ')}</Text>
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>{l('Address', 'ঠিকানা')}</Text>
@@ -225,29 +218,23 @@ export default function SomitiProfileScreen() {
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.interactiveRow}
+            style={styles.row}
             onPress={() => handleCall(somitiInfo.phone)}
             activeOpacity={0.7}
           >
-            <Text style={styles.rowLabel}>{l('Phone Number', 'ফোন নম্বর')}</Text>
-            <View style={styles.rowValueAction}>
-              <Ionicons name="call-outline" size={15} color="#0F766E" />
-              <Text style={styles.rowValueLink}>{somitiInfo.phone}</Text>
-            </View>
+            <Text style={styles.rowLabel}>{l('Phone', 'ফোন')}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.phone}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.interactiveRow}
+            style={styles.row}
             onPress={() => handleEmail(somitiInfo.email)}
             activeOpacity={0.7}
           >
             <Text style={styles.rowLabel}>{l('Email', 'ইমেইল')}</Text>
-            <View style={styles.rowValueAction}>
-              <Ionicons name="mail-outline" size={15} color="#0F766E" />
-              <Text style={styles.rowValueLink}>{somitiInfo.email}</Text>
-            </View>
+            <Text style={styles.rowValue}>{somitiInfo.email}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
@@ -259,17 +246,20 @@ export default function SomitiProfileScreen() {
         </View>
 
         {/* Section: কমিটি */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>{l('Managing Committee', 'পরিচালনা কমিটি')}</Text>
+        <View style={styles.committeeHeaderRow}>
+          <Text style={styles.sectionTitle}>{l('Committee', 'কমিটি')}</Text>
           <TouchableOpacity onPress={() => setIsHistoryModalOpen(true)} activeOpacity={0.7}>
-            <Text style={styles.historyLink}>{l('Tenure: ', 'মেয়াদ: ')}{somitiInfo.committeeTenure || '২০২৫–২০২৭'} · {l('History', 'ইতিহাস')}</Text>
+            <Text style={styles.historyLink}>{l('History', 'ইতিহাস')}</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.tenureSub}>
+          {l('Tenure: ', 'মেয়াদ: ')}{somitiInfo.committeeTenure || '২০২৫–২০২৭'}
+        </Text>
 
         <View style={styles.card}>
           {committeeMembers.map((m, index) => {
             const colorTheme = AVATAR_COLORS[index % AVATAR_COLORS.length];
-            const initial = m.name.trim().charAt(0) || 'M';
+            const initial = m.name.trim().charAt(0) || 'আ';
 
             return (
               <React.Fragment key={m.id}>
@@ -302,66 +292,56 @@ export default function SomitiProfileScreen() {
         </View>
 
         {/* Section: জমা দেওয়ার হিসাব */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>{l('Somiti Payment Accounts', 'সমিতির পেমেন্ট হিসাব')}</Text>
-          <TouchableOpacity onPress={handleOpenEdit} activeOpacity={0.7}>
-            <Text style={styles.editSectionLink}>{l('Edit', 'পরিবর্তন')}</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>
+          {l('Payment Accounts', 'জমা দেওয়ার হিসাব')}
+        </Text>
         <View style={styles.card}>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>{l('Bank Account', 'ব্যাংক অ্যাকাউন্ট')}</Text>
+            <Text style={styles.rowLabel}>{l('Bank', 'ব্যাংক')}</Text>
             <Text style={styles.rowValue}>{somitiInfo.bankName || 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)'}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.interactiveRow}
+            style={styles.row}
             onPress={() => handleCopy(somitiInfo.bankAccountNo || '2050-1402-1028-900', l('Account number', 'হিসাব নম্বর'))}
             activeOpacity={0.7}
           >
             <Text style={styles.rowLabel}>{l('Account Number', 'হিসাব নম্বর')}</Text>
-            <View style={styles.copyRow}>
-              <Text style={styles.accountNumberText}>{somitiInfo.bankAccountNo || '2050-1402-1028-900'}</Text>
-              <Ionicons name="copy-outline" size={16} color="#0F766E" />
-            </View>
+            <Text style={styles.rowValue}>{somitiInfo.bankAccountNo || '2050-1402-1028-900'}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.interactiveRow}
+            style={styles.row}
             onPress={() => handleCopy(somitiInfo.bkashNo || '01711-223344', l('bKash number', 'বিকাশ নম্বর'))}
             activeOpacity={0.7}
           >
-            <Text style={styles.rowLabel}>{l('bKash Merchant', 'বিকাশ মার্চেন্ট')}</Text>
-            <View style={styles.copyRow}>
-              <Text style={styles.accountNumberText}>{somitiInfo.bkashNo || '01711-223344'}</Text>
-              <Ionicons name="copy-outline" size={16} color="#0F766E" />
-            </View>
+            <Text style={styles.rowLabel}>{l('bKash', 'বিকাশ')}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.bkashNo || '01711-223344'}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
-            style={styles.interactiveRow}
-            onPress={() => handleCopy(somitiInfo.nagadNo || '01811-223344', l('Nagad number', 'নগদ নম্বর'))}
+            style={styles.row}
+            onPress={() => handleCopy(somitiInfo.nagadNo || '01811-223344', l('Nagad', 'নগদ'))}
             activeOpacity={0.7}
           >
-            <Text style={styles.rowLabel}>{l('Nagad Merchant', 'নগদ মার্চেন্ট')}</Text>
-            <View style={styles.copyRow}>
-              <Text style={styles.accountNumberText}>{somitiInfo.nagadNo || '01811-223344'}</Text>
-              <Ionicons name="copy-outline" size={16} color="#0F766E" />
-            </View>
+            <Text style={styles.rowLabel}>{l('Nagad', 'নগদ')}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.nagadNo || '01811-223344'}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.accountsNotice}>
-          {l('These accounts appear on member digital receipts and reminder messages', 'এই হিসাবসমূহ সদস্যের ডিজিটাল রসিদ ও রিমাইন্ডার বার্তায় প্রদর্শিত হয়')}
+          {l('This information will be shown on member app and reminder messages', 'এই তথ্য সদস্য অ্যাপ ও রিমাইন্ডার বার্তায় দেখানো হবে')}
         </Text>
 
         {/* Section: ডকুমেন্ট */}
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>{l('Somiti Deeds & Documents', 'সমিতির দলিল ও সনদ')}</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
+          {l('Documents', 'ডকুমেন্ট')}
+        </Text>
         <View style={styles.docsList}>
           {/* Doc 1: গঠনতন্ত্র */}
           <TouchableOpacity
@@ -369,7 +349,7 @@ export default function SomitiProfileScreen() {
             onPress={() =>
               setPreviewDoc({
                 type: 'constitution',
-                title: l('Constitution & Bylaws', 'গঠনতন্ত্র ও উপ-আইন'),
+                title: l('Constitution', 'গঠনতন্ত্র'),
                 subtitle: l('Uttara Model Samity - Bylaws (Revised 2026)', 'উত্তরা মডেল সমিতি - বিধিমালা ও উপ-আইন (সংশোধিত ২০২৬)'),
               })
             }
@@ -379,12 +359,11 @@ export default function SomitiProfileScreen() {
               <Ionicons name="document-text-outline" size={20} color="#0F766E" />
             </View>
             <View style={styles.docInfo}>
-              <Text style={styles.docTitle}>{l('Constitution & Bylaws', 'গঠনতন্ত্র ও উপ-আইন')}</Text>
-              <Text style={styles.docSub}>{l('PDF · Revised January 2026', 'PDF · সংশোধিত জানুয়ারি ২০২৬')}</Text>
+              <Text style={styles.docTitle}>{l('Constitution', 'গঠনতন্ত্র')}</Text>
+              <Text style={styles.docSub}>{l('PDF · Revised January 2026', 'PDF · হালনাগাদ জানুয়ারি ২০২৬')}</Text>
             </View>
-            <View style={styles.docActionBadge}>
-              <Ionicons name="eye-outline" size={16} color="#0F766E" />
-              <Text style={styles.docActionBadgeText}>{l('View', 'দেখুন')}</Text>
+            <View style={styles.docDownloadBtn}>
+              <Ionicons name="download-outline" size={20} color="#1E293B" />
             </View>
           </TouchableOpacity>
 
@@ -394,7 +373,7 @@ export default function SomitiProfileScreen() {
             onPress={() =>
               setPreviewDoc({
                 type: 'certificate',
-                title: l('Government Registration Certificate', 'সরকারি নিবন্ধন সনদ'),
+                title: l('Registration Certificate', 'নিবন্ধন সনদ'),
                 subtitle: l('Department of Cooperatives · Certified Copy', 'সমবায় অধিদপ্তর · সত্যায়িত সনদ'),
               })
             }
@@ -404,12 +383,11 @@ export default function SomitiProfileScreen() {
               <Ionicons name="shield-checkmark-outline" size={20} color="#0F766E" />
             </View>
             <View style={styles.docInfo}>
-              <Text style={styles.docTitle}>{l('Government Registration Certificate', 'সরকারি নিবন্ধন সনদ')}</Text>
-              <Text style={styles.docSub}>{l('PDF · Certified Copy', 'PDF · সত্যায়িত কপি')}</Text>
+              <Text style={styles.docTitle}>{l('Registration Certificate', 'নিবন্ধন সনদ')}</Text>
+              <Text style={styles.docSub}>PDF</Text>
             </View>
-            <View style={styles.docActionBadge}>
-              <Ionicons name="eye-outline" size={16} color="#0F766E" />
-              <Text style={styles.docActionBadgeText}>{l('View', 'দেখুন')}</Text>
+            <View style={styles.docDownloadBtn}>
+              <Ionicons name="download-outline" size={20} color="#1E293B" />
             </View>
           </TouchableOpacity>
         </View>
@@ -964,18 +942,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1E293B',
   },
-  sectionHeaderRow: {
+  committeeHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 2,
     marginTop: 14,
     paddingHorizontal: 4,
   },
-  editSectionLink: {
-    fontFamily: 'HindSiliguri-Bold',
+  tenureSub: {
+    fontFamily: 'HindSiliguri-Regular',
     fontSize: 12,
-    color: '#0F766E',
+    color: '#64748B',
+    marginBottom: 8,
+    marginLeft: 4,
   },
   historyLink: {
     fontFamily: 'HindSiliguri-Medium',
@@ -1001,12 +981,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  interactiveRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
   rowLabel: {
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 13,
@@ -1019,26 +993,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flexShrink: 1,
     marginLeft: 12,
-  },
-  rowValueAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rowValueLink: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#0F766E',
-  },
-  copyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  accountNumberText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
   },
   divider: {
     height: 1,
@@ -1079,9 +1033,9 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   callIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#E6F4F2',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1132,21 +1086,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
   },
-  docActionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0FDFA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
-  },
-  docActionBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#0F766E',
+  docDownloadBtn: {
+    padding: 6,
   },
 
   // Modals Styling
