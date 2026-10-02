@@ -43,8 +43,6 @@ export default function HomeDashboardScreen() {
   }, []);
 
   // Dynamic financial totals
-  const totalFund = useMemo(() => somitiInfo.totalFund, [somitiInfo.totalFund]);
-
   const projectInvested = useMemo(() => {
     return projects.reduce((acc, p) => acc + (p.investedAmount || 0), 0) || somitiInfo.projectInvested;
   }, [projects, somitiInfo.projectInvested]);
@@ -52,6 +50,8 @@ export default function HomeDashboardScreen() {
   const cashAndBank = useMemo(() => {
     return cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0) || somitiInfo.cashAndBank;
   }, [cashAccounts, somitiInfo.cashAndBank]);
+
+  const totalFund = useMemo(() => projectInvested + cashAndBank, [projectInvested, cashAndBank]);
 
   const totalFundCalc = projectInvested + cashAndBank;
   const projectInvestedPct = useMemo(() => {

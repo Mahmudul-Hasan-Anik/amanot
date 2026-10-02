@@ -62,6 +62,7 @@ export interface PendingApproval {
 
 export interface CashAccount {
   id: string;
+  type?: 'bank' | 'cashier' | 'bkash' | 'field';
   name: string;
   holder?: string;
   amount: number;
@@ -341,10 +342,10 @@ export const mockProjects: Project[] = [
 ];
 
 export const mockCashAccounts: CashAccount[] = [
-  { id: 'ca1', name: 'ব্যাংক হিসাব', holder: '[ব্যাংকের নাম]', amount: 760000 },
-  { id: 'ca2', name: 'কোষাধ্যক্ষের হাতে', holder: 'মাহমুদা খাতুন', amount: 120000 },
-  { id: 'ca3', name: 'বিকাশ', holder: '[বিকাশ নম্বর]', amount: 38000 },
-  { id: 'ca4', name: 'মাঠকর্মীর হাতে', holder: 'সুমন মিয়া', amount: 12000, note: 'আজ জমা দিতে হবে' },
+  { id: 'ca1', type: 'bank', name: 'ব্যাংক হিসাব', holder: 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)', amount: 760000 },
+  { id: 'ca2', type: 'cashier', name: 'কোষাধ্যক্ষের হাতে', holder: 'মাহমুদা খাতুন', amount: 120000 },
+  { id: 'ca3', type: 'bkash', name: 'বিকাশ', holder: '০১৭১১-২২৩৩৪৪', amount: 38000 },
+  { id: 'ca4', type: 'field', name: 'মাঠকর্মীর হাতে', holder: 'সুমন মিয়া', amount: 12000, note: 'আজ জমা দিতে হবে' },
 ];
 
 export const mockPendingApprovals: PendingApproval[] = [

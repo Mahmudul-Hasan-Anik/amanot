@@ -101,7 +101,7 @@ export interface SomitiState {
   rejectRequest: (id: string, reason?: string, actor?: string) => void;
 
   // Cash Transfer Action
-  transferCash: (fromId: string, toId: string, amount: number) => void;
+  transferCash: (fromId: string, toId: string, amount: number, note?: string) => boolean;
 
   // Transaction Lookup
   getTransactionById: (id: string) => Transaction | undefined;
@@ -126,9 +126,9 @@ export const useSomitiStore = create<SomitiState>()(
       expenses: [
         {
           id: 'exp-1',
-          title: 'অফিস স্টেশনারি ও খাতা ক্রয়',
-          category: 'দাপ্তরিক খরচ',
-          amount: 2500,
+          title: 'বার্ষিক সভার দুপুরের খাবার ও নাস্তা',
+          category: 'সভা ও আপ্যায়ন',
+          amount: 5200,
           date: '৩০ সেপ্টেম্বর ২০২৬',
           paymentSource: 'হাতে নগদ',
           voucherNo: 'V-1021',
@@ -136,16 +136,82 @@ export const useSomitiStore = create<SomitiState>()(
         },
         {
           id: 'exp-2',
-          title: 'মাসিক সভা ও আপ্যায়ন',
-          category: 'আপ্যায়ন',
-          amount: 3200,
-          date: '২৮ সেপ্টেম্বর ২০২৬',
+          title: 'সভার যাতায়াত ও পরিদর্শন খরচ',
+          category: 'যাতায়াত',
+          amount: 3100,
+          date: '২০ সেপ্টেম্বর ২০২৬',
           paymentSource: 'হাতে নগদ',
           voucherNo: 'V-1019',
+          status: 'approved',
+        },
+        {
+          id: 'exp-3',
+          title: 'অফিস বিবিধ খরচ',
+          category: 'অন্যান্য',
+          amount: 1800,
+          date: '২২ সেপ্টেম্বর ২০২৬',
+          paymentSource: 'হাতে নগদ',
+          voucherNo: 'V-1018',
+          status: 'approved',
+        },
+        {
+          id: 'exp-4',
+          title: 'এসএমএস প্যাকেজ রিচার্জ',
+          category: 'এসএমএস ও অ্যাপ',
+          amount: 1500,
+          date: '২৮ সেপ্টেম্বর ২০২৬',
+          paymentSource: 'বিকাশ',
+          voucherNo: 'V-1015',
+          status: 'approved',
+        },
+        {
+          id: 'exp-5',
+          title: 'অফিস রেজিস্টার খাতা ও কলম ক্রয়',
+          category: 'স্টেশনারি',
+          amount: 1200,
+          date: '১৫ সেপ্টেম্বর ২০২৬',
+          paymentSource: 'হাতে নগদ',
+          voucherNo: 'V-1012',
           status: 'approved',
         }
       ],
       transactions: [
+        {
+          id: 'tx-recent-1',
+          receiptNo: '#V-1015',
+          memberId: 'org',
+          memberName: 'এসএমএস প্যাকেজ',
+          memberCode: 'EXP',
+          date: '২৮ সেপ্টে',
+          amount: 1500,
+          type: 'expense',
+          paymentMethod: 'bkash',
+          note: 'এসএমএস প্যাকেজ রিচার্জ',
+        },
+        {
+          id: 'tx-recent-2',
+          receiptNo: '#INC-204',
+          memberId: 'proj-p3',
+          memberName: 'পোল্ট্রি খামার',
+          memberCode: 'INC',
+          date: '২৫ সেপ্টে',
+          amount: 18400,
+          type: 'profit',
+          paymentMethod: 'bank',
+          note: 'পোল্ট্রি খামার প্রজেক্ট লাভ',
+        },
+        {
+          id: 'tx-recent-3',
+          receiptNo: '#V-1019',
+          memberId: 'org',
+          memberName: 'সভার যাতায়াত',
+          memberCode: 'EXP',
+          date: '২০ সেপ্টে',
+          amount: 1200,
+          type: 'expense',
+          paymentMethod: 'cash',
+          note: 'সভার যাতায়াত খরচ',
+        },
         {
           id: 'tx-1042',
           receiptNo: '#১০৪২',
@@ -175,20 +241,6 @@ export const useSomitiStore = create<SomitiState>()(
           months: ['সেপ্টেম্বর'],
           lateFee: 0,
         },
-        {
-          id: 'tx-1040',
-          receiptNo: '#১০৪০',
-          memberId: '3',
-          memberName: 'জাহিদ হাসান',
-          memberCode: 'SM-007',
-          date: '২৮ সেপ্টেম্বর ২০২৬',
-          amount: 2500,
-          type: 'deposit',
-          paymentMethod: 'bank',
-          note: 'সেপ্টেম্বর মাসের জমা',
-          months: ['সেপ্টেম্বর'],
-          lateFee: 0,
-        }
       ],
 
       // Members
@@ -318,29 +370,32 @@ export const useSomitiStore = create<SomitiState>()(
           return m;
         });
 
-        // Update Somiti Totals
-        const updatedSomiti = {
-          ...get().somitiInfo,
-          totalFund: get().somitiInfo.totalFund + totalAmount,
-          cashAndBank: get().somitiInfo.cashAndBank + totalAmount,
-          monthlyCollected: get().somitiInfo.monthlyCollected + totalAmount,
-          monthlyRemaining: Math.max(0, get().somitiInfo.monthlyRemaining - totalAmount),
-          totalDueAmount: Math.max(0, get().somitiInfo.totalDueAmount - totalAmount),
-        };
-
         // Update Cash Accounts
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
-          if (paymentMethod === 'bkash' && acc.id === 'bkash') {
+          if (paymentMethod === 'bkash' && (acc.type === 'bkash' || acc.id === 'ca3' || acc.id === 'bkash')) {
             return { ...acc, amount: acc.amount + totalAmount };
           }
-          if (paymentMethod === 'bank' && acc.id === 'bank') {
+          if (paymentMethod === 'bank' && (acc.type === 'bank' || acc.id === 'ca1' || acc.id === 'bank')) {
             return { ...acc, amount: acc.amount + totalAmount };
           }
-          if (paymentMethod === 'cash' && acc.id === 'cashier') {
+          if (paymentMethod === 'cash' && (acc.type === 'cashier' || acc.id === 'ca2' || acc.id === 'cashier')) {
             return { ...acc, amount: acc.amount + totalAmount };
           }
           return acc;
         });
+
+        const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
+        const projectInvested = get().projects.reduce((sum, p) => sum + (p.investedAmount || 0), 0) || get().somitiInfo.projectInvested;
+
+        // Update Somiti Totals
+        const updatedSomiti = {
+          ...get().somitiInfo,
+          cashAndBank: newCashAndBank,
+          totalFund: projectInvested + newCashAndBank,
+          monthlyCollected: get().somitiInfo.monthlyCollected + totalAmount,
+          monthlyRemaining: Math.max(0, get().somitiInfo.monthlyRemaining - totalAmount),
+          totalDueAmount: Math.max(0, get().somitiInfo.totalDueAmount - totalAmount),
+        };
 
         set({
           members: updatedMembers,
@@ -375,17 +430,33 @@ export const useSomitiStore = create<SomitiState>()(
           date: '২ অক্টোবর ২০২৬',
           amount: data.amount,
           type: 'expense',
-          paymentMethod: data.paymentSource === 'ব্যাংক' ? 'bank' : 'cash',
+          paymentMethod: data.paymentSource?.toLowerCase().includes('ব্যাংক') ? 'bank' : data.paymentSource?.toLowerCase().includes('বিকাশ') ? 'bkash' : 'cash',
           note: `${data.category}: ${data.title}`,
         };
+
+        const sourceStr = (data.paymentSource || '').toLowerCase();
+        const updatedCashAccounts = get().cashAccounts.map((acc) => {
+          const isMatch =
+            (sourceStr.includes('ব্যাংক') || sourceStr.includes('bank')) ? (acc.type === 'bank' || acc.id === 'ca1') :
+            (sourceStr.includes('বিকাশ') || sourceStr.includes('bkash')) ? (acc.type === 'bkash' || acc.id === 'ca3') :
+            (acc.type === 'cashier' || acc.id === 'ca2');
+          if (isMatch) {
+            return { ...acc, amount: Math.max(0, acc.amount - data.amount) };
+          }
+          return acc;
+        });
+
+        const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
+        const projectInvested = get().projects.reduce((sum, p) => sum + (p.investedAmount || 0), 0) || get().somitiInfo.projectInvested;
 
         set({
           expenses: [newExpense, ...get().expenses],
           transactions: [newTxn, ...get().transactions],
+          cashAccounts: updatedCashAccounts,
           somitiInfo: {
             ...get().somitiInfo,
-            totalFund: Math.max(0, get().somitiInfo.totalFund - data.amount),
-            cashAndBank: Math.max(0, get().somitiInfo.cashAndBank - data.amount),
+            cashAndBank: newCashAndBank,
+            totalFund: projectInvested + newCashAndBank,
             monthlyExpense: get().somitiInfo.monthlyExpense + data.amount,
             monthlyNet: get().somitiInfo.monthlyNet - data.amount,
           }
@@ -443,14 +514,35 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Transfer cash
-      transferCash: (fromId, toId, amount) => {
-        set({
-          cashAccounts: get().cashAccounts.map((acc) => {
-            if (acc.id === fromId) return { ...acc, amount: Math.max(0, acc.amount - amount) };
-            if (acc.id === toId) return { ...acc, amount: acc.amount + amount };
-            return acc;
-          })
+      transferCash: (fromId, toId, amount, note) => {
+        const fromAcc = get().cashAccounts.find((a) => a.id === fromId);
+        const toAcc = get().cashAccounts.find((a) => a.id === toId);
+        if (!fromAcc || !toAcc || fromAcc.amount < amount) return false;
+
+        const updatedCashAccounts = get().cashAccounts.map((acc) => {
+          if (acc.id === fromId) return { ...acc, amount: Math.max(0, acc.amount - amount) };
+          if (acc.id === toId) return { ...acc, amount: acc.amount + amount };
+          return acc;
         });
+
+        const newTxn: Transaction = {
+          id: `tx-tf-${Date.now()}`,
+          receiptNo: `TRF-${Math.floor(1000 + Math.random() * 9000)}`,
+          memberId: 'internal',
+          memberName: 'হিসাব স্থানান্তর',
+          memberCode: 'TRF',
+          date: '২ অক্টোবর ২০২৬',
+          amount: amount,
+          type: 'transfer',
+          paymentMethod: 'cash',
+          note: note || `${fromAcc.name} থেকে ${toAcc.name}-এ স্থানান্তর`,
+        };
+
+        set({
+          cashAccounts: updatedCashAccounts,
+          transactions: [newTxn, ...get().transactions],
+        });
+        return true;
       },
 
       getTransactionById: (id) => {
@@ -482,7 +574,7 @@ export const useSomitiStore = create<SomitiState>()(
     }),
     {
       name: 'amanot-somiti-storage',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {
         if (!persistedState) return persistedState;
@@ -491,6 +583,25 @@ export const useSomitiStore = create<SomitiState>()(
             ...persistedState.somitiInfo,
             name: 'উত্তরা মডেল সমবায় সমিতি',
             nameEn: 'Uttara Model Samity',
+          };
+        }
+        if (version < 3) {
+          persistedState.cashAccounts = [
+            { id: 'ca1', type: 'bank', name: 'ব্যাংক হিসাব', holder: 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)', amount: 760000 },
+            { id: 'ca2', type: 'cashier', name: 'কোষাধ্যক্ষের হাতে', holder: 'মাহমুদা খাতুন', amount: 120000 },
+            { id: 'ca3', type: 'bkash', name: 'বিকাশ', holder: '০১৭১১-২২৩৩৪৪', amount: 38000 },
+            { id: 'ca4', type: 'field', name: 'মাঠকর্মীর হাতে', holder: 'সুমন মিয়া', amount: 12000, note: 'আজ জমা দিতে হবে' },
+          ];
+          const cashTotal = 930000;
+          const projTotal = 3920000;
+          persistedState.somitiInfo = {
+            ...persistedState.somitiInfo,
+            cashAndBank: cashTotal,
+            projectInvested: projTotal,
+            totalFund: cashTotal + projTotal,
+            monthlyIncome: 182400,
+            monthlyExpense: 12800,
+            monthlyNet: 169600,
           };
         }
         return persistedState;
