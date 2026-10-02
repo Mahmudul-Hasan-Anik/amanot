@@ -40,6 +40,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+            <Stack.Screen name="(member)" options={{ headerShown: false }} />
           </Stack>
         )}
       </QueryClientProvider>

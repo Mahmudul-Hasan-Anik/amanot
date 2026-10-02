@@ -112,6 +112,7 @@ export const mockSomitiInfo = {
   monthlyExpense: 12800,
   monthlyNet: 169600,
   yearlyProjectProfit: 312000,
+  expenseApprovalLimit: 5000,
 };
 
 export const mockMembers: Member[] = [

@@ -8,11 +8,14 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
+import { toEnglishDigits } from '../../src/lib/bengali';
 
 const AVATAR_COLORS = [
   { bg: '#E0F2FE', text: '#0284C7' },
@@ -30,6 +33,10 @@ export default function ProfitDistributionScreen() {
   const [currentStep, setCurrentStep] = useState<number>(2); // 1: হিসাব, 2: পর্যালোচনা, 3: অনুমোদন, 4: বিতরণ
   const [isApproved, setIsApproved] = useState(false);
 
+  // Configurable policy percentages (per user request: customizable, if 0% or unset, 100% to members)
+  const [reservePercent, setReservePercent] = useState<string>('0');
+  const [managementPercent, setManagementPercent] = useState<string>('0');
+
   // Financial calculations
   const totalProjectProfit = useMemo(() => {
     const sum = projects.reduce((acc, p) => acc + p.netProfit, 0);
@@ -39,9 +46,13 @@ export default function ProfitDistributionScreen() {
   const otherIncome = 28000;
   const operatingExpense = 103000;
   const netProfit = totalProjectProfit + otherIncome - operatingExpense;
-  const reserveFund = Math.round(netProfit * 0.10);
-  const directorShare = Math.round(netProfit * 0.10);
-  const distributableProfit = netProfit - reserveFund - directorShare;
+
+  const rPct = (parseFloat(toEnglishDigits(reservePercent)) || 0) / 100;
+  const mPct = (parseFloat(toEnglishDigits(managementPercent)) || 0) / 100;
+
+  const reserveFund = Math.round(netProfit * rPct);
+  const managementShare = Math.round(netProfit * mPct);
+  const distributableProfit = Math.max(0, netProfit - reserveFund - managementShare);
 
   const totalMembersDeposit = useMemo(() => {
     const sum = members.reduce((acc, m) => acc + m.totalDeposit, 0);
@@ -97,7 +108,7 @@ export default function ProfitDistributionScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -191,32 +202,114 @@ export default function ProfitDistributionScreen() {
           <View style={styles.calcDivider} />
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabelBold}>{l('Net Profit', 'নিট লাভ')}</Text>
+            <Text style={styles.calcLabelBold}>{l('Net Profit', 'নিট মোট লাভ')}</Text>
             <Text style={styles.calcValueBold}>{formatMoney(netProfit)}</Text>
           </View>
 
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>{l('Reserve Fund (10%)', 'রিজার্ভ ফান্ড (১০%)')}</Text>
-            <Text style={styles.calcValue}>−{formatMoney(reserveFund)}</Text>
+          <View style={styles.calcDivider} />
+
+          {/* Policy Title & Presets */}
+          <Text style={styles.policyTitle}>{l('Distribution Policy Settings', 'মুনাফা বণ্টন নীতি ও অনুপাত')}</Text>
+
+          <View style={styles.presetButtonsRow}>
+            <TouchableOpacity
+              style={[styles.presetBtn, reservePercent === '0' && managementPercent === '0' && styles.presetBtnActive]}
+              onPress={() => {
+                setReservePercent('0');
+                setManagementPercent('0');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.presetBtnText, reservePercent === '0' && managementPercent === '0' && styles.presetBtnTextActive]}>
+                {l('100% to Members (0% Reserve)', '১০০% সাধারণ সদস্যদের')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.presetBtn, reservePercent === '10' && managementPercent === '0' && styles.presetBtnActive]}
+              onPress={() => {
+                setReservePercent('10');
+                setManagementPercent('0');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.presetBtnText, reservePercent === '10' && managementPercent === '0' && styles.presetBtnTextActive]}>
+                {l('10% Reserve + 90% Members', '১০% রিজার্ভ + ৯০% সদস্য')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.presetBtn, reservePercent === '10' && managementPercent === '10' && styles.presetBtnActive]}
+              onPress={() => {
+                setReservePercent('10');
+                setManagementPercent('10');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.presetBtnText, reservePercent === '10' && managementPercent === '10' && styles.presetBtnTextActive]}>
+                {l('10% Reserve + 10% Mgmt + 80%', '১০% রিজার্ভ + ১০% পরিচালনা')}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>{l('Director Share (10%)', 'পরিচালক অংশ (১০%)')}</Text>
-            <Text style={styles.calcValue}>−{formatMoney(directorShare)}</Text>
+          {/* Configurable Percent Inputs */}
+          <View style={styles.percentInputRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.percentInputLabel}>{l('Reserve Fund Ratio (%)', 'সংরক্ষিত তহবিল / রিজার্ভ অনুপাত (%)')}</Text>
+              <Text style={styles.percentInputSub}>{l('Deduction:', 'মোট কর্তন:')} −{formatMoney(reserveFund)}</Text>
+            </View>
+            <View style={styles.percentInputBox}>
+              <TextInput
+                style={styles.percentTextInput}
+                value={reservePercent}
+                onChangeText={(t) => setReservePercent(toEnglishDigits(t))}
+                keyboardType="numeric"
+                maxLength={3}
+                placeholder="0"
+              />
+              <Text style={styles.percentSign}>%</Text>
+            </View>
+          </View>
+
+          <View style={styles.percentInputRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.percentInputLabel}>{l('Management Committee Ratio (%)', 'ব্যবস্থাপনা / পরিচালনা কমিটি অনুপাত (%)')}</Text>
+              <Text style={styles.percentInputSub}>{l('Deduction:', 'মোট কর্তন:')} −{formatMoney(managementShare)}</Text>
+            </View>
+            <View style={styles.percentInputBox}>
+              <TextInput
+                style={styles.percentTextInput}
+                value={managementPercent}
+                onChangeText={(t) => setManagementPercent(toEnglishDigits(t))}
+                keyboardType="numeric"
+                maxLength={3}
+                placeholder="0"
+              />
+              <Text style={styles.percentSign}>%</Text>
+            </View>
           </View>
 
           {/* Highlighted Distributable Profit Box */}
           <View style={styles.distributableBox}>
-            <Text style={styles.distributableLabel}>{l('Distributable Profit', 'বণ্টনযোগ্য লাভ')}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.distributableLabel}>{l('Distributable Profit', 'সদস্যদের বণ্টনযোগ্য নিট লাভ')}</Text>
+              <Text style={styles.distributableSub}>
+                {reservePercent === '0' && managementPercent === '0'
+                  ? l('100% distributed to members proportionally', 'শতভাগ (১০০%) মুনাফা সদস্যদের মধ্যে সঞ্চয় অনুপাতে বণ্টন হবে')
+                  : l(`Remaining ${100 - (parseFloat(reservePercent)||0) - (parseFloat(managementPercent)||0)}% distributed`, `অবশিষ্ট ${100 - (parseFloat(reservePercent)||0) - (parseFloat(managementPercent)||0)}% মুনাফা বণ্টন হবে`)}
+              </Text>
+            </View>
             <Text style={styles.distributableValue}>{formatMoney(distributableProfit)}</Text>
           </View>
         </View>
 
-        {/* Lock Info Box */}
+        {/* Info Note Box */}
         <View style={styles.lockNoticeBox}>
           <Ionicons name="information-circle-outline" size={18} color="#475569" style={styles.lockIcon} />
           <Text style={styles.lockNoticeText}>
-            {l('Reserve and director percentages were fixed by managing committee and locked from January 2026.', 'রিজার্ভ ও পরিচালক শতাংশ পরিচালনা কমিটি নির্ধারণ করেছে এবং জানুয়ারি ২০২৬ থেকে লক করা।')}
+            {reservePercent === '0' && managementPercent === '0'
+              ? l('Zero reserve selected: 100% of the annual surplus is being allocated directly to members based on total savings.', 'কোনো রিজার্ভ বা পরিচালনা ফি ধার্য করা হয়নি: ১০০% বার্ষিক মুনাফা সরাসরি সদস্যদের সঞ্চয়ের আনুপাতিক হারে বণ্টন হচ্ছে।')
+              : l('Custom reserve/management ratios applied per somiti committee decision before distribution.', 'সমিতির পরিচালনা কমিটির সিদ্ধান্ত অনুযায়ী রিজার্ভ ও পরিচালনা অনুপাত কর্তনের পর অবশিষ্ট অংশ বণ্টন হচ্ছে।')}
           </Text>
         </View>
 
@@ -443,6 +536,82 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1E293B',
   },
+  policyTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 13,
+    color: '#0F766E',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  presetButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  presetBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetBtnActive: {
+    backgroundColor: '#0F766E',
+    borderColor: '#0F766E',
+  },
+  presetBtnText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 11,
+    color: '#475569',
+  },
+  presetBtnTextActive: {
+    color: '#FFFFFF',
+    fontFamily: 'HindSiliguri-Bold',
+  },
+  percentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  percentInputLabel: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 12,
+    color: '#334155',
+  },
+  percentInputSub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#64748B',
+  },
+  percentInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 64,
+    justifyContent: 'center',
+  },
+  percentTextInput: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#1E293B',
+    padding: 0,
+    textAlign: 'center',
+    minWidth: 28,
+  },
+  percentSign: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 13,
+    color: '#64748B',
+    marginLeft: 2,
+  },
   distributableBox: {
     backgroundColor: '#E6F4F2',
     borderRadius: 12,
@@ -451,6 +620,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
+  },
+  distributableSub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#0F766E',
+    marginTop: 2,
   },
   distributableLabel: {
     fontFamily: 'HindSiliguri-Bold',

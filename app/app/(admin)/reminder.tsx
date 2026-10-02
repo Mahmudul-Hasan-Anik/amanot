@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,32 +9,81 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
 
 export default function ReminderScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { l, formatNum } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
-  const dueMembers = members.filter((m) => m.status === 'due' || m.status === 'partial');
+  const paramIds = params.memberIds ? String(params.memberIds).split(',').filter(Boolean) : [];
+  const recipients = useMemo(() => {
+    if (paramIds.length > 0) {
+      return members.filter((m) => paramIds.includes(m.id));
+    }
+    return members.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0);
+  }, [members, paramIds]);
 
   const [pushSelected, setPushSelected] = useState(true);
   const [whatsappSelected, setWhatsappSelected] = useState(true);
   const [smsSelected, setSmsSelected] = useState(false);
 
-  const [message, setMessage] = useState(
-    `আসসালামু আলাইকুম {নাম}, আপনার বকেয়া কিস্তি জমা দেওয়া হয়নি। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: ${somitiInfo.phone}। ধন্যবাদ, ${somitiInfo.name}`
-  );
+  const templates = [
+    {
+      id: 'polite',
+      name: l('Polite', 'নম্র তাগাদা'),
+      text: `আসসালামু আলাইকুম {নাম} ভাই, আশা করি ভালো আছেন। আপনার {বকেয়া_মাস} মাসের কিস্তি (৳{বকেয়া_টাকা}) বকেয়া রয়েছে। সুবিধাজনক সময়ে সমিতির নম্বরে জমা দিতে অনুরোধ করছি। ধন্যবাদ, ${somitiInfo.name}।`,
+    },
+    {
+      id: 'standard',
+      name: l('Standard', 'সাধারণ কিস্তি'),
+      text: `আসসালামু আলাইকুম {নাম}, আপনার বকেয়া কিস্তি ৳{বকেয়া_টাকা} জমা দেওয়া হয়নি। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: ${somitiInfo.phone}। ধন্যবাদ, ${somitiInfo.name}।`,
+    },
+    {
+      id: 'urgent',
+      name: l('Urgent', 'জরুরি নোটিশ'),
+      text: `জরুরি নোটিশ: জনাব {নাম}, আপনার একাউন্টে {বকেয়া_মাস} মাসের মোট ৳{বকেয়া_টাকা} বকেয়া পড়েছে। সমিতির নিয়মানুযায়ী আগামী ৩ দিনের মধ্যে পরিশোধ করতে অনুরোধ করা হচ্ছে। যোগাযোগ: ${somitiInfo.phone}।`,
+    },
+  ];
+
+  const [selectedTemplate, setSelectedTemplate] = useState('polite');
+  const [message, setMessage] = useState(templates[0].text);
+
+  const handleSelectTemplate = (tmpl: typeof templates[0]) => {
+    setSelectedTemplate(tmpl.id);
+    setMessage(tmpl.text);
+  };
 
   const handleSend = () => {
+    if (recipients.length === 0) {
+      Alert.alert(l('No Recipients', 'কোনো প্রাপক নেই'), l('Please select at least one recipient.', 'অনুগ্রহ করে অন্তত একজন প্রাপক নির্বাচন করুন।'));
+      return;
+    }
+
+    if (whatsappSelected && recipients.length > 0) {
+      const first = recipients[0];
+      const cleanPhone = (first.whatsapp || first.phone).replace(/[^0-9]/g, '');
+      const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+      const renderedMsg = message
+        .replace(/{নাম}/g, first.name)
+        .replace(/{বকেয়া_টাকা}/g, String(first.dueAmount || 2000))
+        .replace(/{বকেয়া_মাস}/g, String(first.dueMonths || 1))
+        .replace(/{মোট_জমা}/g, String(first.totalDeposit || 0))
+        .replace(/{বিকাশ_নম্বর}/g, somitiInfo.phone || '01712-345678');
+      Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`);
+    }
+
     Alert.alert(
       l('Success', 'সফল'),
-      `${formatNum(dueMembers.length || 5)} ${l('recipients received the reminder message successfully!', 'জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!')}`,
-      [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.back() }]
+      `${formatNum(recipients.length)} ${l('recipients received the reminder message successfully!', 'জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!')}`,
+      [{ text: l('OK', 'ঠিক আছে'), onPress: () => safeBack(router, '/(admin)/due') }]
     );
   };
 
@@ -45,7 +94,7 @@ export default function ReminderScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/due')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -64,14 +113,14 @@ export default function ReminderScreen() {
           <View style={styles.recipientsTop}>
             <View style={styles.recipientsLeft}>
               <Ionicons name="people-outline" size={18} color="#1E293B" />
-              <Text style={styles.recipientsTitle}>{formatNum(5)} {l('Recipients', 'জন প্রাপক')}</Text>
+              <Text style={styles.recipientsTitle}>{formatNum(recipients.length)} {l('Recipients', 'জন প্রাপক')}</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => safeBack(router, '/(admin)/due')} activeOpacity={0.7}>
               <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.recipientsNames}>
-            {l('Rafiqul, Karim, Tanvir, Nasrin, Faruk', 'রফিকুল, করিম, তানভীর, নাসরিন, ফারুক')}
+            {recipients.map((r) => r.name).slice(0, 5).join(', ')}{recipients.length > 5 ? ` +${formatNum(recipients.length - 5)}` : ''}
           </Text>
         </View>
 
@@ -132,11 +181,21 @@ export default function ReminderScreen() {
         </View>
 
         {/* Section: টেমপ্লেট */}
-        <Text style={styles.sectionHeader}>{l('Template', 'টেমপ্লেট')}</Text>
-        <TouchableOpacity style={styles.dropdownBox} activeOpacity={0.8}>
-          <Text style={styles.dropdownText}>{l('Due Reminder (Bengali)', 'বকেয়া অনুস্মারক (বাংলা)')}</Text>
-          <Ionicons name="chevron-down" size={18} color="#64748B" />
-        </TouchableOpacity>
+        <Text style={styles.sectionHeader}>{l('Select Template', 'টেমপ্লেট নির্বাচন করুন')}</Text>
+        <View style={styles.templatePillsRow}>
+          {templates.map((tmpl) => (
+            <TouchableOpacity
+              key={tmpl.id}
+              style={[styles.templatePill, selectedTemplate === tmpl.id && styles.templatePillActive]}
+              onPress={() => handleSelectTemplate(tmpl)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.templatePillText, selectedTemplate === tmpl.id && styles.templatePillTextActive]}>
+                {tmpl.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Section: বার্তা */}
         <Text style={styles.sectionHeader}>{l('Message', 'বার্তা')}</Text>
@@ -326,6 +385,32 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Medium',
     fontSize: 14,
     color: '#1E293B',
+  },
+  templatePillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  templatePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  templatePillActive: {
+    backgroundColor: '#CCFBF1',
+    borderColor: '#0F766E',
+  },
+  templatePillText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  templatePillTextActive: {
+    fontFamily: 'HindSiliguri-Bold',
+    color: '#0F766E',
   },
   messageBox: {
     backgroundColor: '#FFFFFF',

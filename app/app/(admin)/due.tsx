@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
 
 export default function DueMembersScreen() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function DueMembersScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/collection')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -253,7 +254,7 @@ export default function DueMembersScreen() {
           </View>
           <TouchableOpacity
             style={styles.reminderBtn}
-            onPress={() => router.push('/(admin)/reminder')}
+            onPress={() => router.push(`/(admin)/reminder?memberIds=${selectedIds.join(',')}`)}
             activeOpacity={0.85}
           >
             <Ionicons name="volume-medium-outline" size={18} color="#FFFFFF" />

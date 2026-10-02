@@ -60,6 +60,7 @@ export interface SomitiState {
   addMember: (data: {
     name: string;
     phone: string;
+    code?: string;
     nid?: string;
     address: string;
     nomineeName: string;
@@ -67,6 +68,7 @@ export interface SomitiState {
     nomineePhone?: string;
     monthlyAmount: number;
     admissionFee?: number;
+    initialPin?: string;
   }) => Member;
   updateMember: (id: string, data: Partial<Member>) => void;
   deleteMember: (id: string) => void;
@@ -94,11 +96,20 @@ export interface SomitiState {
     paymentSource: string;
     voucherNo: string;
     note?: string;
+    status?: 'approved' | 'pending';
   }) => void;
 
   // Approvals Actions
   approveRequest: (id: string, actor?: string) => void;
   rejectRequest: (id: string, reason?: string, actor?: string) => void;
+
+  // Project Actions
+  recordProjectReturn: (data: {
+    projectId: string;
+    amount: number;
+    paymentSource: string;
+    note?: string;
+  }) => void;
 
   // Cash Transfer Action
   transferCash: (fromId: string, toId: string, amount: number, note?: string) => boolean;
@@ -252,7 +263,7 @@ export const useSomitiStore = create<SomitiState>()(
         const currentMembers = get().members;
         const nextCodeNum = currentMembers.length + 1;
         const codeNumStr = nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`;
-        const newCode = `SM-${codeNumStr}`;
+        const newCode = data.code?.trim() || `SM-${codeNumStr}`;
         const newId = String(Date.now());
 
         const newMember: Member = {
@@ -297,6 +308,14 @@ export const useSomitiStore = create<SomitiState>()(
         };
 
         set({ members: updatedMembers, somitiInfo: updatedSomiti });
+
+        if (data.initialPin) {
+          try {
+            const { useAuthStore } = require('../features/auth/authStore');
+            useAuthStore.getState().setMemberPin(newId, data.initialPin);
+          } catch (e) {}
+        }
+
         return newMember;
       },
 
@@ -409,6 +428,7 @@ export const useSomitiStore = create<SomitiState>()(
 
       // Expense
       addExpense: (data) => {
+        const isPending = data.status === 'pending';
         const newExpense: ExpenseItem = {
           id: `exp-${Date.now()}`,
           title: data.title,
@@ -418,8 +438,29 @@ export const useSomitiStore = create<SomitiState>()(
           paymentSource: data.paymentSource,
           voucherNo: data.voucherNo,
           note: data.note,
-          status: 'approved',
+          status: isPending ? 'pending' : 'approved',
         };
+
+        if (isPending) {
+          const newApproval: PendingApproval = {
+            id: `appr-${Date.now()}`,
+            type: 'expense',
+            title: data.title,
+            amount: data.amount,
+            amountDisplay: `৳${toBengaliDigits(data.amount)}`,
+            detail: `${data.category} · ভাউচার: ${data.voucherNo}${data.note ? ' · ' + data.note : ''}`,
+            createdBy: 'সাধারণ সম্পাদক / হিসাবরক্ষক',
+            dateStr: 'আজ ' + new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }),
+            isNew: true,
+            status: 'pending',
+          };
+
+          set({
+            expenses: [newExpense, ...get().expenses],
+            approvals: [newApproval, ...get().approvals],
+          });
+          return;
+        }
 
         const newTxn: Transaction = {
           id: `tx-${Date.now()}`,
@@ -511,6 +552,70 @@ export const useSomitiStore = create<SomitiState>()(
             rejectedApprovals: [rejectedItem, ...(get().rejectedApprovals || [])],
           });
         }
+      },
+
+      recordProjectReturn: (data) => {
+        const target = get().projects.find((p) => p.id === data.projectId);
+        if (!target) return;
+
+        const newReturned = target.returnedAmount + data.amount;
+        const newRemaining = Math.max(0, target.investedAmount - newReturned);
+        const newRecoveryPct = Math.min(100, Math.round((newReturned / target.investedAmount) * 100));
+        const newNetProfit = newReturned - target.investedAmount;
+        const newRoi = target.investedAmount > 0 ? Math.round((newNetProfit / target.investedAmount) * 100) : 0;
+
+        const updatedProjects = get().projects.map((p) => {
+          if (p.id === data.projectId) {
+            return {
+              ...p,
+              returnedAmount: newReturned,
+              remainingAmount: newRemaining,
+              recoveryPct: newRecoveryPct,
+              netProfit: newNetProfit,
+              roiPct: newRoi,
+            };
+          }
+          return p;
+        });
+
+        const newTxn: Transaction = {
+          id: `tx-${Date.now()}`,
+          receiptNo: `RET-${Math.floor(1000 + Math.random() * 9000)}`,
+          memberId: target.id,
+          memberName: target.name,
+          memberCode: 'PRJ',
+          date: '২ অক্টোবর ২০২৬',
+          amount: data.amount,
+          type: 'profit',
+          paymentMethod: data.paymentSource.toLowerCase().includes('ব্যাংক') ? 'bank' : 'cash',
+          note: `${target.name}: ${data.note || 'প্রজেক্ট আয় / ফেরত'}`,
+        };
+
+        const isBank = data.paymentSource.toLowerCase().includes('ব্যাংক') || data.paymentSource.toLowerCase().includes('bank');
+        const updatedCashAccounts = get().cashAccounts.map((acc) => {
+          if (isBank && (acc.type === 'bank' || acc.id === 'ca1')) {
+            return { ...acc, amount: acc.amount + data.amount };
+          }
+          if (!isBank && (acc.type === 'cashier' || acc.id === 'ca2')) {
+            return { ...acc, amount: acc.amount + data.amount };
+          }
+          return acc;
+        });
+
+        const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
+        const projectInvested = updatedProjects.reduce((sum, p) => sum + (p.investedAmount || 0), 0);
+
+        set({
+          projects: updatedProjects,
+          transactions: [newTxn, ...get().transactions],
+          cashAccounts: updatedCashAccounts,
+          somitiInfo: {
+            ...get().somitiInfo,
+            cashAndBank: newCashAndBank,
+            totalFund: projectInvested + newCashAndBank,
+            yearlyProjectProfit: (get().somitiInfo.yearlyProjectProfit || 0) + data.amount,
+          },
+        });
       },
 
       // Transfer cash

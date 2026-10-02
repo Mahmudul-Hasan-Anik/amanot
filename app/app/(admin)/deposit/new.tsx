@@ -17,6 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
+import { AppModal } from '../../../src/components/AppModal';
+import { toEnglishDigits } from '../../../src/lib/bengali';
+import { colors } from '../../../src/theme/colors';
 
 export default function RecordDepositScreen() {
   const router = useRouter();
@@ -49,13 +52,49 @@ export default function RecordDepositScreen() {
   const lateFee = augustSelected ? 100 : 0;
   const rate = currentMember?.monthlyAmount || 2000;
   const baseAmount = monthsCount * rate;
-  const totalAmount = baseAmount + lateFee;
+  const defaultTotal = baseAmount + lateFee;
+
+  // Fully editable amount state (defaults to calculated total, but user can edit e.g. 1500 or 5000)
+  const [customAmount, setCustomAmount] = useState<string>(String(defaultTotal));
+
+  const toggleAugust = () => {
+    const nextAug = !augustSelected;
+    setAugustSelected(nextAug);
+    const count = (nextAug ? 1 : 0) + (septemberSelected ? 1 : 0) + (octoberSelected ? 1 : 0);
+    const fee = nextAug ? 100 : 0;
+    setCustomAmount(String(count * rate + fee));
+  };
+
+  const toggleSeptember = () => {
+    const nextSep = !septemberSelected;
+    setSeptemberSelected(nextSep);
+    const count = (augustSelected ? 1 : 0) + (nextSep ? 1 : 0) + (octoberSelected ? 1 : 0);
+    const fee = augustSelected ? 100 : 0;
+    setCustomAmount(String(count * rate + fee));
+  };
+
+  const toggleOctober = () => {
+    const nextOct = !octoberSelected;
+    setOctoberSelected(nextOct);
+    const count = (augustSelected ? 1 : 0) + (septemberSelected ? 1 : 0) + (nextOct ? 1 : 0);
+    const fee = augustSelected ? 100 : 0;
+    setCustomAmount(String(count * rate + fee));
+  };
+
+  const handleSelectMember = (mId: string) => {
+    setSelectedMemberId(mId);
+    setShowMemberModal(false);
+    const m = members.find((x) => x.id === mId);
+    const mRate = m?.monthlyAmount || 2000;
+    setCustomAmount(String(monthsCount * mRate + lateFee));
+  };
 
   const handleConfirmDeposit = () => {
-    if (monthsCount === 0) {
+    const cleanAmount = parseInt(toEnglishDigits(customAmount).replace(/\D/g, ''), 10);
+    if (!cleanAmount || cleanAmount <= 0) {
       Alert.alert(
-        l('Select Month', 'মাস নির্বাচন করুন'),
-        l('Please select at least one month.', 'অনুগ্রহ করে অন্তত একটি মাস নির্বাচন করুন।')
+        l('Invalid Amount', 'ভুল টাকার পরিমাণ'),
+        l('Please enter a valid deposit amount.', 'অনুগ্রহ করে সঠিক জমার টাকার পরিমাণ লিখুন।')
       );
       return;
     }
@@ -64,13 +103,16 @@ export default function RecordDepositScreen() {
     if (augustSelected) selectedMonths.push('আগস্ট');
     if (septemberSelected) selectedMonths.push('সেপ্টেম্বর');
     if (octoberSelected) selectedMonths.push('অক্টোবর');
+    if (selectedMonths.length === 0) {
+      selectedMonths.push('চলতি জমা');
+    }
 
     const newTxn = recordDeposit({
       memberId: currentMember.id,
       months: selectedMonths,
-      baseAmount,
+      baseAmount: Math.max(0, cleanAmount - lateFee),
       lateFee,
-      totalAmount,
+      totalAmount: cleanAmount,
       paymentMethod,
       trxId: paymentMethod !== 'cash' ? trxId : undefined,
       note: `${selectedMonths.join(', ')} কিস্তি`,
@@ -126,7 +168,7 @@ export default function RecordDepositScreen() {
         <View style={styles.monthPillsRow}>
           <TouchableOpacity
             style={[styles.monthPill, augustSelected && styles.monthPillActive]}
-            onPress={() => setAugustSelected(!augustSelected)}
+            onPress={toggleAugust}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -141,7 +183,7 @@ export default function RecordDepositScreen() {
 
           <TouchableOpacity
             style={[styles.monthPill, septemberSelected && styles.monthPillActive]}
-            onPress={() => setSeptemberSelected(!septemberSelected)}
+            onPress={toggleSeptember}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -156,7 +198,7 @@ export default function RecordDepositScreen() {
 
           <TouchableOpacity
             style={[styles.monthPill, octoberSelected && styles.monthPillActive]}
-            onPress={() => setOctoberSelected(!octoberSelected)}
+            onPress={toggleOctober}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -170,7 +212,7 @@ export default function RecordDepositScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 2. Amount Breakdown Card */}
+        {/* 2. Amount Breakdown & Editable Amount Card */}
         <View style={styles.amountCard}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>
@@ -193,9 +235,25 @@ export default function RecordDepositScreen() {
 
           <View style={styles.divider} />
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{l('Total Collection', 'মোট আদায়')}</Text>
-            <Text style={styles.totalVal}>{formatMoney(totalAmount)}</Text>
+          {/* Editable Deposit Amount Input (As Requested) */}
+          <View style={styles.editableAmountSection}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.totalLabel}>{l('Deposit Amount', 'জমার পরিমাণ (মোট)')}</Text>
+              <Text style={styles.amountHintText}>
+                {l('Editable: type custom, partial or advance amount', 'সম্পাদনযোগ্য: আংশিক বা অগ্রিম হলে পরিবর্তন করুন')}
+              </Text>
+            </View>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>৳</Text>
+              <TextInput
+                style={styles.amountTextInput}
+                value={customAmount}
+                onChangeText={(t) => setCustomAmount(toEnglishDigits(t))}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
           </View>
         </View>
 
@@ -324,55 +382,47 @@ export default function RecordDepositScreen() {
       </ScrollView>
 
       {/* Member Selection Modal */}
-      <Modal
+      <AppModal
         visible={showMemberModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowMemberModal(false)}
+        onClose={() => setShowMemberModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
-              <TouchableOpacity onPress={() => setShowMemberModal(false)}>
-                <Ionicons name="close" size={24} color="#1E293B" />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={members}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.modalMemberItem,
-                    item.id === selectedMemberId && styles.modalMemberItemActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedMemberId(item.id);
-                    setShowMemberModal(false);
-                  }}
-                >
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.memberName}>{item.name}</Text>
-                    <Text style={styles.memberSub}>
-                      {item.code} · {formatMoney(item.monthlyAmount)}
-                    </Text>
-                  </View>
-                  {item.dueAmount > 0 && (
-                    <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '600' }}>
-                      {l('Due', 'বাকি')} {formatMoney(item.dueAmount)}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
+          <TouchableOpacity onPress={() => setShowMemberModal(false)}>
+            <Ionicons name="close" size={24} color="#1E293B" />
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item.id}
+          style={{ maxHeight: 350 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.modalMemberItem,
+                item.id === selectedMemberId && styles.modalMemberItemActive,
+              ]}
+              onPress={() => handleSelectMember(item.id)}
+            >
+              <View style={styles.memberAvatar}>
+                <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.memberName}>{item.name}</Text>
+                <Text style={styles.memberSub}>
+                  {item.code} · {formatMoney(item.monthlyAmount)}
+                </Text>
+              </View>
+              {item.dueAmount > 0 && (
+                <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '600' }}>
+                  {l('Due', 'বাকি')} {formatMoney(item.dueAmount)}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        />
+      </AppModal>
 
       {/* Bottom Confirm Button */}
       <View style={styles.bottomBar}>
@@ -559,6 +609,43 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 18,
     color: '#0F766E',
+  },
+  editableAmountSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+  },
+  amountHintText: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#0F766E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 120,
+    justifyContent: 'flex-end',
+  },
+  currencySymbol: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 18,
+    color: '#0F766E',
+    marginRight: 4,
+  },
+  amountTextInput: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 18,
+    color: '#0F766E',
+    minWidth: 70,
+    textAlign: 'right',
   },
   methodGrid: {
     flexDirection: 'row',

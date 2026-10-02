@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
 
 export default function AnalyticsScreen() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function AnalyticsScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

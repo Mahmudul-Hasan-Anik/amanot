@@ -8,17 +8,26 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { safeBack } from '../../../src/utils/navigation';
+import { AppModal } from '../../../src/components/AppModal';
+import { toEnglishDigits } from '../../../src/lib/bengali';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { l, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { projects } = useSomitiStore();
+  const { projects, recordProjectReturn } = useSomitiStore();
+
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnAmount, setReturnAmount] = useState('');
+  const [returnSource, setReturnSource] = useState<'bank' | 'cash'>('bank');
+  const [returnNote, setReturnNote] = useState('');
 
   const project = projects.find(
     (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
@@ -30,6 +39,34 @@ export default function ProjectDetailScreen() {
     Alert.alert(l('Document Viewer', 'ডকুমেন্ট ভিউয়ার'), `${project?.name} - ${name} ${l('is loading...', 'লোড হচ্ছে...')}`);
   };
 
+  const handleRecordReturn = () => {
+    const cleanAmount = Number(toEnglishDigits(returnAmount.replace(/[^\d]/g, ''))) || 0;
+    if (cleanAmount <= 0) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক পরিমাণ লিখুন।'));
+      return;
+    }
+    if (!project) return;
+
+    recordProjectReturn({
+      projectId: project.id,
+      amount: cleanAmount,
+      paymentSource: returnSource === 'bank' ? 'ব্যাংক হিসাব' : 'হাতে নগদ',
+      note: returnNote.trim() || 'প্রজেক্ট কিস্তি / মুনাফা আদায়',
+    });
+
+    setShowReturnModal(false);
+    setReturnAmount('');
+    setReturnNote('');
+
+    Alert.alert(
+      l('Success', 'সফল'),
+      l(
+        `Received ${formatMoney(cleanAmount)} return from ${project.name}. Capital recovery updated.`,
+        `${project.name} থেকে ${formatMoney(cleanAmount)} টাকা আয় জমা হয়েছে। মূলধন ফেরত আপডেট করা হয়েছে।`
+      )
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
@@ -37,7 +74,7 @@ export default function ProjectDetailScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/projects')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -223,13 +260,93 @@ export default function ProjectDetailScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.returnBtn}
-          onPress={() => Alert.alert(l('Add Return / Income', 'আয় যুক্ত করুন'), l('Record income received from project?', 'প্রজেক্ট থেকে প্রাপ্ত আয়ের এন্ট্রি দিতে চান?'))}
+          onPress={() => setShowReturnModal(true)}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={18} color="#FFFFFF" />
           <Text style={styles.returnBtnText}>{l('Add Project Return / Income', 'প্রজেক্ট থেকে আয় যোগ করুন')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Record Return Modal */}
+      <AppModal
+        visible={showReturnModal}
+        onClose={() => setShowReturnModal(false)}
+        title={l('Record Project Return', 'প্রজেক্ট আয় / ফেরত লিপিবদ্ধ করুন')}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalProjectName}>{project?.name}</Text>
+          <Text style={styles.modalProjectSub}>
+            {l('Current Recovery:', 'বর্তমান ফেরত:')} {formatMoney(project?.returnedAmount || 0)} ({formatNum(project?.recoveryPct || 0)}%)
+          </Text>
+
+          <Text style={styles.inputTitle}>{l('Return Amount (BDT)', 'প্রাপ্ত আয়ের পরিমাণ (টাকা)')}</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.currencySign}>৳</Text>
+            <TextInput
+              style={styles.modalAmountInput}
+              value={returnAmount}
+              onChangeText={setReturnAmount}
+              placeholder="৫০,০০০"
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              autoFocus
+            />
+          </View>
+
+          <Text style={styles.inputTitle}>{l('Payment Received In', 'যে হিসাবে জমা হয়েছে')}</Text>
+          <View style={styles.sourceToggleRow}>
+            <TouchableOpacity
+              style={[styles.sourceToggleBtn, returnSource === 'bank' && styles.sourceToggleBtnActive]}
+              onPress={() => setReturnSource('bank')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="business-outline" size={16} color={returnSource === 'bank' ? '#FFFFFF' : '#64748B'} />
+              <Text style={[styles.sourceToggleText, returnSource === 'bank' && styles.sourceToggleTextActive]}>
+                {l('Bank Account', 'ব্যাংক হিসাব')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sourceToggleBtn, returnSource === 'cash' && styles.sourceToggleBtnActive]}
+              onPress={() => setReturnSource('cash')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="cash-outline" size={16} color={returnSource === 'cash' ? '#FFFFFF' : '#64748B'} />
+              <Text style={[styles.sourceToggleText, returnSource === 'cash' && styles.sourceToggleTextActive]}>
+                {l('Cash In Hand', 'হাতে নগদ')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.inputTitle}>{l('Note / Voucher Info', 'বিবরণ বা ভাউচার নম্বর (ঐচ্ছিক)')}</Text>
+          <TextInput
+            style={styles.modalNoteInput}
+            value={returnNote}
+            onChangeText={setReturnNote}
+            placeholder={l('e.g. 3rd installment or land lease profit', 'যেমন: ৩য় কিস্তির আয় বা লিজের মুনাফা')}
+            placeholderTextColor="#94A3B8"
+          />
+
+          <View style={styles.modalActionsRow}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setShowReturnModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSubmitBtn}
+              onPress={handleRecordReturn}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalSubmitText}>{l('Confirm & Save', 'সংরক্ষণ করুন')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -482,6 +599,122 @@ const styles = StyleSheet.create({
   returnBtnText: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 15,
+    color: '#FFFFFF',
+  },
+  modalContent: {
+    paddingVertical: 4,
+  },
+  modalProjectName: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 16,
+    color: '#0F766E',
+    marginBottom: 2,
+  },
+  modalProjectSub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 14,
+  },
+  inputTitle: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 12,
+    color: '#334155',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0F766E',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  currencySign: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 20,
+    color: '#0F766E',
+    marginRight: 6,
+  },
+  modalAmountInput: {
+    flex: 1,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 20,
+    color: '#1E293B',
+    padding: 0,
+  },
+  sourceToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sourceToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sourceToggleBtnActive: {
+    backgroundColor: '#0F766E',
+    borderColor: '#0F766E',
+  },
+  sourceToggleText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  sourceToggleTextActive: {
+    color: '#FFFFFF',
+    fontFamily: 'HindSiliguri-Bold',
+  },
+  modalNoteInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 13,
+    color: '#1E293B',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 14,
+    color: '#64748B',
+  },
+  modalSubmitBtn: {
+    flex: 1.5,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#0F766E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
     color: '#FFFFFF',
   },
 });

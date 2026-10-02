@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,21 +9,102 @@ import {
   StatusBar,
   Linking,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
+import { Button } from '../../../src/components/Button';
+import { AppModal } from '../../../src/components/AppModal';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { safeBack } from '../../../src/utils/navigation';
+import { toEnglishDigits } from '../../../src/lib/bengali';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { l, formatMoney, formatNum, language } = useLanguage();
-  const { getMemberById, members } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
+  const { getMemberById, members, updateMember } = useSomitiStore();
+  const { resetMemberPin, customPins } = useAuthStore();
 
   const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
+
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState(member?.name || '');
+  const [editPhone, setEditPhone] = useState(member?.phone || '');
+  const [editAddress, setEditAddress] = useState(member?.address || '');
+  const [editMonthlyAmount, setEditMonthlyAmount] = useState(String(member?.monthlyAmount || 2000));
+  const [editNomineeName, setEditNomineeName] = useState(member?.nomineeName || '');
+  const [editNomineeRelation, setEditNomineeRelation] = useState(member?.nomineeRelation || '');
+
+  const openEditModal = () => {
+    if (member) {
+      setEditName(member.name);
+      setEditPhone(member.phone);
+      setEditAddress(member.address || '');
+      setEditMonthlyAmount(String(member.monthlyAmount || 2000));
+      setEditNomineeName(member.nomineeName || '');
+      setEditNomineeRelation(member.nomineeRelation || '');
+      setShowEditModal(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editName.trim() || !editPhone.trim()) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Name and phone are required', 'নাম ও মোবাইল নম্বর আবশ্যক'));
+      return;
+    }
+
+    updateMember(member.id, {
+      name: editName.trim(),
+      phone: editPhone.trim(),
+      address: editAddress.trim(),
+      monthlyAmount: parseInt(toEnglishDigits(editMonthlyAmount), 10) || 2000,
+      nomineeName: editNomineeName.trim(),
+      nomineeRelation: editNomineeRelation.trim(),
+    });
+
+    setShowEditModal(false);
+    Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+  };
+
+  const handleResetPin = () => {
+    Alert.alert(
+      l('Reset PIN to 1234?', 'পিন ১২৩৪ এ রিসেট করবেন?'),
+      l(
+        `Are you sure you want to reset PIN for ${member.name}? The new default PIN will be 1234.`,
+        `আপনি কি নিশ্চিত যে ${member.name}-এর পিন ১২৩৪ এ রিসেট করতে চান? সদস্য ১২৩৪ দিয়ে লগইন করতে পারবেন।`
+      ),
+      [
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+        {
+          text: l('Yes, Reset', 'হ্যাঁ, রিসেট করুন'),
+          onPress: () => {
+            resetMemberPin(member.id);
+            Alert.alert(
+              l('PIN Reset Done', 'পিন রিসেট সফল'),
+              l(
+                `PIN reset to 1234 for ${member.name}. Member can now log in with this PIN.`,
+                `${member.name}-এর পিন ১২৩৪ এ সফলভাবে রিসেট করা হয়েছে। সদস্য এখন ১২৩৪ দিয়ে লগইন করতে পারবেন।`
+              )
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSendWhatsAppLoginInfo = () => {
+    const cleanPhone = (member.whatsapp || member.phone).replace(/[^0-9]/g, '');
+    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+    const currPin = customPins[member.id] || '1234';
+    const text = `আসসালামু আলাইকুম ${member.name}।\nআমানত সমিতিতে আপনার সদস্য পোর্টাল প্রস্তুত।\n\nআইডি: ${member.code}\nমোবাইল: ${member.phone}\nলগইন পিন: ${currPin}\n\nঅ্যাপে লগইন করে আপনার মাসিক সঞ্চয় ও রসিদ দেখতে পারবেন।`;
+    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
+  };
 
   const monthPills = [
     { name: l('Jan', 'জানু'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
@@ -47,7 +128,7 @@ export default function MemberProfileScreen() {
   const handleWhatsApp = () => {
     const cleanPhone = (member.whatsapp || member.phone).replace(/[^0-9]/g, '');
     const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-    Linking.openURL(`whatsapp://send?phone=${fullPhone}&text=আসসালামু আলাইকুম ${member.name} ভাই`);
+    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(`আসসালামু আলাইকুম ${member.name} ভাই`)}`);
   };
 
   const handleSMS = () => {
@@ -61,7 +142,7 @@ export default function MemberProfileScreen() {
       {/* App Bar */}
       <View style={styles.appBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/members')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -69,11 +150,8 @@ export default function MemberProfileScreen() {
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>{l('Member Profile', 'সদস্য প্রোফাইল')}</Text>
         <View style={styles.appBarRight}>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={openEditModal}>
             <Ionicons name="pencil-outline" size={20} color={colors.textMain} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.textMain} />
           </TouchableOpacity>
         </View>
       </View>
@@ -274,6 +352,30 @@ export default function MemberProfileScreen() {
           </View>
         </Card>
 
+        {/* Card: পোর্টাল লগইন ও নিরাপত্তা */}
+        <Card style={styles.card}>
+          <Text style={styles.cardTitle}>{l('Member Login & Security', 'পোর্টাল লগইন ও নিরাপত্তা')}</Text>
+          <View style={styles.securityRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.securityTitle}>{l('Login PIN Code', 'সদস্যের ৪ সংখ্যার পিন')}</Text>
+              <Text style={styles.securitySub}>
+                {l('Current PIN:', 'বর্তমান পিন:')} {customPins[member.id] || '1234'} · {l('Status: Active', 'স্ট্যাটাস: সক্রিয়')}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.resetPinBtn} onPress={handleResetPin}>
+              <Ionicons name="key-outline" size={16} color="#DC2626" />
+              <Text style={styles.resetPinText}>{l('Reset PIN (1234)', 'পিন রিসেট (১২৩৪)')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.whatsappSendBtn} onPress={handleSendWhatsAppLoginInfo}>
+            <Ionicons name="logo-whatsapp" size={18} color="#16A34A" />
+            <Text style={styles.whatsappSendText}>
+              {l('Send Login PIN via WhatsApp', 'হোয়াটসঅ্যাপে লগইন পিন পাঠান')}
+            </Text>
+          </TouchableOpacity>
+        </Card>
+
         {/* Card: পরবর্তী ফলো-আপ */}
         <Card style={styles.card}>
           <View style={styles.followupCardRow}>
@@ -282,7 +384,7 @@ export default function MemberProfileScreen() {
               <Text style={styles.followupHeader}>{l('Next Follow-up: 3 October', 'পরবর্তী ফলো-আপ: ৩ অক্টোবর')}</Text>
               <Text style={styles.followupText}>{l('28 Sep call: "Will pay at month start"', '২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"')}</Text>
             </View>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={openEditModal}>
               <Ionicons name="pencil-outline" size={18} color={colors.textMain} />
             </TouchableOpacity>
           </View>
@@ -291,7 +393,7 @@ export default function MemberProfileScreen() {
         {/* Bottom Full-Width Action Button */}
         <TouchableOpacity
           style={styles.bottomPayBtn}
-          onPress={() => router.push('/(admin)/deposit/new')}
+          onPress={() => router.push(`/(admin)/deposit/new?memberId=${member.id}`)}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
@@ -300,6 +402,68 @@ export default function MemberProfileScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* Edit Member Modal */}
+      <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{l('Edit Member Info', 'সদস্যের তথ্য সংশোধন')}</Text>
+          <TouchableOpacity onPress={() => setShowEditModal(false)}>
+            <Ionicons name="close" size={24} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.modalInputLabel}>{l('Member Name', 'সদস্যের পুরো নাম')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editName}
+          onChangeText={setEditName}
+          placeholder={l('Name', 'নাম')}
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Mobile Number', 'মোবাইল নম্বর')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editPhone}
+          onChangeText={(t) => setEditPhone(toEnglishDigits(t))}
+          keyboardType="phone-pad"
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Monthly Deposit Amount (৳)', 'মাসিক জমার পরিমাণ (৳)')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editMonthlyAmount}
+          onChangeText={(t) => setEditMonthlyAmount(toEnglishDigits(t))}
+          keyboardType="number-pad"
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Nominee Name', 'নমিনির নাম')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editNomineeName}
+          onChangeText={setEditNomineeName}
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Nominee Relationship', 'সম্পর্ক')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editNomineeRelation}
+          onChangeText={setEditNomineeRelation}
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Address', 'ঠিকানা')}</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={editAddress}
+          onChangeText={setEditAddress}
+        />
+
+        <Button
+          title={l('Save Changes', 'তথ্য সংরক্ষণ করুন')}
+          variant="primary"
+          onPress={handleSaveEdit}
+          style={{ marginTop: 16 }}
+        />
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -607,5 +771,82 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 15,
     color: '#FFFFFF',
+  },
+  securityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  securityTitle: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: colors.textMain,
+  },
+  securitySub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  resetPinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  resetPinText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 12,
+    color: '#DC2626',
+  },
+  whatsappSendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 6,
+  },
+  whatsappSendText: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: '#16A34A',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 16,
+    color: colors.textMain,
+  },
+  modalInputLabel: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 12,
+    color: colors.textMain,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    fontFamily: 'HindSiliguri-Regular',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.textMain,
+    backgroundColor: '#F8FAFC',
   },
 });

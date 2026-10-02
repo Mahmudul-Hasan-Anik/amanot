@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Share,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,14 @@ export default function ReceiptScreen() {
       : txn?.paymentMethod === 'bank'
       ? l('Bank Transfer', 'ব্যাংক ট্রান্সফার')
       : l('Cash', 'হাতে নগদ');
+
+  const handleWhatsApp = () => {
+    const rawPhone = member?.phone || '01712345678';
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+    const msg = `${l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit Amount:', 'জমার পরিমাণ:')} ${formatMoney(amount)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Current Balance:', 'মোট জমা স্থিতি:')} ${formatMoney(member?.totalDeposit || amount)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`;
+    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`);
+  };
 
   const handleShare = async () => {
     try {
@@ -128,6 +137,18 @@ export default function ReceiptScreen() {
 
         {/* Action Buttons */}
         <View style={styles.buttonsGroup}>
+          {/* WhatsApp Direct Send Button */}
+          <TouchableOpacity
+            style={styles.whatsAppBtn}
+            onPress={handleWhatsApp}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+            <Text style={styles.whatsAppBtnText}>
+              {l('Send Receipt via WhatsApp', 'হোয়াটসঅ্যাপে রসিদ পাঠান')}
+            </Text>
+          </TouchableOpacity>
+
           {/* Share Button (white pill with dark teal border) */}
           <TouchableOpacity
             style={styles.shareBtn}
@@ -283,6 +304,20 @@ const styles = StyleSheet.create({
   },
   buttonsGroup: {
     gap: 12,
+  },
+  whatsAppBtn: {
+    backgroundColor: '#16A34A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  whatsAppBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 15,
+    color: '#FFFFFF',
   },
   shareBtn: {
     flexDirection: 'row',

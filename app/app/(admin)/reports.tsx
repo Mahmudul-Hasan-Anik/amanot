@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
+import { AppModal } from '../../src/components/AppModal';
 
 interface ReportRow {
   id: string;
@@ -29,6 +31,7 @@ export default function ReportsScreen() {
 
   const [autoSummaryCommittee, setAutoSummaryCommittee] = useState(true);
   const [autoMemberBalance, setAutoMemberBalance] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
 
   const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0), [members]);
 
@@ -97,7 +100,7 @@ export default function ReportsScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -122,14 +125,20 @@ export default function ReportsScreen() {
         <View style={styles.reportsList}>
           {reportsData.map((item) => (
             <View key={item.id} style={styles.reportCard}>
-              <View style={styles.reportIconBox}>
-                <Ionicons name={item.icon} size={20} color="#0F766E" />
-              </View>
+              <TouchableOpacity
+                style={styles.reportInfoTouchable}
+                onPress={() => setSelectedReport(item)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.reportIconBox}>
+                  <Ionicons name={item.icon} size={20} color="#0F766E" />
+                </View>
 
-              <View style={styles.reportInfo}>
-                <Text style={styles.reportTitle}>{item.title}</Text>
-                <Text style={styles.reportSub}>{item.sub}</Text>
-              </View>
+                <View style={styles.reportInfo}>
+                  <Text style={styles.reportTitle}>{item.title}</Text>
+                  <Text style={styles.reportSub}>{item.sub}</Text>
+                </View>
+              </TouchableOpacity>
 
               <View style={styles.buttonsRow}>
                 <TouchableOpacity
@@ -198,6 +207,69 @@ export default function ReportsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Report Preview Modal */}
+      <AppModal
+        visible={!!selectedReport}
+        onClose={() => setSelectedReport(null)}
+        title={selectedReport?.title}
+      >
+        <View style={styles.previewModalBox}>
+          <View style={styles.previewHeaderRow}>
+            <View style={styles.previewIconBox}>
+              {selectedReport && <Ionicons name={selectedReport.icon} size={24} color="#0F766E" />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.previewModalTitle}>{selectedReport?.title}</Text>
+              <Text style={styles.previewModalSub}>{somitiInfo.name} · {somitiInfo.regNo}</Text>
+            </View>
+          </View>
+
+          <View style={styles.previewDivider} />
+
+          <View style={styles.previewMetaBox}>
+            <Text style={styles.previewMetaTitle}>{l('Reporting Period:', 'প্রতিবেদন সময়কাল:')} ১ – ৩১ অক্টোবর ২০২৬</Text>
+            <Text style={styles.previewMetaDesc}>{selectedReport?.sub}</Text>
+          </View>
+
+          <View style={styles.previewStatsGrid}>
+            <View style={styles.previewStatItem}>
+              <Text style={styles.previewStatLabel}>{l('Total Members', 'মোট সদস্য')}</Text>
+              <Text style={styles.previewStatVal}>{formatNum(members.length)} {l('persons', 'জন')}</Text>
+            </View>
+            <View style={styles.previewStatItem}>
+              <Text style={styles.previewStatLabel}>{l('Total Fund', 'মোট তহবিল')}</Text>
+              <Text style={styles.previewStatVal}>{formatMoney(somitiInfo.totalFund)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.previewActionsRow}>
+            <TouchableOpacity
+              style={styles.previewDownloadBtn}
+              onPress={() => {
+                if (selectedReport) handleDownload(selectedReport.title, 'PDF');
+                setSelectedReport(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="document-text-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.previewDownloadBtnText}>PDF {l('Download', 'ডাউনলোড')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.previewExcelBtn}
+              onPress={() => {
+                if (selectedReport) handleDownload(selectedReport.title, 'Excel');
+                setSelectedReport(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="grid-outline" size={16} color="#0F766E" />
+              <Text style={styles.previewExcelBtnText}>Excel {l('Export', 'এক্সপোর্ট')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -359,5 +431,120 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 14,
     color: '#1E293B',
+  },
+  reportInfoTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewModalBox: {
+    paddingVertical: 4,
+  },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  previewIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#CCFBF1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewModalTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 16,
+    color: '#1E293B',
+  },
+  previewModalSub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  previewDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 12,
+  },
+  previewMetaBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  previewMetaTitle: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: '#0F766E',
+    marginBottom: 2,
+  },
+  previewMetaDesc: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  previewStatsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  previewStatItem: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  previewStatLabel: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  previewStatVal: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 15,
+    color: '#1E293B',
+  },
+  previewActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  previewDownloadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  previewDownloadBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  previewExcelBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#0F766E',
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  previewExcelBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 13,
+    color: '#0F766E',
   },
 });

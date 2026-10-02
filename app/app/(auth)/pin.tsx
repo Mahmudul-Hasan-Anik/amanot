@@ -29,7 +29,12 @@ export default function PinScreen() {
         setTimeout(() => {
           const success = verifyPin(nextPin.join(''));
           if (success) {
-            router.replace('/(admin)/(tabs)');
+            const role = useAuthStore.getState().userRole;
+            if (role === 'member') {
+              router.replace('/(member)');
+            } else {
+              router.replace('/(admin)/(tabs)');
+            }
           } else {
             Alert.alert(
               l('Incorrect PIN', 'ভুল পিন'),
@@ -50,7 +55,12 @@ export default function PinScreen() {
 
   const handleBiometricAuth = () => {
     verifyPin('1234');
-    router.replace('/(admin)/(tabs)');
+    const role = useAuthStore.getState().userRole;
+    if (role === 'member') {
+      router.replace('/(member)');
+    } else {
+      router.replace('/(admin)/(tabs)');
+    }
   };
 
   const handleForgotPin = () => {

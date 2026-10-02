@@ -9,12 +9,16 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { safeBack } from '../../../src/utils/navigation';
+import { AppModal } from '../../../src/components/AppModal';
+import { toEnglishDigits } from '../../../src/lib/bengali';
 
 export default function NewMemberScreen() {
   const router = useRouter();
@@ -22,9 +26,11 @@ export default function NewMemberScreen() {
   const { addMember, members } = useSomitiStore();
 
   const nextCodeNum = members.length + 1;
-  const memberCode = `SM-${nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`}`;
+  const autoMemberCode = `SM-${nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`}`;
 
-  // Form states matching Page 6 - English ASCII numbers
+  // Form states matching Page 18 - English ASCII numbers
+  const [memberCode, setMemberCode] = useState(autoMemberCode);
+  const [pin, setPin] = useState('1234');
   const [name, setName] = useState('');
   const [nid, setNid] = useState('');
   const [dob, setDob] = useState('');
@@ -38,6 +44,10 @@ export default function NewMemberScreen() {
   const [monthlyAmount, setMonthlyAmount] = useState('2000');
   const [admissionFee, setAdmissionFee] = useState('500');
 
+  // Success modal
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdMember, setCreatedMember] = useState<any>(null);
+
   const handleSubmit = () => {
     if (!name.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member full name', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন'));
@@ -48,12 +58,16 @@ export default function NewMemberScreen() {
       return;
     }
 
-    const cleanMonthly = Number(monthlyAmount.replace(/[^\d]/g, '')) || 2000;
-    const cleanFee = Number(admissionFee.replace(/[^\d]/g, '')) || 500;
+    const cleanMonthly = Number(toEnglishDigits(monthlyAmount).replace(/[^\d]/g, '')) || 2000;
+    const cleanFee = Number(toEnglishDigits(admissionFee).replace(/[^\d]/g, '')) || 500;
+    const cleanCode = memberCode.trim() || autoMemberCode;
+    const cleanPin = toEnglishDigits(pin).trim() || '1234';
 
     const newMember = addMember({
       name: name.trim(),
       phone: phone.trim(),
+      code: cleanCode,
+      initialPin: cleanPin,
       nid: nid.trim(),
       address: address.trim() || (l('Address not provided', 'ঠিকানা দেওয়া হয়নি')),
       nomineeName: nomineeName.trim() || (l('Nominee not provided', 'নমিনি দেওয়া হয়নি')),
@@ -63,11 +77,8 @@ export default function NewMemberScreen() {
       admissionFee: cleanFee,
     });
 
-    Alert.alert(
-      l('Member Added Successfully', 'সদস্য যোগ সফল'),
-      `${l('Member', 'সদস্য')} ${newMember.name} (${newMember.code}) ${l('has been added successfully!', 'সফলভাবে যুক্ত হয়েছেন!')}`,
-      [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/(tabs)/members') }]
-    );
+    setCreatedMember(newMember);
+    setShowSuccessModal(true);
   };
 
   return (
@@ -77,7 +88,7 @@ export default function NewMemberScreen() {
       {/* App Bar */}
       <View style={styles.appBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/members')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -118,11 +129,29 @@ export default function NewMemberScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Member ID', 'সদস্য আইডি')}</Text>
-          <View style={styles.codeBox}>
-            <Text style={styles.codeText}>{memberCode}</Text>
-          </View>
-          <Text style={styles.hintText}>{l('Auto-generated', 'স্বয়ংক্রিয়ভাবে তৈরি')}</Text>
+          <Text style={styles.inputLabel}>{l('Member ID (Auto / Editable)', 'সদস্য আইডি (স্বয়ংক্রিয় / সম্পাদনযোগ্য)')}</Text>
+          <TextInput
+            style={styles.input}
+            value={memberCode}
+            onChangeText={setMemberCode}
+            placeholder={autoMemberCode}
+            placeholderTextColor={colors.textMuted}
+          />
+          <Text style={styles.hintText}>{l('Auto-generated, editable for old ledger/records', 'স্বয়ংক্রিয়ভাবে তৈরি, পূর্বের খাতার নম্বর থাকলে এডিট করুন')}</Text>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>{l('Initial Portal PIN (4 Digits) *', 'সদস্য পোর্টাল পিন (৪ সংখ্যা) *')}</Text>
+          <TextInput
+            style={styles.input}
+            value={pin}
+            onChangeText={(t) => setPin(toEnglishDigits(t))}
+            keyboardType="number-pad"
+            maxLength={4}
+            placeholder="1234"
+            placeholderTextColor={colors.textMuted}
+          />
+          <Text style={styles.hintText}>{l('Member will use this PIN to log in. Default: 1234', 'সদস্য এই পিন দিয়ে লগইন করবেন। ডিফল্ট: ১২৩৪')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
@@ -295,6 +324,58 @@ export default function NewMemberScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Success & WhatsApp Share Modal */}
+      <AppModal
+        visible={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          router.replace('/(admin)/(tabs)/members');
+        }}
+      >
+        <View style={styles.successModalHeader}>
+          <View style={styles.successIconCircle}>
+            <Ionicons name="checkmark-circle" size={40} color="#16A34A" />
+          </View>
+          <Text style={styles.successModalTitle}>
+            {l('Member Added Successfully!', 'সদস্য যোগ সফল হয়েছে!')}
+          </Text>
+          <Text style={styles.successModalSub}>
+            {createdMember?.name} ({createdMember?.code})
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.whatsappSendModalBtn}
+          onPress={() => {
+            if (createdMember) {
+              const cleanPhone = createdMember.phone.replace(/[^0-9]/g, '');
+              const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+              const text = `আসসালামু আলাইকুম ${createdMember.name}।\nআমানত সমিতিতে আপনাকে স্বাগতম।\n\nআপনার সদস্য আইডি: ${createdMember.code}\nমোবাইল নম্বর: ${createdMember.phone}\nলগইন পিন: ${pin}\n\nআপনার অ্যাপে লগইন করে নিজের সঞ্চয় ও রসিদ দেখতে পারবেন।`;
+              Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
+            }
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+          <Text style={styles.whatsappSendModalBtnText}>
+            {l('Send Login PIN via WhatsApp', 'হোয়াটসঅ্যাপে লগইন তথ্য পাঠান')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.doneModalBtn}
+          onPress={() => {
+            setShowSuccessModal(false);
+            router.replace('/(admin)/(tabs)/members');
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.doneModalBtnText}>
+            {l('Go to Member Directory', 'সদস্য তালিকায় যান')}
+          </Text>
+        </TouchableOpacity>
+      </AppModal>
     </SafeAreaView>
   );
 }
@@ -511,5 +592,57 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 15,
     color: '#FFFFFF',
+  },
+  successModalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  successModalTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 18,
+    color: colors.textMain,
+    textAlign: 'center',
+  },
+  successModalSub: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  whatsappSendModalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16A34A',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+    marginTop: 8,
+  },
+  whatsappSendModalBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  doneModalBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  doneModalBtnText: {
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

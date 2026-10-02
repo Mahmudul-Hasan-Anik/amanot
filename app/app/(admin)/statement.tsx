@@ -9,18 +9,21 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  Modal,
   FlatList,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
+import { AppModal } from '../../src/components/AppModal';
+import { toEnglishDigits, toBengaliDigits } from '../../src/lib/bengali';
 
 export default function StatementScreen() {
   const router = useRouter();
   const { l, formatMoney, formatNum } = useLanguage();
-  const { members } = useSomitiStore();
+  const { members, somitiInfo } = useSomitiStore();
 
   const [target, setTarget] = useState<'all' | 'due' | 'single'>('all');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(members[0]?.id || '1');
@@ -51,6 +54,25 @@ export default function StatementScreen() {
       return;
     }
 
+    if (whatsapp && target === 'single' && selectedMember) {
+      const phoneDigits = toEnglishDigits((selectedMember.whatsapp || selectedMember.phone || '').replace(/[^\d]/g, ''));
+      const fullPhone = phoneDigits.startsWith('88') ? phoneDigits : (phoneDigits.startsWith('0') ? `88${phoneDigits}` : `880${phoneDigits}`);
+      const msg = `*${somitiInfo.name}*\n` +
+        `👤 সদস্য: ${selectedMember.name} (${selectedMember.code})\n` +
+        `📅 হিসাব সময়কাল: জানুয়ারি – অক্টোবর ২০২৬\n\n` +
+        `💰 মোট সঞ্চয় জমা: ৳${toBengaliDigits(selectedMember.totalDeposit)}\n` +
+        `⚠️ বর্তমান বকেয়া: ৳${toBengaliDigits(selectedMember.dueAmount)}\n` +
+        `📈 প্রাক্কলিত মুনাফা অংশ: ৳${toBengaliDigits(selectedMember.estimatedProfit2026 || 5786)}\n\n` +
+        `নিয়মিত সঞ্চয় জমা দিয়ে সমিতির সার্বিক উন্নয়নে অংশ নিন।\n` +
+        `জরুরি প্রয়োজনে যোগাযোগ: ${somitiInfo.phone}`;
+
+      const url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`;
+      Linking.openURL(url).catch(() => {
+        Alert.alert(l('Error', 'ত্রুটি'), l('Could not open WhatsApp.', 'হোয়াটসঅ্যাপ খোলা যায়নি।'));
+      });
+      return;
+    }
+
     const targetDesc = target === 'single' ? selectedMember?.name : `${formatNum(recipientCount)} ${l('Members', 'জন সদস্য')}`;
 
     Alert.alert(
@@ -66,7 +88,7 @@ export default function StatementScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -292,37 +314,39 @@ export default function StatementScreen() {
       </View>
 
       {/* Member Picker Modal */}
-      <Modal visible={showMemberPicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
-              <TouchableOpacity onPress={() => setShowMemberPicker(false)}>
-                <Ionicons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={members}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.pickerItem,
-                    selectedMemberId === item.id && styles.pickerItemActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedMemberId(item.id);
-                    setShowMemberPicker(false);
-                  }}
-                >
-                  <Text style={styles.pickerItemName}>{item.name}</Text>
-                  <Text style={styles.pickerItemCode}>{item.code} · {formatMoney(item.totalDeposit)}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+      <AppModal
+        visible={showMemberPicker}
+        onClose={() => setShowMemberPicker(false)}
+        title={l('Select Member', 'সদস্য নির্বাচন করুন')}
+        contentContainerStyle={{ maxHeight: '80%' }}
+      >
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
+          <TouchableOpacity onPress={() => setShowMemberPicker(false)}>
+            <Ionicons name="close" size={24} color="#64748B" />
+          </TouchableOpacity>
         </View>
-      </Modal>
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item.id}
+          style={{ maxHeight: 360 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.pickerItem,
+                selectedMemberId === item.id && styles.pickerItemActive,
+              ]}
+              onPress={() => {
+                setSelectedMemberId(item.id);
+                setShowMemberPicker(false);
+              }}
+            >
+              <Text style={styles.pickerItemName}>{item.name}</Text>
+              <Text style={styles.pickerItemCode}>{item.code} · {formatMoney(item.totalDeposit)}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </AppModal>
     </SafeAreaView>
   );
 }
