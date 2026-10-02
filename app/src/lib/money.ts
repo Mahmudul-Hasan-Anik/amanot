@@ -64,3 +64,33 @@ export function formatBengaliLakh(amount: number): string {
   const trimmed = inLakhs.endsWith('.0') ? inLakhs.slice(0, -2) : inLakhs;
   return `৳${toBengaliDigits(trimmed)}ল`;
 }
+
+/**
+ * Normalizes a Bangladeshi mobile number:
+ * - Converts Bengali digits to English digits
+ * - Strips non-digit characters
+ * - Strips leading country code '880'
+ * - Strips leading '0'
+ * Returns the 10-digit number (e.g. '1712345678')
+ */
+export function normalizeMobileNumber(input: string): string {
+  if (!input) return '';
+  const english = toEnglishDigits(input);
+  let digits = english.replace(/\D/g, '');
+  if (digits.startsWith('880')) {
+    digits = digits.slice(3);
+  }
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  return digits.slice(0, 10);
+}
+
+/**
+ * Checks if a mobile number is valid (exactly 10 digits starting with 1, e.g. 1712345678)
+ */
+export function isValidMobileNumber(input: string): boolean {
+  const normalized = normalizeMobileNumber(input);
+  return normalized.length === 10 && normalized.startsWith('1');
+}
+

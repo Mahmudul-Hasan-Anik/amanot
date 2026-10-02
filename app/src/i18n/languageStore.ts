@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -28,8 +28,8 @@ export interface LanguageState {
 export const useLanguageStore = create<LanguageState>()(
   persist(
     (set) => ({
-      language: 'en',
-      useBengaliDigits: false,
+      language: 'bn',
+      useBengaliDigits: true,
       dueDateDay: 10,
       gracePeriodDays: 5,
       defaultMonthlyDeposit: 2000,

@@ -1,5 +1,5 @@
 import { useLanguageStore } from './languageStore';
-import { toBengaliDigits } from '../lib/bengali';
+import { toBengaliDigits, formatSouthAsianNumber, formatBengaliLakh } from '../lib/money';
 
 export function useLanguage() {
   const store = useLanguageStore();
@@ -13,13 +13,21 @@ export function useLanguage() {
 
   const formatMoney = (amount: number, options?: { showPlusSign?: boolean }): string => {
     const safeAmount = isNaN(amount) ? 0 : amount;
-    const formatted = Math.abs(safeAmount).toLocaleString('en-US');
+    const formatted = formatSouthAsianNumber(Math.abs(safeAmount));
     const prefix = options?.showPlusSign && safeAmount > 0 ? '+' : safeAmount < 0 ? '−' : '';
     const digitString = (store.useBengaliDigits || isBengali) ? toBengaliDigits(formatted) : formatted;
     return `${prefix}৳${digitString}`;
   };
 
+  const formatLakh = (amount: number): string => {
+    return formatBengaliLakh(amount);
+  };
+
   const formatNum = (num: number | string): string => {
+    if (typeof num === 'number' && !isNaN(num) && Math.abs(num) >= 1000) {
+      const formatted = formatSouthAsianNumber(num);
+      return (store.useBengaliDigits || isBengali) ? toBengaliDigits(formatted) : formatted;
+    }
     if (store.useBengaliDigits || isBengali) {
       return toBengaliDigits(num);
     }
@@ -33,6 +41,7 @@ export function useLanguage() {
     useBengaliDigits: store.useBengaliDigits,
     l,
     formatMoney,
+    formatLakh,
     formatNum,
     setLanguage: store.setLanguage,
     toggleLanguage: store.toggleLanguage,

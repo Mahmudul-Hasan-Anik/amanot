@@ -70,20 +70,20 @@ export interface CashAccount {
 }
 
 export const mockSomitiInfo = {
-  name: 'উত্তরা মডেল সমবায় সমিতি',
-  nameEn: 'Uttara Model Samity',
+  name: 'আমানত সমিতি',
+  nameEn: 'Amanot Somiti',
   tagline: 'সমিতির সব হিসাব, এক জায়গায়',
   regNo: '১২৮৯/২০২২',
   establishedYear: '২০২২',
-  address: 'বাড়ি ১২, রোড ৪, সেক্টর ৯, উত্তরা, ঢাকা',
-  phone: '০১৭১১-২২৩৩৪৪',
+  address: 'উত্তরা, ঢাকা',
+  phone: '০১৭১২-৩৪৫৬৭৮',
   email: 'info@amanot.org',
   authority: 'উপজেলা সমবায় কার্যালয়, উত্তরা',
   committeeTenure: '২০২৫–২০২৭',
   bankName: 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)',
   bankAccountNo: '2050-1402-1028-900',
-  bkashNo: '01711-223344',
-  nagadNo: '01811-223344',
+  bkashNo: '০১৭১২-৩৪৫৬৭৮',
+  nagadNo: '০১৮১২-৩৪৫৬৭৮',
   totalMembersCount: 100,
   activeMembersCount: 96,
   dueMembersCount: 22,
@@ -112,7 +112,7 @@ export const mockSomitiInfo = {
   monthlyExpense: 12800,
   monthlyNet: 169600,
   yearlyProjectProfit: 312000,
-  expenseApprovalLimit: 5000,
+  expenseApprovalLimit: 10000,
 };
 
 export const mockMembers: Member[] = [

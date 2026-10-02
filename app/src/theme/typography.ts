@@ -7,6 +7,13 @@ export const typography = {
     semiBold: 'HindSiliguri-SemiBold',
     bold: 'HindSiliguri-Bold',
   },
+  // Canonical Display Amount token for all large ৳ totals (Home hero, Member total, Deposit, etc.)
+  displayAmount: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+  } as TextStyle,
   size: {
     xs: 11,
     sm: 13,
@@ -23,7 +30,7 @@ export const typography = {
     lg: 24,
     xl: 28,
     xxl: 32,
-    hero: 40,
+    hero: 38,
   }
 };
 
