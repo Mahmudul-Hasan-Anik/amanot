@@ -8,15 +8,56 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '../../src/features/auth/authStore';
+import { useSomitiStore } from '../../src/store/somitiStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { logout } = useAuthStore();
+  const { resetAllData } = useSomitiStore();
 
   const [autoReminder, setAutoReminder] = useState(true);
   const [bengaliDigits, setBengaliDigits] = useState(true);
+
+  const handleResetData = () => {
+    Alert.alert(
+      'ডেটা রিসেট নিশ্চিতকরণ',
+      'আপনি কি সকল তথ্য পুনরায় প্রাথমিক অবস্থায় ফিরিয়ে নিতে চান?',
+      [
+        { text: 'বাতিল', style: 'cancel' },
+        {
+          text: 'হ্যাঁ, রিসেট করুন',
+          style: 'destructive',
+          onPress: () => {
+            resetAllData();
+            Alert.alert('সফল', 'অ্যাপের সকল ডেমো তথ্য সফলভাবে রিসেট হয়েছে।');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'লগআউট নিশ্চিতকরণ',
+      'আপনি কি আমানত অ্যাপ থেকে লগআউট করতে চান?',
+      [
+        { text: 'বাতিল', style: 'cancel' },
+        {
+          text: 'লগআউট',
+          style: 'destructive',
+          onPress: () => {
+            logout();
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -138,62 +179,18 @@ export default function SettingsScreen() {
               <Ionicons name="lock-closed" size={14} color="#64748B" />
             </View>
           </View>
-
-          <View style={styles.divider} />
-
-          {/* Row 5 */}
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>পরিচালক অংশের সর্বোচ্চ সীমা</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>২০%</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Row 6 */}
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>ক্ষতি হলে</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>সদস্যদের জমা থেকে</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </View>
-          </TouchableOpacity>
         </View>
 
-        {/* Notice Box */}
+        {/* Notice Info Box */}
         <View style={styles.noticeBox}>
           <Ionicons name="information-circle-outline" size={18} color="#475569" style={styles.noticeIcon} />
           <Text style={styles.noticeText}>
-            বছরের মাঝে শতাংশ পরিবর্তন করতে সভাপতি ও আরও একজন কমিটি সদস্যের অনুমোদন লাগবে।
+            রিজার্ভ ও পরিচালক শতকরা হার পরিবর্তনের জন্য সাধারণ সভার সিদ্ধান্ত প্রয়োজন।
           </Text>
         </View>
 
-        {/* Section 3: অনুমোদন */}
-        <Text style={styles.sectionTitle}>অনুমোদন</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>ব্যয় অনুমোদনের সীমা</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>৳১০,০০০</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>নতুন বিনিয়োগ</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>সবসময় অনুমোদন</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Section 4: যোগাযোগ */}
-        <Text style={styles.sectionTitle}>যোগাযোগ</Text>
+        {/* Section 3: নোটিফিকেশন ও রিমাইন্ডার */}
+        <Text style={styles.sectionTitle}>নোটিফিকেশন ও বার্তা</Text>
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
@@ -213,53 +210,39 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.row} activeOpacity={0.7}>
             <Text style={styles.rowTitle}>বার্তার টেমপ্লেট</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>৬টি</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>এসএমএস গেটওয়ে</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>সংযুক্ত</Text>
+              <Text style={styles.valText}>৬টি টেমপ্লেট</Text>
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Section 5: অ্যাপ */}
-        <Text style={styles.sectionTitle}>অ্যাপ</Text>
+        {/* Section 4: সিস্টেম ও সেশন */}
+        <Text style={styles.sectionTitle}>সিস্টেম ও সেশন</Text>
         <View style={styles.card}>
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>ভাষা</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>বাংলা</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleResetData}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={[styles.rowTitle, { color: '#D97706' }]}>ডেমো ডেটা রিসেট করুন</Text>
+              <Text style={styles.rowSub}>নতুন করে প্রাথমিক ডেটা লোড হবে</Text>
             </View>
+            <Ionicons name="refresh-outline" size={20} color="#D97706" />
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
-          <View style={styles.row}>
-            <Text style={styles.rowTitle}>বাংলা সংখ্যা</Text>
-            <Switch
-              value={bengaliDigits}
-              onValueChange={setBengaliDigits}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>ব্যাকআপ</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>প্রতিদিন · আজ ২:০০</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <Text style={[styles.rowTitle, { color: '#DC2626' }]}>লগআউট</Text>
+              <Text style={styles.rowSub}>বর্তমান অ্যাকাউন্ট সেশন সমাপ্ত করুন</Text>
             </View>
+            <Ionicons name="log-out-outline" size={20} color="#DC2626" />
           </TouchableOpacity>
         </View>
 

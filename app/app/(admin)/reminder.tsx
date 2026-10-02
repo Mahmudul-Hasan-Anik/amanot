@@ -12,20 +12,25 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { toBengaliDigits } from '../../src/lib/money';
 
 export default function ReminderScreen() {
   const router = useRouter();
+  const { members, somitiInfo } = useSomitiStore();
+
+  const dueMembers = members.filter((m) => m.status === 'due' || m.status === 'partial');
 
   const [pushSelected, setPushSelected] = useState(true);
   const [whatsappSelected, setWhatsappSelected] = useState(true);
   const [smsSelected, setSmsSelected] = useState(false);
 
   const [message, setMessage] = useState(
-    'আসসালামু আলাইকুম {নাম}, আপনার {বকেয়া_মাস} মাসের জমা {বকেয়া_টাকা} টাকা এখনো বাকি আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]'
+    `আসসালামু আলাইকুম {নাম}, আপনার বকেয়া কিস্তি জমা দেওয়া হয়নি। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: ${somitiInfo.phone}। ধন্যবাদ, ${somitiInfo.name}`
   );
 
   const handleSend = () => {
-    Alert.alert('সফল', '৫ জনকে রিমাইন্ডার পাঠানো হয়েছে!', [
+    Alert.alert('সফল', `${toBengaliDigits(dueMembers.length || 5)} জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!`, [
       { text: 'ঠিক আছে', onPress: () => router.back() },
     ]);
   };

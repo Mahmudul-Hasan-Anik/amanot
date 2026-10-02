@@ -7,100 +7,57 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../src/theme/colors';
+import { useSomitiStore } from '../../../src/store/somitiStore';
+import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
 
 type FilterType = 'all' | 'paid' | 'due';
 
-interface CollectionMember {
-  id: string;
-  name: string;
-  initial: string;
-  avatarBg: string;
-  avatarColor: string;
-  subtitle: string;
-  isPaid: boolean;
-}
-
-const COLLECTION_MEMBERS: CollectionMember[] = [
-  {
-    id: '1',
-    name: 'আনোয়ার হোসেন',
-    initial: 'আ',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    subtitle: '৳৩,০০০ · ৫ সেপ্টে · ব্যাংক',
-    isPaid: true,
-  },
-  {
-    id: '2',
-    name: 'করিম উদ্দিন',
-    initial: 'ক',
-    avatarBg: '#CCFBF1',
-    avatarColor: '#0F766E',
-    subtitle: '৳২,০০০ + আগস্ট বকেয়া',
-    isPaid: false,
-  },
-  {
-    id: '3',
-    name: 'জাহিদ হাসান',
-    initial: 'জ',
-    avatarBg: '#DCFCE7',
-    avatarColor: '#16A34A',
-    subtitle: '৳২,৫০০ · ৩ সেপ্টে · বিকাশ',
-    isPaid: true,
-  },
-  {
-    id: '4',
-    name: 'নাসরিন আক্তার',
-    initial: 'ন',
-    avatarBg: '#FEF3C7',
-    avatarColor: '#D97706',
-    subtitle: '৳৫০০ জমা · ৳১,০০০ বাকি',
-    isPaid: false,
-  },
-  {
-    id: '5',
-    name: 'মাহমুদা খাতুন',
-    initial: 'ম',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    subtitle: '৳২,০০০ · ২ সেপ্টে · হাতে নগদ',
-    isPaid: true,
-  },
-  {
-    id: '6',
-    name: 'রফিকুল ইসলাম',
-    initial: 'র',
-    avatarBg: '#FEE2E2',
-    avatarColor: '#DC2626',
-    subtitle: 'জুলাই থেকে বকেয়া',
-    isPaid: false,
-  },
-  {
-    id: '7',
-    name: 'শাহানা পারভীন',
-    initial: 'শ',
-    avatarBg: '#EDE9FE',
-    avatarColor: '#7C3AED',
-    subtitle: '৳১,০০০ · ৯ সেপ্টে · নগদ',
-    isPaid: true,
-  },
+const AVATAR_COLORS = [
+  { bg: '#E0F2FE', text: '#0284C7' },
+  { bg: '#CCFBF1', text: '#0F766E' },
+  { bg: '#DCFCE7', text: '#16A34A' },
+  { bg: '#FEF3C7', text: '#D97706' },
+  { bg: '#EDE9FE', text: '#7C3AED' },
+  { bg: '#FEE2E2', text: '#DC2626' },
 ];
 
 export default function CollectionScreen() {
   const router = useRouter();
+  const { members, somitiInfo } = useSomitiStore();
+
   const [filter, setFilter] = useState<FilterType>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
+  // Dynamic counts
+  const paidMembers = useMemo(() => members.filter((m) => m.dueAmount === 0 || m.status === 'paid'), [members]);
+  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0 || m.status === 'due'), [members]);
+  const partialMembers = useMemo(() => members.filter((m) => m.status === 'partial'), [members]);
+
+  const target = somitiInfo.monthlyTarget || 210000;
+  const collected = somitiInfo.monthlyCollected || 0;
+  const percent = Math.min(100, Math.round((collected / (target || 1)) * 100));
 
   const filteredMembers = useMemo(() => {
-    return COLLECTION_MEMBERS.filter((m) => {
-      if (filter === 'paid') return m.isPaid;
-      if (filter === 'due') return !m.isPaid;
+    return members.filter((m) => {
+      const isPaid = m.dueAmount === 0 || m.status === 'paid';
+      if (filter === 'paid' && !isPaid) return false;
+      if (filter === 'due' && isPaid) return false;
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchesName = m.name.toLowerCase().includes(query);
+        const matchesCode = m.code.toLowerCase().includes(query);
+        const matchesPhone = m.phone.includes(query);
+        return matchesName || matchesCode || matchesPhone;
+      }
       return true;
     });
-  }, [filter]);
+  }, [members, filter, searchQuery]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,18 +67,46 @@ export default function CollectionScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>মাসিক আদায়</Text>
-          <Text style={styles.headerSubtitle}>সেপ্টেম্বর ২০২৬</Text>
+          <Text style={styles.headerSubtitle}>অক্টোবর ২০২৬</Text>
         </View>
 
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setShowSearch(!showSearch)}
+            activeOpacity={0.7}
+          >
             <Ionicons name="search" size={20} color="#1E293B" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#1E293B" />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push('/(admin)/reminder')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="megaphone-outline" size={20} color="#1E293B" />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Search Bar Toggle */}
+      {showSearch && (
+        <View style={styles.searchBarContainer}>
+          <Ionicons name="search" size={18} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="সদস্যের নাম বা কোড দিয়ে খুঁজুন..."
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -130,24 +115,24 @@ export default function CollectionScreen() {
         {/* Month Selector Pill */}
         <TouchableOpacity style={styles.monthPill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.monthPillText}>সেপ্টেম্বর ২০২৬</Text>
+          <Text style={styles.monthPillText}>অক্টোবর ২০২৬</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
         {/* Progress Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryTop}>
-            {/* 78% Circle Ring */}
+            {/* Dynamic % Circle Ring */}
             <View style={styles.ringOuter}>
               <View style={styles.ringInner}>
-                <Text style={styles.ringText}>৭৮%</Text>
+                <Text style={styles.ringText}>{toBengaliDigits(percent)}%</Text>
               </View>
             </View>
 
             <View style={styles.summaryRight}>
               <Text style={styles.summarySubLabel}>আদায় হয়েছে</Text>
-              <Text style={styles.summaryAmount}>৳১,৬৪,০০০</Text>
-              <Text style={styles.summaryTarget}>লক্ষ্য ৳২,১০,০০০</Text>
+              <Text style={styles.summaryAmount}>৳{formatBengaliMoney(collected)}</Text>
+              <Text style={styles.summaryTarget}>লক্ষ্য ৳{formatBengaliMoney(target)}</Text>
             </View>
           </View>
 
@@ -155,17 +140,17 @@ export default function CollectionScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCol}>
               <Text style={styles.statLabel}>জমা দিয়েছেন</Text>
-              <Text style={styles.statValDark}>৭৮ জন</Text>
+              <Text style={styles.statValDark}>{toBengaliDigits(paidMembers.length)} জন</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statLabel}>আংশিক</Text>
-              <Text style={styles.statValAmber}>৪ জন</Text>
+              <Text style={styles.statValAmber}>{toBengaliDigits(partialMembers.length)} জন</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statLabel}>বকেয়া</Text>
-              <Text style={styles.statValRed}>১৮ জন</Text>
+              <Text style={styles.statValRed}>{toBengaliDigits(dueMembers.length)} জন</Text>
             </View>
           </View>
         </View>
@@ -178,7 +163,7 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              সব
+              সব {toBengaliDigits(members.length)}
             </Text>
           </TouchableOpacity>
 
@@ -188,7 +173,7 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'paid' && styles.filterTextActive]}>
-              জমা ৭৮
+              জমা {toBengaliDigits(paidMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -198,49 +183,73 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'due' && styles.filterTextActive]}>
-              বকেয়া ২২
+              বকেয়া {toBengaliDigits(dueMembers.length)}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Members Collection List */}
         <View style={styles.membersCard}>
-          {filteredMembers.map((item, index) => (
-            <View
-              key={item.id}
-              style={[
-                styles.memberRow,
-                index < filteredMembers.length - 1 && styles.memberRowBorder,
-              ]}
-            >
-              <View
-                style={[styles.avatarCircle, { backgroundColor: item.avatarBg }]}
+          {filteredMembers.map((item, index) => {
+            const isPaid = item.dueAmount === 0 || item.status === 'paid';
+            const colorTheme = AVATAR_COLORS[index % AVATAR_COLORS.length];
+            const initial = item.name.trim().charAt(0) || 'স';
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.memberRow,
+                  index < filteredMembers.length - 1 && styles.memberRowBorder,
+                ]}
+                onPress={() => router.push(`/(admin)/member/${item.id}`)}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.avatarText, { color: item.avatarColor }]}>
-                  {item.initial}
-                </Text>
-              </View>
-
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{item.name}</Text>
-                <Text style={styles.memberSub}>{item.subtitle}</Text>
-              </View>
-
-              {item.isPaid ? (
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>জমা</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.payBtn}
-                  onPress={() => router.push('/(admin)/deposit/new')}
-                  activeOpacity={0.8}
+                <View
+                  style={[styles.avatarCircle, { backgroundColor: colorTheme.bg }]}
                 >
-                  <Text style={styles.payBtnText}>জমা নিন</Text>
-                </TouchableOpacity>
-              )}
+                  <Text style={[styles.avatarText, { color: colorTheme.text }]}>
+                    {initial}
+                  </Text>
+                </View>
+
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{item.name}</Text>
+                  <Text style={styles.memberSub}>
+                    {isPaid
+                      ? `৳${formatBengaliMoney(item.monthlyAmount)} · নিয়মিত`
+                      : `৳${formatBengaliMoney(item.dueAmount)} বাকি · ${toBengaliDigits(item.dueMonths || 1)} মাস`}
+                  </Text>
+                </View>
+
+                {isPaid ? (
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidBadgeText}>জমা</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      router.push(`/(admin)/deposit/new?memberId=${item.id}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.payBtnText}>জমা নিন</Text>
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+
+          {filteredMembers.length === 0 && (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Ionicons name="search-outline" size={32} color="#94A3B8" />
+              <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
+                কোনো সদস্য পাওয়া যায়নি
+              </Text>
             </View>
-          ))}
+          )}
         </View>
 
         {/* Reminder Card Button */}
@@ -250,7 +259,7 @@ export default function CollectionScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="megaphone-outline" size={18} color="#1E293B" />
-          <Text style={styles.reminderCardText}>বকেয়া সদস্যদের রিমাইন্ডার পাঠান</Text>
+          <Text style={styles.reminderCardText}>বকেয়া সদস্যদের রিমাইন্ডার পাঠান ({toBengaliDigits(dueMembers.length)} জন)</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
@@ -301,6 +310,26 @@ const styles = StyleSheet.create({
   iconBtn: {
     padding: 6,
   },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 14,
+    color: '#1E293B',
+    padding: 0,
+  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -348,11 +377,10 @@ const styles = StyleSheet.create({
     borderColor: '#134E4A',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#E6F4F1',
   },
   ringInner: {
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   ringText: {
     fontFamily: 'HindSiliguri-Bold',
@@ -364,14 +392,15 @@ const styles = StyleSheet.create({
   },
   summarySubLabel: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
+    marginBottom: 2,
   },
   summaryAmount: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 26,
-    color: '#134E4A',
-    lineHeight: 32,
+    fontSize: 24,
+    color: '#1E293B',
+    lineHeight: 30,
   },
   summaryTarget: {
     fontFamily: 'HindSiliguri-Regular',
@@ -382,69 +411,67 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
   },
   statCol: {
     flex: 1,
     alignItems: 'center',
+  },
+  statLabel: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  statValDark: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#1E293B',
+  },
+  statValAmber: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#D97706',
+  },
+  statValRed: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#DC2626',
   },
   statDivider: {
     width: 1,
     height: 24,
     backgroundColor: '#E2E8F0',
   },
-  statLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  statValDark: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  statValAmber: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#D97706',
-  },
-  statValRed: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#DC2626',
-  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   filterChip: {
-    paddingVertical: 6,
     paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#EAEBE6',
   },
   filterChipActive: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    backgroundColor: '#1E293B',
   },
   filterText: {
-    fontFamily: 'HindSiliguri-Medium',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 13,
-    color: '#475569',
+    color: '#64748B',
   },
   filterTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
-    color: '#1E293B',
+    color: '#FFFFFF',
   },
   membersCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -456,22 +483,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   memberRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
   },
   avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
+    fontSize: 15,
   },
   memberInfo: {
     flex: 1,
@@ -485,40 +513,39 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 12,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
   },
   paidBadge: {
-    backgroundColor: '#E2E8F0',
-    paddingVertical: 4,
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 14,
   },
   paidBadgeText: {
-    fontFamily: 'HindSiliguri-Medium',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 12,
-    color: '#475569',
+    color: '#16A34A',
   },
   payBtn: {
-    backgroundColor: '#CCFBF1',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    backgroundColor: '#134E4A',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 14,
   },
   payBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 12,
-    color: '#0F766E',
+    color: '#FFFFFF',
   },
   reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 24,
-    paddingVertical: 12,
+    backgroundColor: '#EAEBE6',
+    borderRadius: 14,
+    paddingVertical: 14,
     gap: 8,
+    marginBottom: 16,
   },
   reminderCardText: {
     fontFamily: 'HindSiliguri-SemiBold',
@@ -528,23 +555,23 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: 24,
-    right: 18,
-    backgroundColor: '#134E4A',
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 26,
-    gap: 6,
+    backgroundColor: '#134E4A',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
+    gap: 6,
   },
   fabText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontSize: 15,
     color: '#FFFFFF',
   },
 });

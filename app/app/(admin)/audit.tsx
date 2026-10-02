@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { formatBengaliMoney } from '../../src/lib/money';
 
 interface AuditItem {
   id: string;
@@ -19,59 +22,71 @@ interface AuditItem {
   category: 'financial' | 'member' | 'settings';
 }
 
-const AUDIT_LOGS: AuditItem[] = [
-  {
-    id: '1',
-    header: 'আজ ১১:৪২ · মাহমুদা খাতুন',
-    title: 'জমা এন্ট্রি: করিম উদ্দিন ৳৪,১০০',
-    sub: 'রসিদ #১০৮৮ · Android · Samsung A34',
-    category: 'financial',
-  },
-  {
-    id: '2',
-    header: 'আজ ১০:২০ · মাহমুদা খাতুন',
-    title: 'ব্যয় এন্ট্রি: সভার আপ্যায়ন ৳১২,৫০০',
-    sub: 'অনুমোদনের অপেক্ষায়',
-    category: 'financial',
-  },
-  {
-    id: '3',
-    header: 'গতকাল ৬:১৫ · জাহিদ হাসান',
-    title: 'সংশোধন অনুরোধ: রসিদ #১০৭১',
-    sub: '৳২,০০০ → ৳১,৫০০ · কারণ: ভুল পরিমাণ',
-    category: 'financial',
-  },
-  {
-    id: '4',
-    header: '২৮ সেপ্টে · আনোয়ার হোসেন',
-    title: 'সেটিংস: ব্যয় অনুমোদন সীমা',
-    sub: '৳৫,০০০ → ৳১০,০০০',
-    category: 'settings',
-  },
-  {
-    id: '5',
-    header: '২৫ সেপ্টে · জাহিদ হাসান',
-    title: 'সদস্যের তথ্য: নাসরিন আক্তার',
-    sub: 'মোবাইল নম্বর পরিবর্তন',
-    category: 'member',
-  },
-  {
-    id: '6',
-    header: '১ জানু · আনোয়ার হোসেন',
-    title: 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%',
-    sub: 'লক করা হয়েছে · অনুমোদন: জাহিদ হাসান',
-    category: 'settings',
-  },
-];
-
 export default function AuditLogScreen() {
   const router = useRouter();
+  const { transactions, expenses } = useSomitiStore();
   const [filter, setFilter] = useState<'all' | 'financial' | 'member' | 'settings'>('all');
 
-  const filteredLogs = AUDIT_LOGS.filter((item) => {
-    if (filter === 'all') return true;
-    return item.category === filter;
-  });
+  const liveAuditLogs = useMemo(() => {
+    const list: AuditItem[] = [];
+
+    // Transactions into audit log
+    transactions.forEach((tx) => {
+      const method = tx.paymentMethod === 'bkash' ? 'বিকাশ' : tx.paymentMethod === 'bank' ? 'ব্যাংক' : 'হাতে নগদ';
+      list.push({
+        id: `audit-${tx.id}`,
+        header: `${tx.date} · কোষাধ্যক্ষ`,
+        title: `${tx.type === 'deposit' ? 'জমা এন্ট্রি' : 'ব্যয়'}: ${tx.memberName} ৳${formatBengaliMoney(tx.amount)}`,
+        sub: `রসিদ ${tx.receiptNo} · মাধ্যম: ${method}${tx.trxId ? ` · TrxID: ${tx.trxId}` : ''}`,
+        category: 'financial',
+      });
+    });
+
+    // Expenses into audit log
+    expenses.forEach((exp) => {
+      list.push({
+        id: `audit-${exp.id}`,
+        header: `${exp.date} · মাহমুদা খাতুন`,
+        title: `ব্যয় এন্ট্রি: ${exp.title} ৳${formatBengaliMoney(exp.amount)}`,
+        sub: `ভাউচার নং ${exp.voucherNo} · উৎস: ${exp.paymentSource}`,
+        category: 'financial',
+      });
+    });
+
+    // Static system audit items
+    list.push(
+      {
+        id: 'sys-1',
+        header: '২৮ সেপ্টে · আনোয়ার হোসেন',
+        title: 'সেটিংস: ব্যয় অনুমোদন সীমা',
+        sub: '৳৫,০০০ → ৳১০,০০০ · অনুমোদিত',
+        category: 'settings',
+      },
+      {
+        id: 'sys-2',
+        header: '২৫ সেপ্টে · জাহিদ হাসান',
+        title: 'সদস্যের তথ্য: নাসরিন আক্তার',
+        sub: 'মোবাইল নম্বর ও নমিনির তথ্য আপডেট',
+        category: 'member',
+      },
+      {
+        id: 'sys-3',
+        header: '১ জানু · আনোয়ার হোসেন',
+        title: 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%',
+        sub: 'লক করা হয়েছে · অনুমোদন: জাহিদ হাসান',
+        category: 'settings',
+      }
+    );
+
+    return list;
+  }, [transactions, expenses]);
+
+  const filteredLogs = useMemo(() => {
+    return liveAuditLogs.filter((item) => {
+      if (filter === 'all') return true;
+      return item.category === filter;
+    });
+  }, [liveAuditLogs, filter]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,7 +102,11 @@ export default function AuditLogScreen() {
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>অডিট লগ</Text>
-        <TouchableOpacity style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => Alert.alert('ফিল্টার', 'অডিট লগ ফিল্টার করুন')}
+          activeOpacity={0.7}
+        >
           <Ionicons name="filter-outline" size={20} color="#1E293B" />
         </TouchableOpacity>
       </View>
@@ -98,9 +117,9 @@ export default function AuditLogScreen() {
       >
         {/* Guarantee Green Banner */}
         <View style={styles.guaranteeBanner}>
-          <Ionicons name="checkmark" size={18} color="#0F766E" style={styles.guaranteeIcon} />
+          <Ionicons name="shield-checkmark" size={20} color="#0F766E" style={styles.guaranteeIcon} />
           <Text style={styles.guaranteeText}>
-            এই লগ স্থায়ী। সভাপতিসহ কেউ এটি মুছতে বা পরিবর্তন করতে পারবেন না।
+            এই লগ অপরিবর্তনযোগ্য (Immutable Ledger)। সভাপতিসহ কেউই এই হিসাব মুছে ফেলতে বা সংশোধন করতে পারবেন না।
           </Text>
         </View>
 
@@ -169,6 +188,15 @@ export default function AuditLogScreen() {
               </View>
             );
           })}
+
+          {filteredLogs.length === 0 && (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Ionicons name="shield-outline" size={32} color="#94A3B8" />
+              <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
+                কোনো অডিট রেকর্ড নেই
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -207,11 +235,11 @@ const styles = StyleSheet.create({
   },
   guaranteeBanner: {
     flexDirection: 'row',
-    backgroundColor: '#CCFBF1',
-    borderRadius: 14,
-    padding: 12,
-    gap: 8,
     alignItems: 'flex-start',
+    backgroundColor: '#E6F4F2',
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
     marginBottom: 14,
   },
   guaranteeIcon: {
@@ -233,29 +261,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#E2E8F0',
+    borderRadius: 16,
+    backgroundColor: '#EAEBE6',
   },
   filterChipActive: {
     backgroundColor: '#CCFBF1',
-    borderWidth: 1,
-    borderColor: '#99F6E4',
   },
   filterChipText: {
-    fontFamily: 'HindSiliguri-Medium',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 13,
     color: '#64748B',
   },
   filterChipTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
     color: '#0F766E',
   },
   timelineCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 18,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -266,22 +291,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   timelineTrack: {
-    width: 24,
     alignItems: 'center',
+    width: 24,
     marginRight: 10,
   },
   ringDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2.5,
     borderColor: '#0F766E',
     backgroundColor: '#FFFFFF',
-    marginTop: 2,
+    marginTop: 3,
   },
   connectorLine: {
     flex: 1,
-    width: 2,
+    width: 1.5,
     backgroundColor: '#E2E8F0',
     marginVertical: 4,
   },

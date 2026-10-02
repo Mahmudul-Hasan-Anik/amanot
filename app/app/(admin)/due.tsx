@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,90 +10,38 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
 
-interface DueMemberItem {
-  id: string;
-  name: string;
-  initial: string;
-  avatarBg: string;
-  avatarColor: string;
-  monthsText: string;
-  isHighRisk?: boolean;
-  amount: string;
-}
-
-const DUE_MEMBERS: DueMemberItem[] = [
-  {
-    id: '1',
-    name: 'রফিকুল ইসলাম',
-    initial: 'র',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    monthsText: 'জুলাই–সেপ্টেম্বর · ৩ মাস · উচ্চ ঝুঁকি',
-    isHighRisk: true,
-    amount: '৳৬,৩০০',
-  },
-  {
-    id: '2',
-    name: 'করিম উদ্দিন',
-    initial: 'ক',
-    avatarBg: '#CCFBF1',
-    avatarColor: '#0F766E',
-    monthsText: 'আগস্ট–সেপ্টেম্বর · ২ মাস',
-    amount: '৳৪,১০০',
-  },
-  {
-    id: '3',
-    name: 'তানভীর আহমেদ',
-    initial: 'ত',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    monthsText: 'জুলাই–সেপ্টেম্বর · ৩ মাস · উচ্চ ঝুঁকি',
-    isHighRisk: true,
-    amount: '৳৯,৩০০',
-  },
-  {
-    id: '4',
-    name: 'নাসরিন আক্তার',
-    initial: 'ন',
-    avatarBg: '#CCFBF1',
-    avatarColor: '#0F766E',
-    monthsText: 'সেপ্টেম্বর · আংশিক',
-    amount: '৳১,০০০',
-  },
-  {
-    id: '5',
-    name: 'ফারুক হোসেন',
-    initial: 'ফ',
-    avatarBg: '#FCE7F3',
-    avatarColor: '#DB2777',
-    monthsText: 'আগস্ট–সেপ্টেম্বর · ২ মাস',
-    amount: '৳৫,২০০',
-  },
-  {
-    id: '6',
-    name: 'লাইলা বেগম',
-    initial: 'ল',
-    avatarBg: '#EDE9FE',
-    avatarColor: '#7C3AED',
-    monthsText: 'সেপ্টেম্বর · ১ মাস',
-    amount: '৳১,৫০০',
-  },
-  {
-    id: '7',
-    name: 'সাইফুল ইসলাম',
-    initial: 'স',
-    avatarBg: '#EDE9FE',
-    avatarColor: '#7C3AED',
-    monthsText: 'সেপ্টেম্বর · ১ মাস',
-    amount: '৳২,০০০',
-  },
-];
-
-export default function DueListScreen() {
+export default function DueMembersScreen() {
   const router = useRouter();
-  const [selectedIds, setSelectedIds] = useState<string[]>(['1', '2', '3', '4', '5']);
+  const { members, somitiInfo } = useSomitiStore();
+
   const [activeFilter, setActiveFilter] = useState<'all' | '3plus' | '2month' | '1month'>('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Get all members who have due amounts or status due/partial
+  const allDueMembers = useMemo(() => {
+    return members.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0);
+  }, [members]);
+
+  // Aging counts
+  const count1Month = useMemo(() => allDueMembers.filter((m) => m.dueMonths === 1).length, [allDueMembers]);
+  const count2Month = useMemo(() => allDueMembers.filter((m) => m.dueMonths === 2).length, [allDueMembers]);
+  const count3Plus = useMemo(() => allDueMembers.filter((m) => m.dueMonths >= 3).length, [allDueMembers]);
+
+  // Total due sum
+  const totalDueSum = useMemo(() => {
+    return allDueMembers.reduce((acc, m) => acc + (m.dueAmount || 0), 0);
+  }, [allDueMembers]);
+
+  // Filtered members by aging chip
+  const filteredDueMembers = useMemo(() => {
+    if (activeFilter === '3plus') return allDueMembers.filter((m) => m.dueMonths >= 3);
+    if (activeFilter === '2month') return allDueMembers.filter((m) => m.dueMonths === 2);
+    if (activeFilter === '1month') return allDueMembers.filter((m) => m.dueMonths === 1);
+    return allDueMembers;
+  }, [allDueMembers, activeFilter]);
 
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -104,12 +52,18 @@ export default function DueListScreen() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === DUE_MEMBERS.length) {
+    if (selectedIds.length === filteredDueMembers.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(DUE_MEMBERS.map((m) => m.id));
+      setSelectedIds(filteredDueMembers.map((m) => m.id));
     }
   };
+
+  const selectedTotalAmount = useMemo(() => {
+    return allDueMembers
+      .filter((m) => selectedIds.includes(m.id))
+      .reduce((acc, m) => acc + (m.dueAmount || 0), 0);
+  }, [allDueMembers, selectedIds]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -137,8 +91,8 @@ export default function DueListScreen() {
         {/* Total Due Hero Card */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>মোট বকেয়া</Text>
-          <Text style={styles.heroAmount}>৳৫৩,৫০০</Text>
-          <Text style={styles.heroSub}>২২ জন সদস্য · বিলম্ব ফি সহ</Text>
+          <Text style={styles.heroAmount}>{formatBengaliMoney(totalDueSum || somitiInfo.totalDueAmount)}</Text>
+          <Text style={styles.heroSub}>{toBengaliDigits(allDueMembers.length)} জন সদস্য · বিলম্ব ফি সহ</Text>
         </View>
 
         {/* Due Aging Card */}
@@ -147,24 +101,24 @@ export default function DueListScreen() {
 
           {/* Segmented Horizontal Bar */}
           <View style={styles.agingBar}>
-            <View style={[styles.barSegment, { flex: 12, backgroundColor: '#FDBA74' }]} />
-            <View style={[styles.barSegment, { flex: 7, backgroundColor: '#EA580C' }]} />
-            <View style={[styles.barSegment, { flex: 3, backgroundColor: '#7C2D12' }]} />
+            <View style={[styles.barSegment, { flex: Math.max(count1Month, 1), backgroundColor: '#FDBA74' }]} />
+            <View style={[styles.barSegment, { flex: Math.max(count2Month, 1), backgroundColor: '#EA580C' }]} />
+            <View style={[styles.barSegment, { flex: Math.max(count3Plus, 1), backgroundColor: '#7C2D12' }]} />
           </View>
 
           {/* 3 Columns */}
           <View style={styles.agingColsRow}>
             <View style={styles.agingCol}>
               <Text style={styles.colLabel}>১ মাস</Text>
-              <Text style={styles.colCount}>১২ জন</Text>
+              <Text style={styles.colCount}>{toBengaliDigits(count1Month)} জন</Text>
             </View>
             <View style={styles.agingCol}>
               <Text style={styles.colLabel}>২ মাস</Text>
-              <Text style={styles.colCount}>৭ জন</Text>
+              <Text style={styles.colCount}>{toBengaliDigits(count2Month)} জন</Text>
             </View>
             <View style={styles.agingCol}>
               <Text style={styles.colLabel}>৩+ মাস</Text>
-              <Text style={styles.colCount}>৩ জন</Text>
+              <Text style={styles.colCount}>{toBengaliDigits(count3Plus)} জন</Text>
             </View>
           </View>
         </View>
@@ -178,7 +132,7 @@ export default function DueListScreen() {
           >
             {activeFilter === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.filterChipText, activeFilter === 'all' && styles.filterChipTextActive]}>
-              সব ২২
+              সব {toBengaliDigits(allDueMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -188,7 +142,7 @@ export default function DueListScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '3plus' && styles.filterChipTextActive]}>
-              ৩+ মাস ৩
+              ৩+ মাস {toBengaliDigits(count3Plus)}
             </Text>
           </TouchableOpacity>
 
@@ -198,7 +152,7 @@ export default function DueListScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '2month' && styles.filterChipTextActive]}>
-              ২ মাস ৭
+              ২ মাস {toBengaliDigits(count2Month)}
             </Text>
           </TouchableOpacity>
 
@@ -208,7 +162,7 @@ export default function DueListScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '1month' && styles.filterChipTextActive]}>
-              ১ মাস ১২
+              ১ মাস {toBengaliDigits(count1Month)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -219,75 +173,93 @@ export default function DueListScreen() {
           onPress={toggleSelectAll}
           activeOpacity={0.8}
         >
-          <View style={[styles.checkboxBox, selectedIds.length === DUE_MEMBERS.length && styles.checkboxBoxActive]}>
-            {selectedIds.length === DUE_MEMBERS.length && (
+          <View style={[styles.checkboxBox, selectedIds.length === filteredDueMembers.length && filteredDueMembers.length > 0 && styles.checkboxBoxActive]}>
+            {selectedIds.length === filteredDueMembers.length && filteredDueMembers.length > 0 && (
               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             )}
           </View>
-          <Text style={styles.selectAllText}>সব নির্বাচন করুন (২২)</Text>
+          <Text style={styles.selectAllText}>সব নির্বাচন করুন ({toBengaliDigits(filteredDueMembers.length)})</Text>
         </TouchableOpacity>
 
         {/* Members List Card */}
         <View style={styles.listCard}>
-          {DUE_MEMBERS.map((item, index) => {
-            const isSelected = selectedIds.includes(item.id);
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.memberRow,
-                  index < DUE_MEMBERS.length - 1 && styles.memberRowBorder,
-                ]}
-                onPress={() => toggleSelect(item.id)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.checkboxBox, isSelected && styles.checkboxBoxActive]}>
-                  {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-                </View>
+          {filteredDueMembers.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Ionicons name="checkmark-circle-outline" size={48} color="#0F766E" />
+              <Text style={{ fontFamily: 'HindSiliguri-Bold', fontSize: 16, color: '#1E293B', marginTop: 8 }}>
+                কোনো বকেয়া নেই!
+              </Text>
+            </View>
+          ) : (
+            filteredDueMembers.map((item, index) => {
+              const isSelected = selectedIds.includes(item.id);
+              const isHighRisk = (item.dueMonths || 0) >= 3;
 
-                <View style={[styles.avatarCircle, { backgroundColor: item.avatarBg }]}>
-                  <Text style={[styles.avatarText, { color: item.avatarColor }]}>
-                    {item.initial}
-                  </Text>
-                </View>
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.memberRow,
+                    index < filteredDueMembers.length - 1 && styles.memberRowBorder,
+                  ]}
+                  onPress={() => toggleSelect(item.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, isSelected && styles.checkboxBoxActive]}>
+                    {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                  </View>
 
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{item.name}</Text>
-                  <Text
-                    style={[
-                      styles.memberSub,
-                      item.isHighRisk && styles.highRiskText,
-                    ]}
-                  >
-                    {item.monthsText}
-                  </Text>
-                </View>
+                  <View style={[styles.avatarCircle, isHighRisk && { backgroundColor: '#FEE2E2' }]}>
+                    <Text style={[styles.avatarText, isHighRisk && { color: '#DC2626' }]}>
+                      {item.name.charAt(0)}
+                    </Text>
+                  </View>
 
-                <Text style={styles.memberAmount}>{item.amount}</Text>
-              </TouchableOpacity>
-            );
-          })}
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{item.name}</Text>
+                    <Text style={styles.monthsText}>
+                      {item.code} · {toBengaliDigits(item.dueMonths || 1)} মাস {isHighRisk ? '· উচ্চ ঝুঁকি' : ''}
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.amountText, isHighRisk && { color: '#DC2626' }]}>
+                      {formatBengaliMoney(item.dueAmount || 2000)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push(`/(admin)/deposit/new?memberId=${item.id}`)}
+                      style={styles.quickPayBtn}
+                    >
+                      <Text style={styles.quickPayBtnText}>জমা নিন</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Floating Bottom Bar */}
-      <View style={styles.bottomDock}>
-        <View>
-          <Text style={styles.bottomSelectedCount}>৫ জন নির্বাচিত</Text>
-          <Text style={styles.bottomSelectedSum}>৳২৫,৯০০</Text>
+      {/* Bottom Sticky Action Bar */}
+      {selectedIds.length > 0 && (
+        <View style={styles.bottomBar}>
+          <View style={styles.selectedCountRow}>
+            <Text style={styles.selectedCountText}>
+              {toBengaliDigits(selectedIds.length)} জন নির্বাচিত · {formatBengaliMoney(selectedTotalAmount)}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.reminderBtn}
+            onPress={() => router.push('/(admin)/reminder')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="volume-medium-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.reminderBtnText}>রিমাইন্ডার পাঠান</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.reminderBtn}
-          onPress={() => router.push('/(admin)/reminder')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.reminderBtnText}>রিমাইন্ডার পাঠান</Text>
-        </TouchableOpacity>
-      </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -313,7 +285,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
+    fontSize: 18,
     color: '#1E293B',
   },
   scrollContent: {
@@ -321,33 +293,33 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   heroCard: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#DC2626',
     borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
+    padding: 20,
+    marginBottom: 16,
   },
   heroLabel: {
-    fontFamily: 'HindSiliguri-Regular',
+    fontFamily: 'HindSiliguri-Medium',
     fontSize: 13,
-    color: '#9A3412',
+    color: '#FEE2E2',
+    marginBottom: 4,
   },
   heroAmount: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 32,
-    color: '#9A3412',
-    lineHeight: 38,
-    marginVertical: 4,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   heroSub: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#9A3412',
+    fontSize: 12,
+    color: '#FECACA',
   },
   agingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -355,15 +327,15 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   agingTitle: {
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 14,
-    color: '#1E293B',
-    marginBottom: 10,
+    color: '#334155',
+    marginBottom: 12,
   },
   agingBar: {
-    height: 10,
-    borderRadius: 5,
     flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 12,
   },
@@ -382,31 +354,32 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 12,
     color: '#64748B',
+    marginBottom: 2,
   },
   colCount: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 14,
     color: '#1E293B',
-    marginTop: 2,
   },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 20,
-    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   filterChipActive: {
+    borderColor: '#0F766E',
     backgroundColor: '#CCFBF1',
-    borderWidth: 1,
-    borderColor: '#99F6E4',
   },
   filterChipText: {
     fontFamily: 'HindSiliguri-Medium',
@@ -421,119 +394,127 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
     paddingHorizontal: 4,
+    marginBottom: 12,
   },
   selectAllText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 13,
+    color: '#475569',
   },
   listCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    marginBottom: 20,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+    marginBottom: 20,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   memberRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
   },
   checkboxBox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
+    borderColor: '#CBD5E1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   checkboxBoxActive: {
-    backgroundColor: '#0F766E',
     borderColor: '#0F766E',
+    backgroundColor: '#0F766E',
   },
   avatarCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
+    backgroundColor: '#CCFBF1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   avatarText: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 16,
+    color: '#0F766E',
   },
   memberInfo: {
     flex: 1,
   },
   memberName: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  memberSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  highRiskText: {
-    color: '#DC2626',
-    fontFamily: 'HindSiliguri-Medium',
-  },
-  memberAmount: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
+    fontSize: 14,
     color: '#1E293B',
+    marginBottom: 2,
   },
-  bottomDock: {
+  monthsText: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: 11,
+    color: '#64748B',
+  },
+  amountText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 14,
+    color: '#EA580C',
+  },
+  quickPayBtn: {
+    backgroundColor: '#CCFBF1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  quickPayBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: 11,
+    color: '#0F766E',
+  },
+  bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  bottomSelectedCount: {
+  selectedCountRow: {
+    flex: 1,
+  },
+  selectedCountText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontSize: 13,
     color: '#1E293B',
   },
-  bottomSelectedSum: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-  },
   reminderBtn: {
-    backgroundColor: '#134E4A',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 24,
     gap: 6,
+    backgroundColor: '#134E4A',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
   },
   reminderBtnText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
   },
 });

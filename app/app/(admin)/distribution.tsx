@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,61 +11,82 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
 
-interface MemberDistRow {
-  id: string;
-  initial: string;
-  avatarBg: string;
-  avatarColor: string;
-  name: string;
-  totalDeposit: string;
-  profitShare: string;
-}
-
-const MEMBER_DIST_ROWS: MemberDistRow[] = [
-  {
-    id: '1',
-    initial: 'আ',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    name: 'আনোয়ার হোসেন',
-    totalDeposit: 'মোট জমা ৳১,৪৪,০০০',
-    profitShare: '+৳৭,৭১৪',
-  },
-  {
-    id: '2',
-    initial: 'ক',
-    avatarBg: '#CCFBF1',
-    avatarColor: '#0F766E',
-    name: 'করিম উদ্দিন',
-    totalDeposit: 'মোট জমা ৳১,০৮,০০০',
-    profitShare: '+৳৫,৭৮৬',
-  },
-  {
-    id: '3',
-    initial: 'র',
-    avatarBg: '#E0F2FE',
-    avatarColor: '#0284C7',
-    name: 'রফিকুল ইসলাম',
-    totalDeposit: 'মোট জমা ৳৯৬,০০০',
-    profitShare: '+৳৫,১৪৩',
-  },
-  {
-    id: '4',
-    initial: 'ন',
-    avatarBg: '#CCFBF1',
-    avatarColor: '#0F766E',
-    name: 'নাসরিন আক্তার',
-    totalDeposit: 'মোট জমা ৳৭২,০০০',
-    profitShare: '+৳৩,৮৫৭',
-  },
+const AVATAR_COLORS = [
+  { bg: '#E0F2FE', text: '#0284C7' },
+  { bg: '#CCFBF1', text: '#0F766E' },
+  { bg: '#DCFCE7', text: '#16A34A' },
+  { bg: '#FEF3C7', text: '#D97706' },
+  { bg: '#EDE9FE', text: '#7C3AED' },
 ];
 
 export default function ProfitDistributionScreen() {
   const router = useRouter();
+  const { members, projects, somitiInfo } = useSomitiStore();
+
+  const [currentStep, setCurrentStep] = useState<number>(2); // 1: হিসাব, 2: পর্যালোচনা, 3: অনুমোদন, 4: বিতরণ
+  const [isApproved, setIsApproved] = useState(false);
+
+  // Financial calculations
+  const totalProjectProfit = useMemo(() => {
+    const sum = projects.reduce((acc, p) => acc + p.netProfit, 0);
+    return sum > 0 ? sum : 375000;
+  }, [projects]);
+
+  const otherIncome = 28000;
+  const operatingExpense = 103000;
+  const netProfit = totalProjectProfit + otherIncome - operatingExpense;
+  const reserveFund = Math.round(netProfit * 0.10);
+  const directorShare = Math.round(netProfit * 0.10);
+  const distributableProfit = netProfit - reserveFund - directorShare;
+
+  const totalMembersDeposit = useMemo(() => {
+    const sum = members.reduce((acc, m) => acc + m.totalDeposit, 0);
+    return sum > 0 ? sum : 4480000;
+  }, [members]);
+
+  const memberShares = useMemo(() => {
+    return members.map((m, idx) => {
+      const share = totalMembersDeposit > 0
+        ? Math.round((m.totalDeposit / totalMembersDeposit) * distributableProfit)
+        : 0;
+      const colorTheme = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+      const initial = m.name.trim().charAt(0) || 'স';
+
+      return {
+        id: m.id,
+        name: m.name,
+        initial,
+        avatarBg: colorTheme.bg,
+        avatarColor: colorTheme.text,
+        totalDeposit: m.totalDeposit,
+        profitShare: share,
+      };
+    });
+  }, [members, totalMembersDeposit, distributableProfit]);
 
   const handleApprove = () => {
-    Alert.alert('সফল', '২০২৬ সালের বার্ষিক লাভ বণ্টন অনুমোদিত হয়েছে!');
+    Alert.alert(
+      'লাভ বণ্টন অনুমোদন',
+      `২০২৬ সালের মোট ৳${formatBengaliMoney(distributableProfit)} বণ্টন নিশ্চিত করতে চান?`,
+      [
+        { text: 'বাতিল', style: 'cancel' },
+        {
+          text: 'হ্যাঁ, অনুমোদন দিন',
+          onPress: () => {
+            setIsApproved(true);
+            setCurrentStep(4);
+            Alert.alert('সফল', '২০২৬ সালের বার্ষিক লাভ বণ্টন অনুমোদিত ও প্রস্তুত হয়েছে!');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDownloadDraft = () => {
+    Alert.alert('খসড়া ডাউনলোড', '২০২৬ সালের লাভ বণ্টনের পূর্ণাঙ্গ স্টেটমেন্ট PDF প্রস্তুত হচ্ছে।');
   };
 
   return (
@@ -106,8 +127,12 @@ export default function ProfitDistributionScreen() {
 
           {/* Step 2: পর্যালোচনা */}
           <View style={styles.stepItem}>
-            <View style={styles.stepCircleRing}>
-              <View style={styles.stepCircleRingInner} />
+            <View style={currentStep >= 2 ? styles.stepCircleFilled : styles.stepCircleRing}>
+              {currentStep > 2 ? (
+                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+              ) : (
+                <View style={styles.stepCircleRingInner} />
+              )}
             </View>
             <Text style={styles.stepTextActive}>পর্যালোচনা</Text>
           </View>
@@ -116,59 +141,73 @@ export default function ProfitDistributionScreen() {
 
           {/* Step 3: অনুমোদন */}
           <View style={styles.stepItem}>
-            <View style={styles.stepCircleInactive} />
-            <Text style={styles.stepTextInactive}>অনুমোদন</Text>
+            <View style={currentStep >= 3 ? styles.stepCircleFilled : styles.stepCircleInactive}>
+              {currentStep >= 3 && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            </View>
+            <Text style={currentStep >= 3 ? styles.stepTextActive : styles.stepTextInactive}>
+              অনুমোদন
+            </Text>
           </View>
 
           <View style={styles.stepLine} />
 
           {/* Step 4: বিতরণ */}
           <View style={styles.stepItem}>
-            <View style={styles.stepCircleInactive} />
-            <Text style={styles.stepTextInactive}>বিতরণ</Text>
+            <View style={currentStep >= 4 ? styles.stepCircleFilled : styles.stepCircleInactive}>
+              {currentStep >= 4 && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            </View>
+            <Text style={currentStep >= 4 ? styles.stepTextActive : styles.stepTextInactive}>
+              বিতরণ
+            </Text>
           </View>
         </View>
 
-        {/* Card: হিসাব (খসড়া) */}
+        {/* Card: হিসাব বিবরণী */}
         <View style={styles.calcCard}>
           <Text style={styles.calcCardTitle}>হিসাব (খসড়া)</Text>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>মোট প্রজেক্ট লাভ</Text>
-            <Text style={[styles.calcValue, { color: '#059669' }]}>+৳৩,৭৫,০০০</Text>
+            <Text style={[styles.calcValue, { color: '#059669' }]}>
+              +৳{formatBengaliMoney(totalProjectProfit)}
+            </Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>অন্যান্য আয়</Text>
-            <Text style={[styles.calcValue, { color: '#059669' }]}>+৳২৮,০০০</Text>
+            <Text style={[styles.calcValue, { color: '#059669' }]}>
+              +৳{formatBengaliMoney(otherIncome)}
+            </Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>পরিচালনা ব্যয়</Text>
-            <Text style={[styles.calcValue, { color: '#DC2626' }]}>−৳১,০৩,০০০</Text>
+            <Text style={[styles.calcValue, { color: '#DC2626' }]}>
+              −৳{formatBengaliMoney(operatingExpense)}
+            </Text>
           </View>
 
           <View style={styles.calcDivider} />
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabelBold}>নিট লাভ</Text>
-            <Text style={styles.calcValueBold}>৳৩,০০,০০০</Text>
+            <Text style={styles.calcValueBold}>৳{formatBengaliMoney(netProfit)}</Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>রিজার্ভ ফান্ড (১০%)</Text>
-            <Text style={styles.calcValue}>−৳৩০,০০০</Text>
+            <Text style={styles.calcValue}>−৳{formatBengaliMoney(reserveFund)}</Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>পরিচালক অংশ (১০%)</Text>
-            <Text style={styles.calcValue}>−৳৩০,০০০</Text>
+            <Text style={styles.calcValue}>−৳{formatBengaliMoney(directorShare)}</Text>
           </View>
 
           {/* Highlighted Distributable Profit Box */}
           <View style={styles.distributableBox}>
             <Text style={styles.distributableLabel}>বণ্টনযোগ্য লাভ</Text>
-            <Text style={styles.distributableValue}>৳২,৪০,০০০</Text>
+            <Text style={styles.distributableValue}>৳{formatBengaliMoney(distributableProfit)}</Text>
           </View>
         </View>
 
@@ -182,28 +221,28 @@ export default function ProfitDistributionScreen() {
 
         {/* Formula Card */}
         <View style={styles.formulaCard}>
-          <Text style={styles.formulaCardTitle}>বণ্টনের সূত্র</Text>
+          <Text style={styles.formulaCardTitle}>বণ্টনের গাণিতিক সূত্র</Text>
           <Text style={styles.formulaMain}>
-            সদস্যের অংশ = ৳২,৪০,০০০ × সদস্যের মোট জমা ÷ ৳৪৪,৮০,০০০
+            সদস্যের অংশ = ৳{formatBengaliMoney(distributableProfit)} × সদস্যের মোট জমা ÷ ৳{formatBengaliMoney(totalMembersDeposit)}
           </Text>
-          <Text style={styles.formulaSub}>সকল সদস্যের মোট জমা ৳৪৪,৮০,০০০</Text>
+          <Text style={styles.formulaSub}>
+            সকল সদস্যের মোট সঞ্চয় ৳{formatBengaliMoney(totalMembersDeposit)}
+          </Text>
         </View>
 
         {/* Member Allocation Section */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>সদস্যভিত্তিক অংশ</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.allMembersLink}>সব ১০০ জন</Text>
-          </TouchableOpacity>
+          <Text style={styles.allMembersLink}>সব {toBengaliDigits(members.length)} জন</Text>
         </View>
 
         <View style={styles.membersCard}>
-          {MEMBER_DIST_ROWS.map((item, index) => (
+          {memberShares.map((item, index) => (
             <View
               key={item.id}
               style={[
                 styles.memberRow,
-                index < MEMBER_DIST_ROWS.length - 1 && styles.memberRowBorder,
+                index < memberShares.length - 1 && styles.memberRowBorder,
               ]}
             >
               <View style={[styles.avatarCircle, { backgroundColor: item.avatarBg }]}>
@@ -214,10 +253,12 @@ export default function ProfitDistributionScreen() {
 
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{item.name}</Text>
-                <Text style={styles.memberDeposit}>{item.totalDeposit}</Text>
+                <Text style={styles.memberDeposit}>
+                  মোট জমা ৳{formatBengaliMoney(item.totalDeposit)}
+                </Text>
               </View>
 
-              <Text style={styles.memberProfit}>{item.profitShare}</Text>
+              <Text style={styles.memberProfit}>+৳{formatBengaliMoney(item.profitShare)}</Text>
             </View>
           ))}
         </View>
@@ -227,18 +268,25 @@ export default function ProfitDistributionScreen() {
 
       {/* Bottom Dual Actions Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.draftPdfBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.draftPdfBtn}
+          onPress={handleDownloadDraft}
+          activeOpacity={0.8}
+        >
           <Ionicons name="download-outline" size={16} color="#1E293B" />
           <Text style={styles.draftPdfText}>খসড়া PDF</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.approveBtn}
+          style={[styles.approveBtn, isApproved && { backgroundColor: '#059669' }]}
           onPress={handleApprove}
           activeOpacity={0.85}
+          disabled={isApproved}
         >
           <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-          <Text style={styles.approveBtnText}>অনুমোদন দিন</Text>
+          <Text style={styles.approveBtnText}>
+            {isApproved ? 'অনুমোদিত' : 'অনুমোদন দিন'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -285,9 +333,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   stepItem: {
     alignItems: 'center',
@@ -320,15 +375,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
   },
   stepLine: {
     flex: 1,
-    height: 1.5,
-    backgroundColor: '#CBD5E1',
+    height: 2,
+    backgroundColor: '#E2E8F0',
     marginHorizontal: 4,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   stepTextActive: {
     fontFamily: 'HindSiliguri-SemiBold',
@@ -353,30 +407,30 @@ const styles = StyleSheet.create({
   },
   calcCardTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
+    fontSize: 16,
     color: '#1E293B',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   calcRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
-  },
-  calcDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 6,
+    paddingVertical: 5,
   },
   calcLabel: {
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 13,
-    color: '#475569',
+    color: '#64748B',
   },
   calcValue: {
     fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 13,
     color: '#1E293B',
+  },
+  calcDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 8,
   },
   calcLabelBold: {
     fontFamily: 'HindSiliguri-Bold',
@@ -385,17 +439,16 @@ const styles = StyleSheet.create({
   },
   calcValueBold: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontSize: 15,
     color: '#1E293B',
   },
   distributableBox: {
-    backgroundColor: '#CCFBF1',
+    backgroundColor: '#E6F4F2',
     borderRadius: 12,
+    padding: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
     marginTop: 10,
   },
   distributableLabel: {
@@ -405,32 +458,32 @@ const styles = StyleSheet.create({
   },
   distributableValue: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
+    fontSize: 18,
     color: '#0F766E',
   },
   lockNoticeBox: {
     flexDirection: 'row',
-    backgroundColor: '#E8ECE6',
+    alignItems: 'flex-start',
+    backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 12,
     gap: 8,
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   lockIcon: {
-    marginTop: 2,
+    marginTop: 1,
   },
   lockNoticeText: {
     flex: 1,
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 12,
-    color: '#334155',
+    color: '#475569',
     lineHeight: 18,
   },
   formulaCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -442,12 +495,12 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 14,
     color: '#1E293B',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   formulaMain: {
-    fontFamily: 'HindSiliguri-Regular',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 12,
-    color: '#334155',
+    color: '#0F766E',
     lineHeight: 18,
   },
   formulaSub: {
@@ -461,6 +514,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
     fontFamily: 'HindSiliguri-Bold',
@@ -468,15 +522,16 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   allMembersLink: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#0F766E',
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: 12,
+    color: '#64748B',
   },
   membersCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingHorizontal: 14,
-    marginBottom: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -486,23 +541,23 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   memberRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
   },
   avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
   avatarText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
+    fontSize: 14,
   },
   memberInfo: {
     flex: 1,
@@ -516,7 +571,6 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 11,
     color: '#64748B',
-    marginTop: 1,
   },
   memberProfit: {
     fontFamily: 'HindSiliguri-Bold',
@@ -528,39 +582,37 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    flexDirection: 'row',
     gap: 12,
   },
   draftPdfBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 26,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingVertical: 12,
     gap: 6,
   },
   draftPdfText: {
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 14,
     color: '#1E293B',
   },
   approveBtn: {
-    flex: 1,
-    backgroundColor: '#134E4A',
+    flex: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 26,
+    backgroundColor: '#0F766E',
+    borderRadius: 12,
+    paddingVertical: 12,
     gap: 6,
   },
   approveBtnText: {

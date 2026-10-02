@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
 
 interface ReportRow {
   id: string;
@@ -20,65 +22,71 @@ interface ReportRow {
   sub: string;
 }
 
-const REPORTS_DATA: ReportRow[] = [
-  {
-    id: '1',
-    icon: 'document-text-outline',
-    title: 'মাসিক আদায় রিপোর্ট',
-    sub: 'কে কত জমা দিয়েছেন, কে দেননি',
-  },
-  {
-    id: '2',
-    icon: 'warning-outline',
-    title: 'বকেয়া তালিকা',
-    sub: 'সদস্য, মাস, টাকা ও ফোন নম্বর',
-  },
-  {
-    id: '3',
-    icon: 'trending-up-outline',
-    title: 'আয়-ব্যয় রিপোর্ট',
-    sub: 'খাতভিত্তিক আয় ও ব্যয়',
-  },
-  {
-    id: '4',
-    icon: 'person-outline',
-    title: 'সদস্য স্টেটমেন্ট',
-    sub: 'একজন বা সকল সদস্যের',
-  },
-  {
-    id: '5',
-    icon: 'briefcase-outline',
-    title: 'প্রজেক্ট রিপোর্ট',
-    sub: 'বিনিয়োগ, ফেরত, লাভ-ক্ষতি',
-  },
-  {
-    id: '6',
-    icon: 'wallet-outline',
-    title: 'নগদ ও ব্যাংক বই',
-    sub: 'হিসাবভিত্তিক জমা-খরচ',
-  },
-  {
-    id: '7',
-    icon: 'people-outline',
-    title: 'মাঠকর্মী রিপোর্ট',
-    sub: 'আদায় ও নগদ জমার অবস্থা',
-  },
-  {
-    id: '8',
-    icon: 'pie-chart-outline',
-    title: 'বার্ষিক বণ্টন রিপোর্ট',
-    sub: 'সদস্যভিত্তিক লাভ-ক্ষতি',
-  },
-];
-
 export default function ReportsScreen() {
   const router = useRouter();
+  const { somitiInfo, members, projects } = useSomitiStore();
 
   const [autoSummaryCommittee, setAutoSummaryCommittee] = useState(true);
   const [autoMemberBalance, setAutoMemberBalance] = useState(true);
 
+  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0), [members]);
+
+  const reportsData: ReportRow[] = [
+    {
+      id: '1',
+      icon: 'document-text-outline',
+      title: 'মাসিক আদায় রিপোর্ট',
+      sub: `আদায় ৳${formatBengaliMoney(somitiInfo.monthlyCollected)} · লক্ষ্য ৳${formatBengaliMoney(somitiInfo.monthlyTarget)}`,
+    },
+    {
+      id: '2',
+      icon: 'warning-outline',
+      title: 'বকেয়া তালিকা',
+      sub: `${toBengaliDigits(dueMembers.length)} জন সদস্য · মোট বকেয়া ৳${formatBengaliMoney(somitiInfo.totalDueAmount)}`,
+    },
+    {
+      id: '3',
+      icon: 'trending-up-outline',
+      title: 'আয়-ব্যয় রিপোর্ট',
+      sub: `আয় ৳${formatBengaliMoney(somitiInfo.monthlyCollected)} · ব্যয় ৳${formatBengaliMoney(somitiInfo.monthlyExpense)}`,
+    },
+    {
+      id: '4',
+      icon: 'person-outline',
+      title: 'সদস্য স্টেটমেন্ট',
+      sub: `সকল ${toBengaliDigits(members.length)} জন সক্রিয় সদস্যের খতিয়ান`,
+    },
+    {
+      id: '5',
+      icon: 'briefcase-outline',
+      title: 'প্রজেক্ট রিপোর্ট',
+      sub: `${toBengaliDigits(projects.length)}টি প্রজেক্ট · বিনিয়োগ ও লাভ-ক্ষতি`,
+    },
+    {
+      id: '6',
+      icon: 'wallet-outline',
+      title: 'নগদ ও ব্যাংক বই',
+      sub: `হাতে ও ব্যাংকে মোট ৳${formatBengaliMoney(somitiInfo.cashAndBank)}`,
+    },
+    {
+      id: '7',
+      icon: 'people-outline',
+      title: 'মাঠকর্মী রিপোর্ট',
+      sub: 'মাঠ থেকে আদায় ও জমার অবস্থা',
+    },
+    {
+      id: '8',
+      icon: 'pie-chart-outline',
+      title: 'বার্ষিক বণ্টন রিপোর্ট',
+      sub: 'সদস্যভিত্তিক নিট লাভ-ক্ষতি বণ্টন',
+    },
+  ];
+
   const handleDownload = (title: string, format: 'PDF' | 'Excel') => {
-    Alert.alert('ডাউনলোড সম্পন্ন', `${title} (${format}) সফলভাবে ডাউনলোড হয়েছে।`);
+    Alert.alert(
+      'রিপোর্ট প্রস্তুত',
+      `${title} (${format} ফরম্যাটে) সফলভাবে প্রস্তুত হয়েছে। শেয়ার বা ডাউনলোড করা যাবে।`
+    );
   };
 
   return (
@@ -105,13 +113,13 @@ export default function ReportsScreen() {
         {/* Date Selector Pill */}
         <TouchableOpacity style={styles.datePill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.datePillText}>১ – ৩০ সেপ্টেম্বর ২০২৬</Text>
+          <Text style={styles.datePillText}>১ – ৩১ অক্টোবর ২০২৬</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
         {/* 8 Reports List */}
         <View style={styles.reportsList}>
-          {REPORTS_DATA.map((item) => (
+          {reportsData.map((item) => (
             <View key={item.id} style={styles.reportCard}>
               <View style={styles.reportIconBox}>
                 <Ionicons name={item.icon} size={20} color="#0F766E" />
@@ -144,7 +152,7 @@ export default function ReportsScreen() {
         </View>
 
         {/* Section: স্বয়ংক্রিয় রিপোর্ট */}
-        <Text style={styles.sectionTitle}>স্বয়ংক্রিয় রিপোর্ট</Text>
+        <Text style={styles.sectionTitle}>স্বয়ংক্রিয় রিপোর্ট শিডিউল</Text>
         <View style={styles.autoReportCard}>
           {/* Row 1 */}
           <View style={styles.autoRow}>
@@ -166,7 +174,7 @@ export default function ReportsScreen() {
           <View style={styles.autoRow}>
             <View style={styles.autoTextCol}>
               <Text style={styles.autoTitle}>সদস্যদের মাসিক ব্যালেন্স</Text>
-              <Text style={styles.autoSub}>প্রতি মাসের ১–৫ তারিখে এসএমএস/পুশ</Text>
+              <Text style={styles.autoSub}>প্রতি মাসের ১–৫ তারিখে এসএমএস ও পুশ বিজ্ঞপ্তি</Text>
             </View>
             <Switch
               value={autoMemberBalance}
@@ -180,11 +188,11 @@ export default function ReportsScreen() {
         {/* Full Data Export Excel Button */}
         <TouchableOpacity
           style={styles.exportAllBtn}
-          onPress={() => handleDownload('সম্পূর্ণ ডেটা', 'Excel')}
+          onPress={() => handleDownload('সমিতির সম্পূর্ণ খতিয়ান ও হিসাব বই', 'Excel')}
           activeOpacity={0.8}
         >
           <Ionicons name="download-outline" size={18} color="#1E293B" />
-          <Text style={styles.exportAllText}>সম্পূর্ণ ডেটা এক্সপোর্ট (Excel)</Text>
+          <Text style={styles.exportAllText}>সম্পূর্ণ ডেটা ব্যাকআপ ও এক্সপোর্ট (Excel)</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -256,13 +264,13 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   reportIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#CCFBF1',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6F4F2',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   reportInfo: {
     flex: 1,
@@ -276,32 +284,34 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: 11,
     color: '#64748B',
+    marginTop: 1,
   },
   buttonsRow: {
     flexDirection: 'row',
     gap: 6,
   },
   formatBtn: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   formatBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#334155',
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: 12,
+    color: '#0F766E',
   },
   sectionTitle: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: 15,
     color: '#1E293B',
     marginBottom: 10,
+    marginLeft: 4,
   },
   autoReportCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    paddingHorizontal: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -311,42 +321,41 @@ const styles = StyleSheet.create({
   },
   autoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
-  },
-  autoDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 10,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
   },
   autoTextCol: {
     flex: 1,
-    marginRight: 10,
+    paddingRight: 10,
   },
   autoTitle: {
     fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
+    fontSize: 14,
     color: '#1E293B',
   },
   autoSub: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
+    marginTop: 2,
+  },
+  autoDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
   },
   exportAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 24,
-    paddingVertical: 12,
-    gap: 6,
+    backgroundColor: '#EAEBE6',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 8,
+    marginBottom: 10,
   },
   exportAllText: {
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 14,
     color: '#1E293B',
   },
