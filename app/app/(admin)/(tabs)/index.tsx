@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,209 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  Linking,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
 import { ProgressRing } from '../../../src/components/ProgressRing';
-import {
-  mockTodayFollowups,
-} from '../../../src/mocks/mockData';
+import { mockTodayFollowups } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
-  const { somitiInfo, approvals, members } = useSomitiStore();
+  const {
+    somitiInfo,
+    approvals,
+    members,
+    projects,
+    cashAccounts,
+    expenses,
+    approveRequest,
+  } = useSomitiStore();
   const { l, formatMoney, formatNum, dueDateDay } = useLanguage();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 600);
+  }, []);
+
+  // Dynamic financial totals
+  const totalFund = useMemo(() => somitiInfo.totalFund, [somitiInfo.totalFund]);
+
+  const projectInvested = useMemo(() => {
+    return projects.reduce((acc, p) => acc + (p.investedAmount || 0), 0) || somitiInfo.projectInvested;
+  }, [projects, somitiInfo.projectInvested]);
+
+  const cashAndBank = useMemo(() => {
+    return cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0) || somitiInfo.cashAndBank;
+  }, [cashAccounts, somitiInfo.cashAndBank]);
+
+  const totalFundCalc = projectInvested + cashAndBank;
+  const projectInvestedPct = useMemo(() => {
+    return totalFundCalc > 0 ? Math.min(100, Math.round((projectInvested / totalFundCalc) * 100)) : 66;
+  }, [projectInvested, totalFundCalc]);
+
+  const cashAndBankPct = useMemo(() => {
+    return Math.max(0, 100 - projectInvestedPct);
+  }, [projectInvestedPct]);
+
+  // Active, Paid and Due members
+  const activeMembers = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
+  const paidMembers = useMemo(() => members.filter((m) => m.status === 'paid' && m.dueAmount === 0), [members]);
+  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0 || m.status === 'due' || m.status === 'partial'), [members]);
+
+  // Monthly collection metrics
+  const monthlyTarget = useMemo(() => {
+    return activeMembers.reduce((sum, m) => sum + (m.monthlyAmount || 2000), 0) || somitiInfo.monthlyTarget;
+  }, [activeMembers, somitiInfo.monthlyTarget]);
+
+  const monthlyCollected = useMemo(() => {
+    return somitiInfo.monthlyCollected;
+  }, [somitiInfo.monthlyCollected]);
+
+  const monthlyRemaining = useMemo(() => {
+    return Math.max(0, monthlyTarget - monthlyCollected);
+  }, [monthlyTarget, monthlyCollected]);
+
+  const monthlyCollectedPct = useMemo(() => {
+    return monthlyTarget > 0 ? Math.min(100, Math.round((monthlyCollected / monthlyTarget) * 100)) : 0;
+  }, [monthlyCollected, monthlyTarget]);
+
+  const totalDueAmount = useMemo(() => {
+    return dueMembers.reduce((sum, m) => sum + (m.dueAmount || 0), 0) || somitiInfo.totalDueAmount;
+  }, [dueMembers, somitiInfo.totalDueAmount]);
+
+  const activeProjectsCount = useMemo(() => {
+    return projects.filter((p) => p.status === 'ongoing' || p.status === 'delayed').length || projects.length;
+  }, [projects]);
+
+  const yearlyProjectProfit = useMemo(() => {
+    return projects.reduce((sum, p) => sum + (p.netProfit || 0), 0) || somitiInfo.yearlyProjectProfit;
+  }, [projects, somitiInfo.yearlyProjectProfit]);
+
+  const monthlyIncome = useMemo(() => somitiInfo.monthlyIncome || monthlyCollected, [somitiInfo.monthlyIncome, monthlyCollected]);
+  const monthlyExpense = useMemo(() => somitiInfo.monthlyExpense, [somitiInfo.monthlyExpense]);
+  const monthlyNet = useMemo(() => monthlyIncome - monthlyExpense, [monthlyIncome, monthlyExpense]);
+
+  // Dynamic Follow-up list based on due members
+  const followupList = useMemo(() => {
+    if (dueMembers.length > 0) {
+      return dueMembers.slice(0, 3).map((m) => ({
+        id: m.id,
+        name: m.name,
+        phone: m.phone,
+        whatsapp: m.whatsapp || m.phone,
+        note: `${m.dueMonths > 0 ? `${formatNum(m.dueMonths)} ${l('months due', 'মাস বকেয়া')} · ` : ''}${formatMoney(m.dueAmount)} ${l('due', 'বাকি')}`,
+      }));
+    }
+    return mockTodayFollowups;
+  }, [dueMembers, l, formatNum, formatMoney]);
+
+  // Handlers
+  const handleCall = (name: string, phone: string) => {
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    Alert.alert(
+      l('Call Member', 'সদস্যকে কল করুন'),
+      `${name}\n${phone}`,
+      [
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+        {
+          text: l('Call', 'কল দিন'),
+          onPress: () => {
+            Linking.openURL(`tel:${cleanPhone}`).catch(() => {
+              Alert.alert(l('Notice', 'বিজ্ঞপ্তি'), l('Phone dialer could not be opened', 'ফোন ডায়লার খোলা সম্ভব হয়নি'));
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMessage = (name: string, phone: string, note: string, memberId: string) => {
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+    const defaultMsg = `আসসালামু আলাইকুম ${name} ভাই, আপনার সমিতির কিস্তি বকেয়া রয়েছে (${note})। অনুগ্রহ করে দ্রুত পরিশোধ করবেন। ধন্যবাদ - ${somitiInfo.name}`;
+
+    Alert.alert(
+      l('Send Reminder', 'রিমাইন্ডার পাঠান'),
+      `${name} · ${note}`,
+      [
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+        {
+          text: l('WhatsApp', 'হোয়াটসঅ্যাপ'),
+          onPress: () => {
+            const url = `whatsapp://send?phone=${fullPhone}&text=${encodeURIComponent(defaultMsg)}`;
+            Linking.openURL(url).catch(() => {
+              Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(defaultMsg)}`).catch(() => {
+                Alert.alert(l('Error', 'ত্রুটি'), l('WhatsApp could not be opened', 'হোয়াটসঅ্যাপ খোলা সম্ভব হয়নি'));
+              });
+            });
+          },
+        },
+        {
+          text: l('SMS', 'এসএমএস'),
+          onPress: () => {
+            Linking.openURL(`sms:${cleanPhone}?body=${encodeURIComponent(defaultMsg)}`).catch(() => {
+              Alert.alert(l('Error', 'ত্রুটি'), l('SMS app could not be opened', 'এসএমএস অ্যাপ খোলা সম্ভব হয়নি'));
+            });
+          },
+        },
+        {
+          text: l('Open Reminder Page', 'রিমাইন্ডার পেজ'),
+          onPress: () => router.push('/(admin)/reminder'),
+        },
+      ]
+    );
+  };
+
+  const handleFollowupPress = (item: { id: string; name: string }) => {
+    Alert.alert(
+      item.name,
+      l('Choose an action for this member:', 'এই সদস্যের জন্য অ্যাকশন নির্বাচন করুন:'),
+      [
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+        {
+          text: l('Record Deposit', 'জমা নিন'),
+          onPress: () => router.push(`/(admin)/deposit/new?memberId=${item.id}`),
+        },
+        {
+          text: l('View Profile', 'প্রোফাইল দেখুন'),
+          onPress: () => router.push(`/(admin)/member/${item.id}`),
+        },
+      ]
+    );
+  };
+
+  const handleQuickApprove = (item: { id: string; title: string; amount: number }) => {
+    Alert.alert(
+      l('Quick Approval', 'দ্রুত অনুমোদন'),
+      `${item.title} · ${formatMoney(item.amount)}\n\n${l('Do you want to approve this request right now?', 'আপনি কি এখনই এই অনুরোধটি অনুমোদন করতে চান?')}`,
+      [
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+        {
+          text: l('View Details', 'বিস্তারিত দেখুন'),
+          onPress: () => router.push('/(admin)/approvals'),
+        },
+        {
+          text: l('Approve Now', 'অনুমোদন করুন'),
+          style: 'default',
+          onPress: () => {
+            approveRequest(item.id);
+            Alert.alert(l('Approved', 'অনুমোদিত'), l('Request approved and funds adjusted successfully.', 'অনুরোধটি অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।'));
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -30,7 +217,11 @@ export default function HomeDashboardScreen() {
 
       {/* Top Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <TouchableOpacity
+          style={styles.headerLeft}
+          onPress={() => router.push('/(admin)/somiti')}
+          activeOpacity={0.7}
+        >
           <View style={styles.logoBadge}>
             <Text style={styles.logoText}>{l('A', 'স')}</Text>
           </View>
@@ -40,7 +231,7 @@ export default function HomeDashboardScreen() {
               {l('September 2026', 'সেপ্টেম্বর ২০২৬')} · {formatNum(members.length)} {l('Members', 'জন সদস্য')}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.notificationBtn}
@@ -61,9 +252,21 @@ export default function HomeDashboardScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* 1. Hero Card: মোট তহবিল (Dark Forest Teal) */}
-        <View style={styles.heroCard}>
+        <TouchableOpacity
+          style={styles.heroCard}
+          onPress={() => router.push('/(admin)/finance')}
+          activeOpacity={0.9}
+        >
           <View style={styles.heroTopRow}>
             <Text style={styles.heroTitle}>{l('Total Fund', 'মোট তহবিল')}</Text>
             <View style={styles.growthBadge}>
@@ -75,7 +278,7 @@ export default function HomeDashboardScreen() {
           </View>
 
           <Text style={styles.heroAmount}>
-            {formatMoney(somitiInfo.totalFund)}
+            {formatMoney(totalFund)}
           </Text>
 
           {/* Allocation Bar */}
@@ -83,13 +286,13 @@ export default function HomeDashboardScreen() {
             <View
               style={[
                 styles.barSegment,
-                { width: `${somitiInfo.projectInvestedPct}%`, backgroundColor: '#2DD4BF' },
+                { width: `${projectInvestedPct}%`, backgroundColor: '#2DD4BF' },
               ]}
             />
             <View
               style={[
                 styles.barSegment,
-                { width: `${somitiInfo.cashAndBankPct}%`, backgroundColor: '#99F6E4' },
+                { width: `${cashAndBankPct}%`, backgroundColor: '#99F6E4' },
               ]}
             />
           </View>
@@ -99,17 +302,17 @@ export default function HomeDashboardScreen() {
             <View style={styles.heroFooterCol}>
               <Text style={styles.heroFooterLabel}>{l('Invested in Projects', 'প্রজেক্টে বিনিয়োগ')}</Text>
               <Text style={styles.heroFooterValue}>
-                {formatMoney(somitiInfo.projectInvested)} · {formatNum(somitiInfo.projectInvestedPct)}%
+                {formatMoney(projectInvested)} · {formatNum(projectInvestedPct)}%
               </Text>
             </View>
             <View style={[styles.heroFooterCol, { alignItems: 'flex-end' }]}>
               <Text style={styles.heroFooterLabel}>{l('In Hand & Bank', 'হাতে ও ব্যাংকে')}</Text>
               <Text style={styles.heroFooterValue}>
-                {formatMoney(somitiInfo.cashAndBank)} · {formatNum(somitiInfo.cashAndBankPct)}%
+                {formatMoney(cashAndBank)} · {formatNum(cashAndBankPct)}%
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 2. 4 Quick Action Buttons */}
         <View style={styles.quickActionRow}>
@@ -159,44 +362,49 @@ export default function HomeDashboardScreen() {
         </View>
 
         {/* 3. এ মাসের আদায় Card */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
-            <Text style={styles.cardSubtitle}>{l(`Due Date ${dueDateDay} September`, `শেষ তারিখ ${dueDateDay} সেপ্টেম্বর`)}</Text>
-          </View>
-
-          <View style={styles.collectionBody}>
-            <ProgressRing
-              progress={somitiInfo.monthlyCollectedPct}
-              size={80}
-              strokeWidth={8}
-              color={colors.primary}
-            />
-
-            <View style={styles.collectionStats}>
-              <Text style={styles.collectionAmount}>
-                {formatMoney(somitiInfo.monthlyCollected)}
-              </Text>
-              <Text style={styles.collectionSub}>
-                {l('Target', 'লক্ষ্য')} {formatMoney(somitiInfo.monthlyTarget)} · {l('Remaining', 'বাকি')} {formatMoney(somitiInfo.monthlyRemaining)}
-              </Text>
+        <TouchableOpacity
+          onPress={() => router.push('/(admin)/(tabs)/collection')}
+          activeOpacity={0.9}
+        >
+          <Card style={styles.sectionCard}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
+              <Text style={styles.cardSubtitle}>{l(`Due Date ${dueDateDay} September`, `শেষ তারিখ ${dueDateDay} সেপ্টেম্বর`)}</Text>
             </View>
-          </View>
 
-          <View style={styles.collectionFooterRow}>
-            <Text style={styles.paidText}>
-              {formatNum(somitiInfo.paidCount)} {l('members paid', 'জন জমা দিয়েছেন')}
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(admin)/(tabs)/collection')}
-              style={styles.dueLink}
-            >
-              <Text style={styles.dueText}>
-                {formatNum(somitiInfo.dueMembersCount)} {l('due ›', 'জন বাকি ›')}
+            <View style={styles.collectionBody}>
+              <ProgressRing
+                progress={monthlyCollectedPct}
+                size={80}
+                strokeWidth={8}
+                color={colors.primary}
+              />
+
+              <View style={styles.collectionStats}>
+                <Text style={styles.collectionAmount}>
+                  {formatMoney(monthlyCollected)}
+                </Text>
+                <Text style={styles.collectionSub}>
+                  {l('Target', 'লক্ষ্য')} {formatMoney(monthlyTarget)} · {l('Remaining', 'বাকি')} {formatMoney(monthlyRemaining)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.collectionFooterRow}>
+              <Text style={styles.paidText}>
+                {formatNum(paidMembers.length)} {l('members paid', 'জন জমা দিয়েছেন')}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
+              <TouchableOpacity
+                onPress={() => router.push('/(admin)/due')}
+                style={styles.dueLink}
+              >
+                <Text style={styles.dueText}>
+                  {formatNum(dueMembers.length)} {l('due ›', 'জন বাকি ›')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </TouchableOpacity>
 
         {/* 4. Two-Column Cards: বকেয়া & প্রজেক্ট */}
         <View style={styles.twoColumnRow}>
@@ -212,10 +420,10 @@ export default function HomeDashboardScreen() {
                 <Text style={styles.halfCardTitle}>{l('Due', 'বকেয়া')}</Text>
               </View>
               <Text style={[styles.halfCardAmount, { color: colors.danger }]}>
-                {formatMoney(somitiInfo.totalDueAmount)}
+                {formatMoney(totalDueAmount)}
               </Text>
               <Text style={styles.halfCardSub}>
-                {formatNum(somitiInfo.dueMembersCount)} {l('members · 3 members 3+ mos', 'জন · ৩ জন ৩+ মাস')}
+                {formatNum(dueMembers.length)} {l('members · 3 members 3+ mos', 'জন · ৩ জন ৩+ মাস')}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -232,10 +440,10 @@ export default function HomeDashboardScreen() {
                 <Text style={styles.halfCardTitle}>{l('Active Projects', 'চলমান প্রজেক্ট')}</Text>
               </View>
               <Text style={[styles.halfCardAmount, { color: colors.primary }]}>
-                {formatNum(4)}{l(' items', 'টি')}
+                {formatNum(activeProjectsCount)}{l(' items', 'টি')}
               </Text>
               <Text style={[styles.halfCardSub, { color: colors.success }]}>
-                {l('Profit this year', 'এ বছর লাভ')} {formatMoney(somitiInfo.yearlyProjectProfit, { showPlusSign: true })}
+                {l('Profit this year', 'এ বছর লাভ')} {formatMoney(yearlyProjectProfit, { showPlusSign: true })}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -251,21 +459,21 @@ export default function HomeDashboardScreen() {
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>{l("This Month's Income", 'এ মাসের আয়')}</Text>
                 <Text style={styles.colValue}>
-                  {formatMoney(somitiInfo.monthlyIncome)}
+                  {formatMoney(monthlyIncome)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>{l("This Month's Expense", 'এ মাসের ব্যয়')}</Text>
                 <Text style={styles.colValue}>
-                  {formatMoney(somitiInfo.monthlyExpense)}
+                  {formatMoney(monthlyExpense)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
                 <Text style={styles.colLabel}>{l('Net', 'নিট')}</Text>
                 <Text style={[styles.colValue, { color: colors.primary }]}>
-                  {formatMoney(somitiInfo.monthlyNet)}
+                  {formatMoney(monthlyNet)}
                 </Text>
               </View>
             </View>
@@ -281,13 +489,15 @@ export default function HomeDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {mockTodayFollowups.map((item, index) => (
-            <View
+          {followupList.map((item, index) => (
+            <TouchableOpacity
               key={item.id}
               style={[
                 styles.followupRow,
-                index === mockTodayFollowups.length - 1 && { borderBottomWidth: 0 },
+                index === followupList.length - 1 && { borderBottomWidth: 0 },
               ]}
+              onPress={() => handleFollowupPress(item)}
+              activeOpacity={0.7}
             >
               <View style={styles.avatarCircleSmall}>
                 <Text style={styles.avatarTextSmall}>{item.name.charAt(0)}</Text>
@@ -301,18 +511,20 @@ export default function HomeDashboardScreen() {
               <View style={styles.followupActions}>
                 <TouchableOpacity
                   style={styles.actionIconBtn}
-                  onPress={() => router.push('/(admin)/reminder')}
+                  onPress={() => handleCall(item.name, item.phone)}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="call-outline" size={18} color={colors.textMain} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionIconBtn}
-                  onPress={() => router.push('/(admin)/reminder')}
+                  onPress={() => handleMessage(item.name, item.phone, item.note, item.id)}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="chatbubble-outline" size={18} color={colors.textMain} />
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </Card>
 
@@ -337,7 +549,8 @@ export default function HomeDashboardScreen() {
                   styles.approvalItem,
                   index === Math.min(approvals.length, 3) - 1 && { borderBottomWidth: 0 },
                 ]}
-                onPress={() => router.push('/(admin)/approvals')}
+                onPress={() => handleQuickApprove(item)}
+                activeOpacity={0.7}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.approvalItemTitle}>

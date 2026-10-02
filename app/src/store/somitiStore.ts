@@ -387,16 +387,18 @@ export const useSomitiStore = create<SomitiState>()(
       approveRequest: (id) => {
         const currentApprovals = get().approvals;
         const item = currentApprovals.find((a) => a.id === id);
-        if (item && item.type === 'expense') {
-          // Add to expense
-          get().addExpense({
-            title: item.title,
-            category: 'সাধারণ ব্যয়',
-            amount: item.amount,
-            paymentSource: 'হাতে নগদ',
-            voucherNo: `V-${toBengaliDigits(Math.floor(1000 + Math.random() * 9000))}`,
-            note: item.detail,
-          });
+        if (item) {
+          if (item.type === 'expense' || item.type === 'investment') {
+            // Add to expense
+            get().addExpense({
+              title: item.title,
+              category: item.type === 'investment' ? 'প্রজেক্ট বিনিয়োগ' : 'সাধারণ ব্যয়',
+              amount: item.amount,
+              paymentSource: item.type === 'investment' ? 'ব্যাংক' : 'হাতে নগদ',
+              voucherNo: `V-${toBengaliDigits(Math.floor(1000 + Math.random() * 9000))}`,
+              note: item.detail,
+            });
+          }
         }
         set({ approvals: currentApprovals.filter((a) => a.id !== id) });
       },
