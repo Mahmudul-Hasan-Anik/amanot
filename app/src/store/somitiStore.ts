@@ -106,6 +106,9 @@ export interface SomitiState {
   // Transaction Lookup
   getTransactionById: (id: string) => Transaction | undefined;
 
+  // Somiti Info Action
+  updateSomitiInfo: (data: Partial<typeof mockSomitiInfo>) => void;
+
   // Reset helper
   resetAllData: () => void;
 }
@@ -452,6 +455,15 @@ export const useSomitiStore = create<SomitiState>()(
 
       getTransactionById: (id) => {
         return get().transactions.find((t) => t.id === id || t.receiptNo === id || t.receiptNo === `#${id}`);
+      },
+
+      updateSomitiInfo: (data) => {
+        set({
+          somitiInfo: {
+            ...get().somitiInfo,
+            ...data,
+          }
+        });
       },
 
       resetAllData: () => {
