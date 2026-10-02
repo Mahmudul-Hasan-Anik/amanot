@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface CustomKeypadProps {
   onPressDigit: (digit: string) => void;
@@ -16,10 +17,11 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
   onPressBiometric,
   showBiometric = true,
 }) => {
+  const { formatNum } = useLanguage();
   const rows = [
-    ['১', '২', '৩'],
-    ['৪', '৫', '৬'],
-    ['৭', '৮', '৯'],
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
   ];
 
   return (
@@ -33,7 +35,7 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
               activeOpacity={0.7}
               onPress={() => onPressDigit(digit)}
             >
-              <Text style={styles.digitText}>{digit}</Text>
+              <Text style={styles.digitText}>{formatNum(digit)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -56,9 +58,9 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
         <TouchableOpacity
           style={styles.key}
           activeOpacity={0.7}
-          onPress={() => onPressDigit('০')}
+          onPress={() => onPressDigit('0')}
         >
-          <Text style={styles.digitText}>০</Text>
+          <Text style={styles.digitText}>{formatNum('0')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

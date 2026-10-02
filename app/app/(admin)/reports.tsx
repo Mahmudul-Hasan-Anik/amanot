@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 interface ReportRow {
   id: string;
@@ -24,6 +24,7 @@ interface ReportRow {
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { somitiInfo, members, projects } = useSomitiStore();
 
   const [autoSummaryCommittee, setAutoSummaryCommittee] = useState(true);
@@ -35,57 +36,57 @@ export default function ReportsScreen() {
     {
       id: '1',
       icon: 'document-text-outline',
-      title: 'মাসিক আদায় রিপোর্ট',
-      sub: `আদায় ৳${formatBengaliMoney(somitiInfo.monthlyCollected)} · লক্ষ্য ৳${formatBengaliMoney(somitiInfo.monthlyTarget)}`,
+      title: l('Monthly Collection Report', 'মাসিক আদায় রিপোর্ট'),
+      sub: `${l('Collected', 'আদায়')} ${formatMoney(somitiInfo.monthlyCollected)} · ${l('Target', 'লক্ষ্য')} ${formatMoney(somitiInfo.monthlyTarget)}`,
     },
     {
       id: '2',
       icon: 'warning-outline',
-      title: 'বকেয়া তালিকা',
-      sub: `${toBengaliDigits(dueMembers.length)} জন সদস্য · মোট বকেয়া ৳${formatBengaliMoney(somitiInfo.totalDueAmount)}`,
+      title: l('Due List Report', 'বকেয়া তালিকা'),
+      sub: `${formatNum(dueMembers.length)} ${l('Members · Total Due', 'জন সদস্য · মোট বকেয়া')} ${formatMoney(somitiInfo.totalDueAmount)}`,
     },
     {
       id: '3',
       icon: 'trending-up-outline',
-      title: 'আয়-ব্যয় রিপোর্ট',
-      sub: `আয় ৳${formatBengaliMoney(somitiInfo.monthlyCollected)} · ব্যয় ৳${formatBengaliMoney(somitiInfo.monthlyExpense)}`,
+      title: l('Income-Expense Report', 'আয়-ব্যয় রিপোর্ট'),
+      sub: `${l('Income', 'আয়')} ${formatMoney(somitiInfo.monthlyCollected)} · ${l('Expense', 'ব্যয়')} ${formatMoney(somitiInfo.monthlyExpense)}`,
     },
     {
       id: '4',
       icon: 'person-outline',
-      title: 'সদস্য স্টেটমেন্ট',
-      sub: `সকল ${toBengaliDigits(members.length)} জন সক্রিয় সদস্যের খতিয়ান`,
+      title: l('Member Statement', 'সদস্য স্টেটমেন্ট'),
+      sub: `${l('Ledger for all', 'সকল')} ${formatNum(members.length)} ${l('active members', 'জন সক্রিয় সদস্যের খতিয়ান')}`,
     },
     {
       id: '5',
       icon: 'briefcase-outline',
-      title: 'প্রজেক্ট রিপোর্ট',
-      sub: `${toBengaliDigits(projects.length)}টি প্রজেক্ট · বিনিয়োগ ও লাভ-ক্ষতি`,
+      title: l('Project Report', 'প্রজেক্ট রিপোর্ট'),
+      sub: `${formatNum(projects.length)} ${l('Projects · Investment & Profit/Loss', 'টি প্রজেক্ট · বিনিয়োগ ও লাভ-ক্ষতি')}`,
     },
     {
       id: '6',
       icon: 'wallet-outline',
-      title: 'নগদ ও ব্যাংক বই',
-      sub: `হাতে ও ব্যাংকে মোট ৳${formatBengaliMoney(somitiInfo.cashAndBank)}`,
+      title: l('Cash & Bank Book', 'নগদ ও ব্যাংক বই'),
+      sub: `${l('Total Cash & Bank', 'হাতে ও ব্যাংকে মোট')} ${formatMoney(somitiInfo.cashAndBank)}`,
     },
     {
       id: '7',
       icon: 'people-outline',
-      title: 'মাঠকর্মী রিপোর্ট',
-      sub: 'মাঠ থেকে আদায় ও জমার অবস্থা',
+      title: l('Field Officer Report', 'মাঠকর্মী রিপোর্ট'),
+      sub: l('Field collection and deposit status', 'মাঠ থেকে আদায় ও জমার অবস্থা'),
     },
     {
       id: '8',
       icon: 'pie-chart-outline',
-      title: 'বার্ষিক বণ্টন রিপোর্ট',
-      sub: 'সদস্যভিত্তিক নিট লাভ-ক্ষতি বণ্টন',
+      title: l('Annual Distribution Report', 'বার্ষিক বণ্টন রিপোর্ট'),
+      sub: l('Member-wise net profit-loss distribution', 'সদস্যভিত্তিক নিট লাভ-ক্ষতি বণ্টন'),
     },
   ];
 
   const handleDownload = (title: string, format: 'PDF' | 'Excel') => {
     Alert.alert(
-      'রিপোর্ট প্রস্তুত',
-      `${title} (${format} ফরম্যাটে) সফলভাবে প্রস্তুত হয়েছে। শেয়ার বা ডাউনলোড করা যাবে।`
+      l('Report Ready', 'রিপোর্ট প্রস্তুত'),
+      `${title} (${format}) ${l('is ready. You can share or download it.', 'ফরম্যাটে সফলভাবে প্রস্তুত হয়েছে। শেয়ার বা ডাউনলোড করা যাবে।')}`
     );
   };
 
@@ -102,7 +103,7 @@ export default function ReportsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>রিপোর্ট</Text>
+        <Text style={styles.headerTitle}>{l('Reports', 'রিপোর্ট')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -113,7 +114,7 @@ export default function ReportsScreen() {
         {/* Date Selector Pill */}
         <TouchableOpacity style={styles.datePill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.datePillText}>১ – ৩১ অক্টোবর ২০২৬</Text>
+          <Text style={styles.datePillText}>{l('1 – 31 October 2026', '১ – ৩১ অক্টোবর ২০২৬')}</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
@@ -152,13 +153,13 @@ export default function ReportsScreen() {
         </View>
 
         {/* Section: স্বয়ংক্রিয় রিপোর্ট */}
-        <Text style={styles.sectionTitle}>স্বয়ংক্রিয় রিপোর্ট শিডিউল</Text>
+        <Text style={styles.sectionTitle}>{l('Automated Report Schedule', 'স্বয়ংক্রিয় রিপোর্ট শিডিউল')}</Text>
         <View style={styles.autoReportCard}>
           {/* Row 1 */}
           <View style={styles.autoRow}>
             <View style={styles.autoTextCol}>
-              <Text style={styles.autoTitle}>মাসিক সারসংক্ষেপ কমিটিকে</Text>
-              <Text style={styles.autoSub}>প্রতি মাসের ১ তারিখে হোয়াটসঅ্যাপ ও ইমেইলে</Text>
+              <Text style={styles.autoTitle}>{l('Monthly Summary to Committee', 'মাসিক সারসংক্ষেপ কমিটিকে')}</Text>
+              <Text style={styles.autoSub}>{l('1st of every month via WhatsApp & Email', 'প্রতি মাসের ১ তারিখে হোয়াটসঅ্যাপ ও ইমেইলে')}</Text>
             </View>
             <Switch
               value={autoSummaryCommittee}
@@ -173,8 +174,8 @@ export default function ReportsScreen() {
           {/* Row 2 */}
           <View style={styles.autoRow}>
             <View style={styles.autoTextCol}>
-              <Text style={styles.autoTitle}>সদস্যদের মাসিক ব্যালেন্স</Text>
-              <Text style={styles.autoSub}>প্রতি মাসের ১–৫ তারিখে এসএমএস ও পুশ বিজ্ঞপ্তি</Text>
+              <Text style={styles.autoTitle}>{l('Member Monthly Balance', 'সদস্যদের মাসিক ব্যালেন্স')}</Text>
+              <Text style={styles.autoSub}>{l('1st–5th of every month via SMS & Push notification', 'প্রতি মাসের ১–৫ তারিখে এসএমএস ও পুশ বিজ্ঞপ্তি')}</Text>
             </View>
             <Switch
               value={autoMemberBalance}
@@ -188,11 +189,11 @@ export default function ReportsScreen() {
         {/* Full Data Export Excel Button */}
         <TouchableOpacity
           style={styles.exportAllBtn}
-          onPress={() => handleDownload('সমিতির সম্পূর্ণ খতিয়ান ও হিসাব বই', 'Excel')}
+          onPress={() => handleDownload(l('Somiti Complete Ledger & Books', 'সমিতির সম্পূর্ণ খতিয়ান ও হিসাব বই'), 'Excel')}
           activeOpacity={0.8}
         >
           <Ionicons name="download-outline" size={18} color="#1E293B" />
-          <Text style={styles.exportAllText}>সম্পূর্ণ ডেটা ব্যাকআপ ও এক্সপোর্ট (Excel)</Text>
+          <Text style={styles.exportAllText}>{l('Full Data Backup & Export (Excel)', 'সম্পূর্ণ ডেটা ব্যাকআপ ও এক্সপোর্ট (Excel)')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

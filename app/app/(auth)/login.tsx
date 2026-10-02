@@ -16,12 +16,15 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { toBengaliDigits, toEnglishDigits } from '../../src/lib/bengali';
+import { useLanguage } from '../../src/i18n/useLanguage';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { requestOtp, verifyOtp, setPhone } = useAuthStore();
+  const { l, formatNum } = useLanguage();
 
-  const [phoneNumber, setPhoneNumber] = useState('০১৭১২-৩৪৫৬৭৮');
+  const [phoneNumber, setPhoneNumber] = useState('01712-345678');
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [timerSeconds, setTimerSeconds] = useState(60);
@@ -49,12 +52,15 @@ export default function LoginScreen() {
   const handleSendOtp = () => {
     const rawDigits = toEnglishDigits(phoneNumber.replace(/\D/g, ''));
     if (rawDigits.length < 10) {
-      Alert.alert('ভুল নম্বর', 'অনুগ্রহ করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন।');
+      Alert.alert(
+        l('Invalid Number', 'ভুল নম্বর'),
+        l('Please enter a valid 11-digit mobile number.', 'অনুগ্রহ করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন।')
+      );
       return;
     }
 
     const otp = requestOtp(phoneNumber);
-    setPhone('+৮৮০ ' + phoneNumber);
+    setPhone('+880 ' + phoneNumber);
     setOtpSent(true);
     setTimerSeconds(60);
     setCanResend(false);
@@ -68,7 +74,10 @@ export default function LoginScreen() {
 
   const handleVerifyOtp = () => {
     if (otpValue.length < 6) {
-      Alert.alert('অসম্পূর্ণ ওটিপি', 'অনুগ্রহ করে ৬ সংখ্যার ওটিপি কোডটি লিখুন।');
+      Alert.alert(
+        l('Incomplete OTP', 'অসম্পূর্ণ ওটিপি'),
+        l('Please enter the 6-digit OTP code.', 'অনুগ্রহ করে ৬ সংখ্যার ওটিপি কোডটি লিখুন।')
+      );
       return;
     }
 
@@ -79,19 +88,22 @@ export default function LoginScreen() {
     if (success) {
       router.replace('/(auth)/pin');
     } else {
-      Alert.alert('ভুল কোড', 'ওটিপি কোডটি সঠিক নয়। ডেমো ওটিপি: ৪৮২৭০০');
+      Alert.alert(
+        l('Incorrect Code', 'ভুল কোড'),
+        l('OTP code is incorrect. Demo OTP: 482700', 'ওটিপি কোডটি সঠিক নয়। ডেমো ওটিপি: ৪৮২৭০০')
+      );
     }
   };
 
-  // Convert current OTP value into an array of 6 items
+  // Convert current OTP value into an array of 6 items formatted by user preference
   const otpDigitsArray = Array(6)
     .fill('')
-    .map((_, i) => (otpValue[i] ? toBengaliDigits(otpValue[i]) : ''));
+    .map((_, i) => (otpValue[i] ? formatNum(otpValue[i]) : ''));
 
   const formatTimer = () => {
     const mins = Math.floor(timerSeconds / 60);
     const secs = timerSeconds % 60;
-    return `${toBengaliDigits(mins)}:${secs < 10 ? '০' : ''}${toBengaliDigits(secs)}`;
+    return `${formatNum(mins)}:${secs < 10 ? formatNum('0') : ''}${formatNum(secs)}`;
   };
 
   return (
@@ -104,34 +116,41 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Top Language Switcher */}
+        <View style={styles.topBar}>
+          <LanguageToggle />
+        </View>
+
         {/* Brand Header */}
         <View style={styles.header}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>আ</Text>
+            <Text style={styles.logoText}>{l('A', 'আ')}</Text>
           </View>
-          <Text style={styles.brandTitle}>আমানত সমিতি</Text>
-          <Text style={styles.brandSubtitle}>হিসাবে ইনসাফ, আমানতে সুরক্ষা</Text>
+          <Text style={styles.brandTitle}>{l('Amanot Samity', 'আমানত সমিতি')}</Text>
+          <Text style={styles.brandSubtitle}>
+            {l('Justice in Accounts, Security in Amanat', 'হিসাবে ইনসাফ, আমানতে সুরক্ষা')}
+          </Text>
         </View>
 
         {/* Card 1: লগইন করুন (মোবাইল নম্বর) */}
         <Card style={styles.card}>
-          <Text style={styles.cardHeader}>লগইন করুন</Text>
-          <Text style={styles.inputLabel}>মোবাইল নম্বর</Text>
+          <Text style={styles.cardHeader}>{l('Login', 'লগইন করুন')}</Text>
+          <Text style={styles.inputLabel}>{l('Mobile Number', 'মোবাইল নম্বর')}</Text>
 
           <View style={styles.phoneInputContainer}>
-            <Text style={styles.countryCode}>+৮৮০</Text>
+            <Text style={styles.countryCode}>+880</Text>
             <TextInput
               style={styles.phoneInput}
               value={phoneNumber}
-              onChangeText={setPhoneNumber}
+              onChangeText={(text) => setPhoneNumber(toEnglishDigits(text))}
               keyboardType="phone-pad"
-              placeholder="০১৭১২ ৩৪৫৬৭৮"
+              placeholder="01712 345678"
               placeholderTextColor={colors.textMuted}
             />
           </View>
 
           <Button
-            title={otpSent ? 'ওটিপি পুনরায় পাঠান' : 'ওটিপি পাঠান'}
+            title={otpSent ? l('Resend OTP', 'ওটিপি পুনরায় পাঠান') : l('Send OTP', 'ওটিপি পাঠান')}
             variant="secondary"
             onPress={handleSendOtp}
             style={styles.otpSendButton}
@@ -141,9 +160,12 @@ export default function LoginScreen() {
         {/* Card 2: যাচাই কোড লিখুন (ওটিপি ইনপুট) */}
         {otpSent && (
           <Card style={styles.card}>
-            <Text style={styles.cardHeader}>যাচাই কোড লিখুন</Text>
+            <Text style={styles.cardHeader}>{l('Enter Verification Code', 'যাচাই কোড লিখুন')}</Text>
             <Text style={styles.otpSubText}>
-              +৮৮০ {phoneNumber} নম্বরে ৬ সংখ্যার কোড পাঠানো হয়েছে
+              {l(
+                `6-digit code sent to +880 ${phoneNumber}`,
+                `+৮৮০ ${phoneNumber} নম্বরে ৬ সংখ্যার কোড পাঠানো হয়েছে`
+              )}
             </Text>
 
             {/* Hidden Input for Real Keyboard Capture */}
@@ -192,7 +214,12 @@ export default function LoginScreen() {
 
             {/* Demo Hint */}
             <View style={styles.demoHintBox}>
-              <Text style={styles.demoHintText}>💡 ডেমো ওটিপি কোড: ৪৮২৭০০ (বা যেকোনো ৬ ডিজিট)</Text>
+              <Text style={styles.demoHintText}>
+                {l(
+                  '💡 Demo OTP: 482700 (or any 6 digits)',
+                  '💡 ডেমো ওটিপি কোড: ৪৮২৭০০ (বা যেকোনো ৬ ডিজিট)'
+                )}
+              </Text>
             </View>
 
             {/* Timer or Resend Button */}
@@ -201,16 +228,19 @@ export default function LoginScreen() {
                 onPress={handleSendOtp}
                 style={styles.resendButton}
               >
-                <Text style={styles.resendText}>ওটিপি পুনরায় পাঠান</Text>
+                <Text style={styles.resendText}>{l('Resend OTP', 'ওটিপি পুনরায় পাঠান')}</Text>
               </TouchableOpacity>
             ) : (
               <Text style={styles.timerText}>
-                আবার পাঠাতে পারবেন {formatTimer()} পরে
+                {l(
+                  `Resend code in ${timerSeconds}s`,
+                  `আবার পাঠাতে পারবেন ${formatTimer()} পরে`
+                )}
               </Text>
             )}
 
             <Button
-              title="যাচাই করুন"
+              title={l('Verify Code', 'যাচাই করুন')}
               variant="primary"
               loading={isVerifying}
               onPress={handleVerifyOtp}
@@ -221,7 +251,10 @@ export default function LoginScreen() {
 
         {/* Bottom Helper Note */}
         <Text style={styles.footerNote}>
-          শুধু সমিতিতে নিবন্ধিত নম্বর দিয়ে লগইন করা যাবে। সমস্যা হলে সম্পাদকের সাথে যোগাযোগ করুন।
+          {l(
+            'Only members registered with the society can log in. Contact the secretary if you face issues.',
+            'শুধু সমিতিতে নিবন্ধিত নম্বর দিয়ে লগইন করা যাবে। সমস্যা হলে সম্পাদকের সাথে যোগাযোগ করুন।'
+          )}
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -238,6 +271,12 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 40,
     alignItems: 'center',
+  },
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 16,
   },
   header: {
     alignItems: 'center',

@@ -12,13 +12,14 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 const ALLOC_COLORS = ['#0F766E', '#14B8A6', '#5EEAD4', '#A7F3D0', '#CBD5E1'];
 
 export default function ProjectsScreen() {
   const router = useRouter();
   const { projects } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'delayed' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,9 +51,9 @@ export default function ProjectsScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>প্রজেক্ট</Text>
+          <Text style={styles.headerTitle}>{l('Projects', 'প্রজেক্ট')}</Text>
           <Text style={styles.headerSubtitle}>
-            {toBengaliDigits(projects.length)}টি প্রজেক্টে ৳{formatBengaliMoney(totalInvested)}
+            {formatNum(projects.length)} {l('projects ·', 'টি প্রজেক্টে')} {formatMoney(totalInvested)}
           </Text>
         </View>
 
@@ -71,7 +72,7 @@ export default function ProjectsScreen() {
           <Ionicons name="search" size={18} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="প্রজেক্টের নাম দিয়ে খুঁজুন..."
+            placeholder={l('Search by project name...', 'প্রজেক্টের নাম দিয়ে খুঁজুন...')}
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -93,18 +94,18 @@ export default function ProjectsScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.topStatsRow}>
             <View>
-              <Text style={styles.statLabel}>মোট বিনিয়োগ</Text>
-              <Text style={styles.statAmountInvest}>৳{formatBengaliMoney(totalInvested)}</Text>
+              <Text style={styles.statLabel}>{l('Total Investment', 'মোট বিনিয়োগ')}</Text>
+              <Text style={styles.statAmountInvest}>{formatMoney(totalInvested)}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.statLabel}>এ বছর লাভ</Text>
+              <Text style={styles.statLabel}>{l('Profit This Year', 'এ বছর লাভ')}</Text>
               <Text style={styles.statAmountProfit}>
-                {totalProfit >= 0 ? `+৳${formatBengaliMoney(totalProfit)}` : `−৳${formatBengaliMoney(Math.abs(totalProfit))}`}
+                {formatMoney(totalProfit, { showPlusSign: true })}
               </Text>
             </View>
           </View>
 
-          <Text style={styles.allocLabel}>মোট তহবিলের বণ্টন</Text>
+          <Text style={styles.allocLabel}>{l('Fund Allocation', 'মোট তহবিলের বণ্টন')}</Text>
 
           {/* Allocation Multi-Segment Bar */}
           <View style={styles.allocBar}>
@@ -141,7 +142,7 @@ export default function ProjectsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              সব {toBengaliDigits(projects.length)}
+              {l('All', 'সব')} {formatNum(projects.length)}
             </Text>
           </TouchableOpacity>
 
@@ -151,7 +152,7 @@ export default function ProjectsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'ongoing' && styles.filterTextActive]}>
-              চলমান
+              {l('Ongoing', 'চলমান')}
             </Text>
           </TouchableOpacity>
 
@@ -161,7 +162,7 @@ export default function ProjectsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'delayed' && styles.filterTextActive]}>
-              বিলম্বিত
+              {l('Delayed', 'বিলম্বিত')}
             </Text>
           </TouchableOpacity>
 
@@ -171,7 +172,7 @@ export default function ProjectsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'completed' && styles.filterTextActive]}>
-              সমাপ্ত
+              {l('Completed', 'সমাপ্ত')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -181,8 +182,8 @@ export default function ProjectsScreen() {
           {filteredProjects.map((project) => {
             const isProfit = project.netProfit >= 0;
             const profitRoiText = isProfit
-              ? `+৳${formatBengaliMoney(project.netProfit)} · ${toBengaliDigits(project.roiPct)}%`
-              : `−৳${formatBengaliMoney(Math.abs(project.netProfit))} · −${toBengaliDigits(Math.abs(project.roiPct))}%`;
+              ? `+${formatMoney(project.netProfit)} · ${formatNum(project.roiPct)}%`
+              : `−${formatMoney(Math.abs(project.netProfit))} · −${formatNum(Math.abs(project.roiPct))}%`;
 
             return (
               <TouchableOpacity
@@ -195,38 +196,38 @@ export default function ProjectsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cardTitle}>{project.name}</Text>
                     <Text style={styles.cardSub}>
-                      {project.type} · {project.location} · দায়িত্বে: {project.manager}
+                      {project.type} · {project.location} · {l('Manager:', 'দায়িত্বে:')} {project.manager}
                     </Text>
                   </View>
 
                   {project.status === 'ongoing' ? (
                     <View style={styles.ongoingBadge}>
-                      <Text style={styles.ongoingBadgeText}>চলমান</Text>
+                      <Text style={styles.ongoingBadgeText}>{l('Ongoing', 'চলমান')}</Text>
                     </View>
                   ) : project.status === 'delayed' ? (
                     <View style={styles.delayedBadge}>
-                      <Text style={styles.delayedBadgeText}>বিলম্বিত</Text>
+                      <Text style={styles.delayedBadgeText}>{l('Delayed', 'বিলম্বিত')}</Text>
                     </View>
                   ) : (
                     <View style={[styles.ongoingBadge, { backgroundColor: '#E0F2FE' }]}>
-                      <Text style={[styles.ongoingBadgeText, { color: '#0369A1' }]}>সমাপ্ত</Text>
+                      <Text style={[styles.ongoingBadgeText, { color: '#0369A1' }]}>{l('Completed', 'সমাপ্ত')}</Text>
                     </View>
                   )}
                 </View>
 
                 <View style={styles.metricsRow}>
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>বিনিয়োগ</Text>
-                    <Text style={styles.metricValue}>৳{formatBengaliMoney(project.investedAmount)}</Text>
+                    <Text style={styles.metricLabel}>{l('Investment', 'বিনিয়োগ')}</Text>
+                    <Text style={styles.metricValue}>{formatMoney(project.investedAmount)}</Text>
                   </View>
 
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>ফেরত</Text>
-                    <Text style={styles.metricValue}>৳{formatBengaliMoney(project.returnedAmount)}</Text>
+                    <Text style={styles.metricLabel}>{l('Return', 'ফেরত')}</Text>
+                    <Text style={styles.metricValue}>{formatMoney(project.returnedAmount)}</Text>
                   </View>
 
                   <View style={[styles.metricCol, { alignItems: 'flex-end' }]}>
-                    <Text style={styles.metricLabel}>লাভ-ক্ষতি · ROI</Text>
+                    <Text style={styles.metricLabel}>{l('P&L · ROI', 'লাভ-ক্ষতি · ROI')}</Text>
                     <Text
                       style={[
                         styles.metricValue,
@@ -245,7 +246,7 @@ export default function ProjectsScreen() {
             <View style={{ padding: 24, alignItems: 'center' }}>
               <Ionicons name="briefcase-outline" size={32} color="#94A3B8" />
               <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
-                কোনো প্রজেক্ট পাওয়া যায়নি
+                {l('No projects found', 'কোনো প্রজেক্ট পাওয়া যায়নি')}
               </Text>
             </View>
           )}
@@ -261,7 +262,7 @@ export default function ProjectsScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>নতুন প্রজেক্ট</Text>
+        <Text style={styles.fabText}>{l('New Project', 'নতুন প্রজেক্ট')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

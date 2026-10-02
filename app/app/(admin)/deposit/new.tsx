@@ -15,12 +15,13 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function RecordDepositScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { members, recordDeposit } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
 
   // Find selected member or default to করিম উদ্দিন (or first due member)
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
@@ -36,7 +37,7 @@ export default function RecordDepositScreen() {
 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'bank'>('bkash');
   const [trxId, setTrxId] = useState('BK7X29QM4L');
-  const [date, setDate] = useState('২ অক্টোবর ২০২৬');
+  const [date, setDate] = useState('2 October 2026');
 
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [sendSMS, setSendSMS] = useState(false);
@@ -51,7 +52,10 @@ export default function RecordDepositScreen() {
 
   const handleConfirmDeposit = () => {
     if (monthsCount === 0) {
-      Alert.alert('মাস নির্বাচন করুন', 'অনুগ্রহ করে অন্তত একটি মাস নির্বাচন করুন।');
+      Alert.alert(
+        l('Select Month', 'মাস নির্বাচন করুন'),
+        l('Please select at least one month.', 'অনুগ্রহ করে অন্তত একটি মাস নির্বাচন করুন।')
+      );
       return;
     }
 
@@ -89,7 +93,7 @@ export default function RecordDepositScreen() {
         >
           <Ionicons name="close" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>জমা গ্রহণ</Text>
+        <Text style={styles.headerTitle}>{l('Record Deposit', 'জমা গ্রহণ')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -100,24 +104,24 @@ export default function RecordDepositScreen() {
         {/* Member Selector Card */}
         <View style={styles.memberCard}>
           <View style={styles.memberAvatar}>
-            <Text style={styles.avatarText}>{currentMember?.name?.charAt(0) || 'স'}</Text>
+            <Text style={styles.avatarText}>{currentMember?.name?.charAt(0) || 'S'}</Text>
           </View>
           <View style={styles.memberDetails}>
             <Text style={styles.memberName}>{currentMember?.name}</Text>
             <Text style={styles.memberSub}>
-              {currentMember?.code} · মাসিক {formatBengaliMoney(currentMember?.monthlyAmount || 2000)}
+              {currentMember?.code} · {l('Monthly', 'মাসিক')} {formatMoney(currentMember?.monthlyAmount || 2000)}
             </Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowMemberModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.changeLink}>বদলান</Text>
+            <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* 1. Month Selection */}
-        <Text style={styles.sectionTitle}>কোন মাসের জমা?</Text>
+        <Text style={styles.sectionTitle}>{l('Which month deposit?', 'কোন মাসের জমা?')}</Text>
         <View style={styles.monthPillsRow}>
           <TouchableOpacity
             style={[styles.monthPill, augustSelected && styles.monthPillActive]}
@@ -130,7 +134,7 @@ export default function RecordDepositScreen() {
               color={augustSelected ? '#0F766E' : '#94A3B8'}
             />
             <Text style={[styles.monthPillText, augustSelected && styles.monthPillTextActive]}>
-              আগস্ট বকেয়া
+              {l('August Due', 'আগস্ট বকেয়া')}
             </Text>
           </TouchableOpacity>
 
@@ -145,7 +149,7 @@ export default function RecordDepositScreen() {
               color={septemberSelected ? '#0F766E' : '#94A3B8'}
             />
             <Text style={[styles.monthPillText, septemberSelected && styles.monthPillTextActive]}>
-              সেপ্টেম্বর
+              {l('September', 'সেপ্টেম্বর')}
             </Text>
           </TouchableOpacity>
 
@@ -160,7 +164,7 @@ export default function RecordDepositScreen() {
               color={octoberSelected ? '#0F766E' : '#94A3B8'}
             />
             <Text style={[styles.monthPillText, octoberSelected && styles.monthPillTextActive]}>
-              অক্টোবর অগ্রিম
+              {l('October Advance', 'অক্টোবর অগ্রিম')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -169,33 +173,33 @@ export default function RecordDepositScreen() {
         <View style={styles.amountCard}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>
-              নিয়মিত জমা ({toBengaliDigits(monthsCount)} মাস × {formatBengaliMoney(rate)})
+              {l(`Regular deposit (${monthsCount} mo × ${formatMoney(rate)})`, `নিয়মিত জমা (${formatNum(monthsCount)} মাস × ${formatMoney(rate)})`)}
             </Text>
-            <Text style={styles.amountVal}>{formatBengaliMoney(baseAmount)}</Text>
+            <Text style={styles.amountVal}>{formatMoney(baseAmount)}</Text>
           </View>
 
           {lateFee > 0 && (
             <View style={styles.amountRow}>
               <View style={styles.lateFeeLabelRow}>
-                <Text style={styles.amountLabel}>বিলম্ব ফি (আগস্ট)</Text>
+                <Text style={styles.amountLabel}>{l('Late fee (August)', 'বিলম্ব ফি (আগস্ট)')}</Text>
                 <View style={styles.lateFeeBadge}>
-                  <Text style={styles.lateFeeBadgeText}>+১০০</Text>
+                  <Text style={styles.lateFeeBadgeText}>+{formatMoney(lateFee)}</Text>
                 </View>
               </View>
-              <Text style={styles.amountVal}>+৳১০০</Text>
+              <Text style={styles.amountVal}>+{formatMoney(lateFee)}</Text>
             </View>
           )}
 
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>মোট আদায়</Text>
-            <Text style={styles.totalVal}>{formatBengaliMoney(totalAmount)}</Text>
+            <Text style={styles.totalLabel}>{l('Total Collection', 'মোট আদায়')}</Text>
+            <Text style={styles.totalVal}>{formatMoney(totalAmount)}</Text>
           </View>
         </View>
 
         {/* 3. Payment Method */}
-        <Text style={styles.sectionTitle}>পরিশোধের মাধ্যম</Text>
+        <Text style={styles.sectionTitle}>{l('Payment Method', 'পরিশোধের মাধ্যম')}</Text>
         <View style={styles.methodGrid}>
           <TouchableOpacity
             style={[styles.methodBtn, paymentMethod === 'cash' && styles.methodBtnActive]}
@@ -208,7 +212,7 @@ export default function RecordDepositScreen() {
               color={paymentMethod === 'cash' ? '#0F766E' : '#64748B'}
             />
             <Text style={[styles.methodBtnText, paymentMethod === 'cash' && styles.methodBtnTextActive]}>
-              নগদ টাকা
+              {l('Cash', 'নগদ টাকা')}
             </Text>
           </TouchableOpacity>
 
@@ -223,7 +227,7 @@ export default function RecordDepositScreen() {
               color={paymentMethod === 'bkash' ? '#0F766E' : '#64748B'}
             />
             <Text style={[styles.methodBtnText, paymentMethod === 'bkash' && styles.methodBtnTextActive]}>
-              বিকাশ
+              {l('bKash', 'বিকাশ')}
             </Text>
           </TouchableOpacity>
 
@@ -238,7 +242,7 @@ export default function RecordDepositScreen() {
               color={paymentMethod === 'nagad' ? '#0F766E' : '#64748B'}
             />
             <Text style={[styles.methodBtnText, paymentMethod === 'nagad' && styles.methodBtnTextActive]}>
-              নগদ (অ্যাপ)
+              {l('Nagad (App)', 'নগদ (অ্যাপ)')}
             </Text>
           </TouchableOpacity>
 
@@ -253,7 +257,7 @@ export default function RecordDepositScreen() {
               color={paymentMethod === 'bank' ? '#0F766E' : '#64748B'}
             />
             <Text style={[styles.methodBtnText, paymentMethod === 'bank' && styles.methodBtnTextActive]}>
-              ব্যাংক
+              {l('Bank', 'ব্যাংক')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -261,30 +265,30 @@ export default function RecordDepositScreen() {
         {/* TrxID / Date Input */}
         {paymentMethod !== 'cash' && (
           <View style={styles.inputCard}>
-            <Text style={styles.inputCardLabel}>ট্রানজ্যাকশন আইডি (TrxID)</Text>
+            <Text style={styles.inputCardLabel}>{l('Transaction ID (TrxID)', 'ট্রানজ্যাকশন আইডি (TrxID)')}</Text>
             <TextInput
               style={styles.textInput}
               value={trxId}
               onChangeText={setTrxId}
-              placeholder="যেমন: BK7X29QM4L"
+              placeholder="e.g. BK7X29QM4L"
               placeholderTextColor="#94A3B8"
             />
           </View>
         )}
 
         <View style={styles.inputCard}>
-          <Text style={styles.inputCardLabel}>জমার তারিখ</Text>
+          <Text style={styles.inputCardLabel}>{l('Deposit Date', 'জমার তারিখ')}</Text>
           <TextInput
             style={styles.textInput}
             value={date}
             onChangeText={setDate}
-            placeholder="২ অক্টোবর ২০২৬"
+            placeholder={l('2 October 2026', '২ অক্টোবর ২০২৬')}
             placeholderTextColor="#94A3B8"
           />
         </View>
 
         {/* 4. Notification Channels */}
-        <Text style={styles.sectionTitle}>রসিদ পাঠানোর মাধ্যম</Text>
+        <Text style={styles.sectionTitle}>{l('Receipt Delivery Method', 'রসিদ পাঠানোর মাধ্যম')}</Text>
         <View style={styles.notifyCard}>
           <TouchableOpacity
             style={styles.notifyRow}
@@ -296,7 +300,7 @@ export default function RecordDepositScreen() {
               size={20}
               color={sendWhatsApp ? '#0F766E' : '#94A3B8'}
             />
-            <Text style={styles.notifyLabel}>হোয়াটসঅ্যাপে রসিদ পাঠান</Text>
+            <Text style={styles.notifyLabel}>{l('Send receipt via WhatsApp', 'হোয়াটসঅ্যাপে রসিদ পাঠান')}</Text>
           </TouchableOpacity>
 
           <View style={styles.dividerLight} />
@@ -311,7 +315,7 @@ export default function RecordDepositScreen() {
               size={20}
               color={sendSMS ? '#0F766E' : '#94A3B8'}
             />
-            <Text style={styles.notifyLabel}>এসএমএস পাঠান (ঐচ্ছিক)</Text>
+            <Text style={styles.notifyLabel}>{l('Send SMS (Optional)', 'এসএমএস পাঠান (ঐচ্ছিক)')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -328,7 +332,7 @@ export default function RecordDepositScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>সদস্য নির্বাচন করুন</Text>
+              <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
               <TouchableOpacity onPress={() => setShowMemberModal(false)}>
                 <Ionicons name="close" size={24} color="#1E293B" />
               </TouchableOpacity>
@@ -354,12 +358,12 @@ export default function RecordDepositScreen() {
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.memberName}>{item.name}</Text>
                     <Text style={styles.memberSub}>
-                      {item.code} · {formatBengaliMoney(item.monthlyAmount)}
+                      {item.code} · {formatMoney(item.monthlyAmount)}
                     </Text>
                   </View>
                   {item.dueAmount > 0 && (
                     <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '600' }}>
-                      বাকি {formatBengaliMoney(item.dueAmount)}
+                      {l('Due', 'বাকি')} {formatMoney(item.dueAmount)}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -377,7 +381,7 @@ export default function RecordDepositScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-          <Text style={styles.confirmBtnText}>জমা নিশ্চিত করুন</Text>
+          <Text style={styles.confirmBtnText}>{l('Confirm Deposit', 'জমা নিশ্চিত করুন')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

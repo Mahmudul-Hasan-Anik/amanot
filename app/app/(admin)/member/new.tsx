@@ -14,16 +14,17 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function NewMemberScreen() {
   const router = useRouter();
+  const { l } = useLanguage();
   const { addMember, members } = useSomitiStore();
 
   const nextCodeNum = members.length + 1;
   const memberCode = `SM-${nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`}`;
 
-  // Form states matching Page 6
+  // Form states matching Page 6 - English ASCII numbers
   const [name, setName] = useState('');
   const [nid, setNid] = useState('');
   const [dob, setDob] = useState('');
@@ -33,39 +34,39 @@ export default function NewMemberScreen() {
   const [nomineeName, setNomineeName] = useState('');
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
-  const [joinDate] = useState('২ অক্টোবর ২০২৬');
-  const [monthlyAmount, setMonthlyAmount] = useState('২,০০০');
-  const [admissionFee, setAdmissionFee] = useState('৫০০');
+  const [joinDate] = useState('02 Oct 2026');
+  const [monthlyAmount, setMonthlyAmount] = useState('2000');
+  const [admissionFee, setAdmissionFee] = useState('500');
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      Alert.alert('ত্রুটি', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন');
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member full name', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন'));
       return;
     }
     if (!phone.trim()) {
-      Alert.alert('ত্রুটি', 'অনুগ্রহ করে সদস্যের মোবাইল নম্বর লিখুন');
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member mobile number', 'অনুগ্রহ করে সদস্যের মোবাইল নম্বর লিখুন'));
       return;
     }
 
-    const cleanMonthly = Number(toEnglishDigits(monthlyAmount.replace(/[^\d]/g, ''))) || 2000;
-    const cleanFee = Number(toEnglishDigits(admissionFee.replace(/[^\d]/g, ''))) || 500;
+    const cleanMonthly = Number(monthlyAmount.replace(/[^\d]/g, '')) || 2000;
+    const cleanFee = Number(admissionFee.replace(/[^\d]/g, '')) || 500;
 
     const newMember = addMember({
       name: name.trim(),
       phone: phone.trim(),
       nid: nid.trim(),
-      address: address.trim() || 'ঠিকানা দেওয়া হয়নি',
-      nomineeName: nomineeName.trim() || 'নমিনি দেওয়া হয়নি',
-      nomineeRelation: nomineeRelation.trim() || 'সম্পর্ক দেওয়া হয়নি',
+      address: address.trim() || (l('Address not provided', 'ঠিকানা দেওয়া হয়নি')),
+      nomineeName: nomineeName.trim() || (l('Nominee not provided', 'নমিনি দেওয়া হয়নি')),
+      nomineeRelation: nomineeRelation.trim() || (l('Relation not specified', 'সম্পর্ক দেওয়া হয়নি')),
       nomineePhone: nomineePhone.trim(),
       monthlyAmount: cleanMonthly,
       admissionFee: cleanFee,
     });
 
     Alert.alert(
-      'সদস্য যোগ সফল',
-      `সদস্য ${newMember.name} (${newMember.code}) সফলভাবে যুক্ত হয়েছেন!`,
-      [{ text: 'ঠিক আছে', onPress: () => router.replace('/(admin)/(tabs)/members') }]
+      l('Member Added Successfully', 'সদস্য যোগ সফল'),
+      `${l('Member', 'সদস্য')} ${newMember.name} (${newMember.code}) ${l('has been added successfully!', 'সফলভাবে যুক্ত হয়েছেন!')}`,
+      [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/(tabs)/members') }]
     );
   };
 
@@ -82,7 +83,7 @@ export default function NewMemberScreen() {
         >
           <Ionicons name="close" size={24} color={colors.textMain} />
         </TouchableOpacity>
-        <Text style={styles.appBarTitle}>নতুন সদস্য</Text>
+        <Text style={styles.appBarTitle}>{l('New Member', 'নতুন সদস্য')}</Text>
       </View>
 
       <ScrollView
@@ -93,44 +94,44 @@ export default function NewMemberScreen() {
         <View style={styles.photoUploadContainer}>
           <TouchableOpacity
             style={styles.photoCircle}
-            onPress={() => Alert.alert('ছবি', 'ক্যামেরা বা গ্যালারি থেকে ছবি নির্বাচন করুন')}
+            onPress={() => Alert.alert(l('Photo', 'ছবি'), l('Select photo from camera or gallery', 'ক্যামেরা বা গ্যালারি থেকে ছবি নির্বাচন করুন'))}
             activeOpacity={0.8}
           >
             <Ionicons name="camera-outline" size={28} color={colors.textMain} />
           </TouchableOpacity>
-          <Text style={styles.photoTitle}>সদস্যের ছবি</Text>
-          <Text style={styles.photoSub}>ক্যামেরা বা গ্যালারি থেকে (ঐচ্ছিক)</Text>
+          <Text style={styles.photoTitle}>{l('Member Photo', 'সদস্যের ছবি')}</Text>
+          <Text style={styles.photoSub}>{l('From camera or gallery (optional)', 'ক্যামেরা বা গ্যালারি থেকে (ঐচ্ছিক)')}</Text>
         </View>
 
         {/* 1. ব্যক্তিগত তথ্য */}
-        <Text style={styles.sectionHeader}>ব্যক্তিগত তথ্য</Text>
+        <Text style={styles.sectionHeader}>{l('1. Personal Information', '১. ব্যক্তিগত তথ্য')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>পূর্ণ নাম *</Text>
+          <Text style={styles.inputLabel}>{l('Full Name *', 'পূর্ণ নাম *')}</Text>
           <TextInput
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="যেমন: মোঃ আব্দুল করিম"
+            placeholder={l('e.g. Md. Abdul Karim', 'যেমন: মোঃ আব্দুল করিম')}
             placeholderTextColor={colors.textMuted}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>সদস্য আইডি</Text>
+          <Text style={styles.inputLabel}>{l('Member ID', 'সদস্য আইডি')}</Text>
           <View style={styles.codeBox}>
             <Text style={styles.codeText}>{memberCode}</Text>
           </View>
-          <Text style={styles.hintText}>স্বয়ংক্রিয়ভাবে তৈরি</Text>
+          <Text style={styles.hintText}>{l('Auto-generated', 'স্বয়ংক্রিয়ভাবে তৈরি')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>জাতীয় পরিচয়পত্র নম্বর *</Text>
+          <Text style={styles.inputLabel}>{l('National ID (NID) *', 'জাতীয় পরিচয়পত্র নম্বর *')}</Text>
           <TextInput
             style={styles.input}
             value={nid}
             onChangeText={setNid}
-            placeholder="১০ বা ১৭ সংখ্যা"
+            placeholder={l('10 or 17 digits', '১০ বা ১৭ সংখ্যা')}
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
           />
@@ -139,21 +140,21 @@ export default function NewMemberScreen() {
         {/* NID Upload Button */}
         <TouchableOpacity
           style={styles.uploadNidBtn}
-          onPress={() => Alert.alert('NID', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন')}
+          onPress={() => Alert.alert('NID', l('Add National ID photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন'))}
           activeOpacity={0.8}
         >
           <Ionicons name="arrow-up" size={16} color={colors.textMain} />
-          <Text style={styles.uploadNidText}>জাতীয় পরিচয়পত্রের ছবি যোগ করুন</Text>
+          <Text style={styles.uploadNidText}>{l('Add National ID photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন')}</Text>
         </TouchableOpacity>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>জন্মতারিখ</Text>
+          <Text style={styles.inputLabel}>{l('Date of Birth', 'জন্মতারিখ')}</Text>
           <View style={styles.inputWithIcon}>
             <TextInput
               style={styles.inputFlex}
               value={dob}
               onChangeText={setDob}
-              placeholder="দিন/মাস/বছর"
+              placeholder={l('DD/MM/YYYY', 'দিন/মাস/বছর')}
               placeholderTextColor={colors.textMuted}
             />
             <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
@@ -161,15 +162,15 @@ export default function NewMemberScreen() {
         </View>
 
         {/* 2. যোগাযোগ */}
-        <Text style={styles.sectionHeader}>যোগাযোগ</Text>
+        <Text style={styles.sectionHeader}>{l('2. Contact Details', '২. যোগাযোগ')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>মোবাইল নম্বর *</Text>
+          <Text style={styles.inputLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
           <TextInput
             style={styles.input}
             value={phone}
             onChangeText={setPhone}
-            placeholder="+৮৮০ ১৭XX XXXXXX"
+            placeholder="+880 17XX XXXXXX"
             placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
           />
@@ -185,25 +186,25 @@ export default function NewMemberScreen() {
             size={18}
             color={colors.primary}
           />
-          <Text style={styles.checkboxLabel}>হোয়াটসঅ্যাপ নম্বর একই</Text>
+          <Text style={styles.checkboxLabel}>{l('WhatsApp number is same', 'হোয়াটসঅ্যাপ নম্বর একই')}</Text>
         </TouchableOpacity>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>ঠিকানা *</Text>
+          <Text style={styles.inputLabel}>{l('Address *', 'ঠিকানা *')}</Text>
           <TextInput
             style={styles.input}
             value={address}
             onChangeText={setAddress}
-            placeholder="গ্রাম/এলাকা, উপজেলা, জেলা"
+            placeholder={l('Village/Area, Upazila, District', 'গ্রাম/এলাকা, উপজেলা, জেলা')}
             placeholderTextColor={colors.textMuted}
           />
         </View>
 
         {/* 3. নমিনি */}
-        <Text style={styles.sectionHeader}>নমিনি</Text>
+        <Text style={styles.sectionHeader}>{l('3. Nominee', '৩. নমিনি')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>নমিনির নাম *</Text>
+          <Text style={styles.inputLabel}>{l('Nominee Name *', 'নমিনির নাম *')}</Text>
           <TextInput
             style={styles.input}
             value={nomineeName}
@@ -213,23 +214,23 @@ export default function NewMemberScreen() {
 
         <View style={styles.twoColsRow}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>সম্পর্ক</Text>
+            <Text style={styles.inputLabel}>{l('Relation', 'সম্পর্ক')}</Text>
             <TextInput
               style={styles.input}
               value={nomineeRelation}
               onChangeText={setNomineeRelation}
-              placeholder="যেমন: স্ত্রী"
+              placeholder={l('e.g. Wife', 'যেমন: স্ত্রী')}
               placeholderTextColor={colors.textMuted}
             />
           </View>
 
           <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>ফোন</Text>
+            <Text style={styles.inputLabel}>{l('Phone', 'ফোন')}</Text>
             <TextInput
               style={styles.input}
               value={nomineePhone}
               onChangeText={setNomineePhone}
-              placeholder="০১XXXXXXXXX"
+              placeholder="01XXXXXXXXX"
               placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
             />
@@ -237,37 +238,39 @@ export default function NewMemberScreen() {
         </View>
 
         {/* 4. সমিতির তথ্য */}
-        <Text style={styles.sectionHeader}>সমিতির তথ্য</Text>
+        <Text style={styles.sectionHeader}>{l('4. Somiti Details', '৪. সমিতির তথ্য')}</Text>
 
         <View style={styles.twoColsRow}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>যোগদানের তারিখ</Text>
+            <Text style={styles.inputLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
             <View style={styles.readonlyInput}>
               <Text style={styles.readonlyText}>{joinDate}</Text>
             </View>
           </View>
 
           <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>মাসিক জমা *</Text>
+            <Text style={styles.inputLabel}>{l('Monthly Deposit *', 'মাসিক জমা *')}</Text>
             <View style={styles.inputWithPrefix}>
               <Text style={styles.prefixText}>৳</Text>
               <TextInput
                 style={styles.prefixInput}
                 value={monthlyAmount}
                 onChangeText={setMonthlyAmount}
+                keyboardType="numeric"
               />
             </View>
           </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>ভর্তি ফি</Text>
+          <Text style={styles.inputLabel}>{l('Admission Fee', 'ভর্তি ফি')}</Text>
           <View style={styles.inputWithPrefix}>
             <Text style={styles.prefixText}>৳</Text>
             <TextInput
               style={styles.prefixInput}
               value={admissionFee}
               onChangeText={setAdmissionFee}
+              keyboardType="numeric"
             />
           </View>
         </View>
@@ -276,7 +279,7 @@ export default function NewMemberScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
           <Text style={styles.infoBoxText}>
-            মাসিক জমার পরিমাণ পরে সদস্যের প্রোফাইল থেকে পরিবর্তন করা যাবে। পরিবর্তনের ইতিহাস সংরক্ষিত থাকবে।
+            {l('Monthly deposit amount can be modified later from member profile. History will be preserved.', 'মাসিক জমার পরিমাণ পরে সদস্যের প্রোফাইল থেকে পরিবর্তন করা যাবে। পরিবর্তনের ইতিহাস সংরক্ষিত থাকবে।')}
           </Text>
         </View>
 
@@ -287,7 +290,7 @@ export default function NewMemberScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-          <Text style={styles.submitBtnText}>সদস্য যোগ করুন</Text>
+          <Text style={styles.submitBtnText}>{l('Add Member', 'সদস্য যোগ করুন')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

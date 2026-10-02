@@ -14,31 +14,31 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
-import { formatBengaliMoney } from '../../../src/lib/money';
-import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-
-const MONTH_PILLS = [
-  { name: 'জানু', status: 'paid', label: 'জমা ✓' },
-  { name: 'ফেব্রু', status: 'paid', label: 'জমা ✓' },
-  { name: 'মার্চ', status: 'paid', label: 'জমা ✓' },
-  { name: 'এপ্রিল', status: 'paid', label: 'জমা ✓' },
-  { name: 'মে', status: 'paid', label: 'জমা ✓' },
-  { name: 'জুন', status: 'paid', label: 'জমা ✓' },
-  { name: 'জুলাই', status: 'paid', label: 'জমা ✓' },
-  { name: 'আগস্ট', status: 'due', label: 'বকেয়া' },
-  { name: 'সেপ্টে', status: 'due', label: 'বকেয়া' },
-  { name: 'অক্টো', status: 'upcoming', label: 'আসন্ন' },
-  { name: 'নভে', status: 'upcoming', label: 'আসন্ন' },
-  { name: 'ডিসে', status: 'upcoming', label: 'আসন্ন' },
-];
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { l, formatMoney, formatNum, language } = useLanguage();
   const { getMemberById, members } = useSomitiStore();
 
   const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
+
+  const monthPills = [
+    { name: l('Jan', 'জানু'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Feb', 'ফেব্রু'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Mar', 'মার্চ'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Apr', 'এপ্রিল'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('May', 'মে'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Jun', 'জুন'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Jul', 'জুলাই'), status: 'paid', label: l('Paid ✓', 'জমা ✓') },
+    { name: l('Aug', 'আগস্ট'), status: 'due', label: l('Due', 'বকেয়া') },
+    { name: l('Sep', 'সেপ্টে'), status: 'due', label: l('Due', 'বকেয়া') },
+    { name: l('Oct', 'অক্টো'), status: 'upcoming', label: l('Upcoming', 'আসন্ন') },
+    { name: l('Nov', 'নভে'), status: 'upcoming', label: l('Upcoming', 'আসন্ন') },
+    { name: l('Dec', 'ডিসে'), status: 'upcoming', label: l('Upcoming', 'আসন্ন') },
+  ];
 
   const handleCall = () => {
     Linking.openURL(`tel:${member.phone.replace(/[^0-9]/g, '')}`);
@@ -67,7 +67,7 @@ export default function MemberProfileScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.textMain} />
         </TouchableOpacity>
-        <Text style={styles.appBarTitle}>সদস্য প্রোফাইল</Text>
+        <Text style={styles.appBarTitle}>{l('Member Profile', 'সদস্য প্রোফাইল')}</Text>
         <View style={styles.appBarRight}>
           <TouchableOpacity style={styles.iconBtn}>
             <Ionicons name="pencil-outline" size={20} color={colors.textMain} />
@@ -89,15 +89,17 @@ export default function MemberProfileScreen() {
           </View>
           <Text style={styles.memberName}>{member.name}</Text>
           <Text style={styles.memberSub}>
-            {member.code} · যোগদান {member.joinDate}
+            {member.code} · {l('Joined', 'যোগদান')} {member.joinDate}
           </Text>
 
           <View style={styles.badgeRow}>
             <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>সক্রিয়</Text>
+              <Text style={styles.activeBadgeText}>{l('Active', 'সক্রিয়')}</Text>
             </View>
             <View style={styles.dueBadge}>
-              <Text style={styles.dueBadgeText}>২ মাস বকেয়া</Text>
+              <Text style={styles.dueBadgeText}>
+                {member.dueMonths ? `${formatNum(member.dueMonths)} ${l('Months Due', 'মাস বকেয়া')}` : l('No Due', 'কোনো বকেয়া নেই')}
+              </Text>
             </View>
           </View>
         </View>
@@ -106,17 +108,17 @@ export default function MemberProfileScreen() {
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.actionPill} onPress={handleCall} activeOpacity={0.8}>
             <Ionicons name="call-outline" size={20} color={colors.textMain} />
-            <Text style={styles.actionPillText}>কল</Text>
+            <Text style={styles.actionPillText}>{l('Call', 'কল')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionPill} onPress={handleWhatsApp} activeOpacity={0.8}>
             <Ionicons name="chatbubble-outline" size={20} color={colors.textMain} />
-            <Text style={styles.actionPillText}>হোয়াটসঅ্যাপ</Text>
+            <Text style={styles.actionPillText}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionPill} onPress={handleSMS} activeOpacity={0.8}>
             <Ionicons name="mail-outline" size={20} color={colors.textMain} />
-            <Text style={styles.actionPillText}>এসএমএস</Text>
+            <Text style={styles.actionPillText}>{l('SMS', 'এসএমএস')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -125,41 +127,41 @@ export default function MemberProfileScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color={colors.textMain} />
-            <Text style={styles.actionPillText}>স্টেটমেন্ট</Text>
+            <Text style={styles.actionPillText}>{l('Statement', 'স্টেটমেন্ট')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Card: মোট জমা */}
         <Card style={styles.card}>
-          <Text style={styles.cardSmallTitle}>মোট জমা</Text>
+          <Text style={styles.cardSmallTitle}>{l('Total Deposit', 'মোট জমা')}</Text>
           <Text style={styles.cardLargeAmount}>
-            {formatBengaliMoney(member.totalDeposit)}
+            {formatMoney(member.totalDeposit)}
           </Text>
           <Text style={styles.cardSubText}>
-            মাসিক জমা {formatBengaliMoney(member.monthlyAmount)} · ৫৪ মাস
+            {l('Monthly Deposit', 'মাসিক জমা')} {formatMoney(member.monthlyAmount)} · {formatNum(54)} {l('Months', 'মাস')}
           </Text>
 
           {/* Overdue Banner */}
           <View style={styles.overdueBanner}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.overdueTitle}>বকেয়া: আগস্ট, সেপ্টেম্বর</Text>
-              <Text style={styles.overdueSub}>বিলম্ব ফি ৳১০০ সহ</Text>
+              <Text style={styles.overdueTitle}>{l('Due: August, September', 'বকেয়া: আগস্ট, সেপ্টেম্বর')}</Text>
+              <Text style={styles.overdueSub}>{l('Inc. Late Fee ৳100', 'বিলম্ব ফি ৳১০০ সহ')}</Text>
             </View>
-            <Text style={styles.overdueAmount}>৳৪,১০০</Text>
+            <Text style={styles.overdueAmount}>{formatMoney(4100)}</Text>
           </View>
 
           {/* Profit 2-columns */}
           <View style={styles.profitGrid}>
             <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>২০২৫ সালের লাভ</Text>
+              <Text style={styles.profitLabel}>{l('2025 Profit', '২০২৫ সালের লাভ')}</Text>
               <Text style={[styles.profitVal, { color: colors.success }]}>
-                +{formatBengaliMoney(member.profit2025 || 7800)}
+                +{formatMoney(member.profit2025 || 7800)}
               </Text>
             </View>
             <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>এ বছর (আনুমানিক)</Text>
+              <Text style={styles.profitLabel}>{l('This Year (Est.)', 'এ বছর (আনুমানিক)')}</Text>
               <Text style={[styles.profitVal, { color: colors.primary }]}>
-                +{formatBengaliMoney(member.estimatedProfit2026 || 5786)}
+                +{formatMoney(member.estimatedProfit2026 || 5786)}
               </Text>
             </View>
           </View>
@@ -168,12 +170,12 @@ export default function MemberProfileScreen() {
         {/* Card: ২০২৬ সালের জমা (৭/৯ মাস) */}
         <Card style={styles.card}>
           <View style={styles.cardHeaderFlex}>
-            <Text style={styles.cardTitle}>২০২৬ সালের জমা</Text>
-            <Text style={styles.fractionText}>৭/৯ মাস</Text>
+            <Text style={styles.cardTitle}>{l('2026 Deposits', '২০২৬ সালের জমা')}</Text>
+            <Text style={styles.fractionText}>{l('7/9 Months', '৭/৯ মাস')}</Text>
           </View>
 
           <View style={styles.monthPillsGrid}>
-            {MONTH_PILLS.map((m, idx) => {
+            {monthPills.map((m, idx) => {
               const isPaid = m.status === 'paid';
               const isDue = m.status === 'due';
 
@@ -216,16 +218,16 @@ export default function MemberProfileScreen() {
         {/* Card: সাম্প্রতিক লেনদেন */}
         <Card style={styles.card}>
           <View style={styles.cardHeaderFlex}>
-            <Text style={styles.cardTitle}>সাম্প্রতিক লেনদেন</Text>
-            <TouchableOpacity onPress={() => Alert.alert('লেনদেন', 'সকল লেনদেনের ইতিহাস')}>
-              <Text style={styles.linkText}>সব দেখুন</Text>
+            <Text style={styles.cardTitle}>{l('Recent Transactions', 'সাম্প্রতিক লেনদেন')}</Text>
+            <TouchableOpacity onPress={() => Alert.alert(l('Transactions', 'লেনদেন'), l('Full transaction history', 'সকল লেনদেনের ইতিহাস'))}>
+              <Text style={styles.linkText}>{l('View All', 'সব দেখুন')}</Text>
             </TouchableOpacity>
           </View>
 
           {(member.recentTxns || [
-            { date: '৮ জুলাই', title: 'জুলাই মাসের জমা', amount: 2000, receiptNo: '#১০৪২', type: 'বিকাশ' },
-            { date: '৯ জুন', title: 'জুন মাসের জমা', amount: 2000, receiptNo: '#০৯৮৭', type: 'হাতে নগদ' },
-            { date: '১৫ জানুয়ারি', title: '২০২৫ সালের লাভের অংশ', amount: 7800, type: 'বার্ষিক বণ্টন' },
+            { date: l('8 July', '৮ জুলাই'), title: l('July Deposit', 'জুলাই মাসের জমা'), amount: 2000, receiptNo: '#1042', type: l('bKash', 'বিকাশ') },
+            { date: l('9 June', '৯ জুন'), title: l('June Deposit', 'জুন মাসের জমা'), amount: 2000, receiptNo: '#0987', type: l('Cash in Hand', 'হাতে নগদ') },
+            { date: l('15 January', '১৫ জানুয়ারি'), title: l('2025 Profit Share', '২০২৫ সালের লাভের অংশ'), amount: 7800, type: l('Annual Distribution', 'বার্ষিক বণ্টন') },
           ]).map((txn: any, index: number) => (
             <View
               key={index}
@@ -237,11 +239,11 @@ export default function MemberProfileScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.txnTitle}>{txn.title}</Text>
                 <Text style={styles.txnMeta}>
-                  {txn.date} · {txn.type} {txn.receiptNo ? `· রসিদ ${txn.receiptNo}` : ''}
+                  {txn.date} · {txn.type} {txn.receiptNo ? `· ${l('Receipt', 'রসিদ')} ${txn.receiptNo}` : ''}
                 </Text>
               </View>
               <Text style={styles.txnAmount}>
-                +{formatBengaliMoney(txn.amount)}
+                +{formatMoney(txn.amount)}
               </Text>
             </View>
           ))}
@@ -249,26 +251,26 @@ export default function MemberProfileScreen() {
 
         {/* Card: ব্যক্তিগত তথ্য */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>ব্যক্তিগত তথ্য</Text>
+          <Text style={styles.cardTitle}>{l('Personal Information', 'ব্যক্তিগত তথ্য')}</Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>মোবাইল</Text>
+            <Text style={styles.infoLabel}>{l('Mobile', 'মোবাইল')}</Text>
             <Text style={styles.infoVal}>{member.phone}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>হোয়াটসঅ্যাপ</Text>
+            <Text style={styles.infoLabel}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
             <Text style={styles.infoVal}>{member.whatsapp || member.phone}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>জাতীয় পরিচয়পত্র</Text>
-            <Text style={styles.infoVal}>{member.nid || '১৯৮৫ ২৬১২ ৭৪৪৯ ০৩১'}</Text>
+            <Text style={styles.infoLabel}>{l('National ID (NID)', 'জাতীয় পরিচয়পত্র')}</Text>
+            <Text style={styles.infoVal}>{member.nid || '1985 2612 7449 031'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>নমিনি</Text>
+            <Text style={styles.infoLabel}>{l('Nominee', 'নমিনি')}</Text>
             <Text style={styles.infoVal}>{member.nomineeName} ({member.nomineeRelation})</Text>
           </View>
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.infoLabel}>ঠিকানা</Text>
-            <Text style={styles.infoVal}>{member.address || '[ঠিকানা]'}</Text>
+            <Text style={styles.infoLabel}>{l('Address', 'ঠিকানা')}</Text>
+            <Text style={styles.infoVal}>{member.address || l('[Address]', '[ঠিকানা]')}</Text>
           </View>
         </Card>
 
@@ -277,8 +279,8 @@ export default function MemberProfileScreen() {
           <View style={styles.followupCardRow}>
             <Ionicons name="calendar-outline" size={20} color={colors.textMain} />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.followupHeader}>পরবর্তী ফলো-আপ: ৩ অক্টোবর</Text>
-              <Text style={styles.followupText}>২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"</Text>
+              <Text style={styles.followupHeader}>{l('Next Follow-up: 3 October', 'পরবর্তী ফলো-আপ: ৩ অক্টোবর')}</Text>
+              <Text style={styles.followupText}>{l('28 Sep call: "Will pay at month start"', '২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"')}</Text>
             </View>
             <TouchableOpacity style={styles.iconBtn}>
               <Ionicons name="pencil-outline" size={18} color={colors.textMain} />
@@ -293,7 +295,7 @@ export default function MemberProfileScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.bottomPayBtnText}>জমা নিন</Text>
+          <Text style={styles.bottomPayBtnText}>{l('Collect Deposit', 'জমা নিন')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 30 }} />

@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 interface AuditItem {
   id: string;
@@ -24,6 +24,7 @@ interface AuditItem {
 
 export default function AuditLogScreen() {
   const router = useRouter();
+  const { l, formatMoney } = useLanguage();
   const { transactions, expenses } = useSomitiStore();
   const [filter, setFilter] = useState<'all' | 'financial' | 'member' | 'settings'>('all');
 
@@ -32,12 +33,12 @@ export default function AuditLogScreen() {
 
     // Transactions into audit log
     transactions.forEach((tx) => {
-      const method = tx.paymentMethod === 'bkash' ? 'বিকাশ' : tx.paymentMethod === 'bank' ? 'ব্যাংক' : 'হাতে নগদ';
+      const method = tx.paymentMethod === 'bkash' ? l('bKash', 'বিকাশ') : tx.paymentMethod === 'bank' ? l('Bank', 'ব্যাংক') : l('Cash', 'হাতে নগদ');
       list.push({
         id: `audit-${tx.id}`,
-        header: `${tx.date} · কোষাধ্যক্ষ`,
-        title: `${tx.type === 'deposit' ? 'জমা এন্ট্রি' : 'ব্যয়'}: ${tx.memberName} ৳${formatBengaliMoney(tx.amount)}`,
-        sub: `রসিদ ${tx.receiptNo} · মাধ্যম: ${method}${tx.trxId ? ` · TrxID: ${tx.trxId}` : ''}`,
+        header: `${tx.date} · ${l('Cashier', 'কোষাধ্যক্ষ')}`,
+        title: `${tx.type === 'deposit' ? l('Deposit Entry', 'জমা এন্ট্রি') : l('Expense', 'ব্যয়')}: ${tx.memberName} ${formatMoney(tx.amount)}`,
+        sub: `${l('Receipt', 'রসিদ')} ${tx.receiptNo} · ${l('Method:', 'মাধ্যম:')} ${method}${tx.trxId ? ` · TrxID: ${tx.trxId}` : ''}`,
         category: 'financial',
       });
     });
@@ -46,9 +47,9 @@ export default function AuditLogScreen() {
     expenses.forEach((exp) => {
       list.push({
         id: `audit-${exp.id}`,
-        header: `${exp.date} · মাহমুদা খাতুন`,
-        title: `ব্যয় এন্ট্রি: ${exp.title} ৳${formatBengaliMoney(exp.amount)}`,
-        sub: `ভাউচার নং ${exp.voucherNo} · উৎস: ${exp.paymentSource}`,
+        header: `${exp.date} · ${l('Mahmuda Khatun', 'মাহমুদা খাতুন')}`,
+        title: `${l('Expense Entry:', 'ব্যয় এন্ট্রি:')} ${exp.title} ${formatMoney(exp.amount)}`,
+        sub: `${l('Voucher No', 'ভাউচার নং')} ${exp.voucherNo} · ${l('Source:', 'উৎস:')} ${exp.paymentSource}`,
         category: 'financial',
       });
     });
@@ -57,29 +58,29 @@ export default function AuditLogScreen() {
     list.push(
       {
         id: 'sys-1',
-        header: '২৮ সেপ্টে · আনোয়ার হোসেন',
-        title: 'সেটিংস: ব্যয় অনুমোদন সীমা',
-        sub: '৳৫,০০০ → ৳১০,০০০ · অনুমোদিত',
+        header: `28 Sep · ${l('Anwar Hossain', 'আনোয়ার হোসেন')}`,
+        title: l('Settings: Expense Approval Limit', 'সেটিংস: ব্যয় অনুমোদন সীমা'),
+        sub: `৳5,000 → ৳10,000 · ${l('Approved', 'অনুমোদিত')}`,
         category: 'settings',
       },
       {
         id: 'sys-2',
-        header: '২৫ সেপ্টে · জাহিদ হাসান',
-        title: 'সদস্যের তথ্য: নাসরিন আক্তার',
-        sub: 'মোবাইল নম্বর ও নমিনির তথ্য আপডেট',
+        header: `25 Sep · ${l('Zahid Hasan', 'জাহিদ হাসান')}`,
+        title: l('Member Info: Nasrin Akter', 'সদস্যের তথ্য: নাসরিন আক্তার'),
+        sub: l('Mobile number and nominee details updated', 'মোবাইল নম্বর ও নমিনির তথ্য আপডেট'),
         category: 'member',
       },
       {
         id: 'sys-3',
-        header: '১ জানু · আনোয়ার হোসেন',
-        title: 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%',
-        sub: 'লক করা হয়েছে · অনুমোদন: জাহিদ হাসান',
+        header: `01 Jan · ${l('Anwar Hossain', 'আনোয়ার হোসেন')}`,
+        title: l('Settings: Reserve 10%, Director 10%', 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%'),
+        sub: `${l('Locked', 'লক করা হয়েছে')} · ${l('Approval: Zahid Hasan', 'অনুমোদন: জাহিদ হাসান')}`,
         category: 'settings',
       }
     );
 
     return list;
-  }, [transactions, expenses]);
+  }, [transactions, expenses, l, formatMoney]);
 
   const filteredLogs = useMemo(() => {
     return liveAuditLogs.filter((item) => {
@@ -101,10 +102,10 @@ export default function AuditLogScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>অডিট লগ</Text>
+        <Text style={styles.headerTitle}>{l('Audit Log', 'অডিট লগ')}</Text>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => Alert.alert('ফিল্টার', 'অডিট লগ ফিল্টার করুন')}
+          onPress={() => Alert.alert(l('Filter', 'ফিল্টার'), l('Filter audit log', 'অডিট লগ ফিল্টার করুন'))}
           activeOpacity={0.7}
         >
           <Ionicons name="filter-outline" size={20} color="#1E293B" />
@@ -119,7 +120,7 @@ export default function AuditLogScreen() {
         <View style={styles.guaranteeBanner}>
           <Ionicons name="shield-checkmark" size={20} color="#0F766E" style={styles.guaranteeIcon} />
           <Text style={styles.guaranteeText}>
-            এই লগ অপরিবর্তনযোগ্য (Immutable Ledger)। সভাপতিসহ কেউই এই হিসাব মুছে ফেলতে বা সংশোধন করতে পারবেন না।
+            {l('This log is an Immutable Ledger. Nobody, including the president, can delete or alter these records.', 'এই লগ অপরিবর্তনযোগ্য (Immutable Ledger)। সভাপতিসহ কেউই এই হিসাব মুছে ফেলতে বা সংশোধন করতে পারবেন না।')}
           </Text>
         </View>
 
@@ -132,7 +133,7 @@ export default function AuditLogScreen() {
           >
             {filter === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.filterChipText, filter === 'all' && styles.filterChipTextActive]}>
-              সব
+              {l('All', 'সব')}
             </Text>
           </TouchableOpacity>
 
@@ -142,7 +143,7 @@ export default function AuditLogScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, filter === 'financial' && styles.filterChipTextActive]}>
-              আর্থিক
+              {l('Financial', 'আর্থিক')}
             </Text>
           </TouchableOpacity>
 
@@ -152,7 +153,7 @@ export default function AuditLogScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, filter === 'member' && styles.filterChipTextActive]}>
-              সদস্য
+              {l('Member', 'সদস্য')}
             </Text>
           </TouchableOpacity>
 
@@ -162,7 +163,7 @@ export default function AuditLogScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, filter === 'settings' && styles.filterChipTextActive]}>
-              সেটিংস
+              {l('Settings', 'সেটিংস')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -193,7 +194,7 @@ export default function AuditLogScreen() {
             <View style={{ padding: 24, alignItems: 'center' }}>
               <Ionicons name="shield-outline" size={32} color="#94A3B8" />
               <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
-                কোনো অডিট রেকর্ড নেই
+                {l('No audit records found', 'কোনো অডিট রেকর্ড নেই')}
               </Text>
             </View>
           )}

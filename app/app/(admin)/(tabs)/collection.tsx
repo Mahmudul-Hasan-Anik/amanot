@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 type FilterType = 'all' | 'paid' | 'due';
 
@@ -28,6 +28,7 @@ const AVATAR_COLORS = [
 export default function CollectionScreen() {
   const router = useRouter();
   const { members, somitiInfo } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,8 +67,8 @@ export default function CollectionScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>মাসিক আদায়</Text>
-          <Text style={styles.headerSubtitle}>অক্টোবর ২০২৬</Text>
+          <Text style={styles.headerTitle}>{l('Monthly Collection', 'মাসিক আদায়')}</Text>
+          <Text style={styles.headerSubtitle}>{l('October 2026', 'অক্টোবর ২০২৬')}</Text>
         </View>
 
         <View style={styles.headerIcons}>
@@ -94,7 +95,7 @@ export default function CollectionScreen() {
           <Ionicons name="search" size={18} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="সদস্যের নাম বা কোড দিয়ে খুঁজুন..."
+            placeholder={l('Search by member name or code...', 'সদস্যের নাম বা কোড দিয়ে খুঁজুন...')}
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -115,7 +116,7 @@ export default function CollectionScreen() {
         {/* Month Selector Pill */}
         <TouchableOpacity style={styles.monthPill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.monthPillText}>অক্টোবর ২০২৬</Text>
+          <Text style={styles.monthPillText}>{l('October 2026', 'অক্টোবর ২০২৬')}</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
@@ -125,32 +126,32 @@ export default function CollectionScreen() {
             {/* Dynamic % Circle Ring */}
             <View style={styles.ringOuter}>
               <View style={styles.ringInner}>
-                <Text style={styles.ringText}>{toBengaliDigits(percent)}%</Text>
+                <Text style={styles.ringText}>{formatNum(percent)}%</Text>
               </View>
             </View>
 
             <View style={styles.summaryRight}>
-              <Text style={styles.summarySubLabel}>আদায় হয়েছে</Text>
-              <Text style={styles.summaryAmount}>৳{formatBengaliMoney(collected)}</Text>
-              <Text style={styles.summaryTarget}>লক্ষ্য ৳{formatBengaliMoney(target)}</Text>
+              <Text style={styles.summarySubLabel}>{l('Collected', 'আদায় হয়েছে')}</Text>
+              <Text style={styles.summaryAmount}>{formatMoney(collected)}</Text>
+              <Text style={styles.summaryTarget}>{l('Target', 'লক্ষ্য')} {formatMoney(target)}</Text>
             </View>
           </View>
 
           {/* 3-Col Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.statCol}>
-              <Text style={styles.statLabel}>জমা দিয়েছেন</Text>
-              <Text style={styles.statValDark}>{toBengaliDigits(paidMembers.length)} জন</Text>
+              <Text style={styles.statLabel}>{l('Paid', 'জমা দিয়েছেন')}</Text>
+              <Text style={styles.statValDark}>{formatNum(paidMembers.length)} {l('members', 'জন')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statLabel}>আংশিক</Text>
-              <Text style={styles.statValAmber}>{toBengaliDigits(partialMembers.length)} জন</Text>
+              <Text style={styles.statLabel}>{l('Partial', 'আংশিক')}</Text>
+              <Text style={styles.statValAmber}>{formatNum(partialMembers.length)} {l('members', 'জন')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statLabel}>বকেয়া</Text>
-              <Text style={styles.statValRed}>{toBengaliDigits(dueMembers.length)} জন</Text>
+              <Text style={styles.statLabel}>{l('Due', 'বকেয়া')}</Text>
+              <Text style={styles.statValRed}>{formatNum(dueMembers.length)} {l('members', 'জন')}</Text>
             </View>
           </View>
         </View>
@@ -163,7 +164,7 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              সব {toBengaliDigits(members.length)}
+              {l('All', 'সব')} {formatNum(members.length)}
             </Text>
           </TouchableOpacity>
 
@@ -173,7 +174,7 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'paid' && styles.filterTextActive]}>
-              জমা {toBengaliDigits(paidMembers.length)}
+              {l('Paid', 'জমা')} {formatNum(paidMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -183,7 +184,7 @@ export default function CollectionScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, filter === 'due' && styles.filterTextActive]}>
-              বকেয়া {toBengaliDigits(dueMembers.length)}
+              {l('Due', 'বকেয়া')} {formatNum(dueMembers.length)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -217,14 +218,14 @@ export default function CollectionScreen() {
                   <Text style={styles.memberName}>{item.name}</Text>
                   <Text style={styles.memberSub}>
                     {isPaid
-                      ? `৳${formatBengaliMoney(item.monthlyAmount)} · নিয়মিত`
-                      : `৳${formatBengaliMoney(item.dueAmount)} বাকি · ${toBengaliDigits(item.dueMonths || 1)} মাস`}
+                      ? `${formatMoney(item.monthlyAmount)} · ${l('Regular', 'নিয়মিত')}`
+                      : `${formatMoney(item.dueAmount)} ${l('due', 'বাকি')} · ${formatNum(item.dueMonths || 1)} ${l('months', 'মাস')}`}
                   </Text>
                 </View>
 
                 {isPaid ? (
                   <View style={styles.paidBadge}>
-                    <Text style={styles.paidBadgeText}>জমা</Text>
+                    <Text style={styles.paidBadgeText}>{l('Paid', 'জমা')}</Text>
                   </View>
                 ) : (
                   <TouchableOpacity
@@ -235,7 +236,7 @@ export default function CollectionScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.payBtnText}>জমা নিন</Text>
+                    <Text style={styles.payBtnText}>{l('Deposit', 'জমা নিন')}</Text>
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
@@ -246,7 +247,7 @@ export default function CollectionScreen() {
             <View style={{ padding: 24, alignItems: 'center' }}>
               <Ionicons name="search-outline" size={32} color="#94A3B8" />
               <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
-                কোনো সদস্য পাওয়া যায়নি
+                {l('No members found', 'কোনো সদস্য পাওয়া যায়নি')}
               </Text>
             </View>
           )}
@@ -259,7 +260,9 @@ export default function CollectionScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="megaphone-outline" size={18} color="#1E293B" />
-          <Text style={styles.reminderCardText}>বকেয়া সদস্যদের রিমাইন্ডার পাঠান ({toBengaliDigits(dueMembers.length)} জন)</Text>
+          <Text style={styles.reminderCardText}>
+            {l(`Send reminder to due members (${dueMembers.length} members)`, `বকেয়া সদস্যদের রিমাইন্ডার পাঠান (${formatNum(dueMembers.length)} জন)`)}
+          </Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
@@ -272,7 +275,7 @@ export default function CollectionScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>জমা নিন</Text>
+        <Text style={styles.fabText}>{l('Deposit', 'জমা নিন')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

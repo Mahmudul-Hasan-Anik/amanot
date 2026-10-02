@@ -13,15 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
 import { ProgressRing } from '../../../src/components/ProgressRing';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
 import {
   mockTodayFollowups,
 } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useLanguage } from '../../../src/i18n/useLanguage';
+import { LanguageToggle } from '../../../src/components/LanguageToggle';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
   const { somitiInfo, approvals, members } = useSomitiStore();
+  const { l, formatMoney, formatNum, dueDateDay } = useLanguage();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -31,30 +33,33 @@ export default function HomeDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>স</Text>
+            <Text style={styles.logoText}>{l('A', 'স')}</Text>
           </View>
           <View>
-            <Text style={styles.somitiName}>{somitiInfo.name}</Text>
+            <Text style={styles.somitiName}>{l('Uttara Model Samity', somitiInfo.name)}</Text>
             <Text style={styles.subHeader}>
-              সেপ্টেম্বর ২০২৬ · {toBengaliDigits(members.length)} জন সদস্য
+              {l('September 2026', 'সেপ্টেম্বর ২০২৬')} · {formatNum(members.length)} {l('Members', 'জন সদস্য')}
             </Text>
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.notificationBtn}
-          onPress={() => router.push('/(admin)/approvals')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.textMain} />
-          {approvals.length > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {toBengaliDigits(approvals.length)}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <LanguageToggle />
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            onPress={() => router.push('/(admin)/approvals')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.textMain} />
+            {approvals.length > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {formatNum(approvals.length)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -64,17 +69,17 @@ export default function HomeDashboardScreen() {
         {/* 1. Hero Card: মোট তহবিল (Dark Forest Teal) */}
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
-            <Text style={styles.heroTitle}>মোট তহবিল</Text>
+            <Text style={styles.heroTitle}>{l('Total Fund', 'মোট তহবিল')}</Text>
             <View style={styles.growthBadge}>
               <Ionicons name="arrow-up" size={12} color={colors.primary} />
               <Text style={styles.growthText}>
-                {toBengaliDigits(somitiInfo.monthlyFundGrowth)}% এ মাসে
+                {formatNum(somitiInfo.monthlyFundGrowth)}% {l('this month', 'এ মাসে')}
               </Text>
             </View>
           </View>
 
           <Text style={styles.heroAmount}>
-            {formatBengaliMoney(somitiInfo.totalFund)}
+            {formatMoney(somitiInfo.totalFund)}
           </Text>
 
           {/* Allocation Bar */}
@@ -96,15 +101,15 @@ export default function HomeDashboardScreen() {
           {/* Allocation Details */}
           <View style={styles.heroFooter}>
             <View style={styles.heroFooterCol}>
-              <Text style={styles.heroFooterLabel}>প্রজেক্টে বিনিয়োগ</Text>
+              <Text style={styles.heroFooterLabel}>{l('Invested in Projects', 'প্রজেক্টে বিনিয়োগ')}</Text>
               <Text style={styles.heroFooterValue}>
-                {formatBengaliMoney(somitiInfo.projectInvested)} · {toBengaliDigits(somitiInfo.projectInvestedPct)}%
+                {formatMoney(somitiInfo.projectInvested)} · {formatNum(somitiInfo.projectInvestedPct)}%
               </Text>
             </View>
             <View style={[styles.heroFooterCol, { alignItems: 'flex-end' }]}>
-              <Text style={styles.heroFooterLabel}>হাতে ও ব্যাংকে</Text>
+              <Text style={styles.heroFooterLabel}>{l('In Hand & Bank', 'হাতে ও ব্যাংকে')}</Text>
               <Text style={styles.heroFooterValue}>
-                {formatBengaliMoney(somitiInfo.cashAndBank)} · {toBengaliDigits(somitiInfo.cashAndBankPct)}%
+                {formatMoney(somitiInfo.cashAndBank)} · {formatNum(somitiInfo.cashAndBankPct)}%
               </Text>
             </View>
           </View>
@@ -120,7 +125,7 @@ export default function HomeDashboardScreen() {
             <View style={styles.actionCircle}>
               <Ionicons name="add" size={24} color={colors.textMain} />
             </View>
-            <Text style={styles.actionLabel}>জমা নিন</Text>
+            <Text style={styles.actionLabel}>{l('Deposit', 'জমা নিন')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -131,7 +136,7 @@ export default function HomeDashboardScreen() {
             <View style={styles.actionCircle}>
               <Ionicons name="receipt-outline" size={22} color={colors.textMain} />
             </View>
-            <Text style={styles.actionLabel}>খরচ লিখুন</Text>
+            <Text style={styles.actionLabel}>{l('Expense', 'খরচ লিখুন')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -142,7 +147,7 @@ export default function HomeDashboardScreen() {
             <View style={styles.actionCircle}>
               <Ionicons name="volume-medium-outline" size={22} color={colors.textMain} />
             </View>
-            <Text style={styles.actionLabel}>রিমাইন্ডার</Text>
+            <Text style={styles.actionLabel}>{l('Reminder', 'রিমাইন্ডার')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -153,15 +158,15 @@ export default function HomeDashboardScreen() {
             <View style={styles.actionCircle}>
               <Ionicons name="document-text-outline" size={22} color={colors.textMain} />
             </View>
-            <Text style={styles.actionLabel}>রিপোর্ট</Text>
+            <Text style={styles.actionLabel}>{l('Reports', 'রিপোর্ট')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* 3. এ মাসের আদায় Card */}
         <Card style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>এ মাসের আদায়</Text>
-            <Text style={styles.cardSubtitle}>শেষ তারিখ ১০ সেপ্টেম্বর</Text>
+            <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
+            <Text style={styles.cardSubtitle}>{l(`Due Date ${dueDateDay} September`, `শেষ তারিখ ${dueDateDay} সেপ্টেম্বর`)}</Text>
           </View>
 
           <View style={styles.collectionBody}>
@@ -174,24 +179,24 @@ export default function HomeDashboardScreen() {
 
             <View style={styles.collectionStats}>
               <Text style={styles.collectionAmount}>
-                {formatBengaliMoney(somitiInfo.monthlyCollected)}
+                {formatMoney(somitiInfo.monthlyCollected)}
               </Text>
               <Text style={styles.collectionSub}>
-                লক্ষ্য {formatBengaliMoney(somitiInfo.monthlyTarget)} · বাকি {formatBengaliMoney(somitiInfo.monthlyRemaining)}
+                {l('Target', 'লক্ষ্য')} {formatMoney(somitiInfo.monthlyTarget)} · {l('Remaining', 'বাকি')} {formatMoney(somitiInfo.monthlyRemaining)}
               </Text>
             </View>
           </View>
 
           <View style={styles.collectionFooterRow}>
             <Text style={styles.paidText}>
-              {toBengaliDigits(somitiInfo.paidCount)} জন জমা দিয়েছেন
+              {formatNum(somitiInfo.paidCount)} {l('members paid', 'জন জমা দিয়েছেন')}
             </Text>
             <TouchableOpacity
               onPress={() => router.push('/(admin)/(tabs)/collection')}
               style={styles.dueLink}
             >
               <Text style={styles.dueText}>
-                {toBengaliDigits(somitiInfo.dueMembersCount)} জন বাকি ›
+                {formatNum(somitiInfo.dueMembersCount)} {l('due ›', 'জন বাকি ›')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -208,13 +213,13 @@ export default function HomeDashboardScreen() {
             <Card style={styles.halfCard}>
               <View style={styles.halfCardHeader}>
                 <Ionicons name="warning-outline" size={16} color={colors.warning} />
-                <Text style={styles.halfCardTitle}>বকেয়া</Text>
+                <Text style={styles.halfCardTitle}>{l('Due', 'বকেয়া')}</Text>
               </View>
               <Text style={[styles.halfCardAmount, { color: colors.danger }]}>
-                {formatBengaliMoney(somitiInfo.totalDueAmount)}
+                {formatMoney(somitiInfo.totalDueAmount)}
               </Text>
               <Text style={styles.halfCardSub}>
-                {toBengaliDigits(somitiInfo.dueMembersCount)} জন · ৩ জন ৩+ মাস
+                {formatNum(somitiInfo.dueMembersCount)} {l('members · 3 members 3+ mos', 'জন · ৩ জন ৩+ মাস')}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -228,13 +233,13 @@ export default function HomeDashboardScreen() {
             <Card style={styles.halfCard}>
               <View style={styles.halfCardHeader}>
                 <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
-                <Text style={styles.halfCardTitle}>চলমান প্রজেক্ট</Text>
+                <Text style={styles.halfCardTitle}>{l('Active Projects', 'চলমান প্রজেক্ট')}</Text>
               </View>
               <Text style={[styles.halfCardAmount, { color: colors.primary }]}>
-                {toBengaliDigits(4)}টি
+                {formatNum(4)}{l(' items', 'টি')}
               </Text>
               <Text style={[styles.halfCardSub, { color: colors.success }]}>
-                এ বছর লাভ {formatBengaliMoney(somitiInfo.yearlyProjectProfit, { showPlusSign: true })}
+                {l('Profit this year', 'এ বছর লাভ')} {formatMoney(somitiInfo.yearlyProjectProfit, { showPlusSign: true })}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -248,23 +253,23 @@ export default function HomeDashboardScreen() {
           <Card style={styles.sectionCard}>
             <View style={styles.threeColumnStats}>
               <View style={styles.statCol}>
-                <Text style={styles.colLabel}>এ মাসের আয়</Text>
+                <Text style={styles.colLabel}>{l("This Month's Income", 'এ মাসের আয়')}</Text>
                 <Text style={styles.colValue}>
-                  {formatBengaliMoney(somitiInfo.monthlyIncome)}
+                  {formatMoney(somitiInfo.monthlyIncome)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
-                <Text style={styles.colLabel}>এ মাসের ব্যয়</Text>
+                <Text style={styles.colLabel}>{l("This Month's Expense", 'এ মাসের ব্যয়')}</Text>
                 <Text style={styles.colValue}>
-                  {formatBengaliMoney(somitiInfo.monthlyExpense)}
+                  {formatMoney(somitiInfo.monthlyExpense)}
                 </Text>
               </View>
               <View style={styles.colDivider} />
               <View style={styles.statCol}>
-                <Text style={styles.colLabel}>নিট</Text>
+                <Text style={styles.colLabel}>{l('Net', 'নিট')}</Text>
                 <Text style={[styles.colValue, { color: colors.primary }]}>
-                  {formatBengaliMoney(somitiInfo.monthlyNet)}
+                  {formatMoney(somitiInfo.monthlyNet)}
                 </Text>
               </View>
             </View>
@@ -274,9 +279,9 @@ export default function HomeDashboardScreen() {
         {/* 6. আজকের ফলো-আপ */}
         <Card style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>আজকের ফলো-আপ</Text>
+            <Text style={styles.cardTitle}>{l("Today's Follow-up", 'আজকের ফলো-আপ')}</Text>
             <TouchableOpacity onPress={() => router.push('/(admin)/due')}>
-              <Text style={styles.viewLinkText}>সব দেখুন</Text>
+              <Text style={styles.viewLinkText}>{l('View All', 'সব দেখুন')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -318,15 +323,15 @@ export default function HomeDashboardScreen() {
         {/* 7. অনুমোদন অপেক্ষমাণ */}
         <Card style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>অনুমোদন অপেক্ষমাণ</Text>
+            <Text style={styles.cardTitle}>{l('Pending Approvals', 'অনুমোদন অপেক্ষমাণ')}</Text>
             <TouchableOpacity onPress={() => router.push('/(admin)/approvals')}>
-              <Text style={styles.viewLinkText}>সব দেখুন</Text>
+              <Text style={styles.viewLinkText}>{l('View All', 'সব দেখুন')}</Text>
             </TouchableOpacity>
           </View>
 
           {approvals.length === 0 ? (
             <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, color: colors.textMuted }}>বর্তমানে কোনো অপেক্ষমাণ অনুমোদন নেই</Text>
+              <Text style={{ fontSize: 13, color: colors.textMuted }}>{l('No pending approvals at this time', 'বর্তমানে কোনো অপেক্ষমাণ অনুমোদন নেই')}</Text>
             </View>
           ) : (
             approvals.slice(0, 3).map((item, index) => (
@@ -340,7 +345,7 @@ export default function HomeDashboardScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.approvalItemTitle}>
-                    {item.title} · {formatBengaliMoney(item.amount)}
+                    {item.title} · {formatMoney(item.amount)}
                   </Text>
                   <Text style={styles.approvalItemSub}>
                     {item.createdBy} · {item.dateStr}
@@ -348,7 +353,7 @@ export default function HomeDashboardScreen() {
                 </View>
                 {item.isNew ? (
                   <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>নতুন</Text>
+                    <Text style={styles.newBadgeText}>{l('New', 'নতুন')}</Text>
                   </View>
                 ) : (
                   <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -368,7 +373,7 @@ export default function HomeDashboardScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>জমা নিন</Text>
+        <Text style={styles.fabText}>{l('Deposit', 'জমা নিন')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

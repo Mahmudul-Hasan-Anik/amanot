@@ -12,29 +12,32 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function ApprovalsScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { approvals, approveRequest, rejectRequest } = useSomitiStore();
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
   const handleAction = (id: string, action: 'approve' | 'reject') => {
     Alert.alert(
-      action === 'approve' ? 'অনুমোদন নিশ্চিতকরণ' : 'প্রত্যাখ্যান নিশ্চিতকরণ',
-      action === 'approve' ? 'অনুরোধটি কি অনুমোদন করতে চান? অনুমোদিত হলে ফান্ড থেকে অর্থ সমন্বয় হবে।' : 'অনুরোধটি কি প্রত্যাখ্যান করতে চান?',
+      action === 'approve' ? l('Confirm Approval', 'অনুমোদন নিশ্চিতকরণ') : l('Confirm Rejection', 'প্রত্যাখ্যান নিশ্চিতকরণ'),
+      action === 'approve'
+        ? l('Do you want to approve this request? Funds will be adjusted upon approval.', 'অনুরোধটি কি অনুমোদন করতে চান? অনুমোদিত হলে ফান্ড থেকে অর্থ সমন্বয় হবে।')
+        : l('Do you want to reject this request?', 'অনুরোধটি কি প্রত্যাখ্যান করতে চান?'),
       [
-        { text: 'বাতিল', style: 'cancel' },
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
-          text: action === 'approve' ? 'হ্যাঁ, অনুমোদন করুন' : 'হ্যাঁ, প্রত্যাখ্যান করুন',
+          text: action === 'approve' ? l('Yes, Approve', 'হ্যাঁ, অনুমোদন করুন') : l('Yes, Reject', 'হ্যাঁ, প্রত্যাখ্যান করুন'),
           style: action === 'approve' ? 'default' : 'destructive',
           onPress: () => {
             if (action === 'approve') {
               approveRequest(id);
-              Alert.alert('সফল', 'অনুরোধটি সফলভাবে অনুমোদিত হয়েছে।');
+              Alert.alert(l('Success', 'সফল'), l('Request approved successfully.', 'অনুরোধটি সফলভাবে অনুমোদিত হয়েছে।'));
             } else {
               rejectRequest(id);
-              Alert.alert('প্রত্যাখ্যাত', 'অনুরোধটি প্রত্যাখ্যান করা হয়েছে।');
+              Alert.alert(l('Rejected', 'প্রত্যাখ্যাত'), l('Request has been rejected.', 'অনুরোধটি প্রত্যাখ্যান করা হয়েছে।'));
             }
           },
         },
@@ -55,7 +58,7 @@ export default function ApprovalsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>অনুমোদন</Text>
+        <Text style={styles.headerTitle}>{l('Approvals', 'অনুমোদন')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -71,7 +74,7 @@ export default function ApprovalsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-              অপেক্ষমাণ {toBengaliDigits(approvals.length)}
+              {l('Pending', 'অপেক্ষমাণ')} {formatNum(approvals.length)}
             </Text>
           </TouchableOpacity>
 
@@ -81,7 +84,7 @@ export default function ApprovalsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'approved' && styles.tabTextActive]}>
-              অনুমোদিত
+              {l('Approved', 'অনুমোদিত')}
             </Text>
           </TouchableOpacity>
 
@@ -91,7 +94,7 @@ export default function ApprovalsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'rejected' && styles.tabTextActive]}>
-              বাতিল
+              {l('Rejected', 'বাতিল')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -101,8 +104,8 @@ export default function ApprovalsScreen() {
           {activeTab === 'pending' && approvals.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="checkmark-done-circle-outline" size={56} color="#0F766E" />
-              <Text style={styles.emptyTitle}>সব অনুরোধ সম্পন্ন হয়েছে</Text>
-              <Text style={styles.emptySub}>বর্তমানে কোনো অপেক্ষমাণ অনুরোধ নেই।</Text>
+              <Text style={styles.emptyTitle}>{l('All requests completed', 'সব অনুরোধ সম্পন্ন হয়েছে')}</Text>
+              <Text style={styles.emptySub}>{l('No pending requests currently.', 'বর্তমানে কোনো অপেক্ষমাণ অনুরোধ নেই।')}</Text>
             </View>
           ) : activeTab === 'pending' ? (
             approvals.map((item) => (
@@ -111,7 +114,7 @@ export default function ApprovalsScreen() {
                 <View style={styles.cardTopRow}>
                   <View style={styles.tagPill}>
                     <Text style={styles.tagPillText}>
-                      {item.type === 'expense' ? 'ব্যয়' : item.type === 'investment' ? 'বিনিয়োগ' : 'সংশোধন'}
+                      {item.type === 'expense' ? l('Expense', 'ব্যয়') : item.type === 'investment' ? l('Investment', 'বিনিয়োগ') : l('Correction', 'সংশোধন')}
                     </Text>
                   </View>
                   <Text style={styles.timeText}>{item.dateStr}</Text>
@@ -120,14 +123,14 @@ export default function ApprovalsScreen() {
                 {/* Title & Amount */}
                 <View style={styles.titleRow}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemAmount}>{formatBengaliMoney(item.amount)}</Text>
+                  <Text style={styles.itemAmount}>{formatMoney(item.amount)}</Text>
                 </View>
 
                 {/* Description */}
                 <Text style={styles.itemDescription}>{item.detail}</Text>
 
                 {/* Entry By */}
-                <Text style={styles.entryByText}>এন্ট্রি করেছেন: {item.createdBy}</Text>
+                <Text style={styles.entryByText}>{l('Entered by:', 'এন্ট্রি করেছেন:')} {item.createdBy}</Text>
 
                 {/* Buttons Row: প্রত্যাখ্যান / অনুমোদন */}
                 <View style={styles.cardActionsRow}>
@@ -137,7 +140,7 @@ export default function ApprovalsScreen() {
                     activeOpacity={0.8}
                   >
                     <Ionicons name="close" size={16} color="#DC2626" />
-                    <Text style={styles.rejectBtnText}>প্রত্যাখ্যান</Text>
+                    <Text style={styles.rejectBtnText}>{l('Reject', 'প্রত্যাখ্যান')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -146,7 +149,7 @@ export default function ApprovalsScreen() {
                     activeOpacity={0.85}
                   >
                     <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                    <Text style={styles.approveBtnText}>অনুমোদন করুন</Text>
+                    <Text style={styles.approveBtnText}>{l('Approve', 'অনুমোদন করুন')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -154,7 +157,7 @@ export default function ApprovalsScreen() {
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="time-outline" size={56} color="#94A3B8" />
-              <Text style={styles.emptyTitle}>কোনো রেকর্ড নেই</Text>
+              <Text style={styles.emptyTitle}>{l('No records found', 'কোনো রেকর্ড নেই')}</Text>
             </View>
           )}
         </View>

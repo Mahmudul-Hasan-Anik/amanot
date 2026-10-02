@@ -11,10 +11,13 @@ import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
 import { CustomKeypad } from '../../src/components/CustomKeypad';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { useLanguage } from '../../src/i18n/useLanguage';
+import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function PinScreen() {
   const router = useRouter();
   const { verifyPin, currentUser } = useAuthStore();
+  const { l } = useLanguage();
   const [pinDigits, setPinDigits] = useState<string[]>([]);
 
   const handlePressDigit = (digit: string) => {
@@ -28,7 +31,10 @@ export default function PinScreen() {
           if (success) {
             router.replace('/(admin)/(tabs)');
           } else {
-            Alert.alert('ভুল পিন', 'আপনার পিন কোডটি সঠিক নয়। ডিফল্ট পিন: ১২৩৪');
+            Alert.alert(
+              l('Incorrect PIN', 'ভুল পিন'),
+              l('Your PIN is incorrect. Default PIN: 1234', 'আপনার পিন কোডটি সঠিক নয়। ডিফল্ট পিন: ১২৩৪')
+            );
             setPinDigits([]);
           }
         }, 150);
@@ -43,41 +49,44 @@ export default function PinScreen() {
   };
 
   const handleBiometricAuth = () => {
-    verifyPin('১২৩৪');
+    verifyPin('1234');
     router.replace('/(admin)/(tabs)');
   };
 
   const handleForgotPin = () => {
     Alert.alert(
-      'পিন ভুলে গেছেন?',
-      'ডিফল্ট টেস্ট পিন কোড হলো: ১২৩৪। অথবা আপনি পুনরায় লগইন করতে পারেন।',
+      l('Forgot PIN?', 'পিন ভুলে গেছেন?'),
+      l('Default test PIN is: 1234. Or you can log in again.', 'ডিফল্ট টেস্ট পিন কোড হলো: ১২৩৪। অথবা আপনি পুনরায় লগইন করতে পারেন।'),
       [
-        { text: 'লগইনে ফিরুন', onPress: () => router.replace('/(auth)/login') },
-        { text: 'ঠিক আছে', style: 'cancel' }
+        { text: l('Return to Login', 'লগইনে ফিরুন'), onPress: () => router.replace('/(auth)/login') },
+        { text: l('OK', 'ঠিক আছে'), style: 'cancel' }
       ]
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.topBar}>
+        <LanguageToggle />
+      </View>
       <View style={styles.content}>
         {/* Top Avatar Circle */}
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>
-            {currentUser?.name?.charAt(0) || 'আ'}
+            {currentUser?.name ? (l('A', currentUser.name.charAt(0))) : l('A', 'আ')}
           </Text>
         </View>
 
         {/* User Info Header */}
         <Text style={styles.welcomeText}>
-          স্বাগতম, {currentUser?.name || 'আনোয়ার হোসেন'}
+          {l('Welcome, Anwar Hossain', `স্বাগতম, ${currentUser?.name || 'আনোয়ার হোসেন'}`)}
         </Text>
         <Text style={styles.roleText}>
-          {currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন'}
+          {l('President · Super Admin', currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন')}
         </Text>
 
         {/* PIN Title */}
-        <Text style={styles.pinPromptText}>৪ সংখ্যার পিন দিন</Text>
+        <Text style={styles.pinPromptText}>{l('Enter 4-Digit PIN', '৪ সংখ্যার পিন দিন')}</Text>
 
         {/* 4 PIN Dots Indicator */}
         <View style={styles.dotsRow}>
@@ -96,7 +105,9 @@ export default function PinScreen() {
         </View>
 
         {/* Hint */}
-        <Text style={styles.hintText}>💡 পিন কোড: ১২৩৪ (বা বায়োমেট্রিক আইকন চাপুন)</Text>
+        <Text style={styles.hintText}>
+          {l('💡 PIN Code: 1234 (or tap biometric icon)', '💡 পিন কোড: ১২৩৪ (বা বায়োমেট্রিক আইকন চাপুন)')}
+        </Text>
 
         {/* Custom Bengali Keypad */}
         <CustomKeypad
@@ -111,7 +122,7 @@ export default function PinScreen() {
           onPress={handleForgotPin}
           style={styles.forgotLinkContainer}
         >
-          <Text style={styles.forgotLinkText}>পিন ভুলে গেছেন?</Text>
+          <Text style={styles.forgotLinkText}>{l('Forgot PIN?', 'পিন ভুলে গেছেন?')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -123,11 +134,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    alignItems: 'flex-end',
+  },
   content: {
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 36,
+    paddingTop: 20,
   },
   avatarCircle: {
     width: 72,

@@ -14,56 +14,60 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
-
-const EXPENSE_CATEGORIES = [
-  'সভা ও আপ্যায়ন',
-  'যাতায়াত',
-  'অফিস ভাড়া',
-  'এসএমএস ও অ্যাপ',
-  'স্টেশনারি',
-  'আইনি ফি',
-  'মাঠকর্মী সম্মানী',
-  'অন্যান্য',
-];
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function NewExpenseScreen() {
   const router = useRouter();
   const { addExpense } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
 
-  const [amount, setAmount] = useState('১২,৫০০');
-  const [selectedCategory, setSelectedCategory] = useState('সভা ও আপ্যায়ন');
+  const [amount, setAmount] = useState('12,500');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
   const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const [date, setDate] = useState('২ অক্টোবর ২০২৬');
-  const [spender, setSpender] = useState('আনোয়ার হোসেন');
-  const [reason, setReason] = useState('বার্ষিক সাধারণ সভার দুপুরের খাবার (১০০ জন)');
+  const [date, setDate] = useState('2 October 2026');
+  const [spender, setSpender] = useState('Anwar Hossain');
+  const [reason, setReason] = useState('AGM lunch catering (100 persons)');
+
+  const EXPENSE_CATEGORIES = [
+    { key: 'meeting', en: 'Meeting & Refreshment', bn: 'সভা ও আপ্যায়ন' },
+    { key: 'travel', en: 'Travel', bn: 'যাতায়াত' },
+    { key: 'rent', en: 'Office Rent', bn: 'অফিস ভাড়া' },
+    { key: 'sms', en: 'SMS & App', bn: 'এসএমএস ও অ্যাপ' },
+    { key: 'stationery', en: 'Stationery', bn: 'স্টেশনারি' },
+    { key: 'legal', en: 'Legal Fees', bn: 'আইনি ফি' },
+    { key: 'honorarium', en: 'Field Staff Honorarium', bn: 'মাঠকর্মী সম্মানী' },
+    { key: 'others', en: 'Others', bn: 'অন্যান্য' },
+  ];
 
   const handleSubmit = () => {
     const cleanAmount = Number(toEnglishDigits(amount.replace(/[^\d]/g, ''))) || 0;
     if (cleanAmount <= 0) {
-      Alert.alert('ত্রুটি', 'অনুগ্রহ করে খরচের সঠিক পরিমাণ লিখুন।');
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid expense amount.', 'অনুগ্রহ করে খরচের সঠিক পরিমাণ লিখুন।'));
       return;
     }
     if (!reason.trim()) {
-      Alert.alert('ত্রুটি', 'অনুগ্রহ করে খরচের কারণ বা বিবরণ লিখুন।');
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter reason or description of the expense.', 'অনুগ্রহ করে খরচের কারণ বা বিবরণ লিখুন।'));
       return;
     }
 
-    const voucherNo = `V-${toBengaliDigits(Math.floor(1000 + Math.random() * 9000))}`;
-    const paymentSource = source === 'bank' ? 'ব্যাংক' : source === 'bkash' ? 'বিকাশ' : 'কোষাধ্যক্ষের হাত (হাতে নগদ)';
+    const currentCat = EXPENSE_CATEGORIES.find((c) => c.key === selectedCategoryKey);
+    const catName = l(currentCat?.en || 'Meeting & Refreshment', currentCat?.bn || 'সভা ও আপ্যায়ন');
+    const voucherNo = `V-${Math.floor(1000 + Math.random() * 9000)}`;
+    const paymentSource = source === 'bank' ? l('Bank', 'ব্যাংক') : source === 'bkash' ? l('bKash', 'বিকাশ') : l('Cash In Hand', 'কোষাধ্যক্ষের হাত (হাতে নগদ)');
 
     addExpense({
       title: reason,
-      category: selectedCategory,
+      category: catName,
       amount: cleanAmount,
       paymentSource,
       voucherNo,
-      note: `ব্যয়কারী: ${spender}`,
+      note: `${l('Spender:', 'ব্যয়কারী:')} ${spender}`,
     });
 
     Alert.alert(
-      'খরচ সংরক্ষিত হয়েছে',
-      `ভাউচার নং ${voucherNo} - ৳${toBengaliDigits(cleanAmount)} টাকা খরচ লিপিবদ্ধ করা হয়েছে।`,
-      [{ text: 'ঠিক আছে', onPress: () => router.replace('/(admin)/(tabs)') }]
+      l('Expense Saved', 'খরচ সংরক্ষিত হয়েছে'),
+      `${l('Voucher No', 'ভাউচার নং')} ${voucherNo} - ${formatMoney(cleanAmount)} ${l('has been recorded.', 'টাকা খরচ লিপিবদ্ধ করা হয়েছে।')}`,
+      [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/(tabs)') }]
     );
   };
 
@@ -80,7 +84,7 @@ export default function NewExpenseScreen() {
         >
           <Ionicons name="close" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>খরচ লিখুন</Text>
+        <Text style={styles.headerTitle}>{l('Record Expense', 'খরচ লিখুন')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -90,33 +94,33 @@ export default function NewExpenseScreen() {
       >
         {/* Amount Box */}
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>পরিমাণ (টাকা)</Text>
+          <Text style={styles.amountLabel}>{l('Amount (BDT)', 'পরিমাণ (টাকা)')}</Text>
           <TextInput
             style={styles.amountDisplay}
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
-            placeholder="১২,৫০০"
+            placeholder="12,500"
             placeholderTextColor="#94A3B8"
           />
           <View style={styles.amountUnderline} />
         </View>
 
         {/* Section: খাত */}
-        <Text style={styles.sectionTitle}>খাত</Text>
+        <Text style={styles.sectionTitle}>{l('Category', 'খাত')}</Text>
         <View style={styles.categoriesGrid}>
           {EXPENSE_CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat;
+            const isSelected = selectedCategoryKey === cat.key;
             return (
               <TouchableOpacity
-                key={cat}
+                key={cat.key}
                 style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                onPress={() => setSelectedCategory(cat)}
+                onPress={() => setSelectedCategoryKey(cat.key)}
                 activeOpacity={0.8}
               >
                 {isSelected && <Ionicons name="checkmark" size={14} color="#0F766E" />}
                 <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
-                  {cat}
+                  {l(cat.en, cat.bn)}
                 </Text>
               </TouchableOpacity>
             );
@@ -126,7 +130,7 @@ export default function NewExpenseScreen() {
         {/* Date and Spender Two Inputs Row */}
         <View style={styles.twoInputsRow}>
           <View style={styles.inputCol}>
-            <Text style={styles.inputLabel}>তারিখ</Text>
+            <Text style={styles.inputLabel}>{l('Date', 'তারিখ')}</Text>
             <View style={styles.pickerBox}>
               <TextInput
                 style={styles.pickerText}
@@ -138,7 +142,7 @@ export default function NewExpenseScreen() {
           </View>
 
           <View style={styles.inputCol}>
-            <Text style={styles.inputLabel}>ব্যয়কারী</Text>
+            <Text style={styles.inputLabel}>{l('Spender', 'ব্যয়কারী')}</Text>
             <View style={styles.pickerBox}>
               <TextInput
                 style={styles.pickerText}
@@ -151,7 +155,7 @@ export default function NewExpenseScreen() {
         </View>
 
         {/* Section: পরিশোধের উৎস */}
-        <Text style={styles.sectionTitle}>পরিশোধের উৎস</Text>
+        <Text style={styles.sectionTitle}>{l('Payment Source', 'পরিশোধের উৎস')}</Text>
         <View style={styles.segmentedContainer}>
           <TouchableOpacity
             style={[styles.segmentBtn, source === 'treasurer' && styles.segmentBtnActive]}
@@ -159,7 +163,7 @@ export default function NewExpenseScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segmentText, source === 'treasurer' && styles.segmentTextActive]}>
-              কোষাধ্যক্ষের হাতে
+              {l("Treasurer's Hand", 'কোষাধ্যক্ষের হাতে')}
             </Text>
           </TouchableOpacity>
 
@@ -169,7 +173,7 @@ export default function NewExpenseScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segmentText, source === 'bank' && styles.segmentTextActive]}>
-              ব্যাংক
+              {l('Bank', 'ব্যাংক')}
             </Text>
           </TouchableOpacity>
 
@@ -179,13 +183,13 @@ export default function NewExpenseScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segmentText, source === 'bkash' && styles.segmentTextActive]}>
-              বিকাশ
+              {l('bKash', 'বিকাশ')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Section: কারণ */}
-        <Text style={styles.sectionTitle}>কারণ</Text>
+        <Text style={styles.sectionTitle}>{l('Reason / Description', 'কারণ')}</Text>
         <View style={styles.reasonCard}>
           <TextInput
             style={styles.reasonInput}
@@ -193,7 +197,7 @@ export default function NewExpenseScreen() {
             onChangeText={setReason}
             multiline
             numberOfLines={3}
-            placeholder="খরচের বিবরণ লিখুন"
+            placeholder={l('Enter expense description', 'খরচের বিবরণ লিখুন')}
             placeholderTextColor="#94A3B8"
           />
         </View>
@@ -201,12 +205,12 @@ export default function NewExpenseScreen() {
         {/* Section: রসিদের ছবি যোগ করুন */}
         <TouchableOpacity
           style={styles.voucherDashedBox}
-          onPress={() => Alert.alert('ছবি যুক্ত করুন', 'ভাউচারের ছবি তোলা বা গ্যালারি থেকে যোগ করা সম্পন্ন হয়েছে')}
+          onPress={() => Alert.alert(l('Attach Photo', 'ছবি যুক্ত করুন'), l('Receipt photo captured from camera or gallery.', 'ভাউচারের ছবি তোলা বা গ্যালারি থেকে যোগ করা সম্পন্ন হয়েছে'))}
           activeOpacity={0.8}
         >
           <Ionicons name="camera-outline" size={26} color="#0F766E" />
-          <Text style={styles.voucherTitle}>রসিদের ছবি যোগ করুন</Text>
-          <Text style={styles.voucherSub}>৳১,০০০ এর বেশি ব্যয়ে ভাউচার যুক্ত রাখুন</Text>
+          <Text style={styles.voucherTitle}>{l('Add Receipt Photo', 'রসিদের ছবি যোগ করুন')}</Text>
+          <Text style={styles.voucherSub}>{l('Attach voucher for expenses over ৳1,000', '৳১,০০০ এর বেশি ব্যয়ে ভাউচার যুক্ত রাখুন')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 30 }} />
@@ -220,7 +224,7 @@ export default function NewExpenseScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-          <Text style={styles.submitBtnText}>খরচ সংরক্ষণ করুন</Text>
+          <Text style={styles.submitBtnText}>{l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

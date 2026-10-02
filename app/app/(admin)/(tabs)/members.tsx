@@ -13,15 +13,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { Card } from '../../../src/components/Card';
 import { SearchBar } from '../../../src/components/SearchBar';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
 import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 type FilterType = 'all' | 'active' | 'due' | 'inactive';
 
 export default function MembersScreen() {
   const router = useRouter();
   const { members } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
@@ -46,26 +47,26 @@ export default function MembersScreen() {
   const renderMemberItem = ({ item }: { item: Member }) => {
     let tagBg = '#DCFCE7';
     let tagColor = colors.success;
-    let tagLabel = 'জমা ✓';
+    let tagLabel = l('Paid ✓', 'জমা ✓');
 
     if (item.status === 'due') {
       if (item.dueMonths >= 3) {
         tagBg = '#FEE2E2';
         tagColor = colors.danger;
-        tagLabel = '৩ মাস বকেয়া';
+        tagLabel = l(`${item.dueMonths} mo due`, `${formatNum(item.dueMonths)} মাস বকেয়া`);
       } else {
         tagBg = '#FEF3C7';
         tagColor = colors.warning;
-        tagLabel = '২ মাস বকেয়া';
+        tagLabel = l(`${item.dueMonths || 1} mo due`, `${formatNum(item.dueMonths || 1)} মাস বকেয়া`);
       }
     } else if (item.status === 'partial') {
       tagBg = '#FFEDD5';
       tagColor = '#EA580C';
-      tagLabel = 'আংশিক';
+      tagLabel = l('Partial', 'আংশিক');
     } else if (item.status === 'inactive') {
       tagBg = '#F1F5F9';
       tagColor = colors.textMuted;
-      tagLabel = 'নিষ্ক্রিয়';
+      tagLabel = l('Inactive', 'নিষ্ক্রিয়');
     }
 
     return (
@@ -94,7 +95,7 @@ export default function MembersScreen() {
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{item.name}</Text>
               <Text style={styles.memberCodeAndRate}>
-                {item.code} · {formatBengaliMoney(item.monthlyAmount)}
+                {item.code} · {formatMoney(item.monthlyAmount)}
               </Text>
             </View>
           </View>
@@ -116,9 +117,9 @@ export default function MembersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>সদস্য</Text>
+          <Text style={styles.headerTitle}>{l('Members', 'সদস্য')}</Text>
           <Text style={styles.headerSubtitle}>
-            {toBengaliDigits(members.length)} জন · {toBengaliDigits(members.filter((m) => m.status !== 'inactive').length)} সক্রিয়
+            {formatNum(members.length)} {l('members ·', 'জন ·')} {formatNum(members.filter((m) => m.status !== 'inactive').length)} {l('active', 'সক্রিয়')}
           </Text>
         </View>
 
@@ -132,7 +133,7 @@ export default function MembersScreen() {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="নাম, আইডি বা ফোন নম্বর"
+          placeholder={l('Name, ID or phone number', 'নাম, আইডি বা ফোন নম্বর')}
         />
 
         {/* Filter Chips */}
@@ -142,7 +143,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('all')}
           >
             <Text style={[styles.filterText, activeFilter === 'all' && styles.filterTextActive]}>
-              {activeFilter === 'all' ? '✓ ' : ''}সব {toBengaliDigits(members.length)}
+              {activeFilter === 'all' ? '✓ ' : ''}{l('All', 'সব')} {formatNum(members.length)}
             </Text>
           </TouchableOpacity>
 
@@ -151,7 +152,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('active')}
           >
             <Text style={[styles.filterText, activeFilter === 'active' && styles.filterTextActive]}>
-              সক্রিয় {toBengaliDigits(members.filter((m) => m.status !== 'inactive').length)}
+              {l('Active', 'সক্রিয়')} {formatNum(members.filter((m) => m.status !== 'inactive').length)}
             </Text>
           </TouchableOpacity>
 
@@ -160,7 +161,7 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('due')}
           >
             <Text style={[styles.filterText, activeFilter === 'due' && styles.filterTextActive]}>
-              বকেয়া {toBengaliDigits(members.filter((m) => m.status === 'due' || m.status === 'partial').length)}
+              {l('Due', 'বকেয়া')} {formatNum(members.filter((m) => m.status === 'due' || m.status === 'partial').length)}
             </Text>
           </TouchableOpacity>
 
@@ -169,17 +170,17 @@ export default function MembersScreen() {
             onPress={() => setActiveFilter('inactive')}
           >
             <Text style={[styles.filterText, activeFilter === 'inactive' && styles.filterTextActive]}>
-              নিষ্ক্রিয় {toBengaliDigits(members.filter((m) => m.status === 'inactive').length)}
+              {l('Inactive', 'নিষ্ক্রিয়')} {formatNum(members.filter((m) => m.status === 'inactive').length)}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Sort & Filter Bar */}
         <View style={styles.sortFilterBar}>
-          <Text style={styles.sortText}>নাম অনুযায়ী সাজানো</Text>
+          <Text style={styles.sortText}>{l('Sorted by name', 'নাম অনুযায়ী সাজানো')}</Text>
           <TouchableOpacity style={styles.filterBtn}>
             <Ionicons name="filter-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.filterBtnText}>ফিল্টার</Text>
+            <Text style={styles.filterBtnText}>{l('Filter', 'ফিল্টার')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -200,7 +201,7 @@ export default function MembersScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>নতুন সদস্য</Text>
+        <Text style={styles.fabText}>{l('New Member', 'নতুন সদস্য')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

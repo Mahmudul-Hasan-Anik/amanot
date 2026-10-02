@@ -14,11 +14,12 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function FinanceScreen() {
   const router = useRouter();
   const { somitiInfo, cashAccounts, expenses, transactions, transferCash } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
 
   // Transfer Modal State
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -41,24 +42,36 @@ export default function FinanceScreen() {
   const handleExecuteTransfer = () => {
     const amt = parseFloat(transferAmount);
     if (!amt || isNaN(amt) || amt <= 0) {
-      Alert.alert('ভুল পরিমাণ', 'অনুগ্রহ করে সঠিক টাকা লিখুন।');
+      Alert.alert(
+        l('Invalid Amount', 'ভুল পরিমাণ'),
+        l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক টাকা লিখুন।')
+      );
       return;
     }
 
     const sourceAcc = cashAccounts.find((a) => a.id === fromAccount);
     if (sourceAcc && sourceAcc.amount < amt) {
-      Alert.alert('পর্যাপ্ত ব্যালেন্স নেই', `${sourceAcc.name}-এ পর্যাপ্ত ব্যালেন্স নেই।`);
+      Alert.alert(
+        l('Insufficient Balance', 'পর্যাপ্ত ব্যালেন্স নেই'),
+        `${sourceAcc.name} ${l('does not have enough balance.', '-এ পর্যাপ্ত ব্যালেন্স নেই।')}`
+      );
       return;
     }
 
     if (fromAccount === toAccount) {
-      Alert.alert('ভুল অ্যাকাউন্ট', 'একই অ্যাকাউন্টে স্থানান্তর করা সম্ভব নয়।');
+      Alert.alert(
+        l('Invalid Account', 'ভুল অ্যাকাউন্ট'),
+        l('Cannot transfer to the same account.', 'একই অ্যাকাউন্টে স্থানান্তর করা সম্ভব নয়।')
+      );
       return;
     }
 
     transferCash(fromAccount, toAccount, amt);
     setShowTransferModal(false);
-    Alert.alert('সফল', `৳${formatBengaliMoney(amt)} সফলভাবে স্থানান্তর করা হয়েছে!`);
+    Alert.alert(
+      l('Success', 'সফল'),
+      `${formatMoney(amt)} ${l('transferred successfully!', 'সফলভাবে স্থানান্তর করা হয়েছে!')}`
+    );
   };
 
   return (
@@ -74,7 +87,7 @@ export default function FinanceScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>আয় ও ব্যয়</Text>
+        <Text style={styles.headerTitle}>{l('Income & Expense', 'আয় ও ব্যয়')}</Text>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.push('/(admin)/reports')}
@@ -91,42 +104,42 @@ export default function FinanceScreen() {
         {/* Month Selector Pill */}
         <TouchableOpacity style={styles.monthPill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.monthPillText}>অক্টোবর ২০২৬</Text>
+          <Text style={styles.monthPillText}>{l('October 2026', 'অক্টোবর ২০২৬')}</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
         {/* 3 Metrics Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>আয়</Text>
+            <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
             <Text style={[styles.summaryValue, { color: '#059669' }]}>
-              ৳{formatBengaliMoney(totalIncome)}
+              {formatMoney(totalIncome)}
             </Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>ব্যয়</Text>
+            <Text style={styles.summaryLabel}>{l('Expense', 'ব্যয়')}</Text>
             <Text style={[styles.summaryValue, { color: '#DC2626' }]}>
-              ৳{formatBengaliMoney(totalExpense)}
+              {formatMoney(totalExpense)}
             </Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>নিট</Text>
+            <Text style={styles.summaryLabel}>{l('Net', 'নিট')}</Text>
             <Text style={[styles.summaryValue, { color: netAmount >= 0 ? '#1E293B' : '#DC2626' }]}>
-              {netAmount >= 0 ? `+৳${formatBengaliMoney(netAmount)}` : `−৳${formatBengaliMoney(Math.abs(netAmount))}`}
+              {formatMoney(netAmount, { showPlusSign: true })}
             </Text>
           </View>
         </View>
 
         {/* Section: হিসাবসমূহ */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>হিসাবসমূহ</Text>
+          <Text style={styles.sectionTitle}>{l('Accounts', 'হিসাবসমূহ')}</Text>
           <TouchableOpacity
             onPress={() => setShowTransferModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.transferLink}>স্থানান্তর</Text>
+            <Text style={styles.transferLink}>{l('Transfer', 'স্থানান্তর')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -150,7 +163,7 @@ export default function FinanceScreen() {
                     <Text style={styles.accountSub}>{account.holder}</Text>
                   </View>
                   <Text style={styles.accountBalance}>
-                    ৳{formatBengaliMoney(account.amount)}
+                    {formatMoney(account.amount)}
                   </Text>
                 </View>
                 {index < cashAccounts.length - 1 && <View style={styles.accountDivider} />}
@@ -162,14 +175,14 @@ export default function FinanceScreen() {
 
           {/* Total Row */}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>হাতে ও ব্যাংকে মোট</Text>
-            <Text style={styles.totalBalance}>৳{formatBengaliMoney(totalCashAndBank)}</Text>
+            <Text style={styles.totalLabel}>{l('Total in Hand & Bank', 'হাতে ও ব্যাংকে মোট')}</Text>
+            <Text style={styles.totalBalance}>{formatMoney(totalCashAndBank)}</Text>
           </View>
         </View>
 
         {/* Section: খাতভিত্তিক ব্যয় */}
         <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 8 }]}>
-          খাতভিত্তিক ব্যয়
+          {l('Expense by Category', 'খাতভিত্তিক ব্যয়')}
         </Text>
 
         <View style={styles.categoriesCard}>
@@ -180,7 +193,7 @@ export default function FinanceScreen() {
                 <View key={cat} style={styles.catItem}>
                   <View style={styles.catHeader}>
                     <Text style={styles.catName}>{cat}</Text>
-                    <Text style={styles.catAmount}>৳{formatBengaliMoney(amt)}</Text>
+                    <Text style={styles.catAmount}>{formatMoney(amt)}</Text>
                   </View>
                   <View style={styles.catTrack}>
                     <View style={[styles.catFill, { width: `${Math.min(100, Math.max(10, pct))}%` }]} />
@@ -191,8 +204,8 @@ export default function FinanceScreen() {
           ) : (
             <View style={styles.catItem}>
               <View style={styles.catHeader}>
-                <Text style={styles.catName}>দাপ্তরিক ও সভা</Text>
-                <Text style={styles.catAmount}>৳৫,৭০০</Text>
+                <Text style={styles.catName}>{l('Office & Meetings', 'দাপ্তরিক ও সভা')}</Text>
+                <Text style={styles.catAmount}>{formatMoney(5700)}</Text>
               </View>
               <View style={styles.catTrack}>
                 <View style={[styles.catFill, { width: '60%' }]} />
@@ -203,12 +216,12 @@ export default function FinanceScreen() {
 
         {/* Section: সাম্প্রতিক লেনদেন */}
         <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitle}>সাম্প্রতিক লেনদেন</Text>
+          <Text style={styles.sectionTitle}>{l('Recent Transactions', 'সাম্প্রতিক লেনদেন')}</Text>
           <TouchableOpacity
             onPress={() => router.push('/(admin)/audit')}
             activeOpacity={0.7}
           >
-            <Text style={styles.seeAllLink}>সব দেখুন</Text>
+            <Text style={styles.seeAllLink}>{l('View All', 'সব দেখুন')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -220,14 +233,14 @@ export default function FinanceScreen() {
                 <View style={styles.recentRow}>
                   <View style={styles.recentDetails}>
                     <Text style={styles.recentTitle}>
-                      {isDeposit ? `জমা: ${txn.memberName}` : txn.note || 'ব্যয়'}
+                      {isDeposit ? `${l('Deposit:', 'জমা:')} ${txn.memberName}` : txn.note || l('Expense', 'ব্যয়')}
                     </Text>
                     <Text style={styles.recentMeta}>
-                      {txn.date} · {txn.paymentMethod === 'bkash' ? 'বিকাশ' : txn.paymentMethod === 'bank' ? 'ব্যাংক' : 'হাতে নগদ'}
+                      {txn.date} · {txn.paymentMethod === 'bkash' ? l('bKash', 'বিকাশ') : txn.paymentMethod === 'bank' ? l('Bank', 'ব্যাংক') : l('Cash', 'হাতে নগদ')}
                     </Text>
                   </View>
                   <Text style={[styles.recentAmount, { color: isDeposit ? '#059669' : '#DC2626' }]}>
-                    {isDeposit ? `+৳${formatBengaliMoney(txn.amount)}` : `−৳${formatBengaliMoney(txn.amount)}`}
+                    {isDeposit ? `+${formatMoney(txn.amount)}` : `−${formatMoney(txn.amount)}`}
                   </Text>
                 </View>
                 {index < Math.min(transactions.length, 4) - 1 && <View style={styles.recentDivider} />}
@@ -246,7 +259,7 @@ export default function FinanceScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>খরচ লিখুন</Text>
+        <Text style={styles.fabText}>{l('Record Expense', 'খরচ লিখুন')}</Text>
       </TouchableOpacity>
 
       {/* Cash Transfer Modal */}
@@ -254,14 +267,14 @@ export default function FinanceScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>হিসাব স্থানান্তর</Text>
+              <Text style={styles.modalTitle}>{l('Account Transfer', 'হিসাব স্থানান্তর')}</Text>
               <TouchableOpacity onPress={() => setShowTransferModal(false)}>
                 <Ionicons name="close" size={22} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             {/* From Account */}
-            <Text style={styles.modalFieldLabel}>কোন হিসাব থেকে?</Text>
+            <Text style={styles.modalFieldLabel}>{l('From which account?', 'কোন হিসাব থেকে?')}</Text>
             <View style={styles.modalPickerRow}>
               {cashAccounts.map((acc) => (
                 <TouchableOpacity
@@ -277,7 +290,7 @@ export default function FinanceScreen() {
             </View>
 
             {/* To Account */}
-            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>কোন হিসাবে জমা হবে?</Text>
+            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>{l('To which account?', 'কোন হিসাবে জমা হবে?')}</Text>
             <View style={styles.modalPickerRow}>
               {cashAccounts.map((acc) => (
                 <TouchableOpacity
@@ -293,13 +306,13 @@ export default function FinanceScreen() {
             </View>
 
             {/* Amount */}
-            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>টাকার পরিমাণ (৳)</Text>
+            <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>{l('Amount (৳)', 'টাকার পরিমাণ (৳)')}</Text>
             <TextInput
               style={styles.amountInput}
               keyboardType="numeric"
               value={transferAmount}
               onChangeText={setTransferAmount}
-              placeholder="৫০০০"
+              placeholder="5000"
             />
 
             <TouchableOpacity
@@ -307,7 +320,7 @@ export default function FinanceScreen() {
               onPress={handleExecuteTransfer}
               activeOpacity={0.85}
             >
-              <Text style={styles.transferSubmitBtnText}>স্থানান্তর সম্পন্ন করুন</Text>
+              <Text style={styles.transferSubmitBtnText}>{l('Complete Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
             </TouchableOpacity>
           </View>
         </View>

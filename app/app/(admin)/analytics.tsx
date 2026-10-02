@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function AnalyticsScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const [period, setPeriod] = useState<'3m' | '6m' | '1y'>('6m');
 
   return (
@@ -28,7 +30,7 @@ export default function AnalyticsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>অ্যানালিটিক্স</Text>
+        <Text style={styles.headerTitle}>{l('Analytics', 'অ্যানালিটিক্স')}</Text>
         <TouchableOpacity style={styles.backBtn} activeOpacity={0.7}>
           <Ionicons name="filter-outline" size={20} color="#1E293B" />
         </TouchableOpacity>
@@ -46,7 +48,7 @@ export default function AnalyticsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.periodText, period === '3m' && styles.periodTextActive]}>
-              ৩ মাস
+              {l('3 Months', '৩ মাস')}
             </Text>
           </TouchableOpacity>
 
@@ -56,7 +58,7 @@ export default function AnalyticsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.periodText, period === '6m' && styles.periodTextActive]}>
-              ৬ মাস
+              {l('6 Months', '৬ মাস')}
             </Text>
           </TouchableOpacity>
 
@@ -66,20 +68,20 @@ export default function AnalyticsScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.periodText, period === '1y' && styles.periodTextActive]}>
-              ১ বছর
+              {l('1 Year', '১ বছর')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Section: স্মার্ট সতর্কবার্তা */}
-        <Text style={styles.sectionTitle}>স্মার্ট সতর্কবার্তা</Text>
+        <Text style={styles.sectionTitle}>{l('Smart Alerts', 'স্মার্ট সতর্কবার্তা')}</Text>
 
         {/* Alert 1 */}
         <View style={styles.idleCashAlert}>
           <Ionicons name="information-circle-outline" size={18} color="#1E293B" style={styles.alertIcon} />
           <Text style={styles.alertText}>
-            <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>অলস টাকা: </Text>
-            ৳৯,৩০,০০০ গত ৪৫ দিন ধরে হাতে ও ব্যাংকে পড়ে আছে। নতুন বিনিয়োগ বিবেচনা করুন।
+            <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>{l('Idle Cash: ', 'অলস টাকা: ')}</Text>
+            {formatMoney(930000)} {l('has been idle in hand & bank for 45 days. Consider new investments.', 'গত ৪৫ দিন ধরে হাতে ও ব্যাংকে পড়ে আছে। নতুন বিনিয়োগ বিবেচনা করুন।')}
           </Text>
         </View>
 
@@ -87,7 +89,7 @@ export default function AnalyticsScreen() {
         <View style={styles.warningAlert}>
           <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
           <Text style={[styles.alertText, { color: '#9A3412' }]}>
-            সাইট বি প্রজেক্টের সম্ভাব্য সমাপ্তির তারিখ পার হয়েছে, এখনো কোনো ফেরত আসেনি।
+            {l('Site B Project expected completion date passed, no returns yet.', 'সাইট বি প্রজেক্টের সম্ভাব্য সমাপ্তির তারিখ পার হয়েছে, এখনো কোনো ফেরত আসেনি।')}
           </Text>
         </View>
 
@@ -95,137 +97,137 @@ export default function AnalyticsScreen() {
         <View style={styles.warningAlert}>
           <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
           <Text style={[styles.alertText, { color: '#9A3412' }]}>
-            আদায়ের হার এ মাসে ৭৮%, গত ৩ মাসের গড় ৯২% এর চেয়ে কম।
+            {l('Collection rate is 78% this month, lower than 3-month average of 92%.', 'আদায়ের হার এ মাসে ৭৮%, গত ৩ মাসের গড় ৯২% এর চেয়ে কম।')}
           </Text>
         </View>
 
         {/* Card: মাসিক আদায়ের হার */}
         <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>মাসিক আদায়ের হার</Text>
-          <Text style={styles.chartSub}>সময়মতো জমা দেওয়া সদস্যের শতাংশ</Text>
+          <Text style={styles.chartTitle}>{l('Monthly Collection Rate', 'মাসিক আদায়ের হার')}</Text>
+          <Text style={styles.chartSub}>{l('Percentage of members paying on time', 'সময়মতো জমা দেওয়া সদস্যের শতাংশ')}</Text>
 
           <View style={styles.verticalBarsContainer}>
             {/* বার ১: এপ্রিল */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৯২%</Text>
+              <Text style={styles.barValueText}>92%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '92%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>এপ্রিল</Text>
+              <Text style={styles.barLabelText}>{l('Apr', 'এপ্রিল')}</Text>
             </View>
 
             {/* বার ২: মে */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৮৮%</Text>
+              <Text style={styles.barValueText}>88%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '88%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>মে</Text>
+              <Text style={styles.barLabelText}>{l('May', 'মে')}</Text>
             </View>
 
             {/* বার ৩: জুন */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৯৫%</Text>
+              <Text style={styles.barValueText}>95%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '95%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>জুন</Text>
+              <Text style={styles.barLabelText}>{l('Jun', 'জুন')}</Text>
             </View>
 
             {/* বার ৪: জুলাই */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৯০%</Text>
+              <Text style={styles.barValueText}>90%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '90%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>জুলাই</Text>
+              <Text style={styles.barLabelText}>{l('Jul', 'জুলাই')}</Text>
             </View>
 
             {/* বার ৫: আগস্ট */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৮৪%</Text>
+              <Text style={styles.barValueText}>84%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '84%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>আগস্ট</Text>
+              <Text style={styles.barLabelText}>{l('Aug', 'আগস্ট')}</Text>
             </View>
 
             {/* বার ৬: সেপ্টে */}
             <View style={styles.barCol}>
-              <Text style={[styles.barValueText, { color: '#C2410C' }]}>৭৮%</Text>
+              <Text style={[styles.barValueText, { color: '#C2410C' }]}>78%</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '78%', backgroundColor: '#C2410C' }]} />
               </View>
-              <Text style={[styles.barLabelText, { color: '#C2410C', fontFamily: 'HindSiliguri-Bold' }]}>সেপ্টে</Text>
+              <Text style={[styles.barLabelText, { color: '#C2410C', fontFamily: 'HindSiliguri-Bold' }]}>{l('Sep', 'সেপ্টে')}</Text>
             </View>
           </View>
         </View>
 
         {/* Card: তহবিলের বৃদ্ধি */}
         <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>তহবিলের বৃদ্ধি</Text>
-          <Text style={styles.chartSub}>মোট তহবিল, লাখ টাকায় · ৬ মাসে +২৭%</Text>
+          <Text style={styles.chartTitle}>{l('Fund Growth', 'তহবিলের বৃদ্ধি')}</Text>
+          <Text style={styles.chartSub}>{l('Total fund in Lakhs · +27% in 6 months', 'মোট তহবিল, লাখ টাকায় · ৬ মাসে +২৭%')}</Text>
 
           <View style={styles.verticalBarsContainer}>
             {/* এপ্রিল */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৩৮.২ল</Text>
+              <Text style={styles.barValueText}>{l('38.2L', '৩৮.২ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '70%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>এপ্রিল</Text>
+              <Text style={styles.barLabelText}>{l('Apr', 'এপ্রিল')}</Text>
             </View>
 
             {/* মে */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৪০.১ল</Text>
+              <Text style={styles.barValueText}>{l('40.1L', '৪০.১ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '75%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>মে</Text>
+              <Text style={styles.barLabelText}>{l('May', 'মে')}</Text>
             </View>
 
             {/* জুন */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৪২.৩ল</Text>
+              <Text style={styles.barValueText}>{l('42.3L', '৪২.৩ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '80%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>জুন</Text>
+              <Text style={styles.barLabelText}>{l('Jun', 'জুন')}</Text>
             </View>
 
             {/* জুলাই */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৪৪.০ল</Text>
+              <Text style={styles.barValueText}>{l('44.0L', '৪৪.০ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '85%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>জুলাই</Text>
+              <Text style={styles.barLabelText}>{l('Jul', 'জুলাই')}</Text>
             </View>
 
             {/* আগস্ট */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৪৬.৪ল</Text>
+              <Text style={styles.barValueText}>{l('46.4L', '৪৬.৪ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '90%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>আগস্ট</Text>
+              <Text style={styles.barLabelText}>{l('Aug', 'আগস্ট')}</Text>
             </View>
 
             {/* সেপ্টে */}
             <View style={styles.barCol}>
-              <Text style={styles.barValueText}>৪৮.৫ল</Text>
+              <Text style={styles.barValueText}>{l('48.5L', '৪৮.৫ল')}</Text>
               <View style={styles.barTrack}>
                 <View style={[styles.barFill, { height: '96%', backgroundColor: '#0F766E' }]} />
               </View>
-              <Text style={styles.barLabelText}>সেপ্টে</Text>
+              <Text style={styles.barLabelText}>{l('Sep', 'সেপ্টে')}</Text>
             </View>
           </View>
         </View>
 
         {/* Card: সদস্যদের জমার অভ্যাস */}
         <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>সদস্যদের জমার অভ্যাস</Text>
+          <Text style={styles.chartTitle}>{l('Members Deposit Habit', 'সদস্যদের জমার অভ্যাস')}</Text>
 
           <View style={styles.habitBar}>
             <View style={[styles.habitSegment, { flex: 72, backgroundColor: '#0F766E' }]} />
@@ -235,32 +237,32 @@ export default function AnalyticsScreen() {
 
           <View style={styles.habitColsRow}>
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>নিয়মিত</Text>
-              <Text style={styles.habitColValDark}>৭২ জন</Text>
+              <Text style={styles.habitColLabel}>{l('Regular', 'নিয়মিত')}</Text>
+              <Text style={styles.habitColValDark}>{formatNum(72)} {l('Members', 'জন')}</Text>
             </View>
 
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>মাঝে মাঝে দেরি</Text>
-              <Text style={styles.habitColValOrange}>২০ জন</Text>
+              <Text style={styles.habitColLabel}>{l('Occasional Delay', 'মাঝে মাঝে দেরি')}</Text>
+              <Text style={styles.habitColValOrange}>{formatNum(20)} {l('Members', 'জন')}</Text>
             </View>
 
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>প্রায়ই দেরি</Text>
-              <Text style={styles.habitColValRust}>৮ জন</Text>
+              <Text style={styles.habitColLabel}>{l('Chronic Delay', 'প্রায়ই দেরি')}</Text>
+              <Text style={styles.habitColValRust}>{formatNum(8)} {l('Members', 'জন')}</Text>
             </View>
           </View>
         </View>
 
         {/* Card: প্রজেক্টভিত্তিক ROI */}
         <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>প্রজেক্টভিত্তিক ROI</Text>
+          <Text style={styles.chartTitle}>{l('Project-wise ROI', 'প্রজেক্টভিত্তিক ROI')}</Text>
 
           <View style={styles.roiList}>
             {/* 1 */}
             <View style={styles.roiItem}>
               <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>পোল্ট্রি খামার</Text>
-                <Text style={styles.roiVal}>১৪%</Text>
+                <Text style={styles.roiName}>{l('Poultry Farm', 'পোল্ট্রি খামার')}</Text>
+                <Text style={styles.roiVal}>14%</Text>
               </View>
               <View style={styles.roiTrack}>
                 <View style={[styles.roiFill, { width: '85%', backgroundColor: '#0F766E' }]} />
@@ -270,8 +272,8 @@ export default function AnalyticsScreen() {
             {/* 2 */}
             <View style={styles.roiItem}>
               <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>সাইট এ: জমি</Text>
-                <Text style={styles.roiVal}>১২%</Text>
+                <Text style={styles.roiName}>{l('Site A: Land', 'সাইট এ: জমি')}</Text>
+                <Text style={styles.roiVal}>12%</Text>
               </View>
               <View style={styles.roiTrack}>
                 <View style={[styles.roiFill, { width: '70%', backgroundColor: '#0F766E' }]} />
@@ -281,8 +283,8 @@ export default function AnalyticsScreen() {
             {/* 3 */}
             <View style={styles.roiItem}>
               <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>দোকান ভাড়া</Text>
-                <Text style={styles.roiVal}>৬%</Text>
+                <Text style={styles.roiName}>{l('Shop Rent', 'দোকান ভাড়া')}</Text>
+                <Text style={styles.roiVal}>6%</Text>
               </View>
               <View style={styles.roiTrack}>
                 <View style={[styles.roiFill, { width: '38%', backgroundColor: '#0F766E' }]} />
@@ -292,8 +294,8 @@ export default function AnalyticsScreen() {
             {/* 4 */}
             <View style={styles.roiItem}>
               <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>সাইট বি: নির্মাণ</Text>
-                <Text style={[styles.roiVal, { color: '#C2410C' }]}>−৭%</Text>
+                <Text style={styles.roiName}>{l('Site B: Construction', 'সাইট বি: নির্মাণ')}</Text>
+                <Text style={[styles.roiVal, { color: '#C2410C' }]}>−7%</Text>
               </View>
               <View style={styles.roiTrack}>
                 <View style={[styles.roiFill, { width: '42%', backgroundColor: '#C2410C' }]} />
@@ -305,15 +307,15 @@ export default function AnalyticsScreen() {
         {/* Bottom 2 Ratio Cards Row */}
         <View style={styles.twoRatiosRow}>
           <View style={styles.ratioCard}>
-            <Text style={styles.ratioLabel}>পরিচালনা ব্যয়ের হার</Text>
-            <Text style={styles.ratioVal}>৭%</Text>
-            <Text style={styles.ratioSub}>মোট আয়ের তুলনায়</Text>
+            <Text style={styles.ratioLabel}>{l('Operating Expense Ratio', 'পরিচালনা ব্যয়ের হার')}</Text>
+            <Text style={styles.ratioVal}>7%</Text>
+            <Text style={styles.ratioSub}>{l('Relative to total income', 'মোট আয়ের তুলনায়')}</Text>
           </View>
 
           <View style={styles.ratioCard}>
-            <Text style={styles.ratioLabel}>প্রতি ৳১,০০০ জমায় লাভ</Text>
-            <Text style={styles.ratioVal}>৳৫৪</Text>
-            <Text style={styles.ratioSub}>এ বছর, আনুমানিক</Text>
+            <Text style={styles.ratioLabel}>{l('Profit per ৳1,000 Deposit', 'প্রতি ৳১,০০০ জমায় লাভ')}</Text>
+            <Text style={styles.ratioVal}>{formatMoney(54)}</Text>
+            <Text style={styles.ratioSub}>{l('This year, estimated', 'এ বছর, আনুমানিক')}</Text>
           </View>
         </View>
 

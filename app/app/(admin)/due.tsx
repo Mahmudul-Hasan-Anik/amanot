@@ -11,10 +11,11 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function DueMembersScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
   const [activeFilter, setActiveFilter] = useState<'all' | '3plus' | '2month' | '1month'>('all');
@@ -78,7 +79,7 @@ export default function DueMembersScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>বকেয়া তালিকা</Text>
+        <Text style={styles.headerTitle}>{l('Due List', 'বকেয়া তালিকা')}</Text>
         <TouchableOpacity style={styles.backBtn} activeOpacity={0.7}>
           <Ionicons name="download-outline" size={22} color="#1E293B" />
         </TouchableOpacity>
@@ -90,14 +91,14 @@ export default function DueMembersScreen() {
       >
         {/* Total Due Hero Card */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>মোট বকেয়া</Text>
-          <Text style={styles.heroAmount}>{formatBengaliMoney(totalDueSum || somitiInfo.totalDueAmount)}</Text>
-          <Text style={styles.heroSub}>{toBengaliDigits(allDueMembers.length)} জন সদস্য · বিলম্ব ফি সহ</Text>
+          <Text style={styles.heroLabel}>{l('Total Due', 'মোট বকেয়া')}</Text>
+          <Text style={styles.heroAmount}>{formatMoney(totalDueSum || somitiInfo.totalDueAmount)}</Text>
+          <Text style={styles.heroSub}>{formatNum(allDueMembers.length)} {l('Members · Inc. Late Fee', 'জন সদস্য · বিলম্ব ফি সহ')}</Text>
         </View>
 
         {/* Due Aging Card */}
         <View style={styles.agingCard}>
-          <Text style={styles.agingTitle}>কত দিনের বকেয়া</Text>
+          <Text style={styles.agingTitle}>{l('Due Aging Breakdown', 'কত দিনের বকেয়া')}</Text>
 
           {/* Segmented Horizontal Bar */}
           <View style={styles.agingBar}>
@@ -109,16 +110,16 @@ export default function DueMembersScreen() {
           {/* 3 Columns */}
           <View style={styles.agingColsRow}>
             <View style={styles.agingCol}>
-              <Text style={styles.colLabel}>১ মাস</Text>
-              <Text style={styles.colCount}>{toBengaliDigits(count1Month)} জন</Text>
+              <Text style={styles.colLabel}>{l('1 Month', '১ মাস')}</Text>
+              <Text style={styles.colCount}>{formatNum(count1Month)} {l('Members', 'জন')}</Text>
             </View>
             <View style={styles.agingCol}>
-              <Text style={styles.colLabel}>২ মাস</Text>
-              <Text style={styles.colCount}>{toBengaliDigits(count2Month)} জন</Text>
+              <Text style={styles.colLabel}>{l('2 Months', '২ মাস')}</Text>
+              <Text style={styles.colCount}>{formatNum(count2Month)} {l('Members', 'জন')}</Text>
             </View>
             <View style={styles.agingCol}>
-              <Text style={styles.colLabel}>৩+ মাস</Text>
-              <Text style={styles.colCount}>{toBengaliDigits(count3Plus)} জন</Text>
+              <Text style={styles.colLabel}>{l('3+ Months', '৩+ মাস')}</Text>
+              <Text style={styles.colCount}>{formatNum(count3Plus)} {l('Members', 'জন')}</Text>
             </View>
           </View>
         </View>
@@ -132,7 +133,7 @@ export default function DueMembersScreen() {
           >
             {activeFilter === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.filterChipText, activeFilter === 'all' && styles.filterChipTextActive]}>
-              সব {toBengaliDigits(allDueMembers.length)}
+              {l('All', 'সব')} {formatNum(allDueMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -142,7 +143,7 @@ export default function DueMembersScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '3plus' && styles.filterChipTextActive]}>
-              ৩+ মাস {toBengaliDigits(count3Plus)}
+              {l('3+ Months', '৩+ মাস')} {formatNum(count3Plus)}
             </Text>
           </TouchableOpacity>
 
@@ -152,7 +153,7 @@ export default function DueMembersScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '2month' && styles.filterChipTextActive]}>
-              ২ মাস {toBengaliDigits(count2Month)}
+              {l('2 Months', '২ মাস')} {formatNum(count2Month)}
             </Text>
           </TouchableOpacity>
 
@@ -162,7 +163,7 @@ export default function DueMembersScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === '1month' && styles.filterChipTextActive]}>
-              ১ মাস {toBengaliDigits(count1Month)}
+              {l('1 Month', '১ মাস')} {formatNum(count1Month)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -178,7 +179,7 @@ export default function DueMembersScreen() {
               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             )}
           </View>
-          <Text style={styles.selectAllText}>সব নির্বাচন করুন ({toBengaliDigits(filteredDueMembers.length)})</Text>
+          <Text style={styles.selectAllText}>{l('Select All', 'সব নির্বাচন করুন')} ({formatNum(filteredDueMembers.length)})</Text>
         </TouchableOpacity>
 
         {/* Members List Card */}
@@ -187,7 +188,7 @@ export default function DueMembersScreen() {
             <View style={{ padding: 24, alignItems: 'center' }}>
               <Ionicons name="checkmark-circle-outline" size={48} color="#0F766E" />
               <Text style={{ fontFamily: 'HindSiliguri-Bold', fontSize: 16, color: '#1E293B', marginTop: 8 }}>
-                কোনো বকেয়া নেই!
+                {l('No Due Found!', 'কোনো বকেয়া নেই!')}
               </Text>
             </View>
           ) : (
@@ -218,19 +219,19 @@ export default function DueMembersScreen() {
                   <View style={styles.memberInfo}>
                     <Text style={styles.memberName}>{item.name}</Text>
                     <Text style={styles.monthsText}>
-                      {item.code} · {toBengaliDigits(item.dueMonths || 1)} মাস {isHighRisk ? '· উচ্চ ঝুঁকি' : ''}
+                      {item.code} · {formatNum(item.dueMonths || 1)} {l('Month(s)', 'মাস')}{isHighRisk ? ' · ' + l('High Risk', 'উচ্চ ঝুঁকি') : ''}
                     </Text>
                   </View>
 
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[styles.amountText, isHighRisk && { color: '#DC2626' }]}>
-                      {formatBengaliMoney(item.dueAmount || 2000)}
+                      {formatMoney(item.dueAmount || 2000)}
                     </Text>
                     <TouchableOpacity
                       onPress={() => router.push(`/(admin)/deposit/new?memberId=${item.id}`)}
                       style={styles.quickPayBtn}
                     >
-                      <Text style={styles.quickPayBtnText}>জমা নিন</Text>
+                      <Text style={styles.quickPayBtnText}>{l('Collect', 'জমা নিন')}</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -247,7 +248,7 @@ export default function DueMembersScreen() {
         <View style={styles.bottomBar}>
           <View style={styles.selectedCountRow}>
             <Text style={styles.selectedCountText}>
-              {toBengaliDigits(selectedIds.length)} জন নির্বাচিত · {formatBengaliMoney(selectedTotalAmount)}
+              {formatNum(selectedIds.length)} {l('Selected', 'জন নির্বাচিত')} · {formatMoney(selectedTotalAmount)}
             </Text>
           </View>
           <TouchableOpacity
@@ -256,7 +257,7 @@ export default function DueMembersScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="volume-medium-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.reminderBtnText}>রিমাইন্ডার পাঠান</Text>
+            <Text style={styles.reminderBtnText}>{l('Send Reminder', 'রিমাইন্ডার পাঠান')}</Text>
           </TouchableOpacity>
         </View>
       )}

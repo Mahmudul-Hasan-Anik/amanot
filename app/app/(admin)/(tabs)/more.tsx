@@ -12,19 +12,22 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../src/features/auth/authStore';
+import { useLanguage } from '../../../src/i18n/useLanguage';
+import { LanguageToggle } from '../../../src/components/LanguageToggle';
 
 export default function MoreScreen() {
   const router = useRouter();
   const { logout } = useAuthStore();
+  const { l, formatNum } = useLanguage();
 
   const handleLogout = () => {
     Alert.alert(
-      'লগআউট',
-      'আপনি কি আমানত অ্যাপ থেকে লগআউট করতে চান?',
+      l('Logout', 'লগআউট'),
+      l('Do you want to log out from Amanot app?', 'আপনি কি আমানত অ্যাপ থেকে লগআউট করতে চান?'),
       [
-        { text: 'বাতিল', style: 'cancel' },
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
-          text: 'হ্যাঁ, লগআউট',
+          text: l('Yes, Logout', 'হ্যাঁ, লগআউট'),
           style: 'destructive',
           onPress: () => {
             logout();
@@ -41,7 +44,8 @@ export default function MoreScreen() {
 
       {/* Screen Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>আরও</Text>
+        <Text style={styles.headerTitle}>{l('More', 'আরও')}</Text>
+        <LanguageToggle />
       </View>
 
       <ScrollView
@@ -51,17 +55,17 @@ export default function MoreScreen() {
         {/* Profile Card */}
         <TouchableOpacity style={styles.profileCard} activeOpacity={0.8}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>আ</Text>
+            <Text style={styles.avatarText}>{l('A', 'আ')}</Text>
           </View>
           <View style={styles.profileDetails}>
-            <Text style={styles.profileName}>আনোয়ার হোসেন</Text>
-            <Text style={styles.profileRole}>সভাপতি · সুপার অ্যাডমিন</Text>
+            <Text style={styles.profileName}>{l('Anwar Hossain', 'আনোয়ার হোসেন')}</Text>
+            <Text style={styles.profileRole}>{l('President · Super Admin', 'সভাপতি · সুপার অ্যাডমিন')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
         </TouchableOpacity>
 
         {/* Section: হিসাব */}
-        <Text style={styles.sectionHeader}>হিসাব</Text>
+        <Text style={styles.sectionHeader}>{l('Accounts', 'হিসাব')}</Text>
         <View style={styles.menuCard}>
           {/* আয় ও ব্যয় */}
           <TouchableOpacity
@@ -72,7 +76,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="wallet-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>আয় ও ব্যয়</Text>
+            <Text style={styles.menuTitle}>{l('Income & Expense', 'আয় ও ব্যয়')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -87,9 +91,9 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="checkmark-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>অনুমোদন</Text>
+            <Text style={styles.menuTitle}>{l('Approvals', 'অনুমোদন')}</Text>
             <View style={styles.badgeBlack}>
-              <Text style={styles.badgeBlackText}>৩</Text>
+              <Text style={styles.badgeBlackText}>{formatNum(3)}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
@@ -105,13 +109,13 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="pie-chart-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>বার্ষিক লাভ বণ্টন</Text>
+            <Text style={styles.menuTitle}>{l('Annual Profit Distribution', 'বার্ষিক লাভ বণ্টন')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
 
         {/* Section: রিপোর্ট ও যোগাযোগ */}
-        <Text style={styles.sectionHeader}>রিপোর্ট ও যোগাযোগ</Text>
+        <Text style={styles.sectionHeader}>{l('Reports & Communication', 'রিপোর্ট ও যোগাযোগ')}</Text>
         <View style={styles.menuCard}>
           {/* অ্যানালিটিক্স */}
           <TouchableOpacity
@@ -122,7 +126,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="trending-up-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>অ্যানালিটিক্স</Text>
+            <Text style={styles.menuTitle}>{l('Analytics', 'অ্যানালিটিক্স')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -137,7 +141,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="document-text-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>রিপোর্ট</Text>
+            <Text style={styles.menuTitle}>{l('Reports', 'রিপোর্ট')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -152,7 +156,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="paper-plane-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>স্টেটমেন্ট পাঠান</Text>
+            <Text style={styles.menuTitle}>{l('Send Statement', 'স্টেটমেন্ট পাঠান')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -167,7 +171,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="warning-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>বকেয়া তালিকা</Text>
+            <Text style={styles.menuTitle}>{l('Due List', 'বকেয়া তালিকা')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -182,13 +186,13 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="megaphone-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>রিমাইন্ডার ও টেমপ্লেট</Text>
+            <Text style={styles.menuTitle}>{l('Reminders & Templates', 'রিমাইন্ডার ও টেমপ্লেট')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
 
         {/* Section: সমিতি */}
-        <Text style={styles.sectionHeader}>সমিতি</Text>
+        <Text style={styles.sectionHeader}>{l('Society', 'সমিতি')}</Text>
         <View style={styles.menuCard}>
           {/* সমিতির প্রোফাইল */}
           <TouchableOpacity
@@ -199,7 +203,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="business-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>সমিতির প্রোফাইল</Text>
+            <Text style={styles.menuTitle}>{l('Society Profile', 'সমিতির প্রোফাইল')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -210,7 +214,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="easel-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>সভা ও নোটিশ</Text>
+            <Text style={styles.menuTitle}>{l('Meetings & Notices', 'সভা ও নোটিশ')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -221,20 +225,20 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="folder-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>ডকুমেন্ট</Text>
+            <Text style={styles.menuTitle}>{l('Documents', 'ডকুমেন্ট')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
 
         {/* Section: প্রশাসন */}
-        <Text style={styles.sectionHeader}>প্রশাসন</Text>
+        <Text style={styles.sectionHeader}>{l('Administration', 'প্রশাসন')}</Text>
         <View style={styles.menuCard}>
           {/* ব্যবহারকারী ও রোল */}
           <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
             <View style={styles.iconBox}>
               <Ionicons name="key-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>ব্যবহারকারী ও রোল</Text>
+            <Text style={styles.menuTitle}>{l('Users & Roles', 'ব্যবহারকারী ও রোল')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -249,7 +253,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="time-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>অডিট লগ</Text>
+            <Text style={styles.menuTitle}>{l('Audit Log', 'অডিট লগ')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
 
@@ -264,7 +268,7 @@ export default function MoreScreen() {
             <View style={styles.iconBox}>
               <Ionicons name="settings-outline" size={18} color="#0F766E" />
             </View>
-            <Text style={styles.menuTitle}>সেটিংস</Text>
+            <Text style={styles.menuTitle}>{l('Settings', 'সেটিংস')}</Text>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
@@ -276,7 +280,7 @@ export default function MoreScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="log-out-outline" size={18} color="#0F766E" />
-          <Text style={styles.logoutText}>লগআউট</Text>
+          <Text style={styles.logoutText}>{l('Logout', 'লগআউট')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
@@ -294,6 +298,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontFamily: 'HindSiliguri-Bold',

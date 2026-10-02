@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 const AVATAR_COLORS = [
   { bg: '#E0F2FE', text: '#0284C7' },
@@ -24,6 +24,7 @@ const AVATAR_COLORS = [
 
 export default function ProfitDistributionScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { members, projects, somitiInfo } = useSomitiStore();
 
   const [currentStep, setCurrentStep] = useState<number>(2); // 1: হিসাব, 2: পর্যালোচনা, 3: অনুমোদন, 4: বিতরণ
@@ -53,7 +54,7 @@ export default function ProfitDistributionScreen() {
         ? Math.round((m.totalDeposit / totalMembersDeposit) * distributableProfit)
         : 0;
       const colorTheme = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-      const initial = m.name.trim().charAt(0) || 'স';
+      const initial = m.name.trim().charAt(0) || 'M';
 
       return {
         id: m.id,
@@ -69,16 +70,16 @@ export default function ProfitDistributionScreen() {
 
   const handleApprove = () => {
     Alert.alert(
-      'লাভ বণ্টন অনুমোদন',
-      `২০২৬ সালের মোট ৳${formatBengaliMoney(distributableProfit)} বণ্টন নিশ্চিত করতে চান?`,
+      l('Profit Distribution Approval', 'লাভ বণ্টন অনুমোদন'),
+      `${l('Confirm distribution of total', '২০২৬ সালের মোট')} ${formatMoney(distributableProfit)} ${l('for year 2026?', 'বণ্টন নিশ্চিত করতে চান?')}`,
       [
-        { text: 'বাতিল', style: 'cancel' },
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
-          text: 'হ্যাঁ, অনুমোদন দিন',
+          text: l('Yes, Approve', 'হ্যাঁ, অনুমোদন দিন'),
           onPress: () => {
             setIsApproved(true);
             setCurrentStep(4);
-            Alert.alert('সফল', '২০২৬ সালের বার্ষিক লাভ বণ্টন অনুমোদিত ও প্রস্তুত হয়েছে!');
+            Alert.alert(l('Success', 'সফল'), l('2026 Annual profit distribution has been approved and prepared!', '২০২৬ সালের বার্ষিক লাভ বণ্টন অনুমোদিত ও প্রস্তুত হয়েছে!'));
           },
         },
       ]
@@ -86,7 +87,7 @@ export default function ProfitDistributionScreen() {
   };
 
   const handleDownloadDraft = () => {
-    Alert.alert('খসড়া ডাউনলোড', '২০২৬ সালের লাভ বণ্টনের পূর্ণাঙ্গ স্টেটমেন্ট PDF প্রস্তুত হচ্ছে।');
+    Alert.alert(l('Download Draft', 'খসড়া ডাউনলোড'), l('2026 Profit distribution complete statement PDF is preparing.', '২০২৬ সালের লাভ বণ্টনের পূর্ণাঙ্গ স্টেটমেন্ট PDF প্রস্তুত হচ্ছে।'));
   };
 
   return (
@@ -103,8 +104,8 @@ export default function ProfitDistributionScreen() {
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>বার্ষিক লাভ বণ্টন</Text>
-          <Text style={styles.headerSubtitle}>হিসাব বছর ২০২৬</Text>
+          <Text style={styles.headerTitle}>{l('Annual Profit Distribution', 'বার্ষিক লাভ বণ্টন')}</Text>
+          <Text style={styles.headerSubtitle}>{l('Accounting Year 2026', 'হিসাব বছর ২০২৬')}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -120,7 +121,7 @@ export default function ProfitDistributionScreen() {
             <View style={styles.stepCircleFilled}>
               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             </View>
-            <Text style={styles.stepTextActive}>হিসাব</Text>
+            <Text style={styles.stepTextActive}>{l('Calculate', 'হিসাব')}</Text>
           </View>
 
           <View style={styles.stepLine} />
@@ -134,7 +135,7 @@ export default function ProfitDistributionScreen() {
                 <View style={styles.stepCircleRingInner} />
               )}
             </View>
-            <Text style={styles.stepTextActive}>পর্যালোচনা</Text>
+            <Text style={styles.stepTextActive}>{l('Review', 'পর্যালোচনা')}</Text>
           </View>
 
           <View style={styles.stepLine} />
@@ -145,7 +146,7 @@ export default function ProfitDistributionScreen() {
               {currentStep >= 3 && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
             <Text style={currentStep >= 3 ? styles.stepTextActive : styles.stepTextInactive}>
-              অনুমোদন
+              {l('Approve', 'অনুমোদন')}
             </Text>
           </View>
 
@@ -157,57 +158,57 @@ export default function ProfitDistributionScreen() {
               {currentStep >= 4 && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
             <Text style={currentStep >= 4 ? styles.stepTextActive : styles.stepTextInactive}>
-              বিতরণ
+              {l('Disburse', 'বিতরণ')}
             </Text>
           </View>
         </View>
 
         {/* Card: হিসাব বিবরণী */}
         <View style={styles.calcCard}>
-          <Text style={styles.calcCardTitle}>হিসাব (খসড়া)</Text>
+          <Text style={styles.calcCardTitle}>{l('Calculation (Draft)', 'হিসাব (খসড়া)')}</Text>
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>মোট প্রজেক্ট লাভ</Text>
+            <Text style={styles.calcLabel}>{l('Total Project Profit', 'মোট প্রজেক্ট লাভ')}</Text>
             <Text style={[styles.calcValue, { color: '#059669' }]}>
-              +৳{formatBengaliMoney(totalProjectProfit)}
+              +{formatMoney(totalProjectProfit)}
             </Text>
           </View>
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>অন্যান্য আয়</Text>
+            <Text style={styles.calcLabel}>{l('Other Income', 'অন্যান্য আয়')}</Text>
             <Text style={[styles.calcValue, { color: '#059669' }]}>
-              +৳{formatBengaliMoney(otherIncome)}
+              +{formatMoney(otherIncome)}
             </Text>
           </View>
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>পরিচালনা ব্যয়</Text>
+            <Text style={styles.calcLabel}>{l('Operating Expense', 'পরিচালনা ব্যয়')}</Text>
             <Text style={[styles.calcValue, { color: '#DC2626' }]}>
-              −৳{formatBengaliMoney(operatingExpense)}
+              −{formatMoney(operatingExpense)}
             </Text>
           </View>
 
           <View style={styles.calcDivider} />
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabelBold}>নিট লাভ</Text>
-            <Text style={styles.calcValueBold}>৳{formatBengaliMoney(netProfit)}</Text>
+            <Text style={styles.calcLabelBold}>{l('Net Profit', 'নিট লাভ')}</Text>
+            <Text style={styles.calcValueBold}>{formatMoney(netProfit)}</Text>
           </View>
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>রিজার্ভ ফান্ড (১০%)</Text>
-            <Text style={styles.calcValue}>−৳{formatBengaliMoney(reserveFund)}</Text>
+            <Text style={styles.calcLabel}>{l('Reserve Fund (10%)', 'রিজার্ভ ফান্ড (১০%)')}</Text>
+            <Text style={styles.calcValue}>−{formatMoney(reserveFund)}</Text>
           </View>
 
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>পরিচালক অংশ (১০%)</Text>
-            <Text style={styles.calcValue}>−৳{formatBengaliMoney(directorShare)}</Text>
+            <Text style={styles.calcLabel}>{l('Director Share (10%)', 'পরিচালক অংশ (১০%)')}</Text>
+            <Text style={styles.calcValue}>−{formatMoney(directorShare)}</Text>
           </View>
 
           {/* Highlighted Distributable Profit Box */}
           <View style={styles.distributableBox}>
-            <Text style={styles.distributableLabel}>বণ্টনযোগ্য লাভ</Text>
-            <Text style={styles.distributableValue}>৳{formatBengaliMoney(distributableProfit)}</Text>
+            <Text style={styles.distributableLabel}>{l('Distributable Profit', 'বণ্টনযোগ্য লাভ')}</Text>
+            <Text style={styles.distributableValue}>{formatMoney(distributableProfit)}</Text>
           </View>
         </View>
 
@@ -215,25 +216,25 @@ export default function ProfitDistributionScreen() {
         <View style={styles.lockNoticeBox}>
           <Ionicons name="information-circle-outline" size={18} color="#475569" style={styles.lockIcon} />
           <Text style={styles.lockNoticeText}>
-            রিজার্ভ ও পরিচালক শতাংশ পরিচালনা কমিটি নির্ধারণ করেছে এবং জানুয়ারি ২০২৬ থেকে লক করা।
+            {l('Reserve and director percentages were fixed by managing committee and locked from January 2026.', 'রিজার্ভ ও পরিচালক শতাংশ পরিচালনা কমিটি নির্ধারণ করেছে এবং জানুয়ারি ২০২৬ থেকে লক করা।')}
           </Text>
         </View>
 
         {/* Formula Card */}
         <View style={styles.formulaCard}>
-          <Text style={styles.formulaCardTitle}>বণ্টনের গাণিতিক সূত্র</Text>
+          <Text style={styles.formulaCardTitle}>{l('Mathematical Formula', 'বণ্টনের গাণিতিক সূত্র')}</Text>
           <Text style={styles.formulaMain}>
-            সদস্যের অংশ = ৳{formatBengaliMoney(distributableProfit)} × সদস্যের মোট জমা ÷ ৳{formatBengaliMoney(totalMembersDeposit)}
+            {l('Member Share =', 'সদস্যের অংশ =')} {formatMoney(distributableProfit)} × {l('Member Total Deposit ÷', 'সদস্যের মোট জমা ÷')} {formatMoney(totalMembersDeposit)}
           </Text>
           <Text style={styles.formulaSub}>
-            সকল সদস্যের মোট সঞ্চয় ৳{formatBengaliMoney(totalMembersDeposit)}
+            {l('Total members savings:', 'সকল সদস্যের মোট সঞ্চয়')} {formatMoney(totalMembersDeposit)}
           </Text>
         </View>
 
         {/* Member Allocation Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>সদস্যভিত্তিক অংশ</Text>
-          <Text style={styles.allMembersLink}>সব {toBengaliDigits(members.length)} জন</Text>
+          <Text style={styles.sectionTitle}>{l('Member-wise Allocation', 'সদস্যভিত্তিক অংশ')}</Text>
+          <Text style={styles.allMembersLink}>{l('All', 'সব')} {formatNum(members.length)} {l('Members', 'জন')}</Text>
         </View>
 
         <View style={styles.membersCard}>
@@ -254,11 +255,11 @@ export default function ProfitDistributionScreen() {
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{item.name}</Text>
                 <Text style={styles.memberDeposit}>
-                  মোট জমা ৳{formatBengaliMoney(item.totalDeposit)}
+                  {l('Total Deposit', 'মোট জমা')} {formatMoney(item.totalDeposit)}
                 </Text>
               </View>
 
-              <Text style={styles.memberProfit}>+৳{formatBengaliMoney(item.profitShare)}</Text>
+              <Text style={styles.memberProfit}>+{formatMoney(item.profitShare)}</Text>
             </View>
           ))}
         </View>
@@ -274,7 +275,7 @@ export default function ProfitDistributionScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="download-outline" size={16} color="#1E293B" />
-          <Text style={styles.draftPdfText}>খসড়া PDF</Text>
+          <Text style={styles.draftPdfText}>{l('Draft PDF', 'খসড়া PDF')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -285,7 +286,7 @@ export default function ProfitDistributionScreen() {
         >
           <Ionicons name="checkmark" size={16} color="#FFFFFF" />
           <Text style={styles.approveBtnText}>
-            {isApproved ? 'অনুমোদিত' : 'অনুমোদন দিন'}
+            {isApproved ? l('Approved', 'অনুমোদিত') : l('Approve Now', 'অনুমোদন দিন')}
           </Text>
         </TouchableOpacity>
       </View>

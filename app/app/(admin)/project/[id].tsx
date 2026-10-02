@@ -12,10 +12,11 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../../src/lib/money';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { projects } = useSomitiStore();
 
@@ -26,7 +27,7 @@ export default function ProjectDetailScreen() {
   const isProfit = project ? project.netProfit >= 0 : true;
 
   const handleDocOpen = (name: string) => {
-    Alert.alert('ডকুমেন্ট ভিউয়ার', `${project?.name}-এর ${name} লোড হচ্ছে...`);
+    Alert.alert(l('Document Viewer', 'ডকুমেন্ট ভিউয়ার'), `${project?.name} - ${name} ${l('is loading...', 'লোড হচ্ছে...')}`);
   };
 
   return (
@@ -42,18 +43,18 @@ export default function ProjectDetailScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>প্রজেক্টের বিবরণ</Text>
+        <Text style={styles.headerTitle}>{l('Project Details', 'প্রজেক্টের বিবরণ')}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert('সম্পাদনা', 'প্রজেক্টের বিবরণ সম্পাদনা করুন')}
+            onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit project details', 'প্রজেক্টের বিবরণ সম্পাদনা করুন'))}
             activeOpacity={0.7}
           >
             <Ionicons name="pencil-outline" size={20} color="#1E293B" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert('রিপোর্ট', 'প্রজেক্টের পূর্ণাঙ্গ রিপোর্ট ডাউনলোড করা হবে')}
+            onPress={() => Alert.alert(l('Report', 'রিপোর্ট'), l('Full project report will be downloaded', 'প্রজেক্টের পূর্ণাঙ্গ রিপোর্ট ডাউনলোড করা হবে'))}
             activeOpacity={0.7}
           >
             <Ionicons name="download-outline" size={20} color="#1E293B" />
@@ -82,42 +83,42 @@ export default function ProjectDetailScreen() {
                 project.status === 'delayed' ? { color: '#DC2626' } : { color: '#0F766E' },
               ]}
             >
-              {project.status === 'delayed' ? 'বিলম্বিত' : project.status === 'completed' ? 'সমাপ্ত' : 'চলমান'}
+              {project.status === 'delayed' ? l('Delayed', 'বিলম্বিত') : project.status === 'completed' ? l('Completed', 'সমাপ্ত') : l('Running', 'চলমান')}
             </Text>
           </View>
         </View>
 
         {/* Project Title and Meta */}
         <Text style={styles.projectMainTitle}>{project.name}</Text>
-        <Text style={styles.projectMetaLine}>দায়িত্বে: {project.manager} · {project.location}</Text>
+        <Text style={styles.projectMetaLine}>{l('Manager:', 'দায়িত্বে:')} {project.manager} · {project.location}</Text>
         <Text style={styles.projectMetaLine}>
-          শুরু {project.startDate} · সম্ভাব্য শেষ {project.expectedEnd}
+          {l('Started', 'শুরু')} {project.startDate} · {l('Est. Completion', 'সম্ভাব্য শেষ')} {project.expectedEnd}
         </Text>
 
         {/* 2x2 Metric Cards Grid */}
         <View style={styles.gridContainer}>
           <View style={styles.gridRow}>
             <View style={styles.metricCard}>
-              <Text style={styles.metricCardLabel}>মোট বিনিয়োগ</Text>
-              <Text style={styles.metricCardVal}>৳{formatBengaliMoney(project.investedAmount)}</Text>
+              <Text style={styles.metricCardLabel}>{l('Total Investment', 'মোট বিনিয়োগ')}</Text>
+              <Text style={styles.metricCardVal}>{formatMoney(project.investedAmount)}</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricCardLabel}>মোট ফেরত</Text>
-              <Text style={styles.metricCardVal}>৳{formatBengaliMoney(project.returnedAmount)}</Text>
+              <Text style={styles.metricCardLabel}>{l('Total Return', 'মোট ফেরত')}</Text>
+              <Text style={styles.metricCardVal}>{formatMoney(project.returnedAmount)}</Text>
             </View>
           </View>
 
           <View style={styles.gridRow}>
             <View style={styles.metricCard}>
-              <Text style={styles.metricCardLabel}>নিট লাভ</Text>
+              <Text style={styles.metricCardLabel}>{l('Net Profit', 'নিট লাভ')}</Text>
               <Text style={[styles.metricCardVal, { color: isProfit ? '#059669' : '#DC2626' }]}>
-                {isProfit ? `+৳${formatBengaliMoney(project.netProfit)}` : `−৳${formatBengaliMoney(Math.abs(project.netProfit))}`}
+                {isProfit ? `+${formatMoney(project.netProfit)}` : `−${formatMoney(Math.abs(project.netProfit))}`}
               </Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricCardLabel}>ROI</Text>
+              <Text style={styles.metricCardLabel}>{l('ROI', 'ROI')}</Text>
               <Text style={[styles.metricCardVal, { color: isProfit ? '#1E293B' : '#DC2626' }]}>
-                {toBengaliDigits(project.roiPct)}%
+                {formatNum(project.roiPct)}%
               </Text>
             </View>
           </View>
@@ -126,8 +127,8 @@ export default function ProjectDetailScreen() {
         {/* Capital Recovery Progress Card */}
         <View style={styles.recoveryCard}>
           <View style={styles.recoveryHeader}>
-            <Text style={styles.recoveryTitle}>মূলধন ফেরত</Text>
-            <Text style={styles.recoveryPct}>{toBengaliDigits(project.recoveryPct)}%</Text>
+            <Text style={styles.recoveryTitle}>{l('Capital Recovery', 'মূলধন ফেরত')}</Text>
+            <Text style={styles.recoveryPct}>{formatNum(project.recoveryPct)}%</Text>
           </View>
 
           <View style={styles.recoveryTrack}>
@@ -135,18 +136,18 @@ export default function ProjectDetailScreen() {
           </View>
 
           <Text style={styles.recoverySub}>
-            প্রজেক্টে এখনো আছে ৳{formatBengaliMoney(project.remainingAmount)}
+            {l('Remaining in project:', 'প্রজেক্টে এখনো আছে')} {formatMoney(project.remainingAmount)}
           </Text>
         </View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>লেনদেন বিবরণী</Text>
+          <Text style={styles.sectionTitle}>{l('Transaction History', 'লেনদেন বিবরণী')}</Text>
           <TouchableOpacity
             onPress={() => router.push('/(admin)/audit')}
             activeOpacity={0.7}
           >
-            <Text style={styles.seeAllLink}>সব দেখুন</Text>
+            <Text style={styles.seeAllLink}>{l('View All', 'সব দেখুন')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -157,11 +158,11 @@ export default function ProjectDetailScreen() {
               <Ionicons name="arrow-up" size={16} color="#DC2626" />
             </View>
             <View style={styles.txnDetails}>
-              <Text style={styles.txnTitle}>বিনিয়োগ প্রদান</Text>
-              <Text style={styles.txnMeta}>{project.startDate} · ব্যাংক</Text>
+              <Text style={styles.txnTitle}>{l('Investment Disbursed', 'বিনিয়োগ প্রদান')}</Text>
+              <Text style={styles.txnMeta}>{project.startDate} · {l('Bank', 'ব্যাংক')}</Text>
             </View>
             <Text style={[styles.txnAmount, { color: '#DC2626' }]}>
-              −৳{formatBengaliMoney(project.investedAmount)}
+              −{formatMoney(project.investedAmount)}
             </Text>
           </View>
 
@@ -173,11 +174,11 @@ export default function ProjectDetailScreen() {
                   <Ionicons name="arrow-down" size={16} color="#0F766E" />
                 </View>
                 <View style={styles.txnDetails}>
-                  <Text style={styles.txnTitle}>আয় / কিস্তি ফেরত</Text>
-                  <Text style={styles.txnMeta}>চলতি বছর · ব্যাংক</Text>
+                  <Text style={styles.txnTitle}>{l('Income / Return Installment', 'আয় / কিস্তি ফেরত')}</Text>
+                  <Text style={styles.txnMeta}>{l('Current Year', 'চলতি বছর')} · {l('Bank', 'ব্যাংক')}</Text>
                 </View>
                 <Text style={[styles.txnAmount, { color: '#059669' }]}>
-                  +৳{formatBengaliMoney(project.returnedAmount)}
+                  +{formatMoney(project.returnedAmount)}
                 </Text>
               </View>
             </>
@@ -185,33 +186,33 @@ export default function ProjectDetailScreen() {
         </View>
 
         {/* Documents Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>ডকুমেন্ট</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>{l('Documents', 'ডকুমেন্ট')}</Text>
         <View style={styles.docsRow}>
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen('চুক্তিপত্র')}
+            onPress={() => handleDocOpen(l('Agreement', 'চুক্তিপত্র'))}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>চুক্তিপত্র</Text>
+            <Text style={styles.docText}>{l('Agreement', 'চুক্তিপত্র')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen('অডিট রিপোর্ট')}
+            onPress={() => handleDocOpen(l('Audit Report', 'অডিট রিপোর্ট'))}
             activeOpacity={0.8}
           >
             <Ionicons name="shield-checkmark-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>অডিট রিপোর্ট</Text>
+            <Text style={styles.docText}>{l('Audit Report', 'অডিট রিপোর্ট')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen('ব্যাংক রশিদ')}
+            onPress={() => handleDocOpen(l('Bank Voucher', 'ব্যাংক রশিদ'))}
             activeOpacity={0.8}
           >
             <Ionicons name="receipt-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>ব্যাংক রশিদ</Text>
+            <Text style={styles.docText}>{l('Bank Voucher', 'ব্যাংক রশিদ')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -222,11 +223,11 @@ export default function ProjectDetailScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.returnBtn}
-          onPress={() => Alert.alert('আয় যুক্ত করুন', 'প্রজেক্ট থেকে প্রাপ্ত আয়ের এন্ট্রি দিতে চান?')}
+          onPress={() => Alert.alert(l('Add Return / Income', 'আয় যুক্ত করুন'), l('Record income received from project?', 'প্রজেক্ট থেকে প্রাপ্ত আয়ের এন্ট্রি দিতে চান?'))}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.returnBtnText}>প্রজেক্ট থেকে আয় যোগ করুন</Text>
+          <Text style={styles.returnBtnText}>{l('Add Project Return / Income', 'প্রজেক্ট থেকে আয় যোগ করুন')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -13,10 +13,11 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function ReminderScreen() {
   const router = useRouter();
+  const { l, formatNum } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
   const dueMembers = members.filter((m) => m.status === 'due' || m.status === 'partial');
@@ -30,9 +31,11 @@ export default function ReminderScreen() {
   );
 
   const handleSend = () => {
-    Alert.alert('সফল', `${toBengaliDigits(dueMembers.length || 5)} জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!`, [
-      { text: 'ঠিক আছে', onPress: () => router.back() },
-    ]);
+    Alert.alert(
+      l('Success', 'সফল'),
+      `${formatNum(dueMembers.length || 5)} ${l('recipients received the reminder message successfully!', 'জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!')}`,
+      [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.back() }]
+    );
   };
 
   return (
@@ -48,7 +51,7 @@ export default function ReminderScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>রিমাইন্ডার পাঠান</Text>
+        <Text style={styles.headerTitle}>{l('Send Reminder', 'রিমাইন্ডার পাঠান')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -61,19 +64,19 @@ export default function ReminderScreen() {
           <View style={styles.recipientsTop}>
             <View style={styles.recipientsLeft}>
               <Ionicons name="people-outline" size={18} color="#1E293B" />
-              <Text style={styles.recipientsTitle}>৫ জন প্রাপক</Text>
+              <Text style={styles.recipientsTitle}>{formatNum(5)} {l('Recipients', 'জন প্রাপক')}</Text>
             </View>
             <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.changeLink}>বদলান</Text>
+              <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.recipientsNames}>
-            রফিকুল, করিম, তানভীর, নাসরিন, ফারুক
+            {l('Rafiqul, Karim, Tanvir, Nasrin, Faruk', 'রফিকুল, করিম, তানভীর, নাসরিন, ফারুক')}
           </Text>
         </View>
 
         {/* Section: মাধ্যম */}
-        <Text style={styles.sectionHeader}>মাধ্যম</Text>
+        <Text style={styles.sectionHeader}>{l('Channel', 'মাধ্যম')}</Text>
         <View style={styles.channelsCard}>
           {/* Push */}
           <TouchableOpacity
@@ -86,8 +89,8 @@ export default function ReminderScreen() {
             </View>
             <Ionicons name="notifications-outline" size={20} color="#1E293B" style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
-              <Text style={styles.channelTitle}>পুশ নোটিফিকেশন</Text>
-              <Text style={styles.channelSub}>অ্যাপ আছে ৪ জনের · বিনামূল্যে</Text>
+              <Text style={styles.channelTitle}>{l('Push Notification', 'পুশ নোটিফিকেশন')}</Text>
+              <Text style={styles.channelSub}>{l('App installed: 4 members · Free', 'অ্যাপ আছে ৪ জনের · বিনামূল্যে')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -104,8 +107,8 @@ export default function ReminderScreen() {
             </View>
             <Ionicons name="chatbubble-outline" size={20} color="#1E293B" style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
-              <Text style={styles.channelTitle}>হোয়াটসঅ্যাপ</Text>
-              <Text style={styles.channelSub}>সরাসরি চ্যাটে বার্তা প্রস্তুত থাকবে</Text>
+              <Text style={styles.channelTitle}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
+              <Text style={styles.channelSub}>{l('Message ready in direct chat', 'সরাসরি চ্যাটে বার্তা প্রস্তুত থাকবে')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -122,21 +125,21 @@ export default function ReminderScreen() {
             </View>
             <Ionicons name="mail-outline" size={20} color="#1E293B" style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
-              <Text style={styles.channelTitle}>এসএমএস</Text>
-              <Text style={styles.channelSub}>প্রতি এসএমএসে চার্জ প্রযোজ্য</Text>
+              <Text style={styles.channelTitle}>{l('SMS', 'এসএমএস')}</Text>
+              <Text style={styles.channelSub}>{l('Standard SMS charges apply', 'প্রতি এসএমএসে চার্জ প্রযোজ্য')}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Section: টেমপ্লেট */}
-        <Text style={styles.sectionHeader}>টেমপ্লেট</Text>
+        <Text style={styles.sectionHeader}>{l('Template', 'টেমপ্লেট')}</Text>
         <TouchableOpacity style={styles.dropdownBox} activeOpacity={0.8}>
-          <Text style={styles.dropdownText}>বকেয়া অনুস্মারক (বাংলা)</Text>
+          <Text style={styles.dropdownText}>{l('Due Reminder (Bengali)', 'বকেয়া অনুস্মারক (বাংলা)')}</Text>
           <Ionicons name="chevron-down" size={18} color="#64748B" />
         </TouchableOpacity>
 
         {/* Section: বার্তা */}
-        <Text style={styles.sectionHeader}>বার্তা</Text>
+        <Text style={styles.sectionHeader}>{l('Message', 'বার্তা')}</Text>
         <View style={styles.messageBox}>
           <TextInput
             style={styles.messageInput}
@@ -159,10 +162,10 @@ export default function ReminderScreen() {
         </View>
 
         {/* Section: প্রিভিউ · রফিকুল ইসলাম */}
-        <Text style={styles.sectionHeader}>প্রিভিউ · রফিকুল ইসলাম</Text>
+        <Text style={styles.sectionHeader}>{l('Preview · Rafiqul Islam', 'প্রিভিউ · রফিকুল ইসলাম')}</Text>
         <View style={styles.previewBox}>
           <Text style={styles.previewText}>
-            আসসালামু আলাইকুম রফিকুল ইসলাম, আপনার জুলাই–সেপ্টেম্বর মাসের জমা ৳৬,৩০০ টাকা এখনো বাকি আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: [বিকাশ নম্বর]। ধন্যবাদ, [সমিতির নাম]
+            {l('Assalamu Alaikum Rafiqul Islam, your deposit of ৳6,300 for July–September is still pending. Please pay soon.', 'আসসালামু আলাইকুম রফিকুল ইসলাম, আপনার জুলাই–সেপ্টেম্বর মাসের জমা ৳৬,৩০০ টাকা এখনো বাকি আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: [বিকাশ নম্বর]। ধন্যবাদ, [সমিতির নাম]')}
           </Text>
         </View>
 
@@ -177,7 +180,7 @@ export default function ReminderScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.sendBtnText}>৫ জনকে পাঠান</Text>
+          <Text style={styles.sendBtnText}>{l('Send to', 'পাঠান')} {formatNum(5)} {l('Members', 'জনকে')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

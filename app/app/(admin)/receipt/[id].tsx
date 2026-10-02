@@ -12,37 +12,38 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { formatBengaliMoney } from '../../../src/lib/money';
+import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function ReceiptScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { getTransactionById, getMemberById, transactions, members, somitiInfo } = useSomitiStore();
+  const { l, formatMoney } = useLanguage();
 
   const txn = getTransactionById(id as string) || transactions[0];
   const member = txn ? getMemberById(txn.memberId) || members.find((m) => m.id === txn.memberId) : members[0];
 
-  const receiptNo = txn?.receiptNo || '#১০৮৮';
+  const receiptNo = txn?.receiptNo || '#1088';
   const amount = txn?.amount || 4100;
-  const memberName = txn?.memberName || member?.name || 'করিম উদ্দিন';
+  const memberName = txn?.memberName || member?.name || 'Karim Uddin';
   const memberCode = txn?.memberCode || member?.code || 'SM-042';
-  const monthsStr = txn?.months?.join(', ') || 'আগস্ট, সেপ্টেম্বর ২০২৬';
+  const monthsStr = txn?.months?.join(', ') || (l('August, September 2026', 'আগস্ট, সেপ্টেম্বর ২০২৬'));
   const lateFee = txn?.lateFee || 0;
   const baseDeposit = amount - lateFee;
-  const dateStr = txn?.date || '২ অক্টোবর ২০২৬';
+  const dateStr = txn?.date || (l('2 October 2026', '২ অক্টোবর ২০২৬'));
   const methodStr =
     txn?.paymentMethod === 'bkash'
-      ? `বিকাশ ${txn.trxId ? `· ${txn.trxId}` : ''}`
+      ? `${l('bKash', 'বিকাশ')} ${txn.trxId ? `· ${txn.trxId}` : ''}`
       : txn?.paymentMethod === 'nagad'
-      ? `নগদ ${txn.trxId ? `· ${txn.trxId}` : ''}`
+      ? `${l('Nagad', 'নগদ')} ${txn.trxId ? `· ${txn.trxId}` : ''}`
       : txn?.paymentMethod === 'bank'
-      ? 'ব্যাংক ট্রান্সফার'
-      : 'হাতে নগদ';
+      ? l('Bank Transfer', 'ব্যাংক ট্রান্সফার')
+      : l('Cash', 'হাতে নগদ');
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${somitiInfo.name} - জমা রসিদ ${receiptNo}\nসদস্য: ${memberName} (${memberCode})\nমাস: ${monthsStr}\nজমা: ${formatBengaliMoney(baseDeposit)}\n${lateFee > 0 ? `বিলম্ব ফি: ${formatBengaliMoney(lateFee)}\n` : ''}মোট আদায়: ${formatBengaliMoney(amount)}\nমাধ্যম: ${methodStr}\nতারিখ: ${dateStr}\nএখন মোট জমা: ${formatBengaliMoney(member?.totalDeposit || amount)}`,
+        message: `${somitiInfo.name} - ${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(member?.totalDeposit || amount)}`,
       });
     } catch (e) {}
   };
@@ -61,65 +62,65 @@ export default function ReceiptScreen() {
             <Ionicons name="checkmark" size={32} color="#0F766E" />
           </View>
 
-          <Text style={styles.successTitle}>জমা সফল হয়েছে</Text>
-          <Text style={styles.amountLarge}>{formatBengaliMoney(amount)}</Text>
+          <Text style={styles.successTitle}>{l('Deposit Successful', 'জমা সফল হয়েছে')}</Text>
+          <Text style={styles.amountLarge}>{formatMoney(amount)}</Text>
 
           <View style={styles.whatsappNoticePill}>
-            <Text style={styles.whatsappNoticeText}>হোয়াটসঅ্যাপে রসিদ পাঠানো হয়েছে ✓</Text>
+            <Text style={styles.whatsappNoticeText}>{l('Receipt sent via WhatsApp ✓', 'হোয়াটসঅ্যাপে রসিদ পাঠানো হয়েছে ✓')}</Text>
           </View>
         </View>
 
         {/* Voucher Card */}
         <View style={styles.voucherCard}>
           <View style={styles.voucherTop}>
-            <Text style={styles.voucherNo}>রসিদ {receiptNo}</Text>
+            <Text style={styles.voucherNo}>{l('Receipt', 'রসিদ')} {receiptNo}</Text>
             <Text style={styles.voucherSomiti}>{somitiInfo.name}</Text>
           </View>
 
           <View style={styles.detailList}>
             <View style={styles.row}>
-              <Text style={styles.label}>সদস্য</Text>
+              <Text style={styles.label}>{l('Member', 'সদস্য')}</Text>
               <Text style={styles.value}>{memberName} ({memberCode})</Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.label}>মাস</Text>
+              <Text style={styles.label}>{l('Months', 'মাস')}</Text>
               <Text style={styles.value}>{monthsStr}</Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.label}>জমা</Text>
-              <Text style={styles.value}>{formatBengaliMoney(baseDeposit)}</Text>
+              <Text style={styles.label}>{l('Deposit', 'জমা')}</Text>
+              <Text style={styles.value}>{formatMoney(baseDeposit)}</Text>
             </View>
 
             {lateFee > 0 && (
               <View style={styles.row}>
-                <Text style={styles.label}>বিলম্ব ফি</Text>
-                <Text style={styles.value}>{formatBengaliMoney(lateFee)}</Text>
+                <Text style={styles.label}>{l('Late Fee', 'বিলম্ব ফি')}</Text>
+                <Text style={styles.value}>{formatMoney(lateFee)}</Text>
               </View>
             )}
 
             <View style={styles.row}>
-              <Text style={styles.label}>মাধ্যম</Text>
+              <Text style={styles.label}>{l('Method', 'মাধ্যম')}</Text>
               <Text style={styles.value}>{methodStr}</Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.label}>তারিখ</Text>
+              <Text style={styles.label}>{l('Date', 'তারিখ')}</Text>
               <Text style={styles.value}>{dateStr}</Text>
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.label}>গ্রহণকারী</Text>
-              <Text style={styles.value}>মাহমুদা খাতুন (কোষাধ্যক্ষ)</Text>
+              <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>
+              <Text style={styles.value}>{l('Mahmuda Khatun (Treasurer)', 'মাহমুদা খাতুন (কোষাধ্যক্ষ)')}</Text>
             </View>
           </View>
 
           <View style={styles.dottedDivider} />
 
           <View style={styles.rowTotal}>
-            <Text style={styles.labelTotal}>এখন মোট জমা</Text>
-            <Text style={styles.valueTotal}>{formatBengaliMoney(member?.totalDeposit || amount)}</Text>
+            <Text style={styles.labelTotal}>{l('Total Deposit Now', 'এখন মোট জমা')}</Text>
+            <Text style={styles.valueTotal}>{formatMoney(member?.totalDeposit || amount)}</Text>
           </View>
         </View>
 
@@ -132,7 +133,7 @@ export default function ReceiptScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="paper-plane-outline" size={18} color="#134E4A" />
-            <Text style={styles.shareBtnText}>রসিদ শেয়ার করুন</Text>
+            <Text style={styles.shareBtnText}>{l('Share Receipt', 'রসিদ শেয়ার করুন')}</Text>
           </TouchableOpacity>
 
           {/* Another Deposit Button (dark teal pill) */}
@@ -142,7 +143,7 @@ export default function ReceiptScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.anotherBtnText}>আরেকটি জমা নিন</Text>
+            <Text style={styles.anotherBtnText}>{l('Record Another Deposit', 'আরেকটি জমা নিন')}</Text>
           </TouchableOpacity>
 
           {/* Home Link */}
@@ -151,7 +152,7 @@ export default function ReceiptScreen() {
             onPress={() => router.replace('/(admin)/(tabs)')}
             activeOpacity={0.7}
           >
-            <Text style={styles.homeLinkText}>হোমে ফিরুন</Text>
+            <Text style={styles.homeLinkText}>{l('Back to Home', 'হোমে ফিরুন')}</Text>
           </TouchableOpacity>
         </View>
 

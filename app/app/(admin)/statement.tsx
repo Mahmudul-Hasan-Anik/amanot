@@ -15,10 +15,11 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { formatBengaliMoney, toBengaliDigits } from '../../src/lib/money';
+import { useLanguage } from '../../src/i18n/useLanguage';
 
 export default function StatementScreen() {
   const router = useRouter();
+  const { l, formatMoney, formatNum } = useLanguage();
   const { members } = useSomitiStore();
 
   const [target, setTarget] = useState<'all' | 'due' | 'single'>('all');
@@ -41,20 +42,20 @@ export default function StatementScreen() {
 
   const handleSend = () => {
     const channelNames = [];
-    if (whatsapp) channelNames.push('হোয়াটসঅ্যাপ');
-    if (sms) channelNames.push('এসএমএস');
-    if (push) channelNames.push('পুশ নোটিফিকেশন');
+    if (whatsapp) channelNames.push(l('WhatsApp', 'হোয়াটসঅ্যাপ'));
+    if (sms) channelNames.push(l('SMS', 'এসএমএস'));
+    if (push) channelNames.push(l('Push Notification', 'পুশ নোটিফিকেশন'));
 
     if (channelNames.length === 0) {
-      Alert.alert('মাধ্যম নির্বাচন করুন', 'অনুগ্রহ করে অন্তত একটি প্রেরণের মাধ্যম নির্বাচন করুন।');
+      Alert.alert(l('Select Channel', 'মাধ্যম নির্বাচন করুন'), l('Please select at least one sending channel.', 'অনুগ্রহ করে অন্তত একটি প্রেরণের মাধ্যম নির্বাচন করুন।'));
       return;
     }
 
-    const targetDesc = target === 'single' ? selectedMember?.name : `${toBengaliDigits(recipientCount)} জন সদস্য`;
+    const targetDesc = target === 'single' ? selectedMember?.name : `${formatNum(recipientCount)} ${l('Members', 'জন সদস্য')}`;
 
     Alert.alert(
-      'স্টেটমেন্ট সফলভাবে পাঠানো হয়েছে',
-      `${targetDesc}-এর কাছে ${channelNames.join(' ও ')}-এর মাধ্যমে স্টেটমেন্ট পাঠানো সম্পন্ন হয়েছে!`
+      l('Statement Sent Successfully', 'স্টেটমেন্ট সফলভাবে পাঠানো হয়েছে'),
+      `${targetDesc} - ${channelNames.join(l(' and ', ' ও '))} ${l('received statement successfully!', '-এর মাধ্যমে স্টেটমেন্ট পাঠানো সম্পন্ন হয়েছে!')}`
     );
   };
 
@@ -71,7 +72,7 @@ export default function StatementScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>স্টেটমেন্ট পাঠান</Text>
+        <Text style={styles.headerTitle}>{l('Send Statement', 'স্টেটমেন্ট পাঠান')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -80,14 +81,14 @@ export default function StatementScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Section: সময়কাল */}
-        <Text style={styles.sectionTitle}>সময়কাল</Text>
+        <Text style={styles.sectionTitle}>{l('Period', 'সময়কাল')}</Text>
         <View style={styles.periodBox}>
-          <Text style={styles.periodText}>জানুয়ারি – অক্টোবর ২০২৬</Text>
+          <Text style={styles.periodText}>{l('January – October 2026', 'জানুয়ারি – অক্টোবর ২০২৬')}</Text>
           <Ionicons name="calendar-outline" size={18} color="#64748B" />
         </View>
 
         {/* Section: কাকে পাঠাবেন */}
-        <Text style={styles.sectionTitle}>কাকে পাঠাবেন</Text>
+        <Text style={styles.sectionTitle}>{l('Recipients', 'কাকে পাঠাবেন')}</Text>
         <View style={styles.targetRow}>
           <TouchableOpacity
             style={[styles.targetChip, target === 'all' && styles.targetChipActive]}
@@ -96,7 +97,7 @@ export default function StatementScreen() {
           >
             {target === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.targetChipText, target === 'all' && styles.targetChipTextActive]}>
-              সকল সক্রিয় {toBengaliDigits(activeMembers.length)}
+              {l('All Active', 'সকল সক্রিয়')} {formatNum(activeMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -107,7 +108,7 @@ export default function StatementScreen() {
           >
             {target === 'due' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.targetChipText, target === 'due' && styles.targetChipTextActive]}>
-              বকেয়াধারী {toBengaliDigits(dueMembers.length)}
+              {l('Due Members', 'বকেয়াধারী')} {formatNum(dueMembers.length)}
             </Text>
           </TouchableOpacity>
 
@@ -121,7 +122,7 @@ export default function StatementScreen() {
           >
             {target === 'single' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
             <Text style={[styles.targetChipText, target === 'single' && styles.targetChipTextActive]}>
-              একজন
+              {l('Single Member', 'একজন')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -141,7 +142,7 @@ export default function StatementScreen() {
         )}
 
         {/* Section: মাধ্যম */}
-        <Text style={styles.sectionTitle}>মাধ্যম</Text>
+        <Text style={styles.sectionTitle}>{l('Channel', 'মাধ্যম')}</Text>
         <View style={styles.channelCard}>
           {/* Option 1 */}
           <TouchableOpacity
@@ -152,7 +153,7 @@ export default function StatementScreen() {
             <View style={[styles.checkboxBox, whatsapp && styles.checkboxBoxActive]}>
               {whatsapp && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
-            <Text style={styles.checkboxLabel}>হোয়াটসঅ্যাপে PDF স্টেটমেন্ট</Text>
+            <Text style={styles.checkboxLabel}>{l('PDF Statement via WhatsApp', 'হোয়াটসঅ্যাপে PDF স্টেটমেন্ট')}</Text>
           </TouchableOpacity>
 
           <View style={styles.checkboxDivider} />
@@ -167,8 +168,8 @@ export default function StatementScreen() {
               {sms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.checkboxLabel}>এসএমএসে সংক্ষিপ্ত ব্যালেন্স</Text>
-              <Text style={styles.checkboxSub}>স্মার্টফোন নেই এমন সদস্যদের জন্য</Text>
+              <Text style={styles.checkboxLabel}>{l('Summary Balance via SMS', 'এসএমএসে সংক্ষিপ্ত ব্যালেন্স')}</Text>
+              <Text style={styles.checkboxSub}>{l('For non-smartphone members', 'স্মার্টফোন নেই এমন সদস্যদের জন্য')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -183,54 +184,54 @@ export default function StatementScreen() {
             <View style={[styles.checkboxBox, push && styles.checkboxBoxActive]}>
               {push && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
-            <Text style={styles.checkboxLabel}>অ্যাপ পুশ নোটিফিকেশন</Text>
+            <Text style={styles.checkboxLabel}>{l('App Push Notification', 'অ্যাপ পুশ নোটিফিকেশন')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Section: প্রিভিউ */}
-        <Text style={styles.sectionTitle}>স্টেটমেন্ট প্রিভিউ (নমুনা)</Text>
+        <Text style={styles.sectionTitle}>{l('Statement Preview (Sample)', 'স্টেটমেন্ট প্রিভিউ (নমুনা)')}</Text>
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
             <View>
               <Text style={styles.previewMemberName}>
-                {target === 'single' ? selectedMember?.name : 'করিম উদ্দিন'}
+                {target === 'single' ? selectedMember?.name : (l('Karim Uddin', 'করিম উদ্দিন'))}
               </Text>
               <Text style={styles.previewMemberCode}>
-                কোড: {target === 'single' ? selectedMember?.code : 'SM-042'}
+                {l('Code:', 'কোড:')} {target === 'single' ? selectedMember?.code : 'SM-042'}
               </Text>
             </View>
             <View style={styles.previewBadge}>
-              <Text style={styles.previewBadgeText}>পিডিএফ তৈরি</Text>
+              <Text style={styles.previewBadgeText}>{l('PDF Generated', 'পিডিএফ তৈরি')}</Text>
             </View>
           </View>
 
           <View style={styles.previewDivider} />
 
           <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>মোট জমা</Text>
+            <Text style={styles.previewLabel}>{l('Total Deposit', 'মোট জমা')}</Text>
             <Text style={styles.previewVal}>
-              ৳{formatBengaliMoney(target === 'single' ? selectedMember?.totalDeposit || 0 : 108000)}
+              {formatMoney(target === 'single' ? selectedMember?.totalDeposit || 0 : 108000)}
             </Text>
           </View>
           <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>বর্তমান বকেয়া</Text>
+            <Text style={styles.previewLabel}>{l('Current Due', 'বর্তমান বকেয়া')}</Text>
             <Text style={[styles.previewVal, { color: (target === 'single' ? selectedMember?.dueAmount || 0 : 4100) > 0 ? '#DC2626' : '#059669' }]}>
-              ৳{formatBengaliMoney(target === 'single' ? selectedMember?.dueAmount || 0 : 4100)}
+              {formatMoney(target === 'single' ? selectedMember?.dueAmount || 0 : 4100)}
             </Text>
           </View>
           <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>সম্ভাব্য লাভ অংশ</Text>
-            <Text style={[styles.previewVal, { color: '#059669' }]}>+৳৫,৭৮৬</Text>
+            <Text style={styles.previewLabel}>{l('Estimated Profit Share', 'সম্ভাব্য লাভ অংশ')}</Text>
+            <Text style={[styles.previewVal, { color: '#059669' }]}>+{formatMoney(5786)}</Text>
           </View>
         </View>
 
         {/* Section: শিডিউল */}
-        <Text style={styles.sectionTitle}>স্বয়ংক্রিয় শিডিউল</Text>
+        <Text style={styles.sectionTitle}>{l('Automatic Schedule', 'স্বয়ংক্রিয় শিডিউল')}</Text>
         <View style={styles.scheduleCard}>
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>মাসিক ব্যালেন্স</Text>
-              <Text style={styles.switchSub}>প্রতি মাসের ১–৫ তারিখে</Text>
+              <Text style={styles.switchTitle}>{l('Monthly Balance', 'মাসিক ব্যালেন্স')}</Text>
+              <Text style={styles.switchSub}>{l('1st–5th of every month', 'প্রতি মাসের ১–৫ তারিখে')}</Text>
             </View>
             <Switch
               value={autoMonthly}
@@ -244,8 +245,8 @@ export default function StatementScreen() {
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>পূর্ণ PDF স্টেটমেন্ট</Text>
-              <Text style={styles.switchSub}>প্রতি ৩ মাসে</Text>
+              <Text style={styles.switchTitle}>{l('Full PDF Statement', 'পূর্ণ PDF স্টেটমেন্ট')}</Text>
+              <Text style={styles.switchSub}>{l('Every 3 months', 'প্রতি ৩ মাসে')}</Text>
             </View>
             <Switch
               value={autoFullPdf}
@@ -259,8 +260,8 @@ export default function StatementScreen() {
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>বার্ষিক স্টেটমেন্ট</Text>
-              <Text style={styles.switchSub}>বণ্টন অনুমোদনের পর</Text>
+              <Text style={styles.switchTitle}>{l('Annual Statement', 'বার্ষিক স্টেটমেন্ট')}</Text>
+              <Text style={styles.switchSub}>{l('After distribution approval', 'বণ্টন অনুমোদনের পর')}</Text>
             </View>
             <Switch
               value={autoAnnual}
@@ -284,8 +285,8 @@ export default function StatementScreen() {
           <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
           <Text style={styles.sendBtnText}>
             {target === 'single'
-              ? `${selectedMember?.name}-কে পাঠান`
-              : `${toBengaliDigits(recipientCount)} জনকে পাঠান`}
+              ? `${l('Send to', 'পাঠান')} ${selectedMember?.name}`
+              : `${l('Send to', 'পাঠান')} ${formatNum(recipientCount)} ${l('Members', 'জনকে')}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -295,7 +296,7 @@ export default function StatementScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>সদস্য নির্বাচন করুন</Text>
+              <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
               <TouchableOpacity onPress={() => setShowMemberPicker(false)}>
                 <Ionicons name="close" size={24} color="#64748B" />
               </TouchableOpacity>
@@ -315,7 +316,7 @@ export default function StatementScreen() {
                   }}
                 >
                   <Text style={styles.pickerItemName}>{item.name}</Text>
-                  <Text style={styles.pickerItemCode}>{item.code} · ৳{formatBengaliMoney(item.totalDeposit)}</Text>
+                  <Text style={styles.pickerItemCode}>{item.code} · {formatMoney(item.totalDeposit)}</Text>
                 </TouchableOpacity>
               )}
             />
