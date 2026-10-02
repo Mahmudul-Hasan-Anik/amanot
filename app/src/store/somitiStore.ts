@@ -482,7 +482,19 @@ export const useSomitiStore = create<SomitiState>()(
     }),
     {
       name: 'amanot-somiti-storage',
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate: (persistedState: any, version: number) => {
+        if (!persistedState) return persistedState;
+        if (version < 2 || persistedState?.somitiInfo?.name === 'আমানত') {
+          persistedState.somitiInfo = {
+            ...persistedState.somitiInfo,
+            name: 'উত্তরা মডেল সমবায় সমিতি',
+            nameEn: 'Uttara Model Samity',
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );

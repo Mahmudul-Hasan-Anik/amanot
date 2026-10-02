@@ -43,7 +43,7 @@ export default function ReceiptScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${somitiInfo.name} - ${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(member?.totalDeposit || amount)}`,
+        message: `${l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')} - ${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(member?.totalDeposit || amount)}`,
       });
     } catch (e) {}
   };
@@ -74,7 +74,9 @@ export default function ReceiptScreen() {
         <View style={styles.voucherCard}>
           <View style={styles.voucherTop}>
             <Text style={styles.voucherNo}>{l('Receipt', 'রসিদ')} {receiptNo}</Text>
-            <Text style={styles.voucherSomiti}>{somitiInfo.name}</Text>
+            <Text style={styles.voucherSomiti}>
+              {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+            </Text>
           </View>
 
           <View style={styles.detailList}>

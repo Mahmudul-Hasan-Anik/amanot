@@ -165,9 +165,11 @@ export default function SomitiProfileScreen() {
         {/* Somiti Identity Hero */}
         <View style={styles.identityArea}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>{somitiInfo.name.charAt(0) || 'স'}</Text>
+            <Text style={styles.logoText}>{l((somitiInfo as any).nameEn?.charAt(0) || 'U', 'স')}</Text>
           </View>
-          <Text style={styles.somitiName}>{somitiInfo.name}</Text>
+          <Text style={styles.somitiName}>
+            {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+          </Text>
           <Text style={styles.somitiSub}>
             {l('Reg. No', 'নিবন্ধন নং')} {somitiInfo.regNo} · {l('Est.', 'প্রতিষ্ঠা')} {formatNum(somitiInfo.establishedYear)}
           </Text>
@@ -741,7 +743,9 @@ export default function SomitiProfileScreen() {
               <View style={styles.paperEmblem}>
                 <Ionicons name="library-outline" size={28} color="#0F766E" />
               </View>
-              <Text style={styles.paperOrgName}>{somitiInfo.name}</Text>
+              <Text style={styles.paperOrgName}>
+                {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+              </Text>
               <Text style={styles.paperSubtitle}>{previewDoc?.subtitle}</Text>
               <View style={styles.paperDivider} />
 

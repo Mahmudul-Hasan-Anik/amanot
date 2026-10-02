@@ -69,7 +69,8 @@ export interface CashAccount {
 }
 
 export const mockSomitiInfo = {
-  name: 'আমানত',
+  name: 'উত্তরা মডেল সমবায় সমিতি',
+  nameEn: 'Uttara Model Samity',
   tagline: 'সমিতির সব হিসাব, এক জায়গায়',
   regNo: '১২৮৯/২০২২',
   establishedYear: '২০২২',

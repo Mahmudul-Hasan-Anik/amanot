@@ -205,10 +205,12 @@ export default function HomeDashboardScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>{l('A', 'স')}</Text>
+            <Text style={styles.logoText}>{l((somitiInfo as any).nameEn?.charAt(0) || 'U', 'স')}</Text>
           </View>
           <View>
-            <Text style={styles.somitiName}>{l('Uttara Model Samity', somitiInfo.name)}</Text>
+            <Text style={styles.somitiName}>
+              {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+            </Text>
             <Text style={styles.subHeader}>
               {l('September 2026', 'সেপ্টেম্বর ২০২৬')} · {formatNum(members.length)} {l('Members', 'জন সদস্য')}
             </Text>

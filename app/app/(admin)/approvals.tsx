@@ -49,6 +49,7 @@ export default function ApprovalsScreen() {
   const router = useRouter();
   const { l, formatMoney, formatNum } = useLanguage();
   const {
+    somitiInfo,
     approvals,
     approvedApprovals = [],
     rejectedApprovals = [],
@@ -662,7 +663,9 @@ export default function ApprovalsScreen() {
             {selectedAttachment?.type === 'image' ? (
               <View style={styles.voucherPreview}>
                 <View style={styles.voucherHeaderRow}>
-                  <Text style={styles.voucherOrgName}>{l('Uttara Model Samity', 'উত্তরা মডেল সমিতি')}</Text>
+                  <Text style={styles.voucherOrgName}>
+                    {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+                  </Text>
                   <Text style={styles.voucherBadge}>#V-1024</Text>
                 </View>
                 <Text style={styles.voucherSubtitle}>
@@ -706,7 +709,9 @@ export default function ApprovalsScreen() {
             ) : (
               <View style={styles.voucherPreview}>
                 <View style={styles.voucherHeaderRow}>
-                  <Text style={styles.voucherOrgName}>{l('Uttara Model Samity', 'উত্তরা মডেল সমিতি')}</Text>
+                  <Text style={styles.voucherOrgName}>
+                    {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+                  </Text>
                   <Text style={styles.voucherBadge}>AGR-2026/04</Text>
                 </View>
                 <Text style={styles.voucherSubtitle}>
