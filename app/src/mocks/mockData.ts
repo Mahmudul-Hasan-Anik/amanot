@@ -45,10 +45,19 @@ export interface PendingApproval {
   type: 'expense' | 'investment' | 'correction';
   title: string;
   amount: number;
+  amountDisplay?: string;
   detail: string;
   createdBy: string;
   dateStr: string;
   isNew?: boolean;
+  attachmentType?: 'image' | 'document';
+  attachmentTitle?: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
 }
 
 export interface CashAccount {
@@ -342,6 +351,9 @@ export const mockPendingApprovals: PendingApproval[] = [
     createdBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
     dateStr: 'আজ ১০:২০',
     isNew: true,
+    attachmentType: 'image',
+    attachmentTitle: 'রসিদের ছবি দেখুন',
+    status: 'pending',
   },
   {
     id: 'app2',
@@ -351,15 +363,63 @@ export const mockPendingApprovals: PendingApproval[] = [
     detail: '৩য় কিস্তি · ব্যাংক থেকে প্রদান · প্রজেক্ট বর্তমানে বিলম্বিত',
     createdBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
     dateStr: 'গতকাল',
+    attachmentType: 'document',
+    attachmentTitle: 'চুক্তিপত্র',
+    status: 'pending',
   },
   {
     id: 'app3',
     type: 'correction',
     title: 'সংশোধন: রসিদ #১০৭১',
     amount: 1500,
-    detail: '৳২,০০০ → ৳১,৫০০ · কারণ: ভুল পরিমাণ এন্ট্রি হয়েছিল। বিপরীত এন্ট্রি হবে।',
+    amountDisplay: '৳২,০০০ → ৳১,৫০০',
+    detail: '৳২,০০০ → ৳১,৫০০ · কারণ: ভুল পরিমাণ এন্ট্রি হয়েছিল। মূল এন্ট্রি মুছে যাবে না, বিপরীত এন্ট্রি যোগ হবে।',
     createdBy: 'জাহিদ হাসান (সম্পাদক)',
     dateStr: 'গতকাল',
+    status: 'pending',
+  },
+];
+
+export const mockApprovedApprovals: PendingApproval[] = [
+  {
+    id: 'app-hist-1',
+    type: 'expense',
+    title: 'ব্যয়: অফিস স্টেশনারি ও খাতা ক্রয়',
+    amount: 2500,
+    detail: 'রেজিস্টার খাতা ও রসিদ বই ছাপানো · উৎস: কোষাধ্যক্ষের হাতে',
+    createdBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
+    dateStr: '৩০ সেপ্টেম্বর ২০২৬',
+    approvedAt: '৩০ সেপ্টেম্বর ২০২৬, ১২:১০',
+    approvedBy: 'আনোয়ার হোসেন (সভাপতি)',
+    status: 'approved',
+  },
+  {
+    id: 'app-hist-2',
+    type: 'expense',
+    title: 'ব্যয়: মাসিক সভা ও আপ্যায়ন',
+    amount: 3200,
+    detail: 'সেপ্টেম্বর মাসিক মিটিং নাস্তা খরচ · উৎস: কোষাধ্যক্ষের হাতে',
+    createdBy: 'মাহমুদা খাতুন (কোষাধ্যক্ষ)',
+    dateStr: '২৮ সেপ্টেম্বর ২০২৬',
+    approvedAt: '২৮ সেপ্টেম্বর ২০২৬, ১৮:৩০',
+    approvedBy: 'আনোয়ার হোসেন (সভাপতি)',
+    status: 'approved',
+  },
+];
+
+export const mockRejectedApprovals: PendingApproval[] = [
+  {
+    id: 'app-rej-1',
+    type: 'expense',
+    title: 'ব্যয়: জরুরি যাতায়াত বিল',
+    amount: 1200,
+    detail: 'অননুমোদিত দূরপাল্লার ট্যাক্সি ভাড়া বিল',
+    createdBy: 'সুমন মিয়া (মাঠকর্মী)',
+    dateStr: '২৬ সেপ্টেম্বর ২০২৬',
+    rejectedAt: '২৬ সেপ্টেম্বর ২০২৬, ১৪:১৫',
+    rejectedBy: 'আনোয়ার হোসেন (সভাপতি)',
+    rejectionReason: 'ভাউচার রসিদ ও পূর্বানুমোদন সংযুক্ত নেই',
+    status: 'rejected',
   },
 ];
 

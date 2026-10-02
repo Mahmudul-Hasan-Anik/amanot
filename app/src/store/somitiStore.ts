@@ -9,6 +9,8 @@ import {
   mockMembers,
   mockProjects,
   mockPendingApprovals,
+  mockApprovedApprovals,
+  mockRejectedApprovals,
   mockCashAccounts,
   mockSomitiInfo,
 } from '../mocks/mockData';
@@ -48,6 +50,8 @@ export interface SomitiState {
   members: Member[];
   projects: Project[];
   approvals: PendingApproval[];
+  approvedApprovals: PendingApproval[];
+  rejectedApprovals: PendingApproval[];
   cashAccounts: CashAccount[];
   transactions: Transaction[];
   expenses: ExpenseItem[];
@@ -93,8 +97,8 @@ export interface SomitiState {
   }) => void;
 
   // Approvals Actions
-  approveRequest: (id: string) => void;
-  rejectRequest: (id: string) => void;
+  approveRequest: (id: string, actor?: string) => void;
+  rejectRequest: (id: string, reason?: string, actor?: string) => void;
 
   // Cash Transfer Action
   transferCash: (fromId: string, toId: string, amount: number) => void;
@@ -113,6 +117,8 @@ export const useSomitiStore = create<SomitiState>()(
       members: [...mockMembers],
       projects: [...mockProjects],
       approvals: [...mockPendingApprovals],
+      approvedApprovals: [...mockApprovedApprovals],
+      rejectedApprovals: [...mockRejectedApprovals],
       cashAccounts: [...mockCashAccounts],
       expenses: [
         {
@@ -384,7 +390,7 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Approvals
-      approveRequest: (id) => {
+      approveRequest: (id, actor) => {
         const currentApprovals = get().approvals;
         const item = currentApprovals.find((a) => a.id === id);
         if (item) {
@@ -399,12 +405,38 @@ export const useSomitiStore = create<SomitiState>()(
               note: item.detail,
             });
           }
+
+          const approvedItem: PendingApproval = {
+            ...item,
+            status: 'approved',
+            approvedAt: 'আজ ১০:৪৫',
+            approvedBy: actor || 'আনোয়ার হোসেন (সভাপতি)',
+          };
+
+          set({
+            approvals: currentApprovals.filter((a) => a.id !== id),
+            approvedApprovals: [approvedItem, ...(get().approvedApprovals || [])],
+          });
         }
-        set({ approvals: currentApprovals.filter((a) => a.id !== id) });
       },
 
-      rejectRequest: (id) => {
-        set({ approvals: get().approvals.filter((a) => a.id !== id) });
+      rejectRequest: (id, reason, actor) => {
+        const currentApprovals = get().approvals;
+        const item = currentApprovals.find((a) => a.id === id);
+        if (item) {
+          const rejectedItem: PendingApproval = {
+            ...item,
+            status: 'rejected',
+            rejectedAt: 'আজ ১০:৪৫',
+            rejectedBy: actor || 'আনোয়ার হোসেন (সভাপতি)',
+            rejectionReason: reason || 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার',
+          };
+
+          set({
+            approvals: currentApprovals.filter((a) => a.id !== id),
+            rejectedApprovals: [rejectedItem, ...(get().rejectedApprovals || [])],
+          });
+        }
       },
 
       // Transfer cash
@@ -428,6 +460,8 @@ export const useSomitiStore = create<SomitiState>()(
           members: [...mockMembers],
           projects: [...mockProjects],
           approvals: [...mockPendingApprovals],
+          approvedApprovals: [...mockApprovedApprovals],
+          rejectedApprovals: [...mockRejectedApprovals],
           cashAccounts: [...mockCashAccounts],
           transactions: [],
           expenses: [],
