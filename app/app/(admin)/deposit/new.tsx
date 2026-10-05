@@ -18,8 +18,9 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
-import { toEnglishDigits } from '../../../src/lib/bengali';
+import { toEnglishDigits } from '../../../src/lib/money';
 import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 
 export default function RecordDepositScreen() {
   const router = useRouter();
@@ -214,6 +215,28 @@ export default function RecordDepositScreen() {
 
         {/* 2. Amount Breakdown & Editable Amount Card */}
         <View style={styles.amountCard}>
+          <Text style={styles.amountSectionLabel}>{l('Deposit Amount', 'পরিমাণ')}</Text>
+
+          {/* Large Amount Input Container */}
+          <View style={styles.largeAmountContainer}>
+            <Text style={styles.largeCurrencySymbol}>৳</Text>
+            <TextInput
+              style={styles.largeAmountInput}
+              value={customAmount}
+              onChangeText={(t) => setCustomAmount(toEnglishDigits(t))}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </View>
+
+          <Text style={styles.amountHintText}>
+            {l('Editable: type custom, partial or advance amount', 'সম্পাদনযোগ্য: আংশিক বা অগ্রিম হলে পরিবর্তন করতে পারেন')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          {/* Breakdown Lines */}
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>
               {l(`Regular deposit (${monthsCount} mo × ${formatMoney(rate)})`, `নিয়মিত জমা (${formatNum(monthsCount)} মাস × ${formatMoney(rate)})`)}
@@ -232,29 +255,6 @@ export default function RecordDepositScreen() {
               <Text style={styles.amountVal}>+{formatMoney(lateFee)}</Text>
             </View>
           )}
-
-          <View style={styles.divider} />
-
-          {/* Editable Deposit Amount Input (As Requested) */}
-          <View style={styles.editableAmountSection}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.totalLabel}>{l('Deposit Amount', 'জমার পরিমাণ (মোট)')}</Text>
-              <Text style={styles.amountHintText}>
-                {l('Editable: type custom, partial or advance amount', 'সম্পাদনযোগ্য: আংশিক বা অগ্রিম হলে পরিবর্তন করুন')}
-              </Text>
-            </View>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>৳</Text>
-              <TextInput
-                style={styles.amountTextInput}
-                value={customAmount}
-                onChangeText={(t) => setCustomAmount(toEnglishDigits(t))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-          </View>
         </View>
 
         {/* 3. Payment Method */}
@@ -590,62 +590,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#D97706',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 10,
+  amountSectionLabel: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
+    marginBottom: 8,
   },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  totalVal: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#0F766E',
-  },
-  editableAmountSection: {
+  largeAmountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    width: '100%',
+  },
+  largeCurrencySymbol: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.headline,
+    lineHeight: typography.lineHeight.headline,
+    color: colors.primary,
+    marginRight: 8,
+  },
+  largeAmountInput: {
+    flex: 1,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.headline,
+    lineHeight: typography.lineHeight.headline,
+    color: colors.primary,
+    padding: 0,
   },
   amountHintText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#0F766E',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 120,
-    justifyContent: 'flex-end',
-  },
-  currencySymbol: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#0F766E',
-    marginRight: 4,
-  },
-  amountTextInput: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#0F766E',
-    minWidth: 70,
-    textAlign: 'right',
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
   },
   methodGrid: {
     flexDirection: 'row',
