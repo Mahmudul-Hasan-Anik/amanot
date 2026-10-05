@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface FABProps {
   label?: string;
@@ -30,7 +31,7 @@ export const FAB: React.FC<FABProps> = ({
         style,
       ]}
     >
-      <Ionicons name={iconName} size={iconSize} color="#FFFFFF" />
+      <Ionicons name={iconName} size={iconSize} color={colors.surface} />
       {label ? <Text style={styles.label}>{label}</Text> : null}
     </TouchableOpacity>
   );
@@ -63,9 +64,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.surface,
     marginLeft: 6,
   },
 });

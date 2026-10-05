@@ -679,22 +679,23 @@ export const useSomitiStore = create<SomitiState>()(
     }),
     {
       name: 'amanot-somiti-storage',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {
         if (!persistedState) return persistedState;
-        if (version < 2 || persistedState?.somitiInfo?.name === 'আমানত') {
+        if (version < 4 || persistedState?.somitiInfo?.name?.includes('উত্তরা') || !persistedState?.somitiInfo?.name) {
           persistedState.somitiInfo = {
             ...persistedState.somitiInfo,
-            name: 'উত্তরা মডেল সমবায় সমিতি',
-            nameEn: 'Uttara Model Samity',
+            name: 'আমানত সমিতি',
+            nameEn: 'Amanot Samity',
+            tagline: 'সমিতির সব হিসাব, এক জায়গায়',
           };
         }
         if (version < 3) {
           persistedState.cashAccounts = [
             { id: 'ca1', type: 'bank', name: 'ব্যাংক হিসাব', holder: 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)', amount: 760000 },
             { id: 'ca2', type: 'cashier', name: 'কোষাধ্যক্ষের হাতে', holder: 'মাহমুদা খাতুন', amount: 120000 },
-            { id: 'ca3', type: 'bkash', name: 'বিকাশ', holder: '০১৭১১-২২৩৩৪৪', amount: 38000 },
+            { id: 'ca3', type: 'bkash', name: 'বিকাশ', holder: '০১৭১২-৩৪৫৬৭৮', amount: 38000 },
             { id: 'ca4', type: 'field', name: 'মাঠকর্মীর হাতে', holder: 'সুমন মিয়া', amount: 12000, note: 'আজ জমা দিতে হবে' },
           ];
           const cashTotal = 930000;

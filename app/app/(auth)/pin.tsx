@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 import { CustomKeypad } from '../../src/components/CustomKeypad';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
@@ -74,17 +75,22 @@ export default function PinScreen() {
     );
   };
 
+  const userInitial = currentUser?.name
+    ? currentUser.name.trim().charAt(0)
+    : 'আ';
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.topBar}>
-        <LanguageToggle />
-      </View>
+      {__DEV__ && (
+        <View style={styles.topBar}>
+          <LanguageToggle />
+        </View>
+      )}
+
       <View style={styles.content}>
-        {/* Top Avatar Circle */}
+        {/* Top Avatar Circle in Mint Soft background */}
         <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {currentUser?.name ? (l('A', currentUser.name.charAt(0))) : l('A', 'আ')}
-          </Text>
+          <Text style={styles.avatarText}>{userInitial}</Text>
         </View>
 
         {/* User Info Header */}
@@ -114,12 +120,14 @@ export default function PinScreen() {
           })}
         </View>
 
-        {/* Hint */}
-        <Text style={styles.hintText}>
-          {l('💡 PIN Code: 1234 (or tap biometric icon)', '💡 পিন কোড: ১২৩৪ (বা বায়োমেট্রিক আইকন চাপুন)')}
-        </Text>
+        {/* Hint (Dev-only) */}
+        {__DEV__ && (
+          <Text style={styles.hintText}>
+            {l('💡 PIN Code: 1234 (or tap biometric icon)', '💡 পিন কোড: ১২৩৪ (বা বায়োমেট্রিক আইকন চাপুন)')}
+          </Text>
+        )}
 
-        {/* Custom Bengali Keypad */}
+        {/* Custom Bengali Keypad with wide stadium pills */}
         <CustomKeypad
           onPressDigit={handlePressDigit}
           onPressBackspace={handlePressBackspace}
@@ -142,7 +150,7 @@ export default function PinScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
   topBar: {
     paddingHorizontal: 20,
@@ -152,77 +160,93 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingVertical: 20,
   },
   avatarCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   avatarText: {
-    fontSize: 32,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.hero,
+    lineHeight: typography.lineHeight.hero,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.primary,
+    includeFontPadding: false,
   },
   welcomeText: {
-    fontSize: 22,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
     marginBottom: 4,
     textAlign: 'center',
   },
   roleText: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 28,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.textSecondary,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   pinPromptText: {
-    fontSize: 16,
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
     fontWeight: '600',
-    color: colors.textMain,
+    color: colors.text,
     marginBottom: 16,
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   pinDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginHorizontal: 10,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginHorizontal: 8,
   },
   pinDotEmpty: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   pinDotFilled: {
     backgroundColor: colors.primary,
   },
   hintText: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 20,
-    backgroundColor: colors.primaryLight + '50',
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.primary,
+    marginBottom: 16,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 16,
   },
   forgotLinkContainer: {
-    marginTop: 20,
-    paddingVertical: 10,
+    marginTop: 16,
+    paddingVertical: 8,
   },
   forgotLinkText: {
-    fontSize: 14,
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
     fontWeight: '600',
     color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });

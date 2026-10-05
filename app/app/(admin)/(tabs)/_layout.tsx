@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function TabLayout() {
@@ -30,7 +31,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: 'HindSiliguri-Medium',
-          fontSize: 12,
+          fontSize: typography.size.caption,
         },
       }}
     >

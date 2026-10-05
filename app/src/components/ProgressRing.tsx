@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { colors } from '../theme/colors';
-import { toBengaliDigits } from '../lib/money';
+import { typography } from '../theme/typography';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface ProgressRingProps {
   progress: number; // 0 to 100 (e.g. 78)
@@ -15,12 +16,13 @@ interface ProgressRingProps {
 
 export const ProgressRing: React.FC<ProgressRingProps> = ({
   progress,
-  size = 72,
+  size = 76,
   strokeWidth = 7,
   color = colors.primary,
-  backgroundColor = '#E5E7EB',
+  backgroundColor = colors.primarySoft,
   showPercentage = true,
 }) => {
+  const { formatNum } = useLanguage();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (Math.min(100, Math.max(0, progress)) / 100) * circumference;
@@ -53,7 +55,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
       {showPercentage && (
         <View style={styles.textContainer}>
           <Text style={styles.percentageText}>
-            {toBengaliDigits(Math.round(progress))}%
+            {formatNum(Math.round(progress))}%
           </Text>
         </View>
       )}
@@ -68,8 +70,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   percentageText: {
-    fontSize: 16,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
   },
 });

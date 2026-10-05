@@ -14,12 +14,18 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { AppModal } from '../../src/components/AppModal';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { toBengaliDigits, toEnglishDigits } from '../../src/lib/bengali';
+import {
+  toBengaliDigits,
+  toEnglishDigits,
+  normalizeMobileNumber,
+  isValidMobileNumber,
+} from '../../src/lib/money';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 
@@ -27,12 +33,13 @@ export default function LoginScreen() {
   const router = useRouter();
   const { requestOtp, verifyOtp, setPhone, checkPhoneRegistration, loginAs, registerSomiti } = useAuthStore();
   const { members, somitiInfo } = useSomitiStore();
-  const { l, formatNum } = useLanguage();
+  const { l, isBengali, useBengaliDigits, formatNum } = useLanguage();
 
-  const [phoneNumber, setPhoneNumber] = useState('01712-345678');
+  // Internal English 10-digit number (e.g. '1712345678')
+  const [phoneDigits, setPhoneDigits] = useState('1712345678');
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState('');
-  const [timerSeconds, setTimerSeconds] = useState(60);
+  const [timerSeconds, setTimerSeconds] = useState(42);
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const hiddenOtpInputRef = useRef<TextInput>(null);
@@ -44,6 +51,22 @@ export default function LoginScreen() {
   const [regAdminName, setRegAdminName] = useState('');
   const [regAdminPhone, setRegAdminPhone] = useState('');
   const [regAdminPin, setRegAdminPin] = useState('1234');
+
+  // Format phone display with South Asian phone space (e.g. "১৭১২ ৩৪৫৬৭৮" or "1712 345678")
+  const formatPhoneDisplay = (digits: string): string => {
+    const formatted = digits.length <= 4
+      ? digits
+      : `${digits.slice(0, 4)} ${digits.slice(4)}`;
+    return (useBengaliDigits || isBengali) ? toBengaliDigits(formatted) : formatted;
+  };
+
+  const isPhoneValid = isValidMobileNumber(phoneDigits);
+
+  // Handle phone input typing
+  const handlePhoneChange = (text: string) => {
+    const normalized = normalizeMobileNumber(text);
+    setPhoneDigits(normalized);
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -63,26 +86,28 @@ export default function LoginScreen() {
   }, [otpSent, timerSeconds]);
 
   const handleSendOtp = () => {
-    const rawDigits = toEnglishDigits(phoneNumber.replace(/\D/g, ''));
-    if (rawDigits.length < 10) {
+    if (!isPhoneValid) {
       Alert.alert(
         l('Invalid Number', 'ভুল নম্বর'),
-        l('Please enter a valid 11-digit mobile number.', 'অনুগ্রহ করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন।')
+        l('Please enter a valid 10-digit mobile number.', 'অনুগ্রহ করে সঠিক ১০ সংখ্যার মোবাইল নম্বর লিখুন।')
       );
       return;
     }
 
-    // Step 1: Check phone registration in Somiti membership pool
-    const check = checkPhoneRegistration(phoneNumber, members);
+    const fullPhone = '0' + phoneDigits;
+
+    // Check phone registration in Somiti membership pool
+    const check = checkPhoneRegistration(fullPhone, members);
     if (!check.found) {
       setShowUnregisteredModal(true);
       return;
     }
 
-    const otp = requestOtp(phoneNumber);
-    setPhone('+880 ' + phoneNumber);
+    const countryPrefix = isBengali || useBengaliDigits ? '+৮৮০' : '+880';
+    requestOtp(fullPhone);
+    setPhone(`${countryPrefix} ${formatPhoneDisplay(phoneDigits)}`);
     setOtpSent(true);
-    setTimerSeconds(60);
+    setTimerSeconds(42);
     setCanResend(false);
     setOtpValue('');
 
@@ -130,11 +155,11 @@ export default function LoginScreen() {
   };
 
   const handleCallHelpline = () => {
-    const num = somitiInfo.phone || '01711223344';
+    const num = somitiInfo.phone || '01712345678';
     Linking.openURL(`tel:${num}`);
   };
 
-  // Convert current OTP value into an array of 6 items formatted by user preference
+  // Convert current OTP value into an array of 6 items formatted by locale preference
   const otpDigitsArray = Array(6)
     .fill('')
     .map((_, i) => (otpValue[i] ? formatNum(otpValue[i]) : ''));
@@ -144,6 +169,11 @@ export default function LoginScreen() {
     const secs = timerSeconds % 60;
     return `${formatNum(mins)}:${secs < 10 ? formatNum('0') : ''}${formatNum(secs)}`;
   };
+
+  // Dynamic logo initial letter (first letter of somiti name)
+  const somitiInitial = isBengali
+    ? ((somitiInfo.name && somitiInfo.name.trim().length > 0) ? somitiInfo.name.trim().charAt(0) : 'আ')
+    : ((somitiInfo.nameEn && somitiInfo.nameEn.trim().length > 0) ? somitiInfo.nameEn.trim().charAt(0) : 'A');
 
   return (
     <KeyboardAvoidingView
@@ -155,19 +185,23 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top Language Switcher */}
-        <View style={styles.topBar}>
-          <LanguageToggle />
-        </View>
+        {/* Top Language Switcher (Dev-only) */}
+        {__DEV__ && (
+          <View style={styles.topBar}>
+            <LanguageToggle />
+          </View>
+        )}
 
         {/* Brand Header */}
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>{l('A', 'আ')}</Text>
+          <View style={styles.logoTile}>
+            <Text style={styles.logoText}>{somitiInitial}</Text>
           </View>
-          <Text style={styles.brandTitle}>{l('Amanot Samity', 'আমানত সমিতি')}</Text>
+          <Text style={styles.brandTitle}>
+            {l(somitiInfo.nameEn || 'Amanot Samity', somitiInfo.name || 'আমানত সমিতি')}
+          </Text>
           <Text style={styles.brandSubtitle}>
-            {l('Justice in Accounts, Security in Amanat', 'হিসাবে ইনসাফ, আমানতে সুরক্ষা')}
+            {l('Justice in Accounts, Security in Amanat', somitiInfo.tagline || 'সমিতির সব হিসাব, এক জায়গায়')}
           </Text>
         </View>
 
@@ -177,33 +211,37 @@ export default function LoginScreen() {
           <Text style={styles.inputLabel}>{l('Mobile Number', 'মোবাইল নম্বর')}</Text>
 
           <View style={styles.phoneInputContainer}>
-            <Text style={styles.countryCode}>+880</Text>
+            <Text style={styles.countryCode}>
+              {isBengali || useBengaliDigits ? '+৮৮০' : '+880'}
+            </Text>
             <TextInput
               style={styles.phoneInput}
-              value={phoneNumber}
-              onChangeText={(text) => setPhoneNumber(toEnglishDigits(text))}
+              value={formatPhoneDisplay(phoneDigits)}
+              onChangeText={handlePhoneChange}
               keyboardType="phone-pad"
-              placeholder="01712 345678"
-              placeholderTextColor={colors.textMuted}
+              placeholder={(isBengali || useBengaliDigits) ? '১৭১২ ৩৪৫৬৭৮' : '1712 345678'}
+              placeholderTextColor={colors.textSecondary}
+              maxLength={12}
             />
           </View>
 
           <Button
             title={otpSent ? l('Resend OTP', 'ওটিপি পুনরায় পাঠান') : l('Send OTP', 'ওটিপি পাঠান')}
-            variant="secondary"
+            variant={isPhoneValid ? 'primary' : 'mint'}
             onPress={handleSendOtp}
+            disabled={!isPhoneValid}
             style={styles.otpSendButton}
           />
         </Card>
 
-        {/* Card 2: যাচাই কোড লিখুন (ওটিপি ইনপুট) */}
+        {/* Card 2: যাচাই কোড লিখুন (ওটিপি ইনপুট) - Appears only after Send OTP */}
         {otpSent && (
           <Card style={styles.card}>
             <Text style={styles.cardHeader}>{l('Enter Verification Code', 'যাচাই কোড লিখুন')}</Text>
             <Text style={styles.otpSubText}>
               {l(
-                `6-digit code sent to +880 ${phoneNumber}`,
-                `+৮৮০ ${phoneNumber} নম্বরে ৬ সংখ্যার কোড পাঠানো হয়েছে`
+                `6-digit code sent to +880 ${formatPhoneDisplay(phoneDigits)}`,
+                `+৮৮০ ${formatPhoneDisplay(phoneDigits)} নম্বরে ৬ সংখ্যার কোড পাঠানো হয়েছে`
               )}
             </Text>
 
@@ -215,7 +253,6 @@ export default function LoginScreen() {
                 const clean = toEnglishDigits(val.replace(/\D/g, '')).slice(0, 6);
                 setOtpValue(clean);
                 if (clean.length === 6) {
-                  // Auto verify on 6 digits
                   setTimeout(() => {
                     verifyOtp(clean);
                     router.replace('/(auth)/pin');
@@ -251,16 +288,6 @@ export default function LoginScreen() {
               })}
             </TouchableOpacity>
 
-            {/* Demo Hint */}
-            <View style={styles.demoHintBox}>
-              <Text style={styles.demoHintText}>
-                {l(
-                  '💡 Demo OTP: 482700 (or any 6 digits)',
-                  '💡 ডেমো ওটিপি কোড: ৪৮২৭০০ (বা যেকোনো ৬ ডিজিট)'
-                )}
-              </Text>
-            </View>
-
             {/* Timer or Resend Button */}
             {canResend ? (
               <TouchableOpacity
@@ -272,10 +299,22 @@ export default function LoginScreen() {
             ) : (
               <Text style={styles.timerText}>
                 {l(
-                  `Resend code in ${timerSeconds}s`,
+                  `Resend code in ${formatTimer()}`,
                   `আবার পাঠাতে পারবেন ${formatTimer()} পরে`
                 )}
               </Text>
+            )}
+
+            {/* Demo Hint (Dev-only) */}
+            {__DEV__ && (
+              <View style={styles.demoHintBox}>
+                <Text style={styles.demoHintText}>
+                  {l(
+                    '💡 Demo OTP: 482700 (or any 6 digits)',
+                    '💡 ডেমো ওটিপি কোড: ৪৮২৭০০ (বা যেকোনো ৬ ডিজিট)'
+                  )}
+                </Text>
+              </View>
             )}
 
             <Button
@@ -288,58 +327,68 @@ export default function LoginScreen() {
           </Card>
         )}
 
-        {/* 1-Tap Demo Switcher Section */}
-        <View style={styles.demoSection}>
-          <Text style={styles.demoSectionTitle}>
-            {l('⚡ Instant Testing Switcher (1-Tap)', '⚡ টেস্ট ড্রাইভ / ১-ক্লিকে প্রবেশ')}
-          </Text>
-          <View style={styles.demoButtonsRow}>
-            <TouchableOpacity
-              style={styles.demoAdminCard}
-              onPress={() => {
-                loginAs('1', 'admin');
-                router.replace('/(admin)/(tabs)');
-              }}
-            >
-              <Text style={styles.demoAdminIcon}>👑</Text>
-              <View>
-                <Text style={styles.demoRoleTitle}>{l('Super Admin View', 'অ্যাডমিন ভিউ')}</Text>
-                <Text style={styles.demoRoleSub}>{l('Anwar Hossain (President)', 'আনোয়ার হোসেন (সভাপতি)')}</Text>
-              </View>
-            </TouchableOpacity>
+        {/* 1-Tap Testing Switcher (Dev-only, clean non-overflowing vertical layout) */}
+        {__DEV__ && (
+          <View style={styles.demoSection}>
+            <Text style={styles.demoSectionTitle}>
+              {l('⚡ Instant Testing Switcher (Dev Only)', '⚡ টেস্ট ড্রাইভ (১-ক্লিক প্রবেশ)')}
+            </Text>
+            <View style={styles.demoButtonsColumn}>
+              <TouchableOpacity
+                style={styles.demoCard}
+                onPress={() => {
+                  loginAs('1', 'admin');
+                  router.replace('/(admin)/(tabs)');
+                }}
+              >
+                <View style={styles.demoIconCircle}>
+                  <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
+                </View>
+                <View style={styles.demoCardTextContainer}>
+                  <Text style={styles.demoRoleTitle}>{l('Super Admin View', 'সুপার অ্যাডমিন ভিউ')}</Text>
+                  <Text style={styles.demoRoleSub}>{l('Anwar Hossain (President)', 'আনোয়ার হোসেন (সভাপতি)')}</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.demoMemberCard}
-              onPress={() => {
-                loginAs('2', 'member');
-                router.replace('/(member)');
-              }}
-            >
-              <Text style={styles.demoMemberIcon}>👤</Text>
-              <View>
-                <Text style={styles.demoRoleTitle}>{l('General Member View', 'সাধারণ সদস্য ভিউ')}</Text>
-                <Text style={styles.demoRoleSub}>{l('Karim Uddin (ID: M-002)', 'করিম উদ্দিন (আইডি: M-002)')}</Text>
-              </View>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.demoCard}
+                onPress={() => {
+                  loginAs('2', 'member');
+                  router.replace('/(member)');
+                }}
+              >
+                <View style={styles.demoIconCircle}>
+                  <Ionicons name="person" size={16} color={colors.primary} />
+                </View>
+                <View style={styles.demoCardTextContainer}>
+                  <Text style={styles.demoRoleTitle}>{l('General Member View', 'সাধারণ সদস্য ভিউ')}</Text>
+                  <Text style={styles.demoRoleSub}>{l('Karim Uddin (ID: SM-042)', 'করিম উদ্দিন (আইডি: SM-042)')}</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* Super Admin Registration Link */}
-        <TouchableOpacity
-          onPress={() => setShowRegisterModal(true)}
-          style={styles.superAdminRegLink}
-        >
-          <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
-          <Text style={styles.superAdminRegText}>
-            {l('First Time? Register New Somiti as Admin', 'নতুন সমিতি? সুপার অ্যাডমিন হিসেবে নিবন্ধন করুন')}
-          </Text>
-        </TouchableOpacity>
+        {/* Super Admin Registration Link (Dev-only / Initial Setup) */}
+        {__DEV__ && (
+          <TouchableOpacity
+            onPress={() => setShowRegisterModal(true)}
+            style={styles.superAdminRegLink}
+          >
+            <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
+            <Text style={styles.superAdminRegText}>
+              {l('First Time? Register New Somiti as Admin', 'নতুন সমিতি? সুপার অ্যাডমিন হিসেবে নিবন্ধন করুন')}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Bottom Helper Note */}
         <Text style={styles.footerNote}>
           {l(
-            'Only members registered with the society can log in. Members cannot register themselves.',
-            'শুধু সমিতিতে নিবন্ধিত সদস্যরাই প্রবেশ করতে পারবেন। সাধারণ সদস্য স্ব-নিবন্ধন বন্ধ রয়েছে।'
+            'Only members registered with the society can log in. If having trouble, contact the secretary.',
+            'শুধু সমিতিতে নিবন্ধিত নম্বর দিয়ে লগইন করা যাবে। সমস্যা হলে সম্পাদকের সাথে যোগাযোগ করুন।'
           )}
         </Text>
       </ScrollView>
@@ -351,7 +400,7 @@ export default function LoginScreen() {
       >
         <View style={styles.unregModalHeader}>
           <View style={styles.unregIconCircle}>
-            <Ionicons name="information-circle" size={32} color="#D97706" />
+            <Ionicons name="information-circle" size={32} color={colors.warning} />
           </View>
           <Text style={styles.unregTitle}>{l('Number Not Registered', 'নম্বরটি নিবন্ধিত নয়')}</Text>
           <Text style={styles.unregDesc}>
@@ -370,22 +419,8 @@ export default function LoginScreen() {
               handleCallHelpline();
             }}
           >
-            <Ionicons name="call" size={18} color="#FFFFFF" />
+            <Ionicons name="call" size={18} color={colors.surface} />
             <Text style={styles.helplineButtonText}>{l('Call Somiti Helpline', 'সমিতির হেল্পলাইনে কল করুন')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.openSomitiButton}
-            onPress={() => {
-              setShowUnregisteredModal(false);
-              setRegAdminPhone(phoneNumber);
-              setShowRegisterModal(true);
-            }}
-          >
-            <Ionicons name="business-outline" size={18} color={colors.primary} />
-            <Text style={styles.openSomitiButtonText}>
-              {l('Register New Society (Admin)', 'আমি নতুন সমিতি খুলতে চাই (সুপার অ্যাডমিন)')}
-            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -397,65 +432,68 @@ export default function LoginScreen() {
         </View>
       </AppModal>
 
-      {/* Super Admin Somiti Registration Modal */}
+      {/* Super Admin Setup Modal */}
       <AppModal
         visible={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
       >
         <View style={styles.regModalHeader}>
           <Text style={styles.regModalTitle}>
-            {l('Register New Somiti', 'নতুন সমিতি নিবন্ধন')}
+            {l('Super Admin Registration', 'সুপার অ্যাডমিন নিবন্ধন')}
           </Text>
           <TouchableOpacity onPress={() => setShowRegisterModal(false)}>
-            <Ionicons name="close" size={24} color={colors.textMuted} />
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.modalInputLabel}>{l('Somiti Name *', 'সমিতির নাম *')}</Text>
-        <TextInput
-          style={styles.modalInput}
-          value={regSomitiName}
-          onChangeText={setRegSomitiName}
-          placeholder="যেমন: ধানমন্ডি সঞ্চয় সমিতি"
-          placeholderTextColor={colors.textMuted}
-        />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.modalInputLabel}>{l('Somiti Name *', 'সমিতির নাম *')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={regSomitiName}
+            onChangeText={setRegSomitiName}
+            placeholder={l('e.g. Amanot Somiti', 'যেমন: আমানত সমবায় সমিতি')}
+            placeholderTextColor={colors.textSecondary}
+          />
 
-        <Text style={styles.modalInputLabel}>{l('Admin / President Name *', 'সুপার অ্যাডমিন / সভাপতির নাম *')}</Text>
-        <TextInput
-          style={styles.modalInput}
-          value={regAdminName}
-          onChangeText={setRegAdminName}
-          placeholder="যেমন: রফিকুল ইসলাম"
-          placeholderTextColor={colors.textMuted}
-        />
+          <Text style={styles.modalInputLabel}>{l('Admin Name *', 'আপনার নাম *')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={regAdminName}
+            onChangeText={setRegAdminName}
+            placeholder={l('e.g. Anwar Hossain', 'যেমন: মোঃ আনোয়ার হোসেন')}
+            placeholderTextColor={colors.textSecondary}
+          />
 
-        <Text style={styles.modalInputLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
-        <TextInput
-          style={styles.modalInput}
-          value={regAdminPhone}
-          onChangeText={(t) => setRegAdminPhone(toEnglishDigits(t))}
-          keyboardType="phone-pad"
-          placeholder="01712 345678"
-          placeholderTextColor={colors.textMuted}
-        />
+          <Text style={styles.modalInputLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={regAdminPhone}
+            onChangeText={(t) => setRegAdminPhone(toEnglishDigits(t))}
+            keyboardType="phone-pad"
+            placeholder="01712345678"
+            placeholderTextColor={colors.textSecondary}
+          />
 
-        <Text style={styles.modalInputLabel}>{l('Initial 4-Digit PIN (Default: 1234)', '৪ সংখ্যার পিন কোড (ডিফল্ট: 1234)')}</Text>
-        <TextInput
-          style={styles.modalInput}
-          value={regAdminPin}
-          onChangeText={(t) => setRegAdminPin(toEnglishDigits(t))}
-          keyboardType="number-pad"
-          maxLength={4}
-          placeholder="1234"
-          placeholderTextColor={colors.textMuted}
-        />
+          <Text style={styles.modalInputLabel}>{l('4-Digit PIN *', '৪ সংখ্যার পিন *')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={regAdminPin}
+            onChangeText={(t) => setRegAdminPin(toEnglishDigits(t).slice(0, 4))}
+            keyboardType="number-pad"
+            maxLength={4}
+            secureTextEntry
+            placeholder="1234"
+            placeholderTextColor={colors.textSecondary}
+          />
 
-        <Button
-          title={l('Create Somiti & Login', 'সমিতি তৈরি ও প্রবেশ করুন')}
-          variant="primary"
-          onPress={handleRegisterSomitiSubmit}
-          style={{ marginTop: 14 }}
-        />
+          <Button
+            title={l('Create Somiti & Login', 'সমিতি তৈরি করুন ও লগইন')}
+            variant="primary"
+            onPress={handleRegisterSomitiSubmit}
+            style={{ marginTop: 16 }}
+          />
+        </ScrollView>
       </AppModal>
     </KeyboardAvoidingView>
   );
@@ -464,63 +502,85 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 48,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 32,
     alignItems: 'center',
   },
   topBar: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginTop: 12,
+    marginBottom: 24,
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  logoTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoText: {
-    fontSize: 32,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.logo,
+    lineHeight: typography.lineHeight.logo,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.surface,
+    includeFontPadding: false,
   },
   brandTitle: {
-    fontSize: 24,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.otp,
+    lineHeight: typography.lineHeight.otp,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
     marginBottom: 4,
+    textAlign: 'center',
   },
   brandSubtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   card: {
     width: '100%',
     padding: 20,
     marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
   },
   cardHeader: {
-    fontSize: 18,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
     fontWeight: '500',
-    color: colors.textMain,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   phoneInputContainer: {
@@ -528,32 +588,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
     marginBottom: 16,
-    height: 48,
+    height: 52,
   },
   countryCode: {
-    fontSize: 15,
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
     fontWeight: '600',
-    color: colors.textMain,
+    color: colors.text,
     marginRight: 10,
   },
   phoneInput: {
     flex: 1,
-    fontSize: 15,
-    color: colors.textMain,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.text,
     height: '100%',
   },
   otpSendButton: {
     width: '100%',
   },
   otpSubText: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     marginBottom: 18,
-    lineHeight: 18,
   },
   hiddenInput: {
     position: 'absolute',
@@ -565,46 +630,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   otpBox: {
     width: 44,
-    height: 50,
+    height: 52,
     borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   otpBoxActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight + '20',
   },
   otpBoxFilled: {
     borderColor: colors.primary,
   },
   otpDigit: {
-    fontSize: 22,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.otp,
+    lineHeight: typography.lineHeight.otp,
     fontWeight: '700',
-    color: colors.textMain,
-  },
-  demoHintBox: {
-    backgroundColor: colors.primaryLight,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginBottom: 14,
-    alignItems: 'center',
-  },
-  demoHintText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.text,
   },
   timerText: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -615,7 +670,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   resendText: {
-    fontSize: 14,
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  demoHintBox: {
+    backgroundColor: colors.primarySoft,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  demoHintText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -623,83 +695,83 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   footerNote: {
-    fontSize: 12,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 8,
-    paddingHorizontal: 10,
+    marginTop: 16,
+    paddingHorizontal: 12,
   },
   demoSection: {
     width: '100%',
-    marginTop: 10,
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 12,
+    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   demoSectionTitle: {
-    fontSize: 13,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: '700',
-    color: colors.textMain,
-    marginBottom: 12,
+    color: colors.textSecondary,
+    marginBottom: 10,
     textAlign: 'center',
   },
-  demoButtonsRow: {
+  demoButtonsColumn: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  demoCard: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     gap: 10,
   },
-  demoAdminCard: {
-    flex: 1,
-    flexDirection: 'row',
+  demoIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 8,
-    padding: 10,
-    gap: 8,
+    justifyContent: 'center',
   },
-  demoMemberCard: {
+  demoCardTextContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 8,
-    padding: 10,
-    gap: 8,
-  },
-  demoAdminIcon: {
-    fontSize: 20,
-  },
-  demoMemberIcon: {
-    fontSize: 20,
   },
   demoRoleTitle: {
-    fontSize: 12,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
   },
   demoRoleSub: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.tiny,
+    lineHeight: typography.lineHeight.tiny,
+    color: colors.textSecondary,
   },
   superAdminRegLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 14,
     marginBottom: 8,
   },
   superAdminRegText: {
-    fontSize: 13,
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
     fontWeight: '600',
     color: colors.primary,
     textDecorationLine: 'underline',
@@ -712,23 +784,26 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   unregTitle: {
-    fontSize: 18,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   unregDesc: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
   },
   unregActionButtons: {
     gap: 10,
@@ -740,37 +815,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 9999,
     gap: 8,
   },
   helplineButtonText: {
-    fontSize: 14,
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
     fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  openSomitiButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-    backgroundColor: '#F8FAFC',
-  },
-  openSomitiButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.surface,
   },
   modalCloseBtn: {
     paddingVertical: 8,
     alignItems: 'center',
   },
   modalCloseText: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
   },
   regModalHeader: {
     flexDirection: 'row',
@@ -779,25 +842,31 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   regModalTitle: {
-    fontSize: 18,
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
     fontWeight: '700',
-    color: colors.textMain,
+    color: colors.text,
   },
   modalInputLabel: {
-    fontSize: 12,
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: '600',
-    color: colors.textMain,
+    color: colors.text,
     marginTop: 8,
     marginBottom: 4,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 14,
-    color: colors.textMain,
-    backgroundColor: '#F8FAFC',
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+    backgroundColor: colors.surface,
   },
 });

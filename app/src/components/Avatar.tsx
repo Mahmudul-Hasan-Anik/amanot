@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface AvatarProps {
   name: string;
@@ -27,7 +28,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Pastel rotation for member avatars
   const pastel = colors.avatarPastels[Math.abs(index) % colors.avatarPastels.length];
   const finalBg = bgColor || (isLogo ? colors.primary : pastel.bg);
-  const finalTextColor = textColor || (isLogo ? '#FFFFFF' : pastel.text);
+  const finalTextColor = textColor || (isLogo ? colors.surface : pastel.text);
 
   return (
     <View
@@ -99,15 +100,19 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   textSize_sm: {
-    fontSize: 14,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
   },
   textSize_md: {
-    fontSize: 18,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
   },
   textSize_lg: {
-    fontSize: 24,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.lineHeight.xxl,
   },
   textSize_xl: {
-    fontSize: 32,
+    fontSize: typography.size.hero,
+    lineHeight: typography.lineHeight.hero,
   },
 });
