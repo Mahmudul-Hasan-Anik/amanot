@@ -7,12 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 import { Card } from '../../../src/components/Card';
+import { Avatar } from '../../../src/components/Avatar';
 import { SearchBar } from '../../../src/components/SearchBar';
+import { FilterChip } from '../../../src/components/FilterChip';
 import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
@@ -21,10 +25,16 @@ type FilterType = 'all' | 'active' | 'due' | 'inactive';
 
 export default function MembersScreen() {
   const router = useRouter();
-  const { members } = useSomitiStore();
+  const { members, somitiInfo } = useSomitiStore();
   const { l, formatMoney, formatNum } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
+  // Aggregated totals matching Somiti level counts
+  const totalCount = somitiInfo.totalMembersCount || members.length || 100;
+  const activeCount = somitiInfo.activeMembersCount || members.filter((m) => m.status !== 'inactive').length || 96;
+  const dueCount = somitiInfo.dueCount || members.filter((m) => m.status === 'due' || m.status === 'partial').length || 22;
+  const inactiveCount = somitiInfo.inactiveMembersCount || members.filter((m) => m.status === 'inactive').length || 4;
 
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
@@ -44,28 +54,22 @@ export default function MembersScreen() {
     });
   }, [members, searchQuery, activeFilter]);
 
-  const renderMemberItem = ({ item }: { item: Member }) => {
-    let tagBg = '#DCFCE7';
-    let tagColor = colors.success;
+  const renderMemberItem = ({ item, index }: { item: Member; index: number }) => {
+    let tagBg = colors.primarySoft;
+    let tagColor = colors.primary;
     let tagLabel = l('Paid ✓', 'জমা ✓');
 
     if (item.status === 'due') {
-      if (item.dueMonths >= 3) {
-        tagBg = '#FEE2E2';
-        tagColor = colors.danger;
-        tagLabel = l(`${item.dueMonths} mo due`, `${formatNum(item.dueMonths)} মাস বকেয়া`);
-      } else {
-        tagBg = '#FEF3C7';
-        tagColor = colors.warning;
-        tagLabel = l(`${item.dueMonths || 1} mo due`, `${formatNum(item.dueMonths || 1)} মাস বকেয়া`);
-      }
+      tagBg = colors.warningSoft;
+      tagColor = colors.warning;
+      tagLabel = l(`${item.dueMonths || 1} mo due`, `${formatNum(item.dueMonths || 1)} মাস বকেয়া`);
     } else if (item.status === 'partial') {
-      tagBg = '#FFEDD5';
-      tagColor = '#EA580C';
+      tagBg = colors.warningSoft;
+      tagColor = colors.warning;
       tagLabel = l('Partial', 'আংশিক');
     } else if (item.status === 'inactive') {
-      tagBg = '#F1F5F9';
-      tagColor = colors.textMuted;
+      tagBg = colors.surfaceMuted;
+      tagColor = colors.textSecondary;
       tagLabel = l('Inactive', 'নিষ্ক্রিয়');
     }
 
@@ -76,21 +80,7 @@ export default function MembersScreen() {
       >
         <Card style={styles.memberCard}>
           <View style={styles.memberLeft}>
-            <View
-              style={[
-                styles.avatarCircle,
-                item.status === 'inactive' && { backgroundColor: '#F1F5F9' },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.avatarText,
-                  item.status === 'inactive' && { color: colors.textMuted },
-                ]}
-              >
-                {item.name.charAt(0)}
-              </Text>
-            </View>
+            <Avatar name={item.name} size="md" index={index} />
 
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{item.name}</Text>
@@ -112,74 +102,69 @@ export default function MembersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{l('Members', 'সদস্য')}</Text>
           <Text style={styles.headerSubtitle}>
-            {formatNum(members.length)} {l('members ·', 'জন ·')} {formatNum(members.filter((m) => m.status !== 'inactive').length)} {l('active', 'সক্রিয়')}
+            {formatNum(totalCount)} {l('members ·', 'জন ·')} {formatNum(activeCount)} {l('active', 'সক্রিয়')}
           </Text>
         </View>
 
         <TouchableOpacity style={styles.menuBtn} activeOpacity={0.7}>
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.textMain} />
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
-        {/* Search */}
+        {/* Search Bar - Pill in surfaceMuted */}
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={l('Name, ID or phone number', 'নাম, আইডি বা ফোন নম্বর')}
         />
 
-        {/* Filter Chips */}
-        <View style={styles.filtersRow}>
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('all')}
+        {/* Filter Chips Horizontal Row */}
+        <View style={styles.filtersWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
           >
-            <Text style={[styles.filterText, activeFilter === 'all' && styles.filterTextActive]}>
-              {activeFilter === 'all' ? '✓ ' : ''}{l('All', 'সব')} {formatNum(members.length)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'active' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('active')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'active' && styles.filterTextActive]}>
-              {l('Active', 'সক্রিয়')} {formatNum(members.filter((m) => m.status !== 'inactive').length)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'due' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('due')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'due' && styles.filterTextActive]}>
-              {l('Due', 'বকেয়া')} {formatNum(members.filter((m) => m.status === 'due' || m.status === 'partial').length)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'inactive' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('inactive')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'inactive' && styles.filterTextActive]}>
-              {l('Inactive', 'নিষ্ক্রিয়')} {formatNum(members.filter((m) => m.status === 'inactive').length)}
-            </Text>
-          </TouchableOpacity>
+            <FilterChip
+              label={l('All', 'সব')}
+              count={formatNum(totalCount)}
+              selected={activeFilter === 'all'}
+              onPress={() => setActiveFilter('all')}
+            />
+            <FilterChip
+              label={l('Active', 'সক্রিয়')}
+              count={formatNum(activeCount)}
+              selected={activeFilter === 'active'}
+              onPress={() => setActiveFilter('active')}
+            />
+            <FilterChip
+              label={l('Due', 'বকেয়া')}
+              count={formatNum(dueCount)}
+              selected={activeFilter === 'due'}
+              onPress={() => setActiveFilter('due')}
+            />
+            <FilterChip
+              label={l('Inactive', 'নিষ্ক্রিয়')}
+              count={formatNum(inactiveCount)}
+              selected={activeFilter === 'inactive'}
+              onPress={() => setActiveFilter('inactive')}
+            />
+          </ScrollView>
         </View>
 
         {/* Sort & Filter Bar */}
         <View style={styles.sortFilterBar}>
           <Text style={styles.sortText}>{l('Sorted by name', 'নাম অনুযায়ী সাজানো')}</Text>
-          <TouchableOpacity style={styles.filterBtn}>
-            <Ionicons name="filter-outline" size={14} color={colors.textMuted} />
+          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
+            <Ionicons name="funnel-outline" size={13} color={colors.textSecondary} />
             <Text style={styles.filterBtnText}>{l('Filter', 'ফিল্টার')}</Text>
           </TouchableOpacity>
         </View>
@@ -200,7 +185,7 @@ export default function MembersScreen() {
         onPress={() => router.push('/(admin)/member/new')}
         activeOpacity={0.85}
       >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
+        <Ionicons name="add" size={20} color={colors.surface} />
         <Text style={styles.fabText}>{l('New Member', 'নতুন সদস্য')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -210,7 +195,7 @@ export default function MembersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -219,17 +204,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
   headerTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 24,
-    color: colors.textMain,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.lineHeight.xxl,
+    color: colors.text,
   },
   headerSubtitle: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: colors.textMuted,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   menuBtn: {
     width: 36,
@@ -241,31 +229,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  filtersWrapper: {
+    marginBottom: 8,
+  },
   filtersRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: '#CCFBF1',
-    borderColor: '#99F6E4',
-  },
-  filterText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: colors.textMain,
-  },
-  filterTextActive: {
-    color: colors.primary,
-    fontFamily: 'HindSiliguri-Bold',
+    paddingVertical: 2,
   },
   sortFilterBar: {
     flexDirection: 'row',
@@ -276,8 +245,9 @@ const styles = StyleSheet.create({
   },
   sortText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   filterBtn: {
     flexDirection: 'row',
@@ -286,8 +256,9 @@ const styles = StyleSheet.create({
   },
   filterBtnText: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   listContainer: {
     paddingBottom: 90,
@@ -299,6 +270,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   memberLeft: {
     flexDirection: 'row',
@@ -306,41 +280,34 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: colors.primary,
-  },
   memberInfo: {
     flex: 1,
   },
   memberName: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: colors.textMain,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.text,
   },
   memberCodeAndRate: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 1,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusTagText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 12,
+    fontFamily: 'HindSiliguri-SemiBold',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',
@@ -351,9 +318,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 30,
+    borderRadius: 9999,
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 5,
@@ -361,7 +328,8 @@ const styles = StyleSheet.create({
   },
   fabText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.surface,
   },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface FilterChipProps {
   label: string;
@@ -41,7 +42,7 @@ export const FilterChip: React.FC<FilterChipProps> = ({
 const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 9999,
     marginRight: 8,
     alignItems: 'center',
@@ -58,8 +59,8 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
   },
   textSelected: {
     color: colors.primary,
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   textUnselected: {
-    color: colors.textSecondary,
+    color: colors.text,
     fontWeight: '500',
   },
 });

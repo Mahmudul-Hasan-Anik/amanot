@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface SearchBarProps {
   value: string;
@@ -18,13 +19,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      <Ionicons name="search" size={20} color={colors.textMuted} style={styles.icon} />
+      <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.icon} />
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textSecondary}
         autoCapitalize="none"
       />
       {value.length > 0 && (
@@ -35,7 +36,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           }}
           style={styles.clearButton}
         >
-          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+          <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
       )}
     </View>
@@ -46,12 +47,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 48,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 9999,
+    paddingHorizontal: 16,
+    height: 46,
     marginBottom: 12,
   },
   icon: {
@@ -59,8 +58,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 14,
-    color: colors.textMain,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
     height: '100%',
   },
   clearButton: {
