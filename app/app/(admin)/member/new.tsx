@@ -23,14 +23,17 @@ import { AppModal } from '../../../src/components/AppModal';
 import { StickyCTA } from '../../../src/components/StickyCTA';
 import { Checkbox } from '../../../src/components/Checkbox';
 import { toBengaliDigits, toEnglishDigits } from '../../../src/lib/bengali';
+import { todayDMY, parseDMY } from '../../../src/lib/months';
 
 export default function NewMemberScreen() {
   const router = useRouter();
   const { l, isBengali, formatNum } = useLanguage();
   const { addMember, members } = useSomitiStore();
 
-  const nextCodeNum = Math.max(101, members.length + 1);
-  const autoMemberCode = `SM-${nextCodeNum}`;
+  // next code = highest existing number + 1 (server makes the final choice)
+  const nextCodeNum =
+    members.reduce((mx, m) => Math.max(mx, parseInt((m.code || '').replace(/\D/g, ''), 10) || 0), 0) + 1;
+  const autoMemberCode = `SM-${String(nextCodeNum).padStart(3, '0')}`;
 
   // Form states matching PDF Page 6
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -46,11 +49,70 @@ export default function NewMemberScreen() {
   const [nomineeName, setNomineeName] = useState('');
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
-  const [joinDate, setJoinDate] = useState('30/09/2026');
+  const [joinDate, setJoinDate] = useState(todayDMY());
   const [monthlyAmount, setMonthlyAmount] = useState('2000');
   const [isMonthlyFocused, setIsMonthlyFocused] = useState(false);
   const [admissionFee, setAdmissionFee] = useState('500');
   const [isFeeFocused, setIsFeeFocused] = useState(false);
+
+  // DatePicker modal state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<'dob' | 'joinDate'>('dob');
+  const [pickerDay, setPickerDay] = useState(15);
+  const [pickerMonth, setPickerMonth] = useState(8);
+  const [pickerYear, setPickerYear] = useState(1990);
+
+  const MONTH_NAMES_BN = [
+    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+  ];
+  const MONTH_NAMES_EN = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const openDatePicker = (target: 'dob' | 'joinDate') => {
+    setDatePickerTarget(target);
+    const curVal = target === 'dob' ? dob : joinDate;
+    if (curVal) {
+      const parts = toEnglishDigits(curVal).split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
+        if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
+        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+      }
+    } else {
+      if (target === 'dob') {
+        setPickerDay(15);
+        setPickerMonth(8);
+        setPickerYear(1990);
+      } else {
+        const now = new Date();
+        setPickerDay(now.getDate());
+        setPickerMonth(now.getMonth() + 1);
+        setPickerYear(now.getFullYear());
+      }
+    }
+    setShowDatePicker(true);
+  };
+
+  const handleConfirmDate = () => {
+    const dd = pickerDay < 10 ? `0${pickerDay}` : `${pickerDay}`;
+    const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
+    const yyyy = `${pickerYear}`;
+    const dateStr = `${dd}/${mm}/${yyyy}`;
+    const formatted = isBengali ? toBengaliDigits(dateStr) : dateStr;
+
+    if (datePickerTarget === 'dob') {
+      setDob(formatted);
+    } else {
+      setJoinDate(formatted);
+    }
+    setShowDatePicker(false);
+  };
 
   const getMonthlyDisplay = () => {
     if (isMonthlyFocused) {
@@ -152,15 +214,31 @@ export default function NewMemberScreen() {
       return;
     }
 
-    const cleanMonthly = Number(toEnglishDigits(monthlyAmount).replace(/[^\d]/g, '')) || 2000;
-    const cleanFee = Number(toEnglishDigits(admissionFee).replace(/[^\d]/g, '')) || 500;
+    if (phone.replace(/\D/g, '').length !== 10) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Mobile number must be 11 digits (01XXXXXXXXX)', 'মোবাইল নম্বর ১১ সংখ্যার হতে হবে (০১XXXXXXXXX)'));
+      return;
+    }
+    const cleanMonthly = Number(toEnglishDigits(monthlyAmount).replace(/[^\d]/g, ''));
+    if (!cleanMonthly) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter the monthly deposit amount', 'মাসিক জমার পরিমাণ লিখুন'));
+      return;
+    }
+    const cleanFee = Number(toEnglishDigits(admissionFee).replace(/[^\d]/g, '')) || 0;
     const formattedPhone = phone.startsWith('0') ? phone : `0${phone}`;
+    const joinISO = parseDMY(toEnglishDigits(joinDate));
+    if (!joinISO) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Join date must be DD/MM/YYYY', 'যোগদানের তারিখ DD/MM/YYYY আকারে দিন'));
+      return;
+    }
+    const waDigits = !sameAsPhone && whatsappPhone ? `0${whatsappPhone.replace(/^0/, '')}` : formattedPhone;
 
     const newMember = addMember({
       name: name.trim(),
       phone: formattedPhone,
       code: autoMemberCode,
       initialPin: '1234',
+      joinDate: joinISO,
+      whatsapp: waDigits,
       nid: nid.trim(),
       address: address.trim() || l('Address not provided', 'ঠিকানা দেওয়া হয়নি'),
       nomineeName: nomineeName.trim() || l('Nominee not provided', 'নমিনি দেওয়া হয়নি'),
@@ -273,13 +351,21 @@ export default function NewMemberScreen() {
           <Text style={styles.fieldLabel}>{l('Date of Birth', 'জন্মতারিখ')}</Text>
           <View style={styles.inputWithIcon}>
             <TextInput
+              testID="input-member-dob"
               style={styles.inputWithIconText}
               value={dob}
               onChangeText={setDob}
               placeholder={l('DD/MM/YYYY', 'দিন/মাস/বছর')}
               placeholderTextColor={colors.textSecondary}
             />
-            <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            <TouchableOpacity
+              testID="btn-dob-calendar"
+              style={styles.calendarIconBtn}
+              onPress={() => openDatePicker('dob')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -386,14 +472,24 @@ export default function NewMemberScreen() {
         <View style={styles.twoColsRow}>
           <View style={[styles.inputGroup, styles.col]}>
             <Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
-            <TextInput
-              testID="input-join-date"
-              style={styles.input}
-              value={formatNum(joinDate)}
-              onChangeText={(t) => setJoinDate(toEnglishDigits(t))}
-              placeholder="30/09/2026"
-              placeholderTextColor={colors.textSecondary}
-            />
+            <View style={styles.inputWithIcon}>
+              <TextInput
+                testID="input-join-date"
+                style={styles.inputWithIconText}
+                value={formatNum(joinDate)}
+                onChangeText={(t) => setJoinDate(toEnglishDigits(t))}
+                placeholder="30/09/2026"
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity
+                testID="btn-join-date-calendar"
+                style={styles.calendarIconBtn}
+                onPress={() => openDatePicker('joinDate')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={[styles.inputGroup, styles.col]}>
@@ -459,6 +555,134 @@ export default function NewMemberScreen() {
           <Text style={styles.submitBtnText}>{l('Add Member', 'সদস্য যোগ করুন')}</Text>
         </TouchableOpacity>
       </StickyCTA>
+
+      {/* Date Picker Modal */}
+      <AppModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.datePickerHeader}>
+          <View style={styles.datePickerTitleRow}>
+            <Ionicons name="calendar" size={20} color={colors.primary} />
+            <Text style={styles.datePickerTitle}>
+              {datePickerTarget === 'dob'
+                ? l('Select Date of Birth', 'জন্মতারিখ নির্বাচন করুন')
+                : l('Select Join Date', 'যোগদানের তারিখ নির্বাচন করুন')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            testID="btn-close-datepicker"
+            onPress={() => setShowDatePicker(false)}
+            style={styles.datePickerCloseBtn}
+          >
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected Date Preview Banner */}
+        <View style={styles.datePreviewBox}>
+          <Text style={styles.datePreviewLabel}>
+            {l('Selected Date', 'নির্বাচিত তারিখ')}
+          </Text>
+          <Text style={styles.datePreviewVal}>
+            {isBengali
+              ? `${toBengaliDigits(pickerDay)} ${MONTH_NAMES_BN[pickerMonth - 1]} ${toBengaliDigits(pickerYear)}`
+              : `${pickerDay} ${MONTH_NAMES_EN[pickerMonth - 1]} ${pickerYear}`}
+          </Text>
+        </View>
+
+        {/* 3 Column Picker */}
+        <View style={styles.pickerColumnsRow}>
+          {/* Day Column */}
+          <View style={styles.pickerCol}>
+            <Text style={styles.pickerColHeader}>{l('Day', 'দিন')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+                const isSelected = d === pickerDay;
+                return (
+                  <TouchableOpacity
+                    key={`day-${d}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerDay(d)}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                      {isBengali ? toBengaliDigits(d) : d}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Month Column */}
+          <View style={[styles.pickerCol, { flex: 1.4 }]}>
+            <Text style={styles.pickerColHeader}>{l('Month', 'মাস')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                const isSelected = m === pickerMonth;
+                const mName = isBengali ? MONTH_NAMES_BN[m - 1] : MONTH_NAMES_EN[m - 1];
+                return (
+                  <TouchableOpacity
+                    key={`month-${m}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerMonth(m)}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}
+                    >
+                      {mName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Year Column */}
+          <View style={styles.pickerCol}>
+            <Text style={styles.pickerColHeader}>{l('Year', 'বছর')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 80 }, (_, i) => 2026 - i).map((y) => {
+                const isSelected = y === pickerYear;
+                return (
+                  <TouchableOpacity
+                    key={`year-${y}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerYear(y)}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                      {isBengali ? toBengaliDigits(y) : y}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <TouchableOpacity
+          testID="btn-confirm-datepicker"
+          style={styles.datePickerConfirmBtn}
+          onPress={handleConfirmDate}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="checkmark" size={18} color={colors.textWhite} />
+          <Text style={styles.datePickerConfirmBtnText}>
+            {l('Confirm Date', 'তারিখ নিশ্চিত করুন')}
+          </Text>
+        </TouchableOpacity>
+      </AppModal>
 
       {/* Success & WhatsApp Share Modal */}
       <AppModal
@@ -611,6 +835,7 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: typography.size.md,
     color: colors.text,
+    outlineStyle: 'none' as any,
   },
   readonlyIdContainer: {
     backgroundColor: colors.surfaceMuted,
@@ -672,6 +897,12 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: typography.size.md,
     color: colors.text,
+    outlineStyle: 'none' as any,
+  },
+  calendarIconBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   phoneInputContainer: {
     flexDirection: 'row',
@@ -694,6 +925,7 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: typography.size.md,
     color: colors.text,
+    outlineStyle: 'none' as any,
   },
   checkboxWrapper: {
     marginBottom: 14,
@@ -727,6 +959,99 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Regular',
     fontSize: typography.size.md,
     color: colors.text,
+    outlineStyle: 'none' as any,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  datePickerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  datePickerTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.base,
+    color: colors.text,
+  },
+  datePickerCloseBtn: {
+    padding: 4,
+  },
+  datePreviewBox: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  datePreviewLabel: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  datePreviewVal: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.base,
+    color: colors.primary,
+  },
+  pickerColumnsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    height: 190,
+    marginBottom: 16,
+  },
+  pickerCol: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderRadius: 10,
+    padding: 6,
+  },
+  pickerColHeader: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  pickerScrollView: {
+    flex: 1,
+  },
+  pickerItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  pickerItemSelected: {
+    backgroundColor: colors.primarySoft,
+  },
+  pickerItemText: {
+    fontFamily: 'HindSiliguri-Medium',
+    fontSize: typography.size.caption,
+    color: colors.text,
+  },
+  pickerItemTextSelected: {
+    fontFamily: 'HindSiliguri-Bold',
+    color: colors.primary,
+  },
+  datePickerConfirmBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  datePickerConfirmBtnText: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.md,
+    color: colors.textWhite,
   },
   infoBox: {
     flexDirection: 'row',

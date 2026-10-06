@@ -47,7 +47,6 @@ export const Input: React.FC<InputProps> = ({
         style={[
           styles.inputContainer,
           variant === 'muted' || !editable ? styles.mutedBg : styles.surfaceBg,
-          isFocused && styles.focusedBorder,
           error ? styles.errorBorder : null,
         ]}
       >
@@ -109,9 +108,6 @@ const styles = StyleSheet.create({
   },
   mutedBg: {
     backgroundColor: colors.surfaceMuted,
-  },
-  focusedBorder: {
-    borderColor: colors.primary,
   },
   errorBorder: {
     borderColor: colors.warning,

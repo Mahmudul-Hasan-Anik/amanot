@@ -4,8 +4,108 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts, HindSiliguri_400Regular, HindSiliguri_500Medium, HindSiliguri_600SemiBold, HindSiliguri_700Bold } from '@expo-google-fonts/hind-siliguri';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, AppState, Alert, Platform } from 'react-native';
+
+// react-native-web's Alert.alert does nothing, so errors/confirmations were invisible on web.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  (Alert as any).alert = (title: string, message?: string, buttons?: Array<{ text?: string; style?: string; onPress?: () => void }>) => {
+    const text = [title, message].filter(Boolean).join('\n\n');
+    if (!buttons || buttons.length === 0) {
+      window.alert(text);
+      return;
+    }
+    if (buttons.length === 1) {
+      window.alert(text);
+      buttons[0].onPress?.();
+      return;
+    }
+    const cancel = buttons.find((b) => b.style === 'cancel');
+    const action = buttons.find((b) => b !== cancel) || buttons[buttons.length - 1];
+    if (window.confirm(text)) action.onPress?.();
+    else cancel?.onPress?.();
+  };
+
+  // Global reset on web to prevent black or colored browser focus rings and outlines across the entire app
+  if (typeof document !== 'undefined') {
+    const existing = document.getElementById('amanot-global-focus-reset');
+    if (!existing) {
+      const style = document.createElement('style');
+      style.id = 'amanot-global-focus-reset';
+      style.textContent = `
+        input, textarea, select, [contenteditable="true"] {
+          outline: none !important;
+          outline-style: none !important;
+          outline-width: 0 !important;
+          box-shadow: none !important;
+          -webkit-tap-highlight-color: transparent !important;
+        }
+        input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus,
+        input:focus-visible, textarea:focus-visible, select:focus-visible,
+        *:focus, *:focus-visible {
+          outline: none !important;
+          outline-style: none !important;
+          outline-width: 0 !important;
+          box-shadow: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+}
 import { colors } from '../src/theme/colors';
+import { supabase, isSupabaseConfigured } from '../src/lib/supabase';
+import { useAuthStore } from '../src/features/auth/authStore';
+
+/** Backend mode: validate the saved session on launch and ask for the PIN again. */
+function useBackendSession() {
+  const [ready, setReady] = React.useState(!isSupabaseConfigured());
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const auth = useAuthStore.getState();
+        if (!data.session) {
+          if (auth.isAuthenticated && auth.isPinVerified) auth.logout();
+        } else {
+          auth.lockApp();
+          auth.refreshProfile().catch(() => {});
+        }
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        const auth = useAuthStore.getState();
+        if (auth.isPinVerified) auth.logout();
+      }
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+  return ready;
+}
+
+/** Backend mode: refresh data after login, when the app returns to foreground, and every 2 minutes. */
+function useAutoSync() {
+  const isPinVerified = useAuthStore((s) => s.isPinVerified);
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !isPinVerified) return;
+    const { useSomitiStore } = require('../src/store/somitiStore');
+    const sync = () => useSomitiStore.getState().syncFromServer();
+    sync();
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && sync());
+    const timer = setInterval(sync, 120000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [isPinVerified]);
+}
 
 const queryClient = new QueryClient();
 
@@ -26,7 +126,9 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  const isReady = fontsLoaded || fontError || timedOut;
+  const sessionReady = useBackendSession();
+  useAutoSync();
+  const isReady = (fontsLoaded || fontError || timedOut) && sessionReady;
 
   return (
     <SafeAreaProvider>
