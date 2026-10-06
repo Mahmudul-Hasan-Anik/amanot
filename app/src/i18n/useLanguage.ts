@@ -1,5 +1,5 @@
 import { useLanguageStore } from './languageStore';
-import { toBengaliDigits, formatSouthAsianNumber, formatBengaliLakh } from '../lib/money';
+import { toBengaliDigits, toEnglishDigits, formatSouthAsianNumber, formatBengaliLakh } from '../lib/money';
 
 export function useLanguage() {
   const store = useLanguageStore();
@@ -31,7 +31,7 @@ export function useLanguage() {
     if (store.useBengaliDigits || isBengali) {
       return toBengaliDigits(num);
     }
-    return String(num);
+    return toEnglishDigits(String(num));
   };
 
   return {

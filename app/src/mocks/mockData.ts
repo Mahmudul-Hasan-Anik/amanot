@@ -2,11 +2,13 @@ export interface Member {
   id: string;
   code: string;
   name: string;
+  nameEn?: string;
   phone: string;
   whatsapp?: string;
   nid?: string;
   address: string;
   nomineeName: string;
+  nomineeNameEn?: string;
   nomineeRelation: string;
   nomineePhone?: string;
   joinDate: string;
@@ -120,10 +122,12 @@ export const mockMembers: Member[] = [
     id: '1',
     code: 'SM-001',
     name: 'আনোয়ার হোসেন',
+    nameEn: 'Anwar Hossain',
     phone: '০১৭১১-২২৩৩৪৪',
     whatsapp: '০১৭১১-২২৩৩৪৪',
     address: 'বাড়ি ১২, রোড ৪, সেক্টর ৯, উত্তরা',
     nomineeName: 'নাজমা আক্তার',
+    nomineeNameEn: 'Nazma Akter',
     nomineeRelation: 'স্ত্রী',
     joinDate: 'জানুয়ারি ২০২২',
     monthlyAmount: 3000,
@@ -137,11 +141,13 @@ export const mockMembers: Member[] = [
     id: '2',
     code: 'SM-042',
     name: 'করিম উদ্দিন',
+    nameEn: 'Karim Uddin',
     phone: '০১৭১২-৩৪৫৬৭৮',
     whatsapp: '০১৭১২-৩৪৫৬৭৮',
     nid: '১৯৮৫ ২৬১২ ৭৪৪৯ ০৩১',
     address: '[ঠিকানা]',
     nomineeName: 'রাশেদা বেগম',
+    nomineeNameEn: 'Rasheda Begum',
     nomineeRelation: 'স্ত্রী',
     joinDate: 'জানুয়ারি ২০২২',
     monthlyAmount: 2000,
