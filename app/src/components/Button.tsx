@@ -9,6 +9,7 @@ import {
   StyleProp
 } from 'react-native';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface ButtonProps {
   title: string;
@@ -21,6 +22,7 @@ interface ButtonProps {
   icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  testID?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -34,12 +36,14 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   style,
   textStyle,
+  testID,
 }) => {
   const normalizedSize = size === 'large' ? 'lg' : size;
   const isMint = variant === 'mint' || variant === 'secondary';
 
   return (
     <TouchableOpacity
+      testID={testID}
       activeOpacity={0.8}
       onPress={onPress}
       disabled={disabled || loading}
@@ -54,7 +58,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {loading ? (
         <ActivityIndicator
-          color={isMint || variant === 'outline' || variant === 'ghost' ? colors.primary : '#FFFFFF'}
+          color={isMint || variant === 'outline' || variant === 'ghost' ? colors.primary : colors.textWhite}
           size="small"
         />
       ) : (
@@ -143,7 +147,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   text_primary: {
-    color: '#FFFFFF',
+    color: colors.textWhite,
   },
   text_secondary: {
     color: colors.primary,
@@ -155,28 +159,28 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   text_danger: {
-    color: '#FFFFFF',
+    color: colors.textWhite,
   },
   text_ghost: {
     color: colors.primary,
   },
   text_floating: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.textWhite,
+    fontSize: typography.size.base,
     fontFamily: 'HindSiliguri-Bold',
     fontWeight: '700',
   },
 
   textSize_sm: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
   },
   textSize_md: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
   },
   textSize_lg: {
-    fontSize: 17,
-    lineHeight: 24,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.lg,
   },
 });

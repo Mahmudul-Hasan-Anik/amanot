@@ -34,7 +34,7 @@ export default function MemberProfileScreen() {
 
   const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
 
-  // Edit Modal State
+  // Edit Member Modal State
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(member?.name || '');
   const [editPhone, setEditPhone] = useState(member?.phone || '');
@@ -43,11 +43,21 @@ export default function MemberProfileScreen() {
   const [editNomineeName, setEditNomineeName] = useState(member?.nomineeName || '');
   const [editNomineeRelation, setEditNomineeRelation] = useState(member?.nomineeRelation || '');
 
+  // Edit Follow-up Modal State
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [followupDate, setFollowupDate] = useState(
+    member?.nextFollowup?.date || (isBengali ? '৩ অক্টোবর' : '3 October')
+  );
+  const [followupNote, setFollowupNote] = useState(
+    member?.nextFollowup?.note ||
+      (isBengali ? '২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"' : '28 Sep call: "Will pay at month start"')
+  );
+
   const openEditModal = () => {
     if (member) {
       setEditName(member.name);
-      setEditPhone(member.phone);
-      setEditAddress(member.address || '');
+      setEditPhone(toEnglishDigits(member.phone));
+      setEditAddress(member.address && member.address !== '[ঠিকানা]' ? member.address : '');
       setEditMonthlyAmount(String(member.monthlyAmount || 2000));
       setEditNomineeName(member.nomineeName || '');
       setEditNomineeRelation(member.nomineeRelation || '');
@@ -64,7 +74,7 @@ export default function MemberProfileScreen() {
     updateMember(member.id, {
       name: editName.trim(),
       phone: editPhone.trim(),
-      address: editAddress.trim(),
+      address: editAddress.trim() || '[ঠিকানা]',
       monthlyAmount: parseInt(toEnglishDigits(editMonthlyAmount), 10) || 2000,
       nomineeName: editNomineeName.trim(),
       nomineeRelation: editNomineeRelation.trim(),
@@ -72,6 +82,23 @@ export default function MemberProfileScreen() {
 
     setShowEditModal(false);
     Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+  };
+
+  const handleSaveFollowup = () => {
+    if (!followupDate.trim()) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Follow-up date is required', 'ফলো-আপ তারিখ আবশ্যক'));
+      return;
+    }
+
+    updateMember(member.id, {
+      nextFollowup: {
+        date: followupDate.trim(),
+        note: followupNote.trim(),
+      },
+    });
+
+    setShowFollowupModal(false);
+    Alert.alert(l('Success', 'সফল'), l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
   };
 
   const handleResetPin = () => {
@@ -100,17 +127,55 @@ export default function MemberProfileScreen() {
     );
   };
 
+  const displayName = isBengali ? member.name : (member.nameEn || member.name);
+  const displayNominee = isBengali ? member.nomineeName : (member.nomineeNameEn || member.nomineeName);
+
+  const handleCall = () => {
+    const raw = toEnglishDigits(member.phone || '').replace(/[^0-9]/g, '');
+    if (raw) {
+      Linking.openURL(`tel:${raw}`);
+    } else {
+      Alert.alert(l('Error', 'ত্রুটি'), l('No valid phone number found', 'মোবাইল নম্বর পাওয়া যায়নি'));
+    }
+  };
+
+  const handleWhatsApp = () => {
+    const raw = toEnglishDigits(member.whatsapp || member.phone || '').replace(/[^0-9]/g, '');
+    if (!raw) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('No valid phone number found', 'মোবাইল নম্বর পাওয়া যায়নি'));
+      return;
+    }
+    const fullPhone = raw.startsWith('88') ? raw : `88${raw}`;
+    const greeting = l(`Assalamu Alaikum ${displayName}`, `আসসালামু আলাইকুম ${displayName} ভাই`);
+    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(greeting)}`);
+  };
+
+  const handleSMS = () => {
+    const raw = toEnglishDigits(member.phone || '').replace(/[^0-9]/g, '');
+    if (raw) {
+      Linking.openURL(`sms:${raw}`);
+    } else {
+      Alert.alert(l('Error', 'ত্রুটি'), l('No valid phone number found', 'মোবাইল নম্বর পাওয়া যায়নি'));
+    }
+  };
+
   const handleSendWhatsAppLoginInfo = () => {
-    const cleanPhone = (member.whatsapp || member.phone).replace(/[^0-9]/g, '');
-    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
+    const raw = toEnglishDigits(member.whatsapp || member.phone || '').replace(/[^0-9]/g, '');
+    if (!raw) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('No valid phone number found', 'মোবাইল নম্বর পাওয়া যায়নি'));
+      return;
+    }
+    const fullPhone = raw.startsWith('88') ? raw : `88${raw}`;
     const currPin = customPins[member.id] || '1234';
-    const text = `আসসালামু আলাইকুম ${member.name}।\nআমানত সমিতিতে আপনার সদস্য পোর্টাল প্রস্তুত।\n\nআইডি: ${member.code}\nমোবাইল: ${member.phone}\nলগইন পিন: ${currPin}\n\nঅ্যাপে লগইন করে আপনার মাসিক সঞ্চয় ও রসিদ দেখতে পারবেন।`;
+    const text = isBengali
+      ? `আসসালামু আলাইকুম ${member.name}।\nআমানত সমিতিতে আপনার সদস্য পোর্টাল প্রস্তুত।\n\nআইডি: ${member.code}\nমোবাইল: ${formatNum(member.phone)}\nলগইন পিন: ${formatNum(currPin)}\n\nঅ্যাপে লগইন করে আপনার মাসিক সঞ্চয় ও রসিদ দেখতে পারবেন।`
+      : `Assalamu Alaikum ${displayName}.\nYour member portal at Amanot Somiti is ready.\n\nMember ID: ${member.code}\nMobile: ${formatNum(member.phone)}\nLogin PIN: ${formatNum(currPin)}\n\nLog in to the app to view your monthly savings and receipts.`;
     Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
   };
 
   const handleMoreOptions = () => {
     Alert.alert(
-      member.name,
+      displayName,
       l('Member actions:', 'সদস্যের অ্যাকশন:'),
       [
         {
@@ -124,6 +189,10 @@ export default function MemberProfileScreen() {
         {
           text: l('Edit Member Info', 'সদস্যের তথ্য সংশোধন'),
           onPress: openEditModal,
+        },
+        {
+          text: l('Update Follow-up', 'ফলো-আপ আপডেট'),
+          onPress: () => setShowFollowupModal(true),
         },
         {
           text: l('Cancel', 'বাতিল'),
@@ -202,20 +271,6 @@ export default function MemberProfileScreen() {
     { name: l('Dec', 'ডিসে'), status: 'upcoming' as const },
   ];
 
-  const handleCall = () => {
-    Linking.openURL(`tel:${member.phone.replace(/[^0-9]/g, '')}`);
-  };
-
-  const handleWhatsApp = () => {
-    const cleanPhone = (member.whatsapp || member.phone).replace(/[^0-9]/g, '');
-    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(`আসসালামু আলাইকুম ${member.name} ভাই`)}`);
-  };
-
-  const handleSMS = () => {
-    Linking.openURL(`sms:${member.phone.replace(/[^0-9]/g, '')}`);
-  };
-
   const recentTransactions = [
     {
       date: l('8 July', '৮ জুলাই'),
@@ -239,9 +294,6 @@ export default function MemberProfileScreen() {
       type: l('Annual Distribution', 'বার্ষিক বণ্টন'),
     },
   ];
-
-  const displayName = isBengali ? member.name : (member.nameEn || member.name);
-  const displayNominee = isBengali ? member.nomineeName : (member.nomineeNameEn || member.nomineeName);
 
   const infoRows = [
     { label: l('Mobile', 'মোবাইল'), value: formatNum(member.phone) },
@@ -269,6 +321,7 @@ export default function MemberProfileScreen() {
       {/* App Bar */}
       <View style={styles.appBar}>
         <TouchableOpacity
+          testID="member-back-btn"
           onPress={() => safeBack(router, '/(admin)/(tabs)/members')}
           style={styles.backBtn}
           activeOpacity={0.7}
@@ -277,10 +330,20 @@ export default function MemberProfileScreen() {
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>{l('Member Profile', 'সদস্য প্রোফাইল')}</Text>
         <View style={styles.appBarRight}>
-          <TouchableOpacity style={styles.iconBtn} onPress={openEditModal} activeOpacity={0.7}>
+          <TouchableOpacity
+            testID="member-edit-btn"
+            style={styles.iconBtn}
+            onPress={openEditModal}
+            activeOpacity={0.7}
+          >
             <Ionicons name="pencil-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={handleMoreOptions} activeOpacity={0.7}>
+          <TouchableOpacity
+            testID="member-more-btn"
+            style={styles.iconBtn}
+            onPress={handleMoreOptions}
+            activeOpacity={0.7}
+          >
             <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -318,24 +381,40 @@ export default function MemberProfileScreen() {
 
         {/* 4 Action Buttons */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleCall} activeOpacity={0.8}>
+          <TouchableOpacity
+            testID="member-call-btn"
+            style={styles.actionBtn}
+            onPress={handleCall}
+            activeOpacity={0.8}
+          >
             <Ionicons name="call-outline" size={20} color={colors.text} />
             <Text style={styles.actionBtnText}>{l('Call', 'কল')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} onPress={handleWhatsApp} activeOpacity={0.8}>
+          <TouchableOpacity
+            testID="member-whatsapp-btn"
+            style={styles.actionBtn}
+            onPress={handleWhatsApp}
+            activeOpacity={0.8}
+          >
             <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
             <Text style={styles.actionBtnText}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} onPress={handleSMS} activeOpacity={0.8}>
+          <TouchableOpacity
+            testID="member-sms-btn"
+            style={styles.actionBtn}
+            onPress={handleSMS}
+            activeOpacity={0.8}
+          >
             <Ionicons name="mail-outline" size={20} color={colors.text} />
             <Text style={styles.actionBtnText}>{l('SMS', 'এসএমএস')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
+            testID="member-statement-btn"
             style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/statement')}
+            onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color={colors.text} />
@@ -394,8 +473,27 @@ export default function MemberProfileScreen() {
               const isDue = m.status === 'due';
 
               return (
-                <View
+                <TouchableOpacity
                   key={idx}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    if (isDue) {
+                      router.push(`/(admin)/deposit/new?memberId=${member.id}`);
+                    } else if (isPaid) {
+                      Alert.alert(
+                        l('Paid Month', 'পরিশোধিত মাস'),
+                        l(
+                          `${m.name} deposit of ${formatMoney(member.monthlyAmount)} was received.`,
+                          `${m.name} মাসের জমা ${formatMoney(member.monthlyAmount)} পরিশোধিত হয়েছে।`
+                        )
+                      );
+                    } else {
+                      Alert.alert(
+                        l('Upcoming Month', 'আসন্ন মাস'),
+                        l(`${m.name} deposit is not yet due.`, `${m.name} মাসের জমা এখনো শুরু হয়নি।`)
+                      );
+                    }
+                  }}
                   style={[
                     styles.monthTile,
                     isPaid && styles.monthTilePaid,
@@ -423,7 +521,7 @@ export default function MemberProfileScreen() {
                   >
                     {isPaid ? l('Paid ✓', 'জমা ✓') : isDue ? l('Due', 'বকেয়া') : l('Upcoming', 'আসন্ন')}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -433,7 +531,8 @@ export default function MemberProfileScreen() {
         <View style={styles.sectionHeaderFlex}>
           <Text style={styles.sectionTitle}>{l('Recent Transactions', 'সাম্প্রতিক লেনদেন')}</Text>
           <TouchableOpacity
-            onPress={() => Alert.alert(l('Transactions', 'লেনদেন'), l('Full transaction history', 'সকল লেনদেনের ইতিহাস'))}
+            testID="member-view-all-txns"
+            onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
             activeOpacity={0.7}
           >
             <Text style={styles.viewAllLink}>{l('View All', 'সব দেখুন')}</Text>
@@ -442,8 +541,10 @@ export default function MemberProfileScreen() {
 
         <Card style={styles.card}>
           {recentTransactions.map((txn, index) => (
-            <View
+            <TouchableOpacity
               key={index}
+              activeOpacity={0.7}
+              onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
               style={[
                 styles.txnRow,
                 index === recentTransactions.length - 1 && { borderBottomWidth: 0 },
@@ -458,7 +559,7 @@ export default function MemberProfileScreen() {
               <Text style={styles.txnAmount}>
                 +{formatMoney(txn.amount)}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </Card>
 
@@ -466,8 +567,10 @@ export default function MemberProfileScreen() {
         <Text style={styles.sectionTitleAlone}>{l('Personal Information', 'ব্যক্তিগত তথ্য')}</Text>
         <Card style={styles.card}>
           {infoRows.map((info, idx) => (
-            <View
+            <TouchableOpacity
               key={idx}
+              activeOpacity={0.7}
+              onPress={openEditModal}
               style={[
                 styles.infoRow,
                 idx === infoRows.length - 1 && { borderBottomWidth: 0 },
@@ -475,31 +578,33 @@ export default function MemberProfileScreen() {
             >
               <Text style={styles.infoLabel}>{info.label}</Text>
               <Text style={styles.infoVal}>{info.value}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </Card>
 
         {/* Card: পরবর্তী ফলো-আপ */}
-        <Card style={styles.followupCard}>
-          <View style={styles.followupCardRow}>
-            <Ionicons name="calendar-outline" size={22} color={colors.text} />
-            <View style={styles.followupContent}>
-              <Text style={styles.followupHeader}>
-                {l('Next Follow-up: 3 October', 'পরবর্তী ফলো-আপ: ৩ অক্টোবর')}
-              </Text>
-              <Text style={styles.followupText}>
-                {l('28 Sep call: "Will pay at month start"', '২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"')}
-              </Text>
+        <TouchableOpacity
+          testID="member-followup-card"
+          activeOpacity={0.8}
+          onPress={() => setShowFollowupModal(true)}
+        >
+          <Card style={styles.followupCard}>
+            <View style={styles.followupCardRow}>
+              <Ionicons name="calendar-outline" size={22} color={colors.text} />
+              <View style={styles.followupContent}>
+                <Text style={styles.followupHeader}>
+                  {l('Next Follow-up:', 'পরবর্তী ফলো-আপ:')} {followupDate}
+                </Text>
+                <Text style={styles.followupText}>
+                  {followupNote}
+                </Text>
+              </View>
+              <View style={styles.followupEditBtn}>
+                <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+              </View>
             </View>
-            <TouchableOpacity
-              style={styles.followupEditBtn}
-              onPress={openEditModal}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </Card>
+          </Card>
+        </TouchableOpacity>
 
         <View style={{ height: 16 }} />
       </ScrollView>
@@ -507,6 +612,7 @@ export default function MemberProfileScreen() {
       {/* Sticky Bottom CTA */}
       <StickyCTA backgroundColor={colors.bg} style={styles.stickyCTA}>
         <TouchableOpacity
+          testID="member-collect-deposit-btn"
           style={styles.bottomPayBtn}
           onPress={() => router.push(`/(admin)/deposit/new?memberId=${member.id}`)}
           activeOpacity={0.85}
@@ -520,13 +626,14 @@ export default function MemberProfileScreen() {
       <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{l('Edit Member Info', 'সদস্যের তথ্য সংশোধন')}</Text>
-          <TouchableOpacity onPress={() => setShowEditModal(false)}>
+          <TouchableOpacity onPress={() => setShowEditModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.modalInputLabel}>{l('Member Name', 'সদস্যের পুরো নাম')}</Text>
         <TextInput
+          testID="edit-name-input"
           style={styles.modalInput}
           value={editName}
           onChangeText={setEditName}
@@ -536,6 +643,7 @@ export default function MemberProfileScreen() {
 
         <Text style={styles.modalInputLabel}>{l('Mobile Number', 'মোবাইল নম্বর')}</Text>
         <TextInput
+          testID="edit-phone-input"
           style={styles.modalInput}
           value={editPhone}
           onChangeText={(t) => setEditPhone(toEnglishDigits(t))}
@@ -545,6 +653,7 @@ export default function MemberProfileScreen() {
 
         <Text style={styles.modalInputLabel}>{l('Monthly Deposit Amount (৳)', 'মাসিক জমার পরিমাণ (৳)')}</Text>
         <TextInput
+          testID="edit-amount-input"
           style={styles.modalInput}
           value={editMonthlyAmount}
           onChangeText={(t) => setEditMonthlyAmount(toEnglishDigits(t))}
@@ -554,6 +663,7 @@ export default function MemberProfileScreen() {
 
         <Text style={styles.modalInputLabel}>{l('Nominee Name', 'নমিনির নাম')}</Text>
         <TextInput
+          testID="edit-nominee-input"
           style={styles.modalInput}
           value={editNomineeName}
           onChangeText={setEditNomineeName}
@@ -562,6 +672,7 @@ export default function MemberProfileScreen() {
 
         <Text style={styles.modalInputLabel}>{l('Nominee Relationship', 'সম্পর্ক')}</Text>
         <TextInput
+          testID="edit-relation-input"
           style={styles.modalInput}
           value={editNomineeRelation}
           onChangeText={setEditNomineeRelation}
@@ -570,6 +681,7 @@ export default function MemberProfileScreen() {
 
         <Text style={styles.modalInputLabel}>{l('Address', 'ঠিকানা')}</Text>
         <TextInput
+          testID="edit-address-input"
           style={styles.modalInput}
           value={editAddress}
           onChangeText={setEditAddress}
@@ -577,9 +689,49 @@ export default function MemberProfileScreen() {
         />
 
         <Button
+          testID="edit-member-save-btn"
           title={l('Save Changes', 'তথ্য সংরক্ষণ করুন')}
           variant="primary"
           onPress={handleSaveEdit}
+          style={{ marginTop: 16 }}
+        />
+      </AppModal>
+
+      {/* Edit Follow-up Modal */}
+      <AppModal visible={showFollowupModal} onClose={() => setShowFollowupModal(false)}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{l('Update Follow-up', 'ফলো-আপ আপডেট')}</Text>
+          <TouchableOpacity onPress={() => setShowFollowupModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.modalInputLabel}>{l('Follow-up Date', 'ফলো-আপের তারিখ')}</Text>
+        <TextInput
+          testID="edit-followup-date-input"
+          style={styles.modalInput}
+          value={followupDate}
+          onChangeText={setFollowupDate}
+          placeholder={l('e.g. 3 October', 'যেমন: ৩ অক্টোবর')}
+          placeholderTextColor={colors.textSecondary}
+        />
+
+        <Text style={styles.modalInputLabel}>{l('Follow-up Note', 'নোট / আলোচনা')}</Text>
+        <TextInput
+          testID="edit-followup-note-input"
+          style={[styles.modalInput, { minHeight: 64, textAlignVertical: 'top' }]}
+          value={followupNote}
+          onChangeText={setFollowupNote}
+          multiline
+          placeholder={l('Follow-up details...', 'আলোচনার বিবরণ...')}
+          placeholderTextColor={colors.textSecondary}
+        />
+
+        <Button
+          testID="edit-followup-save-btn"
+          title={l('Save Follow-up', 'সংরক্ষণ করুন')}
+          variant="primary"
+          onPress={handleSaveFollowup}
           style={{ marginTop: 16 }}
         />
       </AppModal>

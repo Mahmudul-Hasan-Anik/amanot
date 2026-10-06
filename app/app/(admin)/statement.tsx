@@ -12,7 +12,7 @@ import {
   FlatList,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
@@ -22,11 +22,14 @@ import { toEnglishDigits, toBengaliDigits } from '../../src/lib/bengali';
 
 export default function StatementScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { l, formatMoney, formatNum } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
-  const [target, setTarget] = useState<'all' | 'due' | 'single'>('all');
-  const [selectedMemberId, setSelectedMemberId] = useState<string>(members[0]?.id || '1');
+  const [target, setTarget] = useState<'all' | 'due' | 'single'>(params.memberId ? 'single' : 'all');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(
+    (params.memberId as string) || members[0]?.id || '1'
+  );
   const [showMemberPicker, setShowMemberPicker] = useState(false);
 
   const [whatsapp, setWhatsapp] = useState(true);
