@@ -10,43 +10,137 @@ import {
   StatusBar,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
-import { toEnglishDigits } from '../../../src/lib/bengali';
+import { StickyCTA } from '../../../src/components/StickyCTA';
+import { Checkbox } from '../../../src/components/Checkbox';
+import { toBengaliDigits, toEnglishDigits } from '../../../src/lib/bengali';
 
 export default function NewMemberScreen() {
   const router = useRouter();
-  const { l } = useLanguage();
+  const { l, isBengali, formatNum } = useLanguage();
   const { addMember, members } = useSomitiStore();
 
-  const nextCodeNum = members.length + 1;
-  const autoMemberCode = `SM-${nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`}`;
+  const nextCodeNum = Math.max(101, members.length + 1);
+  const autoMemberCode = `SM-${nextCodeNum}`;
 
-  // Form states matching Page 18 - English ASCII numbers
-  const [memberCode, setMemberCode] = useState(autoMemberCode);
-  const [pin, setPin] = useState('1234');
+  // Form states matching PDF Page 6
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [memberCode] = useState(autoMemberCode);
   const [nid, setNid] = useState('');
+  const [nidAttached, setNidAttached] = useState(false);
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
   const [sameAsPhone, setSameAsPhone] = useState(true);
+  const [whatsappPhone, setWhatsappPhone] = useState('');
   const [address, setAddress] = useState('');
   const [nomineeName, setNomineeName] = useState('');
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
-  const [joinDate] = useState('02 Oct 2026');
+  const [joinDate, setJoinDate] = useState('30/09/2026');
   const [monthlyAmount, setMonthlyAmount] = useState('2000');
+  const [isMonthlyFocused, setIsMonthlyFocused] = useState(false);
   const [admissionFee, setAdmissionFee] = useState('500');
+  const [isFeeFocused, setIsFeeFocused] = useState(false);
+
+  const getMonthlyDisplay = () => {
+    if (isMonthlyFocused) {
+      return isBengali ? toBengaliDigits(monthlyAmount) : monthlyAmount;
+    }
+    const num = Number(monthlyAmount);
+    if (!num) return '';
+    return formatNum(num);
+  };
+
+  const getFeeDisplay = () => {
+    if (isFeeFocused) {
+      return isBengali ? toBengaliDigits(admissionFee) : admissionFee;
+    }
+    const num = Number(admissionFee);
+    if (!num) return '';
+    return formatNum(num);
+  };
 
   // Success modal
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdMember, setCreatedMember] = useState<any>(null);
+
+  const handlePickPhoto = () => {
+    Alert.alert(
+      l('Member Photo', 'সদস্যের ছবি'),
+      l('Choose photo source', 'ছবির উৎস নির্বাচন করুন'),
+      [
+        {
+          text: l('Camera', 'ক্যামেরা'),
+          onPress: () => {
+            setPhotoUri('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
+          },
+        },
+        {
+          text: l('Gallery', 'গ্যালারি'),
+          onPress: () => {
+            setPhotoUri('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
+          },
+        },
+        photoUri
+          ? {
+              text: l('Remove', 'মুছে ফেলুন'),
+              style: 'destructive',
+              onPress: () => setPhotoUri(null),
+            }
+          : null,
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+      ].filter(Boolean) as any
+    );
+  };
+
+  const handlePickNid = () => {
+    Alert.alert(
+      l('National ID Photo', 'জাতীয় পরিচয়পত্রের ছবি'),
+      nidAttached
+        ? l('National ID photo is currently attached', 'জাতীয় পরিচয়পত্রের ছবি সংযুক্ত আছে')
+        : l('Upload front side of National ID', 'জাতীয় পরিচয়পত্রের সামনের ছবি আপলোড করুন'),
+      [
+        {
+          text: nidAttached ? l('Change Photo', 'পরিবর্তন করুন') : l('Upload Photo', 'ছবি যোগ করুন'),
+          onPress: () => setNidAttached(true),
+        },
+        nidAttached
+          ? {
+              text: l('Remove', 'মুছে ফেলুন'),
+              style: 'destructive',
+              onPress: () => setNidAttached(false),
+            }
+          : null,
+        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+      ].filter(Boolean) as any
+    );
+  };
+
+  const handlePhoneChange = (t: string) => {
+    let eng = toEnglishDigits(t).replace(/[^\d]/g, '');
+    if (eng.startsWith('0')) {
+      eng = eng.substring(1);
+    }
+    setPhone(eng);
+  };
+
+  const handleWaChange = (t: string) => {
+    let eng = toEnglishDigits(t).replace(/[^\d]/g, '');
+    if (eng.startsWith('0')) {
+      eng = eng.substring(1);
+    }
+    setWhatsappPhone(eng);
+  };
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -60,18 +154,17 @@ export default function NewMemberScreen() {
 
     const cleanMonthly = Number(toEnglishDigits(monthlyAmount).replace(/[^\d]/g, '')) || 2000;
     const cleanFee = Number(toEnglishDigits(admissionFee).replace(/[^\d]/g, '')) || 500;
-    const cleanCode = memberCode.trim() || autoMemberCode;
-    const cleanPin = toEnglishDigits(pin).trim() || '1234';
+    const formattedPhone = phone.startsWith('0') ? phone : `0${phone}`;
 
     const newMember = addMember({
       name: name.trim(),
-      phone: phone.trim(),
-      code: cleanCode,
-      initialPin: cleanPin,
+      phone: formattedPhone,
+      code: autoMemberCode,
+      initialPin: '1234',
       nid: nid.trim(),
-      address: address.trim() || (l('Address not provided', 'ঠিকানা দেওয়া হয়নি')),
-      nomineeName: nomineeName.trim() || (l('Nominee not provided', 'নমিনি দেওয়া হয়নি')),
-      nomineeRelation: nomineeRelation.trim() || (l('Relation not specified', 'সম্পর্ক দেওয়া হয়নি')),
+      address: address.trim() || l('Address not provided', 'ঠিকানা দেওয়া হয়নি'),
+      nomineeName: nomineeName.trim() || l('Nominee not provided', 'নমিনি দেওয়া হয়নি'),
+      nomineeRelation: nomineeRelation.trim() || l('Relation not specified', 'সম্পর্ক দেওয়া হয়নি'),
       nomineePhone: nomineePhone.trim(),
       monthlyAmount: cleanMonthly,
       admissionFee: cleanFee,
@@ -83,7 +176,7 @@ export default function NewMemberScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* App Bar */}
       <View style={styles.appBar}>
@@ -92,7 +185,7 @@ export default function NewMemberScreen() {
           style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={24} color={colors.textMain} />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>{l('New Member', 'নতুন সদস্য')}</Text>
       </View>
@@ -101,190 +194,221 @@ export default function NewMemberScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Upload Circle */}
-        <View style={styles.photoUploadContainer}>
+        {/* Photo Upload Row (Page 6 Design: horizontal avatar + copy) */}
+        <View style={styles.photoRow}>
           <TouchableOpacity
+            testID="photo-upload-circle"
             style={styles.photoCircle}
-            onPress={() => Alert.alert(l('Photo', 'ছবি'), l('Select photo from camera or gallery', 'ক্যামেরা বা গ্যালারি থেকে ছবি নির্বাচন করুন'))}
+            onPress={handlePickPhoto}
             activeOpacity={0.8}
           >
-            <Ionicons name="camera-outline" size={28} color={colors.textMain} />
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photoImg} />
+            ) : (
+              <Ionicons name="camera-outline" size={28} color={colors.textSecondary} />
+            )}
           </TouchableOpacity>
-          <Text style={styles.photoTitle}>{l('Member Photo', 'সদস্যের ছবি')}</Text>
-          <Text style={styles.photoSub}>{l('From camera or gallery (optional)', 'ক্যামেরা বা গ্যালারি থেকে (ঐচ্ছিক)')}</Text>
+          <View style={styles.photoTextContainer}>
+            <Text style={styles.photoTitle}>{l('Member Photo', 'সদস্যের ছবি')}</Text>
+            <Text style={styles.photoSub}>
+              {l('From camera or gallery (optional)', 'ক্যামেরা বা গ্যালারি থেকে (ঐচ্ছিক)')}
+            </Text>
+          </View>
         </View>
 
         {/* 1. ব্যক্তিগত তথ্য */}
-        <Text style={styles.sectionHeader}>{l('1. Personal Information', '১. ব্যক্তিগত তথ্য')}</Text>
+        <Text style={styles.sectionTitle}>{l('Personal Information', 'ব্যক্তিগত তথ্য')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Full Name *', 'পূর্ণ নাম *')}</Text>
+          <Text style={styles.fieldLabel}>{l('Full Name *', 'পূর্ণ নাম *')}</Text>
           <TextInput
+            testID="input-member-name"
             style={styles.input}
             value={name}
             onChangeText={setName}
             placeholder={l('e.g. Md. Abdul Karim', 'যেমন: মোঃ আব্দুল করিম')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Member ID (Auto / Editable)', 'সদস্য আইডি (স্বয়ংক্রিয় / সম্পাদনযোগ্য)')}</Text>
-          <TextInput
-            style={styles.input}
-            value={memberCode}
-            onChangeText={setMemberCode}
-            placeholder={autoMemberCode}
-            placeholderTextColor={colors.textMuted}
-          />
-          <Text style={styles.hintText}>{l('Auto-generated, editable for old ledger/records', 'স্বয়ংক্রিয়ভাবে তৈরি, পূর্বের খাতার নম্বর থাকলে এডিট করুন')}</Text>
+          <Text style={styles.fieldLabel}>{l('Member ID', 'সদস্য আইডি')}</Text>
+          <View style={styles.readonlyIdContainer}>
+            <Text style={styles.readonlyIdText}>{autoMemberCode}</Text>
+          </View>
+          <Text style={styles.helperHint}>{l('Auto-generated', 'স্বয়ংক্রিয়ভাবে তৈরি')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Initial Portal PIN (4 Digits) *', 'সদস্য পোর্টাল পিন (৪ সংখ্যা) *')}</Text>
-          <TextInput
-            style={styles.input}
-            value={pin}
-            onChangeText={(t) => setPin(toEnglishDigits(t))}
-            keyboardType="number-pad"
-            maxLength={4}
-            placeholder="1234"
-            placeholderTextColor={colors.textMuted}
-          />
-          <Text style={styles.hintText}>{l('Member will use this PIN to log in. Default: 1234', 'সদস্য এই পিন দিয়ে লগইন করবেন। ডিফল্ট: ১২৩৪')}</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('National ID (NID) *', 'জাতীয় পরিচয়পত্র নম্বর *')}</Text>
+          <Text style={styles.fieldLabel}>{l('National ID Number *', 'জাতীয় পরিচয়পত্র নম্বর *')}</Text>
           <TextInput
             style={styles.input}
             value={nid}
-            onChangeText={setNid}
+            onChangeText={(t) => setNid(toEnglishDigits(t))}
             placeholder={l('10 or 17 digits', '১০ বা ১৭ সংখ্যা')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
             keyboardType="numeric"
           />
+
+          {/* Dashed NID Upload Container */}
+          <TouchableOpacity
+            style={[styles.uploadNidBtn, nidAttached && styles.uploadNidBtnAttached]}
+            onPress={handlePickNid}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={nidAttached ? 'checkmark-circle' : 'arrow-up'}
+              size={18}
+              color={nidAttached ? colors.primary : colors.text}
+            />
+            <Text style={[styles.uploadNidText, nidAttached && styles.uploadNidTextAttached]}>
+              {nidAttached
+                ? l('National ID photo attached ✓', 'জাতীয় পরিচয়পত্রের ছবি সংযুক্ত ✓')
+                : l('Add National ID Photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* NID Upload Button */}
-        <TouchableOpacity
-          style={styles.uploadNidBtn}
-          onPress={() => Alert.alert('NID', l('Add National ID photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন'))}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-up" size={16} color={colors.textMain} />
-          <Text style={styles.uploadNidText}>{l('Add National ID photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন')}</Text>
-        </TouchableOpacity>
-
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Date of Birth', 'জন্মতারিখ')}</Text>
+          <Text style={styles.fieldLabel}>{l('Date of Birth', 'জন্মতারিখ')}</Text>
           <View style={styles.inputWithIcon}>
             <TextInput
-              style={styles.inputFlex}
+              style={styles.inputWithIconText}
               value={dob}
               onChangeText={setDob}
               placeholder={l('DD/MM/YYYY', 'দিন/মাস/বছর')}
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
             />
-            <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
+            <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
           </View>
         </View>
 
         {/* 2. যোগাযোগ */}
-        <Text style={styles.sectionHeader}>{l('2. Contact Details', '২. যোগাযোগ')}</Text>
+        <Text style={styles.sectionTitle}>{l('Contact Details', 'যোগাযোগ')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="+880 17XX XXXXXX"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="phone-pad"
-          />
+          <Text style={styles.fieldLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
+          <View style={styles.phoneInputContainer}>
+            <Text style={styles.phonePrefixText}>{isBengali ? '+৮৮০' : '+880'}</Text>
+            <TextInput
+              testID="input-member-phone"
+              style={styles.phoneInput}
+              value={isBengali ? toBengaliDigits(phone) : phone}
+              onChangeText={handlePhoneChange}
+              placeholder={isBengali ? '১৭১XX XXXXXX' : '17XX XXXXXX'}
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="phone-pad"
+            />
+          </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.checkboxRow}
+        <Checkbox
+          checked={sameAsPhone}
           onPress={() => setSameAsPhone(!sameAsPhone)}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={sameAsPhone ? 'checkbox' : 'square-outline'}
-            size={18}
-            color={colors.primary}
-          />
-          <Text style={styles.checkboxLabel}>{l('WhatsApp number is same', 'হোয়াটসঅ্যাপ নম্বর একই')}</Text>
-        </TouchableOpacity>
+          label={l('WhatsApp number is same', 'হোয়াটসঅ্যাপ নম্বর একই')}
+          style={styles.checkboxWrapper}
+        />
+
+        {!sameAsPhone && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>{l('WhatsApp Number *', 'হোয়াটসঅ্যাপ নম্বর *')}</Text>
+            <View style={styles.phoneInputContainer}>
+              <Text style={styles.phonePrefixText}>{isBengali ? '+৮৮০' : '+880'}</Text>
+              <TextInput
+                testID="input-member-whatsapp"
+                style={styles.phoneInput}
+                value={isBengali ? toBengaliDigits(whatsappPhone) : whatsappPhone}
+                onChangeText={handleWaChange}
+                placeholder={isBengali ? '১৭১XX XXXXXX' : '17XX XXXXXX'}
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
+        )}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Address *', 'ঠিকানা *')}</Text>
+          <Text style={styles.fieldLabel}>{l('Address *', 'ঠিকানা *')}</Text>
           <TextInput
+            testID="input-member-address"
             style={styles.input}
             value={address}
             onChangeText={setAddress}
             placeholder={l('Village/Area, Upazila, District', 'গ্রাম/এলাকা, উপজেলা, জেলা')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
         {/* 3. নমিনি */}
-        <Text style={styles.sectionHeader}>{l('3. Nominee', '৩. নমিনি')}</Text>
+        <Text style={styles.sectionTitle}>{l('Nominee', 'নমিনি')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Nominee Name *', 'নমিনির নাম *')}</Text>
+          <Text style={styles.fieldLabel}>{l('Nominee Name *', 'নমিনির নাম *')}</Text>
           <TextInput
+            testID="input-nominee-name"
             style={styles.input}
             value={nomineeName}
             onChangeText={setNomineeName}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
         <View style={styles.twoColsRow}>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>{l('Relation', 'সম্পর্ক')}</Text>
+          <View style={[styles.inputGroup, styles.col]}>
+            <Text style={styles.fieldLabel}>{l('Relation', 'সম্পর্ক')}</Text>
             <TextInput
+              testID="input-nominee-relation"
               style={styles.input}
               value={nomineeRelation}
               onChangeText={setNomineeRelation}
               placeholder={l('e.g. Wife', 'যেমন: স্ত্রী')}
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
             />
           </View>
 
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>{l('Phone', 'ফোন')}</Text>
+          <View style={[styles.inputGroup, styles.col]}>
+            <Text style={styles.fieldLabel}>{l('Phone', 'ফোন')}</Text>
             <TextInput
+              testID="input-nominee-phone"
               style={styles.input}
-              value={nomineePhone}
-              onChangeText={setNomineePhone}
-              placeholder="01XXXXXXXXX"
-              placeholderTextColor={colors.textMuted}
+              value={isBengali ? toBengaliDigits(nomineePhone) : nomineePhone}
+              onChangeText={(t) => setNomineePhone(toEnglishDigits(t))}
+              placeholder={isBengali ? '০১XXXXXXXXX' : '01XXXXXXXXX'}
+              placeholderTextColor={colors.textSecondary}
               keyboardType="phone-pad"
             />
           </View>
         </View>
 
         {/* 4. সমিতির তথ্য */}
-        <Text style={styles.sectionHeader}>{l('4. Somiti Details', '৪. সমিতির তথ্য')}</Text>
+        <Text style={styles.sectionTitle}>{l('Somiti Details', 'সমিতির তথ্য')}</Text>
 
         <View style={styles.twoColsRow}>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
-            <View style={styles.readonlyInput}>
-              <Text style={styles.readonlyText}>{joinDate}</Text>
-            </View>
+          <View style={[styles.inputGroup, styles.col]}>
+            <Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
+            <TextInput
+              testID="input-join-date"
+              style={styles.input}
+              value={formatNum(joinDate)}
+              onChangeText={(t) => setJoinDate(toEnglishDigits(t))}
+              placeholder="30/09/2026"
+              placeholderTextColor={colors.textSecondary}
+            />
           </View>
 
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.inputLabel}>{l('Monthly Deposit *', 'মাসিক জমা *')}</Text>
-            <View style={styles.inputWithPrefix}>
-              <Text style={styles.prefixText}>৳</Text>
+          <View style={[styles.inputGroup, styles.col]}>
+            <Text style={styles.fieldLabel}>{l('Monthly Deposit *', 'মাসিক জমা *')}</Text>
+            <View style={styles.currencyInputContainer}>
+              <Text style={styles.currencyPrefix}>৳</Text>
               <TextInput
-                style={styles.prefixInput}
-                value={monthlyAmount}
-                onChangeText={setMonthlyAmount}
+                testID="input-monthly-amount"
+                style={styles.currencyInput}
+                value={getMonthlyDisplay()}
+                onFocus={() => setIsMonthlyFocused(true)}
+                onBlur={() => setIsMonthlyFocused(false)}
+                onChangeText={(t) => setMonthlyAmount(toEnglishDigits(t).replace(/[^\d]/g, ''))}
+                placeholder="2000"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
               />
             </View>
@@ -292,13 +416,18 @@ export default function NewMemberScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{l('Admission Fee', 'ভর্তি ফি')}</Text>
-          <View style={styles.inputWithPrefix}>
-            <Text style={styles.prefixText}>৳</Text>
+          <Text style={styles.fieldLabel}>{l('Admission Fee', 'ভর্তি ফি')}</Text>
+          <View style={styles.currencyInputContainer}>
+            <Text style={styles.currencyPrefix}>৳</Text>
             <TextInput
-              style={styles.prefixInput}
-              value={admissionFee}
-              onChangeText={setAdmissionFee}
+              testID="input-admission-fee"
+              style={styles.currencyInput}
+              value={getFeeDisplay()}
+              onFocus={() => setIsFeeFocused(true)}
+              onBlur={() => setIsFeeFocused(false)}
+              onChangeText={(t) => setAdmissionFee(toEnglishDigits(t).replace(/[^\d]/g, ''))}
+              placeholder="500"
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
             />
           </View>
@@ -306,24 +435,30 @@ export default function NewMemberScreen() {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
+          <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.infoBoxText}>
-            {l('Monthly deposit amount can be modified later from member profile. History will be preserved.', 'মাসিক জমার পরিমাণ পরে সদস্যের প্রোফাইল থেকে পরিবর্তন করা যাবে। পরিবর্তনের ইতিহাস সংরক্ষিত থাকবে।')}
+            {l(
+              'Monthly deposit amount can be modified later from member profile. History will be preserved.',
+              'মাসিক জমার পরিমাণ পরে সদস্যের প্রোফাইল থেকে পরিবর্তন করা যাবে। পরিবর্তনের ইতিহাস সংরক্ষিত থাকবে।'
+            )}
           </Text>
         </View>
 
-        {/* Submit Button */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      {/* Sticky Bottom CTA */}
+      <StickyCTA backgroundColor={colors.bg}>
         <TouchableOpacity
+          testID="submit-new-member-btn"
           style={styles.submitBtn}
           onPress={handleSubmit}
           activeOpacity={0.85}
         >
-          <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+          <Ionicons name="checkmark" size={20} color={colors.textWhite} />
           <Text style={styles.submitBtnText}>{l('Add Member', 'সদস্য যোগ করুন')}</Text>
         </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      </StickyCTA>
 
       {/* Success & WhatsApp Share Modal */}
       <AppModal
@@ -335,7 +470,7 @@ export default function NewMemberScreen() {
       >
         <View style={styles.successModalHeader}>
           <View style={styles.successIconCircle}>
-            <Ionicons name="checkmark-circle" size={40} color="#16A34A" />
+            <Ionicons name="checkmark-circle" size={44} color={colors.primary} />
           </View>
           <Text style={styles.successModalTitle}>
             {l('Member Added Successfully!', 'সদস্য যোগ সফল হয়েছে!')}
@@ -346,24 +481,26 @@ export default function NewMemberScreen() {
         </View>
 
         <TouchableOpacity
+          testID="modal-send-whatsapp-btn"
           style={styles.whatsappSendModalBtn}
           onPress={() => {
             if (createdMember) {
               const cleanPhone = createdMember.phone.replace(/[^0-9]/g, '');
               const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-              const text = `আসসালামু আলাইকুম ${createdMember.name}।\nআমানত সমিতিতে আপনাকে স্বাগতম।\n\nআপনার সদস্য আইডি: ${createdMember.code}\nমোবাইল নম্বর: ${createdMember.phone}\nলগইন পিন: ${pin}\n\nআপনার অ্যাপে লগইন করে নিজের সঞ্চয় ও রসিদ দেখতে পারবেন।`;
+              const text = `আসসালামু আলাইকুম ${createdMember.name}।\nআমানত সমিতিতে আপনাকে স্বাগতম।\n\nআপনার সদস্য আইডি: ${createdMember.code}\nমোবাইল নম্বর: ${createdMember.phone}\nলগইন পিন: ১২৩৪\n\nআপনার অ্যাপে লগইন করে নিজের সঞ্চয় ও রসিদ দেখতে পারবেন।`;
               Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
             }
           }}
           activeOpacity={0.85}
         >
-          <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+          <Ionicons name="logo-whatsapp" size={20} color={colors.textWhite} />
           <Text style={styles.whatsappSendModalBtnText}>
             {l('Send Login PIN via WhatsApp', 'হোয়াটসঅ্যাপে লগইন তথ্য পাঠান')}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="modal-go-to-members-btn"
           style={styles.doneModalBtn}
           onPress={() => {
             setShowSuccessModal(false);
@@ -383,15 +520,15 @@ export default function NewMemberScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
   },
   appBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg,
     gap: 12,
   },
   backBtn: {
@@ -402,181 +539,214 @@ const styles = StyleSheet.create({
   },
   appBarTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: colors.textMain,
+    fontSize: typography.size.title,
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 8,
+    paddingBottom: 24,
   },
-  photoUploadContainer: {
+  photoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
     marginBottom: 20,
   },
   photoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
     borderColor: colors.border,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  photoImg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  photoTextContainer: {
+    flex: 1,
   },
   photoTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: colors.textMain,
+    fontSize: typography.size.base,
+    color: colors.text,
+    marginBottom: 2,
   },
   photoSub: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
   },
-  sectionHeader: {
+  sectionTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: colors.textMain,
-    marginBottom: 10,
-    marginTop: 6,
-  },
-  inputGroup: {
+    fontSize: typography.size.base,
+    color: colors.text,
+    marginTop: 18,
     marginBottom: 12,
   },
-  inputLabel: {
+  inputGroup: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: colors.textMain,
-    marginBottom: 4,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    marginBottom: 6,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
   },
-  codeBox: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+  readonlyIdContainer: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  codeText: {
+  readonlyIdText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
   },
-  hintText: {
+  helperHint: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   uploadNidBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: colors.border,
-    borderRadius: 10,
-    paddingVertical: 10,
-    gap: 6,
-    marginBottom: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 8,
+    marginTop: 10,
+  },
+  uploadNidBtnAttached: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    borderStyle: 'solid',
   },
   uploadNidText: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: colors.textMain,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+  },
+  uploadNidTextAttached: {
+    color: colors.primary,
   },
   inputWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  inputFlex: {
+  inputWithIconText: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
   },
-  checkboxRow: {
+  phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  checkboxLabel: {
+  phonePrefixText: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
+    marginRight: 8,
+  },
+  phoneInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.md,
+    color: colors.text,
+  },
+  checkboxWrapper: {
+    marginBottom: 14,
+    marginTop: 2,
   },
   twoColsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
-  readonlyInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  col: {
+    flex: 1,
   },
-  readonlyText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: colors.textMain,
-  },
-  inputWithPrefix: {
+  currencyInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  prefixText: {
+  currencyPrefix: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 14,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
     marginRight: 6,
   },
-  prefixInput: {
+  currencyInput: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: colors.textMain,
+    fontSize: typography.size.md,
+    color: colors.text,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    borderRadius: 8,
-    gap: 6,
-    marginVertical: 10,
+    backgroundColor: colors.surfaceMuted,
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 16,
   },
   infoBoxText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
     flex: 1,
-    lineHeight: 16,
+    lineHeight: 18,
+  },
+  bottomSpacer: {
+    height: 24,
   },
   submitBtn: {
     backgroundColor: colors.primary,
@@ -584,14 +754,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 30,
-    gap: 6,
-    marginTop: 10,
+    borderRadius: 28,
+    gap: 8,
   },
   submitBtnText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontSize: typography.size.base,
+    color: colors.textWhite,
   },
   successModalHeader: {
     alignItems: 'center',
@@ -601,21 +770,21 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   successModalTitle: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: colors.textMain,
+    fontSize: typography.size.title,
+    color: colors.text,
     textAlign: 'center',
   },
   successModalSub: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
-    color: colors.textMuted,
+    fontSize: typography.size.subhead,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },
@@ -623,16 +792,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#16A34A',
+    backgroundColor: colors.whatsapp,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 8,
     marginTop: 8,
   },
   whatsappSendModalBtnText: {
     fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: typography.size.subhead,
+    color: colors.textWhite,
   },
   doneModalBtn: {
     alignItems: 'center',
@@ -642,7 +811,7 @@ const styles = StyleSheet.create({
   },
   doneModalBtnText: {
     fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: colors.textMuted,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
   },
 });

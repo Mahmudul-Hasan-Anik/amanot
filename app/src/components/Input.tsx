@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
+    fontSize: typography.size.subhead,
     color: colors.textSecondary,
     marginBottom: 6,
   },
@@ -120,13 +121,13 @@ const styles = StyleSheet.create({
   },
   prefixText: {
     fontFamily: 'HindSiliguri-Medium',
-    fontSize: 15,
+    fontSize: typography.size.md,
     color: colors.text,
   },
   input: {
     flex: 1,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 15,
+    fontSize: typography.size.md,
     color: colors.text,
     paddingVertical: 10,
   },
@@ -139,13 +140,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
+    fontSize: typography.size.caption,
     color: colors.warning,
     marginTop: 4,
   },
   helperText: {
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
+    fontSize: typography.size.caption,
     color: colors.textSecondary,
     marginTop: 4,
   },

@@ -85,5 +85,7 @@ export const colors = {
   chartSiteB: '#62BEA7',
   chartIdle: '#D6D1C4',
 
+  whatsapp: '#25D366',
+
   shadowColor: '#000000',
 };
