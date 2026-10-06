@@ -18,7 +18,7 @@ import { typography } from '../../../src/theme/typography';
 import { Card } from '../../../src/components/Card';
 import { Avatar } from '../../../src/components/Avatar';
 import { ProgressRing } from '../../../src/components/ProgressRing';
-import { mockTodayFollowups } from '../../../src/mocks/mockData';
+import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 
@@ -39,29 +39,27 @@ export default function HomeDashboardScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 600);
+    useSomitiStore.getState().syncFromServer().finally(() => setRefreshing(false));
   }, []);
 
   // Dynamic financial totals
   const projectInvested = useMemo(() => {
-    return projects.reduce((acc, p) => acc + (p.investedAmount || 0), 0) || somitiInfo.projectInvested;
+    return projects.length ? projects.reduce((acc, p) => acc + (p.investedAmount || 0), 0) : somitiInfo.projectInvested || 0;
   }, [projects, somitiInfo.projectInvested]);
 
   const cashAndBank = useMemo(() => {
-    return cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0) || somitiInfo.cashAndBank;
+    return cashAccounts.length ? cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0) : somitiInfo.cashAndBank || 0;
   }, [cashAccounts, somitiInfo.cashAndBank]);
 
   const totalFund = useMemo(() => projectInvested + cashAndBank, [projectInvested, cashAndBank]);
 
   const totalFundCalc = projectInvested + cashAndBank;
   const projectInvestedPct = useMemo(() => {
-    return totalFundCalc > 0 ? Math.min(100, Math.round((projectInvested / totalFundCalc) * 100)) : 81;
+    return totalFundCalc > 0 ? Math.min(100, Math.round((projectInvested / totalFundCalc) * 100)) : 0;
   }, [projectInvested, totalFundCalc]);
 
   const cashAndBankPct = useMemo(() => {
-    return Math.max(0, 100 - projectInvestedPct);
+    return totalFundCalc > 0 ? Math.max(0, 100 - projectInvestedPct) : 0;
   }, [projectInvestedPct]);
 
   // Active, Paid and Due members
@@ -70,34 +68,28 @@ export default function HomeDashboardScreen() {
   const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0 || m.status === 'due' || m.status === 'partial'), [members]);
 
   // Monthly collection metrics matching Somiti-level 100-member aggregates
-  const monthlyTarget = somitiInfo.monthlyTarget || 210000;
-  const monthlyCollected = somitiInfo.monthlyCollected || 164000;
-  const monthlyRemaining = somitiInfo.monthlyRemaining || Math.max(0, monthlyTarget - monthlyCollected);
-  const monthlyCollectedPct = somitiInfo.monthlyCollectedPct || (monthlyTarget > 0 ? Math.min(100, Math.round((monthlyCollected / monthlyTarget) * 100)) : 78);
+  const monthlyTarget = somitiInfo.monthlyTarget || 0;
+  const monthlyCollected = somitiInfo.monthlyCollected || 0;
+  const monthlyRemaining = Math.max(0, monthlyTarget - monthlyCollected);
+  const monthlyCollectedPct = monthlyTarget > 0 ? Math.min(100, Math.round((monthlyCollected / monthlyTarget) * 100)) : 0;
 
-  const totalMembersCount = somitiInfo.totalMembersCount || members.length || 100;
-  const paidCount = somitiInfo.paidCount || paidMembers.length || 78;
-  const dueCount = somitiInfo.dueCount || dueMembers.length || 22;
-  const totalDueAmount = somitiInfo.totalDueAmount || 53500;
+  const totalMembersCount = members.length || somitiInfo.totalMembersCount || 0;
+  const paidCount = paidMembers.length;
+  const dueCount = dueMembers.length;
+  const totalDueAmount = dueMembers.reduce((s, m) => s + (m.dueAmount || 0), 0);
 
-  const activeProjectsCount = projects.filter((p) => p.status === 'ongoing' || p.status === 'delayed').length || 4;
-  const yearlyProjectProfit = somitiInfo.yearlyProjectProfit || projects.reduce((sum, p) => sum + (p.netProfit || 0), 0) || 312000;
+  const activeProjectsCount = projects.filter((p) => p.status === 'ongoing' || p.status === 'delayed').length;
+  const yearlyProjectProfit = somitiInfo.yearlyProjectProfit || 0;
 
-  const monthlyIncome = useMemo(() => somitiInfo.monthlyIncome || monthlyCollected, [somitiInfo.monthlyIncome, monthlyCollected]);
-  const monthlyExpense = useMemo(() => somitiInfo.monthlyExpense, [somitiInfo.monthlyExpense]);
+  const monthlyIncome = useMemo(() => somitiInfo.monthlyIncome || 0, [somitiInfo.monthlyIncome]);
+  const monthlyExpense = useMemo(() => somitiInfo.monthlyExpense || 0, [somitiInfo.monthlyExpense]);
   const monthlyNet = useMemo(() => monthlyIncome - monthlyExpense, [monthlyIncome, monthlyExpense]);
 
   // Dynamic Follow-up list based on due members with late fees included
   const followupList = useMemo(() => {
     const activeDue = members.filter((m) => m.dueAmount > 0 || m.status === 'due' || m.status === 'partial');
     if (activeDue.length > 0) {
-      const sorted = [...activeDue].sort((a, b) => {
-        if (a.name.includes('রফিকুল')) return -1;
-        if (b.name.includes('রফিকুল')) return 1;
-        if (a.name.includes('নাসরিন')) return -1;
-        if (b.name.includes('নাসরিন')) return 1;
-        return b.dueAmount - a.dueAmount;
-      });
+      const sorted = [...activeDue].sort((a, b) => b.dueAmount - a.dueAmount);
 
       return sorted.slice(0, 3).map((m) => {
         const noteText = m.status === 'partial'
@@ -112,7 +104,7 @@ export default function HomeDashboardScreen() {
         };
       });
     }
-    return mockTodayFollowups;
+    return [];
   }, [members, l, formatNum, formatMoney]);
 
   // Dynamic Somiti Initial Letter
@@ -218,7 +210,7 @@ export default function HomeDashboardScreen() {
               {l(somitiInfo.nameEn || 'Amanot Samity', somitiInfo.name || 'আমানত সমিতি')}
             </Text>
             <Text style={styles.subHeader}>
-              {l('September 2026', 'সেপ্টেম্বর ২০২৬')} · {formatNum(totalMembersCount)} {l('Members', 'জন সদস্য')}
+              {l(new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), `${BENGALI_MONTHS_FULL[new Date().getMonth()]} ${toBengaliDigits(new Date().getFullYear())}`)} · {formatNum(totalMembersCount)} {l('Members', 'জন সদস্য')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -262,7 +254,7 @@ export default function HomeDashboardScreen() {
             <View style={styles.growthBadge}>
               <Ionicons name="arrow-up" size={12} color={colors.primary} />
               <Text style={styles.growthText}>
-                {formatNum(somitiInfo.monthlyFundGrowth || 4.5)}% {l('this month', 'এ মাসে')}
+                {formatNum(somitiInfo.monthlyFundGrowth || 0)}% {l('this month', 'এ মাসে')}
               </Text>
             </View>
           </View>
@@ -476,6 +468,9 @@ export default function HomeDashboardScreen() {
             </TouchableOpacity>
           </View>
 
+          {followupList.length === 0 && (
+            <Text style={[styles.followupNote, { paddingVertical: 12 }]}>{l('No dues today', 'আজ কোনো বকেয়া নেই')}</Text>
+          )}
           {followupList.map((item, index) => (
             <TouchableOpacity
               key={item.id}

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore, Transaction } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
+import { recentMonths, inMonth } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
 
 interface AppModalProps {
@@ -55,13 +56,7 @@ function AppModal({ visible, onClose, children, animationType = 'fade' }: AppMod
   );
 }
 
-const MONTHS_LIST = [
-  { key: '2026-09', bn: 'সেপ্টেম্বর ২০২৬', en: 'September 2026', income: 182400, expense: 12800 },
-  { key: '2026-08', bn: 'আগস্ট ২০২৬', en: 'August 2026', income: 175000, expense: 11200 },
-  { key: '2026-07', bn: 'জুলাই ২০২৬', en: 'July 2026', income: 168000, expense: 9800 },
-  { key: '2026-06', bn: 'জুন ২০২৬', en: 'June 2026', income: 180000, expense: 14500 },
-  { key: '2026-05', bn: 'মে ২০২৬', en: 'May 2026', income: 162000, expense: 8900 },
-];
+const MONTHS_LIST = recentMonths(12);
 
 export default function FinanceScreen() {
   const router = useRouter();
@@ -69,15 +64,15 @@ export default function FinanceScreen() {
   const { l, formatMoney, formatNum, language } = useLanguage();
 
   // Selected Month State
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string>('2026-09');
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(MONTHS_LIST[0].key);
   const [showMonthModal, setShowMonthModal] = useState<boolean>(false);
 
   // Transfer Modal State
   const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
   const [fromAccount, setFromAccount] = useState<string>('ca4'); // Default: মাঠকর্মী
   const [toAccount, setToAccount] = useState<string>('ca2'); // Default: কোষাধ্যক্ষ
-  const [transferAmount, setTransferAmount] = useState<string>('5000');
-  const [transferNote, setTransferNote] = useState<string>('মাঠের কালেকশন কোষাধ্যক্ষকে জমা');
+  const [transferAmount, setTransferAmount] = useState<string>('');
+  const [transferNote, setTransferNote] = useState<string>('');
 
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
@@ -115,40 +110,46 @@ export default function FinanceScreen() {
     return cashAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
   }, [cashAccounts]);
 
-  // Dynamic Expenses by Category (baseline 5 categories from Page 14 + dynamic additions)
+  // Transactions of the selected month
+  const monthTxns = useMemo(
+    () => transactions.filter((t: any) => inMonth(t.dateISO, selectedMonthKey)),
+    [transactions, selectedMonthKey]
+  );
+
+  // Approved expenses of the selected month, grouped by category
   const expenseByCategory = useMemo(() => {
-    const defaultCategories: Record<string, number> = {
-      'সভা ও আপ্যায়ন': 5200,
-      'যাতায়াত': 3100,
-      'অন্যান্য': 1800,
-      'এসএমএস ও অ্যাপ': 1500,
-      'স্টেশনারি': 1200,
-    };
+    const cats: Record<string, number> = {};
+    expenses
+      .filter((e: any) => e.status === 'approved' && inMonth(e.dateISO, selectedMonthKey))
+      .forEach((item) => {
+        const cat = item.category || 'অন্যান্য';
+        cats[cat] = (cats[cat] || 0) + item.amount;
+      });
+    return cats;
+  }, [expenses, selectedMonthKey]);
 
-    // If custom expenses exist in store, add them
-    expenses.forEach((item) => {
-      const cat = item.category || 'অন্যান্য';
-      if (defaultCategories[cat] !== undefined) {
-        if (item.amount > defaultCategories[cat]) {
-          defaultCategories[cat] = item.amount;
-        }
-      } else {
-        defaultCategories[cat] = (defaultCategories[cat] || 0) + item.amount;
-      }
-    });
+  const totalExpense = useMemo(
+    () => monthTxns.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+    [monthTxns]
+  );
 
-    return defaultCategories;
-  }, [expenses]);
-
-  const totalExpense = useMemo(() => {
-    return Object.values(expenseByCategory).reduce((sum, amt) => sum + amt, 0);
-  }, [expenseByCategory]);
-
-  const totalIncome = useMemo(() => {
-    return somitiInfo.monthlyIncome || selectedMonthObj.income;
-  }, [somitiInfo.monthlyIncome, selectedMonthObj.income]);
+  const totalIncome = useMemo(
+    () => monthTxns.filter((t) => t.type === 'deposit' || t.type === 'profit').reduce((sum, t) => sum + t.amount, 0),
+    [monthTxns]
+  );
 
   const netAmount = totalIncome - totalExpense;
+
+  const monthTotals = (key: string) => {
+    let income = 0;
+    let expense = 0;
+    transactions.forEach((t: any) => {
+      if (!inMonth(t.dateISO, key)) return;
+      if (t.type === 'deposit' || t.type === 'profit') income += t.amount;
+      else if (t.type === 'expense') expense += t.amount;
+    });
+    return { income, expense };
+  };
 
   // Icon mapping matching PDF Page 14 exactly:
   // 1. Bank: business-outline
@@ -215,7 +216,7 @@ export default function FinanceScreen() {
 
   const handleShareStatement = async () => {
     try {
-      const summaryText = `${l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')} - ${l('Income & Expense Statement', 'আয় ও ব্যয় বিবরণী')} (${selectedMonthObj.bn})\n\n${l('Income:', 'আয়:')} ${formatMoney(totalIncome)}\n${l('Expense:', 'ব্যয়:')} ${formatMoney(totalExpense)}\n${l('Net Balance:', 'নিট উদ্বৃত্ত:')} ${formatMoney(netAmount, { showPlusSign: true })}\n\n${l('In Hand & Bank Total:', 'হাতে ও ব্যাংকে মোট:')} ${formatMoney(totalCashAndBank)}\n- ব্যাংক: ${formatMoney(cashAccounts[0]?.amount || 760000)}\n- কোষাধ্যক্ষ: ${formatMoney(cashAccounts[1]?.amount || 120000)}\n- বিকাশ: ${formatMoney(cashAccounts[2]?.amount || 38000)}\n- মাঠকর্মী: ${formatMoney(cashAccounts[3]?.amount || 12000)}`;
+      const summaryText = `${l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')} - ${l('Income & Expense Statement', 'আয় ও ব্যয় বিবরণী')} (${selectedMonthObj.bn})\n\n${l('Income:', 'আয়:')} ${formatMoney(totalIncome)}\n${l('Expense:', 'ব্যয়:')} ${formatMoney(totalExpense)}\n${l('Net Balance:', 'নিট উদ্বৃত্ত:')} ${formatMoney(netAmount, { showPlusSign: true })}\n\n${l('In Hand & Bank Total:', 'হাতে ও ব্যাংকে মোট:')} ${formatMoney(totalCashAndBank)}\n- ব্যাংক: ${formatMoney(cashAccounts[0]?.amount || 0)}\n- কোষাধ্যক্ষ: ${formatMoney(cashAccounts[1]?.amount || 0)}\n- বিকাশ: ${formatMoney(cashAccounts[2]?.amount || 0)}\n- মাঠকর্মী: ${formatMoney(cashAccounts[3]?.amount || 0)}`;
 
       await Share.share({
         message: summaryText,
@@ -475,7 +476,7 @@ export default function FinanceScreen() {
                     {l(m.en, m.bn)}
                   </Text>
                   <Text style={styles.monthOptionSub}>
-                    {l('Income:', 'আয়:')} {formatMoney(m.income)} · {l('Expense:', 'ব্যয়:')} {formatMoney(m.expense)}
+                    {l('Income:', 'আয়:')} {formatMoney(monthTotals(m.key).income)} · {l('Expense:', 'ব্যয়:')} {formatMoney(monthTotals(m.key).expense)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -691,7 +692,7 @@ export default function FinanceScreen() {
           </View>
 
           <Text style={styles.exportSub}>
-            {l('Uttara Model Samity', 'উত্তরা মডেল সমবায় সমিতি')} · {selectedMonthObj.bn}
+            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')} · {selectedMonthObj.bn}
           </Text>
 
           <View style={styles.exportOptions}>

@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -21,7 +22,7 @@ import { safeBack } from '../../src/utils/navigation';
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout } = useAuthStore();
-  const { resetAllData } = useSomitiStore();
+  const { resetAllData, somitiInfo, updateSomitiInfo } = useSomitiStore();
   const {
     language,
     isBengali,
@@ -31,15 +32,15 @@ export default function SettingsScreen() {
     formatNum,
     setLanguage,
     setUseBengaliDigits,
-    dueDateDay,
+    dueDateDay: localDueDay,
     setDueDateDay,
-    gracePeriodDays,
+    gracePeriodDays: localGrace,
     setGracePeriodDays,
-    defaultMonthlyDeposit,
+    defaultMonthlyDeposit: localDefaultDeposit,
     setDefaultMonthlyDeposit,
-    lateFeeAmount,
+    lateFeeAmount: localLateFee,
     setLateFeeAmount,
-    expenseApprovalLimit,
+    expenseApprovalLimit: localLimit,
     setExpenseApprovalLimit,
     accountingYear,
     setAccountingYear,
@@ -47,12 +48,29 @@ export default function SettingsScreen() {
     setAutoReminder,
   } = useLanguage();
 
+  // In live (Supabase) mode these settings belong to the somiti and are saved on the server
+  const info: any = somitiInfo;
+  const pick = (key: string, local: number) => (REMOTE && info?.[key] !== undefined && info?.[key] !== '' ? Number(info[key]) : local);
+  const dueDateDay = pick('dueDay', localDueDay);
+  const gracePeriodDays = pick('graceDays', localGrace);
+  const defaultMonthlyDeposit = pick('defaultMonthly', localDefaultDeposit);
+  const lateFeeAmount = pick('lateFee', localLateFee);
+  const expenseApprovalLimit = pick('expenseApprovalLimit', localLimit);
+  const saveSetting = (key: string, value: number) => {
+    if (REMOTE) updateSomitiInfo({ [key]: value } as any);
+  };
+
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   const handleResetData = () => {
+    if (REMOTE) {
+      resetAllData(); // live mode: reload from server, never deletes anything
+      Alert.alert(l('Done', 'সম্পন্ন'), l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।'));
+      return;
+    }
     Alert.alert(
       l('Reset Demo Data', 'ডেটা রিসেট নিশ্চিতকরণ'),
       l(
@@ -164,6 +182,7 @@ export default function SettingsScreen() {
             onPress={() => {
               const next = gracePeriodDays === 5 ? 7 : gracePeriodDays === 7 ? 10 : gracePeriodDays === 10 ? 3 : 5;
               setGracePeriodDays(next);
+              saveSetting('graceDays', next);
             }}
           >
             <Text style={styles.rowTitle}>{l('Grace Period', 'গ্রেস পিরিয়ড')}</Text>
@@ -184,6 +203,7 @@ export default function SettingsScreen() {
             onPress={() => {
               const next = lateFeeAmount === 100 ? 150 : lateFeeAmount === 150 ? 200 : lateFeeAmount === 200 ? 50 : 100;
               setLateFeeAmount(next);
+              saveSetting('lateFee', next);
             }}
           >
             <Text style={styles.rowTitle}>{l('Late Fee', 'বিলম্ব ফি')}</Text>
@@ -422,7 +442,7 @@ export default function SettingsScreen() {
           >
             <View style={styles.rowLeft}>
               <Text style={[styles.rowTitle, { color: '#D97706' }]}>
-                {l('Reset Demo Data', 'ডেমো ডেটা রিসেট করুন')}
+                {REMOTE ? l('Reload data from server', 'সার্ভার থেকে তথ্য রিলোড করুন') : l('Reset Demo Data', 'ডেমো ডেটা রিসেট করুন')}
               </Text>
               <Text style={styles.rowSub}>
                 {l('Restore all demo records to initial state', 'নতুন করে প্রাথমিক ডেটা লোড হবে')}
@@ -505,6 +525,7 @@ export default function SettingsScreen() {
                 style={[styles.modalOption, dueDateDay === day && styles.modalOptionActive]}
                 onPress={() => {
                   setDueDateDay(day);
+                  saveSetting('dueDay', day);
                   setShowDateModal(false);
                 }}
               >
@@ -536,6 +557,7 @@ export default function SettingsScreen() {
                 style={[styles.modalOption, defaultMonthlyDeposit === amt && styles.modalOptionActive]}
                 onPress={() => {
                   setDefaultMonthlyDeposit(amt);
+                  saveSetting('defaultMonthly', amt);
                   setShowDepositModal(false);
                 }}
               >
@@ -567,6 +589,7 @@ export default function SettingsScreen() {
                 style={[styles.modalOption, expenseApprovalLimit === lim && styles.modalOptionActive]}
                 onPress={() => {
                   setExpenseApprovalLimit(lim);
+                  saveSetting('expenseApprovalLimit', lim);
                   setShowApprovalModal(false);
                 }}
               >

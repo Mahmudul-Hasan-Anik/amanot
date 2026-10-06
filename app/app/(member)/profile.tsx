@@ -22,7 +22,7 @@ import { useSomitiStore } from '../../src/store/somitiStore';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
-  const { currentUser, setCustomPin, switchRole, logout } = useAuthStore();
+  const { currentUser, setCustomPin, switchRole, logout, actualRole } = useAuthStore();
   const { members } = useSomitiStore();
   const { l, formatMoney } = useLanguage();
 
@@ -32,18 +32,9 @@ export default function MemberProfileScreen() {
   const [pinToast, setPinToast] = useState<string | null>(null);
 
   const liveMember = members.find((m) => m.id === currentUser?.id);
-  const member = liveMember || currentUser || {
-    id: '2',
-    code: 'SM-042',
-    name: 'করিম উদ্দিন',
-    phone: '01712-345678',
-    address: 'বাড়ি ১৮, রোড ২, সেক্টর ১০, উত্তরা, ঢাকা',
-    nomineeName: 'মরিয়ম আক্তার',
-    nomineeRelation: 'স্ত্রী',
-    nomineePhone: '01712-998877',
-    joinDate: 'ফেব্রুয়ারি ২০২২',
-    monthlyAmount: 2000,
-    totalDeposit: 72000,
+  const member: any = liveMember || currentUser || {
+    id: '', code: '', name: '', phone: '', address: '', nomineeName: '', nomineeRelation: '',
+    nomineePhone: '', joinDate: '', monthlyAmount: 0, totalDeposit: 0,
   };
 
   const handleChangePin = () => {
@@ -136,13 +127,13 @@ export default function MemberProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Join Date', 'ভর্তির তারিখ')}</Text>
-            <Text style={styles.infoVal}>{member.joinDate || 'ফেব্রুয়ারি ২০২২'}</Text>
+            <Text style={styles.infoVal}>{member.joinDate || '—'}</Text>
           </View>
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.infoLabel}>{l('Monthly Rate', 'মাসিক জমার হার')}</Text>
             <Text style={[styles.infoValBold, { color: '#0F766E' }]}>
-              {formatMoney(member.monthlyAmount || 2000)}
+              {formatMoney(member.monthlyAmount || 0)}
             </Text>
           </View>
         </View>
@@ -153,12 +144,12 @@ export default function MemberProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Nominee Name', 'নমিনীর নাম')}</Text>
-            <Text style={styles.infoVal}>{member.nomineeName || 'মরিয়ম আক্তার'}</Text>
+            <Text style={styles.infoVal}>{member.nomineeName || '—'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Relation', 'সম্পর্ক')}</Text>
-            <Text style={styles.infoVal}>{member.nomineeRelation || 'স্ত্রী'}</Text>
+            <Text style={styles.infoVal}>{member.nomineeRelation || '—'}</Text>
           </View>
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
@@ -186,7 +177,8 @@ export default function MemberProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Demo Role Switcher */}
+        {/* Committee members can open the admin view */}
+        {actualRole !== 'member' && (
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{l('Developer / Demo Switcher', 'টেস্টিং ও রোল পরিবর্তন')}</Text>
           <TouchableOpacity
@@ -211,6 +203,7 @@ export default function MemberProfileScreen() {
             <Ionicons name="arrow-forward" size={18} color="#0F766E" />
           </TouchableOpacity>
         </View>
+        )}
 
         {/* Logout Button */}
         <TouchableOpacity

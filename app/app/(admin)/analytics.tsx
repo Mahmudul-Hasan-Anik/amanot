@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,92 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { recentMonths, inMonth } from '../../src/lib/months';
 
 export default function AnalyticsScreen() {
   const router = useRouter();
   const { l, formatMoney, formatNum } = useLanguage();
   const [period, setPeriod] = useState<'3m' | '6m' | '1y'>('6m');
+  const { members, projects, transactions, cashAccounts, somitiInfo } = useSomitiStore();
+
+  const SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const SHORT_BN = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+  const n = period === '3m' ? 3 : period === '6m' ? 6 : 12;
+  const months = useMemo(() => recentMonths(n).reverse(), [n]);
+  const thisYear = new Date().getFullYear();
+  const active = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
+
+  // % of active members who paid each month (months_status is kept for the current year)
+  const collection = useMemo(
+    () =>
+      months.map((m) => {
+        if (m.year !== thisYear || active.length === 0) return { ...m, pct: null as number | null };
+        const eligible = active.filter((x: any) => {
+          const j = x.joinDateISO as string | undefined;
+          return !j || j.slice(0, 7) <= m.key;
+        });
+        if (!eligible.length) return { ...m, pct: null };
+        const paid = eligible.filter((x) => x.monthsStatus?.[m.month] === 'paid').length;
+        return { ...m, pct: Math.round((paid / eligible.length) * 100) };
+      }),
+    [months, active]
+  );
+
+  const flows = (key: string) => {
+    let inc = 0;
+    let exp = 0;
+    transactions.forEach((t: any) => {
+      if (!inMonth(t.dateISO, key)) return;
+      if (t.type === 'deposit' || t.type === 'profit') inc += t.amount;
+      else if (t.type === 'expense') exp += t.amount;
+    });
+    return { inc, exp };
+  };
+
+  // Fund at the end of each month = today's fund minus what came in after it
+  const cash = cashAccounts.reduce((a, c) => a + c.amount, 0);
+  const invested = projects.reduce((a, p) => a + p.investedAmount, 0);
+  const fundNow = cashAccounts.length ? cash + invested : somitiInfo.totalFund || 0;
+  const fundSeries = useMemo(() => {
+    const out: { key: string; month: number; value: number }[] = [];
+    let running = fundNow;
+    [...months].reverse().forEach((m) => {
+      out.unshift({ key: m.key, month: m.month, value: Math.max(0, running) });
+      const f = flows(m.key);
+      running -= f.inc - f.exp;
+    });
+    return out;
+  }, [months, transactions, fundNow]);
+  const fundMax = Math.max(1, ...fundSeries.map((f) => f.value));
+  const fundGrowthPct =
+    fundSeries.length > 1 && fundSeries[0].value > 0
+      ? Math.round(((fundSeries[fundSeries.length - 1].value - fundSeries[0].value) / fundSeries[0].value) * 100)
+      : 0;
+
+  const regular = active.filter((m) => m.dueMonths === 0).length;
+  const occasional = active.filter((m) => m.dueMonths === 1).length;
+  const chronic = active.filter((m) => m.dueMonths >= 2).length;
+
+  const yearTx = transactions.filter((t: any) => (t.dateISO || '').startsWith(String(thisYear)));
+  const yearIncome = yearTx.filter((t) => t.type === 'deposit' || t.type === 'profit').reduce((a, t) => a + t.amount, 0);
+  const yearExpense = yearTx.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+  const expenseRatio = yearIncome > 0 ? Math.round((yearExpense / yearIncome) * 100) : 0;
+  const totalDeposits = active.reduce((a, m) => a + m.totalDeposit, 0);
+  const projectProfit = projects.reduce((a, p) => a + Math.max(0, p.netProfit), 0);
+  const profitPer1000 = totalDeposits > 0 ? Math.round(((projectProfit - yearExpense) / totalDeposits) * 1000) : 0;
+
+  const currentRate = collection[collection.length - 1]?.pct;
+  const prevRates = collection.slice(0, -1).map((c) => c.pct).filter((x): x is number => x !== null).slice(-3);
+  const avgPrev = prevRates.length ? Math.round(prevRates.reduce((a, b) => a + b, 0) / prevRates.length) : null;
+  const idleShare = fundNow > 0 ? cash / fundNow : 0;
+  const lossProjects = projects.filter((p) => p.status === 'delayed' || (p.roiPct < 0 && p.returnedAmount > 0));
+
+  const shortLabel = (m: number) => l(SHORT_EN[m], SHORT_BN[m]);
+  const lakh = (v: number) => {
+    const x = (v / 100000).toFixed(1);
+    return l(`${x}L`, `${formatNum(x)}ল`);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -77,179 +158,104 @@ export default function AnalyticsScreen() {
         {/* Section: স্মার্ট সতর্কবার্তা */}
         <Text style={styles.sectionTitle}>{l('Smart Alerts', 'স্মার্ট সতর্কবার্তা')}</Text>
 
-        {/* Alert 1 */}
-        <View style={styles.idleCashAlert}>
-          <Ionicons name="information-circle-outline" size={18} color="#1E293B" style={styles.alertIcon} />
-          <Text style={styles.alertText}>
-            <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>{l('Idle Cash: ', 'অলস টাকা: ')}</Text>
-            {formatMoney(930000)} {l('has been idle in hand & bank for 45 days. Consider new investments.', 'গত ৪৫ দিন ধরে হাতে ও ব্যাংকে পড়ে আছে। নতুন বিনিয়োগ বিবেচনা করুন।')}
-          </Text>
-        </View>
-
-        {/* Alert 2 */}
-        <View style={styles.warningAlert}>
-          <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
-          <Text style={[styles.alertText, { color: '#9A3412' }]}>
-            {l('Site B Project expected completion date passed, no returns yet.', 'সাইট বি প্রজেক্টের সম্ভাব্য সমাপ্তির তারিখ পার হয়েছে, এখনো কোনো ফেরত আসেনি।')}
-          </Text>
-        </View>
-
-        {/* Alert 3 */}
-        <View style={styles.warningAlert}>
-          <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
-          <Text style={[styles.alertText, { color: '#9A3412' }]}>
-            {l('Collection rate is 78% this month, lower than 3-month average of 92%.', 'আদায়ের হার এ মাসে ৭৮%, গত ৩ মাসের গড় ৯২% এর চেয়ে কম।')}
-          </Text>
-        </View>
+        {idleShare > 0.25 && (
+          <View style={styles.idleCashAlert}>
+            <Ionicons name="information-circle-outline" size={18} color="#1E293B" style={styles.alertIcon} />
+            <Text style={styles.alertText}>
+              <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>{l('Idle Cash: ', 'অলস টাকা: ')}</Text>
+              {formatMoney(cash)} {l(`(${Math.round(idleShare * 100)}% of the fund) is in hand & bank. Consider investing.`, `(তহবিলের ${formatNum(Math.round(idleShare * 100))}%) হাতে ও ব্যাংকে আছে। বিনিয়োগ বিবেচনা করুন।`)}
+            </Text>
+          </View>
+        )}
+        {lossProjects.map((p) => (
+          <View key={p.id} style={styles.warningAlert}>
+            <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
+            <Text style={[styles.alertText, { color: '#9A3412' }]}>
+              {p.status === 'delayed'
+                ? l(`${p.name} is delayed.`, `${p.name} প্রজেক্ট বিলম্বিত।`)
+                : l(`${p.name} ROI is negative (${p.roiPct}%).`, `${p.name} প্রজেক্টের ROI ঋণাত্মক (${formatNum(p.roiPct)}%)।`)}
+            </Text>
+          </View>
+        ))}
+        {currentRate !== null && currentRate !== undefined && avgPrev !== null && currentRate < avgPrev && (
+          <View style={styles.warningAlert}>
+            <Ionicons name="warning-outline" size={18} color="#C2410C" style={styles.alertIcon} />
+            <Text style={[styles.alertText, { color: '#9A3412' }]}>
+              {l(
+                `Collection rate is ${currentRate}% this month, lower than the recent average of ${avgPrev}%.`,
+                `আদায়ের হার এ মাসে ${formatNum(currentRate)}%, সাম্প্রতিক গড় ${formatNum(avgPrev)}% এর চেয়ে কম।`
+              )}
+            </Text>
+          </View>
+        )}
+        {idleShare <= 0.25 && lossProjects.length === 0 && !(currentRate !== null && currentRate !== undefined && avgPrev !== null && currentRate < avgPrev) && (
+          <View style={styles.idleCashAlert}>
+            <Ionicons name="checkmark-circle-outline" size={18} color="#0F766E" style={styles.alertIcon} />
+            <Text style={styles.alertText}>{l('Everything looks fine.', 'সব কিছু ঠিক আছে।')}</Text>
+          </View>
+        )}
 
         {/* Card: মাসিক আদায়ের হার */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>{l('Monthly Collection Rate', 'মাসিক আদায়ের হার')}</Text>
-          <Text style={styles.chartSub}>{l('Percentage of members paying on time', 'সময়মতো জমা দেওয়া সদস্যের শতাংশ')}</Text>
-
+          <Text style={styles.chartSub}>{l('Members who paid that month (current year)', 'ঐ মাসে জমা দেওয়া সদস্যের শতাংশ (চলতি বছর)')}</Text>
           <View style={styles.verticalBarsContainer}>
-            {/* বার ১: এপ্রিল */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>92%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '92%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Apr', 'এপ্রিল')}</Text>
-            </View>
-
-            {/* বার ২: মে */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>88%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '88%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('May', 'মে')}</Text>
-            </View>
-
-            {/* বার ৩: জুন */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>95%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '95%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Jun', 'জুন')}</Text>
-            </View>
-
-            {/* বার ৪: জুলাই */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>90%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '90%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Jul', 'জুলাই')}</Text>
-            </View>
-
-            {/* বার ৫: আগস্ট */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>84%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '84%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Aug', 'আগস্ট')}</Text>
-            </View>
-
-            {/* বার ৬: সেপ্টে */}
-            <View style={styles.barCol}>
-              <Text style={[styles.barValueText, { color: '#C2410C' }]}>78%</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '78%', backgroundColor: '#C2410C' }]} />
-              </View>
-              <Text style={[styles.barLabelText, { color: '#C2410C', fontFamily: 'HindSiliguri-Bold' }]}>{l('Sep', 'সেপ্টে')}</Text>
-            </View>
+            {collection.map((c, i) => {
+              const last = i === collection.length - 1;
+              const low = c.pct !== null && c.pct < 80;
+              const color = low ? '#C2410C' : '#0F766E';
+              return (
+                <View key={c.key} style={styles.barCol}>
+                  <Text style={[styles.barValueText, low && { color }]}>{c.pct === null ? '—' : `${formatNum(c.pct)}%`}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { height: `${c.pct || 0}%`, backgroundColor: color }]} />
+                  </View>
+                  <Text style={[styles.barLabelText, last && { fontFamily: 'HindSiliguri-Bold' }]}>{shortLabel(c.month)}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
         {/* Card: তহবিলের বৃদ্ধি */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>{l('Fund Growth', 'তহবিলের বৃদ্ধি')}</Text>
-          <Text style={styles.chartSub}>{l('Total fund in Lakhs · +27% in 6 months', 'মোট তহবিল, লাখ টাকায় · ৬ মাসে +২৭%')}</Text>
-
+          <Text style={styles.chartSub}>
+            {l(`Total fund in Lakhs · ${fundGrowthPct >= 0 ? '+' : ''}${fundGrowthPct}% in this period`, `মোট তহবিল, লাখ টাকায় · এই সময়ে ${fundGrowthPct >= 0 ? '+' : ''}${formatNum(fundGrowthPct)}%`)}
+          </Text>
           <View style={styles.verticalBarsContainer}>
-            {/* এপ্রিল */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('38.2L', '৩৮.২ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '70%', backgroundColor: '#0F766E' }]} />
+            {fundSeries.map((f) => (
+              <View key={f.key} style={styles.barCol}>
+                <Text style={styles.barValueText}>{lakh(f.value)}</Text>
+                <View style={styles.barTrack}>
+                  <View style={[styles.barFill, { height: `${Math.round((f.value / fundMax) * 100)}%`, backgroundColor: '#0F766E' }]} />
+                </View>
+                <Text style={styles.barLabelText}>{shortLabel(f.month)}</Text>
               </View>
-              <Text style={styles.barLabelText}>{l('Apr', 'এপ্রিল')}</Text>
-            </View>
-
-            {/* মে */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('40.1L', '৪০.১ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '75%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('May', 'মে')}</Text>
-            </View>
-
-            {/* জুন */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('42.3L', '৪২.৩ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '80%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Jun', 'জুন')}</Text>
-            </View>
-
-            {/* জুলাই */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('44.0L', '৪৪.০ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '85%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Jul', 'জুলাই')}</Text>
-            </View>
-
-            {/* আগস্ট */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('46.4L', '৪৬.৪ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '90%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Aug', 'আগস্ট')}</Text>
-            </View>
-
-            {/* সেপ্টে */}
-            <View style={styles.barCol}>
-              <Text style={styles.barValueText}>{l('48.5L', '৪৮.৫ল')}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: '96%', backgroundColor: '#0F766E' }]} />
-              </View>
-              <Text style={styles.barLabelText}>{l('Sep', 'সেপ্টে')}</Text>
-            </View>
+            ))}
           </View>
         </View>
 
         {/* Card: সদস্যদের জমার অভ্যাস */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>{l('Members Deposit Habit', 'সদস্যদের জমার অভ্যাস')}</Text>
-
           <View style={styles.habitBar}>
-            <View style={[styles.habitSegment, { flex: 72, backgroundColor: '#0F766E' }]} />
-            <View style={[styles.habitSegment, { flex: 20, backgroundColor: '#EA580C' }]} />
-            <View style={[styles.habitSegment, { flex: 8, backgroundColor: '#7C2D12' }]} />
+            <View style={[styles.habitSegment, { flex: Math.max(regular, 0.001), backgroundColor: '#0F766E' }]} />
+            <View style={[styles.habitSegment, { flex: Math.max(occasional, 0.001), backgroundColor: '#EA580C' }]} />
+            <View style={[styles.habitSegment, { flex: Math.max(chronic, 0.001), backgroundColor: '#7C2D12' }]} />
           </View>
-
           <View style={styles.habitColsRow}>
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>{l('Regular', 'নিয়মিত')}</Text>
-              <Text style={styles.habitColValDark}>{formatNum(72)} {l('Members', 'জন')}</Text>
+              <Text style={styles.habitColLabel}>{l('No dues', 'বকেয়া নেই')}</Text>
+              <Text style={styles.habitColValDark}>{formatNum(regular)} {l('Members', 'জন')}</Text>
             </View>
-
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>{l('Occasional Delay', 'মাঝে মাঝে দেরি')}</Text>
-              <Text style={styles.habitColValOrange}>{formatNum(20)} {l('Members', 'জন')}</Text>
+              <Text style={styles.habitColLabel}>{l('1 month due', '১ মাস বকেয়া')}</Text>
+              <Text style={styles.habitColValOrange}>{formatNum(occasional)} {l('Members', 'জন')}</Text>
             </View>
-
             <View style={styles.habitCol}>
-              <Text style={styles.habitColLabel}>{l('Chronic Delay', 'প্রায়ই দেরি')}</Text>
-              <Text style={styles.habitColValRust}>{formatNum(8)} {l('Members', 'জন')}</Text>
+              <Text style={styles.habitColLabel}>{l('2+ months due', '২+ মাস বকেয়া')}</Text>
+              <Text style={styles.habitColValRust}>{formatNum(chronic)} {l('Members', 'জন')}</Text>
             </View>
           </View>
         </View>
@@ -257,51 +263,28 @@ export default function AnalyticsScreen() {
         {/* Card: প্রজেক্টভিত্তিক ROI */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>{l('Project-wise ROI', 'প্রজেক্টভিত্তিক ROI')}</Text>
-
           <View style={styles.roiList}>
-            {/* 1 */}
-            <View style={styles.roiItem}>
-              <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>{l('Poultry Farm', 'পোল্ট্রি খামার')}</Text>
-                <Text style={styles.roiVal}>14%</Text>
-              </View>
-              <View style={styles.roiTrack}>
-                <View style={[styles.roiFill, { width: '85%', backgroundColor: '#0F766E' }]} />
-              </View>
-            </View>
-
-            {/* 2 */}
-            <View style={styles.roiItem}>
-              <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>{l('Site A: Land', 'সাইট এ: জমি')}</Text>
-                <Text style={styles.roiVal}>12%</Text>
-              </View>
-              <View style={styles.roiTrack}>
-                <View style={[styles.roiFill, { width: '70%', backgroundColor: '#0F766E' }]} />
-              </View>
-            </View>
-
-            {/* 3 */}
-            <View style={styles.roiItem}>
-              <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>{l('Shop Rent', 'দোকান ভাড়া')}</Text>
-                <Text style={styles.roiVal}>6%</Text>
-              </View>
-              <View style={styles.roiTrack}>
-                <View style={[styles.roiFill, { width: '38%', backgroundColor: '#0F766E' }]} />
-              </View>
-            </View>
-
-            {/* 4 */}
-            <View style={styles.roiItem}>
-              <View style={styles.roiHeader}>
-                <Text style={styles.roiName}>{l('Site B: Construction', 'সাইট বি: নির্মাণ')}</Text>
-                <Text style={[styles.roiVal, { color: '#C2410C' }]}>−7%</Text>
-              </View>
-              <View style={styles.roiTrack}>
-                <View style={[styles.roiFill, { width: '42%', backgroundColor: '#C2410C' }]} />
-              </View>
-            </View>
+            {projects.length === 0 && <Text style={styles.chartSub}>{l('No projects yet', 'এখনো কোনো প্রজেক্ট নেই')}</Text>}
+            {[...projects]
+              .sort((a, b) => b.roiPct - a.roiPct)
+              .map((p) => {
+                const neg = p.roiPct < 0;
+                const w = Math.min(100, Math.max(4, Math.abs(p.roiPct) * 4));
+                return (
+                  <View key={p.id} style={styles.roiItem}>
+                    <View style={styles.roiHeader}>
+                      <Text style={styles.roiName}>{p.name}</Text>
+                      <Text style={[styles.roiVal, neg && { color: '#C2410C' }]}>
+                        {neg ? '−' : ''}
+                        {formatNum(Math.abs(p.roiPct))}%
+                      </Text>
+                    </View>
+                    <View style={styles.roiTrack}>
+                      <View style={[styles.roiFill, { width: `${w}%`, backgroundColor: neg ? '#C2410C' : '#0F766E' }]} />
+                    </View>
+                  </View>
+                );
+              })}
           </View>
         </View>
 
@@ -309,13 +292,13 @@ export default function AnalyticsScreen() {
         <View style={styles.twoRatiosRow}>
           <View style={styles.ratioCard}>
             <Text style={styles.ratioLabel}>{l('Operating Expense Ratio', 'পরিচালনা ব্যয়ের হার')}</Text>
-            <Text style={styles.ratioVal}>7%</Text>
-            <Text style={styles.ratioSub}>{l('Relative to total income', 'মোট আয়ের তুলনায়')}</Text>
+            <Text style={styles.ratioVal}>{formatNum(expenseRatio)}%</Text>
+            <Text style={styles.ratioSub}>{l('Relative to income this year', 'এ বছরের আয়ের তুলনায়')}</Text>
           </View>
 
           <View style={styles.ratioCard}>
             <Text style={styles.ratioLabel}>{l('Profit per ৳1,000 Deposit', 'প্রতি ৳১,০০০ জমায় লাভ')}</Text>
-            <Text style={styles.ratioVal}>{formatMoney(54)}</Text>
+            <Text style={styles.ratioVal}>{formatMoney(profitPer1000)}</Text>
             <Text style={styles.ratioSub}>{l('This year, estimated', 'এ বছর, আনুমানিক')}</Text>
           </View>
         </View>

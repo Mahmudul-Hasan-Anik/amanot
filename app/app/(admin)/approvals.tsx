@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { PendingApproval } from '../../src/mocks/mockData';
+import { useAuthStore } from '../../src/features/auth/authStore';
 import { safeBack } from '../../src/utils/navigation';
 
 interface AttachmentModalState {
@@ -91,7 +92,7 @@ export default function ApprovalsScreen() {
     const { item, action } = confirmModal;
 
     if (action === 'approve') {
-      approveRequest(item.id, 'আনোয়ার হোসেন (সভাপতি)');
+      approveRequest(item.id, useAuthStore.getState().currentUser?.name);
       setConfirmModal(null);
       triggerToast(
         l(
@@ -107,7 +108,7 @@ export default function ApprovalsScreen() {
           ? customReason.trim()
           : selectedReason || 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার';
 
-      rejectRequest(item.id, finalReason, 'আনোয়ার হোসেন (সভাপতি)');
+      rejectRequest(item.id, finalReason, useAuthStore.getState().currentUser?.name);
       setConfirmModal(null);
       triggerToast(
         l(

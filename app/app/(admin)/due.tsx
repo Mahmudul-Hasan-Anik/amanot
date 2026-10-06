@@ -93,7 +93,7 @@ export default function DueMembersScreen() {
         {/* Total Due Hero Card */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>{l('Total Due', 'মোট বকেয়া')}</Text>
-          <Text style={styles.heroAmount}>{formatMoney(totalDueSum || somitiInfo.totalDueAmount)}</Text>
+          <Text style={styles.heroAmount}>{formatMoney(totalDueSum)}</Text>
           <Text style={styles.heroSub}>{formatNum(allDueMembers.length)} {l('Members · Inc. Late Fee', 'জন সদস্য · বিলম্ব ফি সহ')}</Text>
         </View>
 
@@ -226,7 +226,7 @@ export default function DueMembersScreen() {
 
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[styles.amountText, isHighRisk && { color: '#DC2626' }]}>
-                      {formatMoney(item.dueAmount || 2000)}
+                      {formatMoney(item.dueAmount || 0)}
                     </Text>
                     <TouchableOpacity
                       onPress={() => router.push(`/(admin)/deposit/new?memberId=${item.id}`)}

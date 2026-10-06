@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 
@@ -35,17 +36,24 @@ export default function CollectionScreen() {
   const [showSearch, setShowSearch] = useState(false);
 
   // Dynamic counts
-  const paidMembers = useMemo(() => members.filter((m) => m.dueAmount === 0 || m.status === 'paid'), [members]);
-  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0 || m.status === 'due'), [members]);
+  // "paid" = this month's installment received; everyone else still owes this month
+  const curMonth = new Date().getMonth();
+  const activeMembers = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
+  const isPaidThisMonth = (m: any) => m.monthsStatus?.[curMonth] === 'paid';
+  const paidMembers = useMemo(() => activeMembers.filter(isPaidThisMonth), [activeMembers]);
+  const dueMembers = useMemo(() => activeMembers.filter((m) => !isPaidThisMonth(m)), [activeMembers]);
   const partialMembers = useMemo(() => members.filter((m) => m.status === 'partial'), [members]);
 
-  const target = somitiInfo.monthlyTarget || 210000;
+  const target = somitiInfo.monthlyTarget || 0;
   const collected = somitiInfo.monthlyCollected || 0;
+  const _now = new Date();
+  const monthLabelEn = _now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const monthLabelBn = `${BENGALI_MONTHS_FULL[_now.getMonth()]} ${toBengaliDigits(_now.getFullYear())}`;
   const percent = Math.min(100, Math.round((collected / (target || 1)) * 100));
 
   const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      const isPaid = m.dueAmount === 0 || m.status === 'paid';
+    return activeMembers.filter((m) => {
+      const isPaid = isPaidThisMonth(m);
       if (filter === 'paid' && !isPaid) return false;
       if (filter === 'due' && isPaid) return false;
 
@@ -68,7 +76,7 @@ export default function CollectionScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{l('Monthly Collection', 'মাসিক আদায়')}</Text>
-          <Text style={styles.headerSubtitle}>{l('October 2026', 'অক্টোবর ২০২৬')}</Text>
+          <Text style={styles.headerSubtitle}>{l(monthLabelEn, monthLabelBn)}</Text>
         </View>
 
         <View style={styles.headerIcons}>
@@ -116,7 +124,7 @@ export default function CollectionScreen() {
         {/* Month Selector Pill */}
         <TouchableOpacity style={styles.monthPill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.monthPillText}>{l('October 2026', 'অক্টোবর ২০২৬')}</Text>
+          <Text style={styles.monthPillText}>{l(monthLabelEn, monthLabelBn)}</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
@@ -192,7 +200,7 @@ export default function CollectionScreen() {
         {/* Members Collection List */}
         <View style={styles.membersCard}>
           {filteredMembers.map((item, index) => {
-            const isPaid = item.dueAmount === 0 || item.status === 'paid';
+            const isPaid = isPaidThisMonth(item);
             const colorTheme = AVATAR_COLORS[index % AVATAR_COLORS.length];
             const initial = item.name.trim().charAt(0) || 'স';
 
@@ -219,7 +227,9 @@ export default function CollectionScreen() {
                   <Text style={styles.memberSub}>
                     {isPaid
                       ? `${formatMoney(item.monthlyAmount)} · ${l('Regular', 'নিয়মিত')}`
-                      : `${formatMoney(item.dueAmount)} ${l('due', 'বাকি')} · ${formatNum(item.dueMonths || 1)} ${l('months', 'মাস')}`}
+                      : item.dueAmount > 0
+                      ? `${formatMoney(item.dueAmount)} ${l('due', 'বাকি')} · ${formatNum(item.dueMonths)} ${l('months', 'মাস')}`
+                      : `${formatMoney(item.monthlyAmount)} · ${l('This month pending', 'এ মাসের জমা বাকি')}`}
                   </Text>
                 </View>
 

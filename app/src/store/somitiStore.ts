@@ -15,6 +15,38 @@ import {
   mockSomitiInfo,
 } from '../mocks/mockData';
 import { toBengaliDigits } from '../lib/bengali';
+import { Alert } from 'react-native';
+import { isSupabaseConfigured } from '../lib/supabase';
+import * as api from '../lib/api';
+
+/** true = real Supabase backend, false = local demo data */
+export const REMOTE = isSupabaseConfigured();
+
+const emptySomitiInfo: typeof mockSomitiInfo = {
+  ...mockSomitiInfo,
+  name: 'আমানত সমিতি', regNo: '', establishedYear: '', address: '', phone: '', email: '', authority: '',
+  committeeTenure: '', bankName: '', bankAccountNo: '', bkashNo: '', nagadNo: '',
+  totalMembersCount: 0, activeMembersCount: 0, dueMembersCount: 0, inactiveMembersCount: 0,
+  totalFund: 0, monthlyFundGrowth: 0, projectInvested: 0, projectInvestedPct: 0, cashAndBank: 0, cashAndBankPct: 0,
+  monthlyTarget: 0, monthlyCollected: 0, monthlyCollectedPct: 0, monthlyRemaining: 0, paidCount: 0, dueCount: 0,
+  partialCount: 0, unpaidCount: 0, totalDueAmount: 0, dueBreakdown: { month1: 0, month2: 0, month3Plus: 0 },
+  monthlyIncome: 0, monthlyExpense: 0, monthlyNet: 0, yearlyProjectProfit: 0,
+};
+
+/**
+ * Write-through to the server: the UI is already updated optimistically;
+ * on success we re-sync (server is the source of truth), on failure we show
+ * the error and re-sync to roll back.
+ */
+function remote(label: string, call: () => Promise<any>) {
+  if (!REMOTE) return;
+  call()
+    .then(() => useSomitiStore.getState().syncFromServer())
+    .catch((e: any) => {
+      Alert.alert('সংরক্ষণ ব্যর্থ', `${label}: ${e?.message || e}`);
+      useSomitiStore.getState().syncFromServer();
+    });
+}
 
 export interface Transaction {
   id: string;
@@ -44,7 +76,30 @@ export interface ExpenseItem {
   status: 'approved' | 'pending';
 }
 
+export interface Notice {
+  id: string;
+  title: string;
+  body: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  actor: string;
+  details: Record<string, any>;
+  createdAt: string;
+}
+
 export interface SomitiState {
+  notices: Notice[];
+  auditLogs: AuditLog[];
+  addNotice: (title: string, body: string) => void;
+  deleteNotice: (id: string) => void;
+  setMemberRole: (memberId: string, role: string, title?: string) => void;
+  addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => void;
+
   // Master data
   somitiInfo: typeof mockSomitiInfo;
   members: Member[];
@@ -69,6 +124,8 @@ export interface SomitiState {
     monthlyAmount: number;
     admissionFee?: number;
     initialPin?: string;
+    joinDate?: string; // YYYY-MM-DD
+    whatsapp?: string;
   }) => Member;
   updateMember: (id: string, data: Partial<Member>) => void;
   deleteMember: (id: string) => void;
@@ -122,19 +179,72 @@ export interface SomitiState {
 
   // Reset helper
   resetAllData: () => void;
+
+  // Backend sync
+  isSyncing: boolean;
+  lastSyncedAt: number | null;
+  syncError: string | null;
+  syncFromServer: () => Promise<void>;
+  clearLocalData: () => void;
 }
 
 export const useSomitiStore = create<SomitiState>()(
   persist(
     (set, get) => ({
-      somitiInfo: { ...mockSomitiInfo },
-      members: [...mockMembers],
-      projects: [...mockProjects],
-      approvals: [...mockPendingApprovals],
-      approvedApprovals: [...mockApprovedApprovals],
-      rejectedApprovals: [...mockRejectedApprovals],
-      cashAccounts: [...mockCashAccounts],
-      expenses: [
+      isSyncing: false,
+      lastSyncedAt: null,
+      notices: [],
+      auditLogs: [],
+
+      addNotice: (title, body) => {
+        const n = { id: api.uuid(), title, body, createdBy: '', createdAt: new Date().toISOString() };
+        set({ notices: [n, ...get().notices] });
+        remote('নোটিশ', () => api.addNotice(title, body));
+      },
+
+      deleteNotice: (id) => {
+        set({ notices: get().notices.filter((n) => n.id !== id) });
+        remote('নোটিশ মুছুন', () => api.deleteNotice(id));
+      },
+
+      setMemberRole: (memberId, role, title) => {
+        set({
+          members: get().members.map((m) =>
+            m.id === memberId ? ({ ...m, role: title || m.role, appRole: role } as any) : m
+          ),
+        });
+        remote('রোল পরিবর্তন', () => api.setMemberRole(memberId, role, title));
+      },
+
+      addProject: (data) => {
+        const p: Project = {
+          id: api.uuid(),
+          name: data.name,
+          type: data.type,
+          location: data.location || '',
+          manager: data.manager || '',
+          status: 'ongoing',
+          investedAmount: data.investedAmount,
+          returnedAmount: 0,
+          netProfit: 0,
+          roiPct: 0,
+          startDate: data.startDate || '',
+          expectedEnd: data.expectedEnd || '',
+          recoveryPct: 0,
+          remainingAmount: data.investedAmount,
+        };
+        set({ projects: [...get().projects, p] });
+        remote('প্রজেক্ট', () => api.upsertProject({ ...data, id: p.id }));
+      },
+      syncError: null,
+      somitiInfo: REMOTE ? { ...emptySomitiInfo } : { ...mockSomitiInfo },
+      members: REMOTE ? [] : [...mockMembers],
+      projects: REMOTE ? [] : [...mockProjects],
+      approvals: REMOTE ? [] : [...mockPendingApprovals],
+      approvedApprovals: REMOTE ? [] : [...mockApprovedApprovals],
+      rejectedApprovals: REMOTE ? [] : [...mockRejectedApprovals],
+      cashAccounts: REMOTE ? [] : [...mockCashAccounts],
+      expenses: REMOTE ? [] : [
         {
           id: 'exp-1',
           title: 'বার্ষিক সভার দুপুরের খাবার ও নাস্তা',
@@ -186,7 +296,7 @@ export const useSomitiStore = create<SomitiState>()(
           status: 'approved',
         }
       ],
-      transactions: [
+      transactions: REMOTE ? [] : [
         {
           id: 'tx-recent-1',
           receiptNo: '#V-1015',
@@ -264,7 +374,7 @@ export const useSomitiStore = create<SomitiState>()(
         const nextCodeNum = currentMembers.length + 1;
         const codeNumStr = nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`;
         const newCode = data.code?.trim() || `SM-${codeNumStr}`;
-        const newId = String(Date.now());
+        const newId = REMOTE ? api.uuid() : String(Date.now());
 
         const newMember: Member = {
           id: newId,
@@ -309,6 +419,11 @@ export const useSomitiStore = create<SomitiState>()(
 
         set({ members: updatedMembers, somitiInfo: updatedSomiti });
 
+        if (REMOTE) {
+          remote('সদস্য যোগ', () => api.addMember({ ...data, id: newId, code: data.code?.trim() || undefined }));
+          return newMember;
+        }
+
         if (data.initialPin) {
           try {
             const { useAuthStore } = require('../features/auth/authStore');
@@ -323,6 +438,7 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           members: get().members.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
         });
+        remote('সদস্য হালনাগাদ', () => api.updateMember(id, updatedFields as any));
       },
 
       deleteMember: (id) => {
@@ -333,6 +449,7 @@ export const useSomitiStore = create<SomitiState>()(
             totalMembersCount: Math.max(0, get().somitiInfo.totalMembersCount - 1),
           }
         });
+        remote('সদস্য মুছুন', () => api.deleteMember(id));
       },
 
       // Deposit
@@ -341,7 +458,7 @@ export const useSomitiStore = create<SomitiState>()(
         const currentMembers = get().members;
         const member = currentMembers.find((m) => m.id === memberId);
         const receiptNumber = `#${toBengaliDigits(1043 + get().transactions.length)}`;
-        const txnId = `tx-${Date.now()}`;
+        const txnId = REMOTE ? api.uuid() : `tx-${Date.now()}`;
 
         const newTxn: Transaction = {
           id: txnId,
@@ -423,11 +540,26 @@ export const useSomitiStore = create<SomitiState>()(
           cashAccounts: updatedCashAccounts,
         });
 
+        remote('জমা', () =>
+          api.recordDeposit({
+            id: txnId,
+            memberId,
+            months,
+            baseAmount: data.baseAmount,
+            lateFee,
+            totalAmount,
+            paymentMethod,
+            trxId,
+            note,
+          })
+        );
+
         return newTxn;
       },
 
       // Expense
       addExpense: (data) => {
+        remote('খরচ', () => api.addExpense(data));
         const isPending = data.status === 'pending';
         const newExpense: ExpenseItem = {
           id: `exp-${Date.now()}`,
@@ -508,6 +640,14 @@ export const useSomitiStore = create<SomitiState>()(
       approveRequest: (id, actor) => {
         const currentApprovals = get().approvals;
         const item = currentApprovals.find((a) => a.id === id);
+        if (item && REMOTE) {
+          set({
+            approvals: currentApprovals.filter((a) => a.id !== id),
+            approvedApprovals: [{ ...item, status: 'approved', approvedBy: actor }, ...(get().approvedApprovals || [])],
+          });
+          remote('অনুমোদন', () => api.approveRequest(id));
+          return;
+        }
         if (item) {
           if (item.type === 'expense' || item.type === 'investment') {
             // Add to expense
@@ -551,6 +691,7 @@ export const useSomitiStore = create<SomitiState>()(
             approvals: currentApprovals.filter((a) => a.id !== id),
             rejectedApprovals: [rejectedItem, ...(get().rejectedApprovals || [])],
           });
+          remote('প্রত্যাখ্যান', () => api.rejectRequest(id, reason));
         }
       },
 
@@ -616,6 +757,7 @@ export const useSomitiStore = create<SomitiState>()(
             yearlyProjectProfit: (get().somitiInfo.yearlyProjectProfit || 0) + data.amount,
           },
         });
+        remote('প্রজেক্ট আয়', () => api.recordProjectReturn(data));
       },
 
       // Transfer cash
@@ -647,6 +789,7 @@ export const useSomitiStore = create<SomitiState>()(
           cashAccounts: updatedCashAccounts,
           transactions: [newTxn, ...get().transactions],
         });
+        remote('স্থানান্তর', () => api.transferCash(fromId, toId, amount, note));
         return true;
       },
 
@@ -661,9 +804,15 @@ export const useSomitiStore = create<SomitiState>()(
             ...data,
           }
         });
+        remote('সমিতির তথ্য', () => api.updateSomitiInfo(data as any));
       },
 
       resetAllData: () => {
+        if (REMOTE) {
+          // never wipe real data from the app — just reload from the server
+          get().syncFromServer();
+          return;
+        }
         set({
           somitiInfo: { ...mockSomitiInfo },
           members: [...mockMembers],
@@ -675,10 +824,49 @@ export const useSomitiStore = create<SomitiState>()(
           transactions: [],
           expenses: [],
         });
-      }
+      },
+
+      syncFromServer: async () => {
+        if (!REMOTE) return;
+        set({ isSyncing: true });
+        try {
+          const { useAuthStore } = require('../features/auth/authStore');
+          const isStaff = useAuthStore.getState().actualRole !== 'member';
+          const data = await api.fetchAll(isStaff);
+          set({
+            ...data,
+            somitiInfo: { ...emptySomitiInfo, ...data.somitiInfo },
+            isSyncing: false,
+            lastSyncedAt: Date.now(),
+            syncError: null,
+          });
+        } catch (e: any) {
+          set({ isSyncing: false, syncError: e?.message || String(e) });
+        }
+      },
+
+      clearLocalData: () => {
+        if (!REMOTE) return;
+        set({
+          somitiInfo: { ...emptySomitiInfo },
+          members: [],
+          projects: [],
+          approvals: [],
+          approvedApprovals: [],
+          rejectedApprovals: [],
+          cashAccounts: [],
+          transactions: [],
+          expenses: [],
+          lastSyncedAt: null,
+        });
+      },
     }),
     {
-      name: 'amanot-somiti-storage',
+      name: REMOTE ? 'amanot-somiti-cache' : 'amanot-somiti-storage',
+      partialize: (state) => {
+        const { isSyncing, syncError, ...rest } = state as any;
+        return rest;
+      },
       version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {

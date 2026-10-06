@@ -17,6 +17,8 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
+import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../src/lib/bengali';
+import { bnDate } from '../../src/lib/api';
 
 const MONTH_NAMES_BN = [
   'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -30,25 +32,33 @@ const MONTH_NAMES_EN = [
 
 export default function MemberDashboardScreen() {
   const router = useRouter();
-  const { currentUser, switchRole, logout } = useAuthStore();
-  const { somitiInfo, members } = useSomitiStore();
+  const { currentUser, switchRole, logout, actualRole } = useAuthStore();
+  const { somitiInfo, members, transactions, notices } = useSomitiStore() as any;
+  const canSwitchToAdmin = actualRole !== 'member';
+  const year = new Date().getFullYear();
   const { l, formatMoney, formatNum, language } = useLanguage();
 
   const [selectedVoucherMonth, setSelectedVoucherMonth] = useState<number | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
-  const liveMember = members.find((m) => m.id === currentUser?.id);
-  const member = liveMember || currentUser || {
-    id: '2',
-    code: 'SM-042',
-    name: 'করিম উদ্দিন',
-    phone: '01712-345678',
-    totalDeposit: 72000,
-    monthlyAmount: 2000,
-    dueAmount: 4000,
-    dueMonths: 2,
-    status: 'due',
+  const liveMember = members.find((m: any) => m.id === currentUser?.id);
+  const member: any = liveMember || currentUser || {
+    id: '',
+    code: '',
+    name: '',
+    phone: '',
+    totalDeposit: 0,
+    monthlyAmount: 0,
+    dueAmount: 0,
+    dueMonths: 0,
+    status: 'paid',
   };
+
+  // the deposit that paid a given month (1-12)
+  const txnForMonth = (mNum: number) =>
+    (transactions || []).find(
+      (t: any) => t.memberId === member.id && t.type === 'deposit' && (t.months || []).includes(BENGALI_MONTHS_FULL[mNum - 1])
+    );
 
   const isDue = (member.dueAmount || 0) > 0;
 
@@ -58,12 +68,15 @@ export default function MemberDashboardScreen() {
   };
 
   const handleCallHelpline = () => {
-    const num = (somitiInfo as any).helpline || somitiInfo.phone || '01711223344';
+    const num = (somitiInfo as any).helpline || somitiInfo.phone || '';
+    if (!num) return;
     Linking.openURL(`tel:${num}`);
   };
 
   const handleWhatsAppHelpline = () => {
-    const num = somitiInfo.bkashNo?.replace(/\D/g, '') || '8801711223344';
+    const raw = (somitiInfo.phone || somitiInfo.bkashNo || '').replace(/[০-৯]/g, (c: string) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/\D/g, '');
+    if (!raw) return;
+    const num = raw.startsWith('88') ? raw : `88${raw}`;
     const msg = encodeURIComponent(`আসসালামু আলাইকুম। আমি ${member.name} (আইডি: ${member.code})। আমার কিস্তি সংক্রান্ত তথ্য জানতে যোগাযোগ করছি।`);
     Linking.openURL(`https://wa.me/${num}?text=${msg}`);
   };
@@ -76,7 +89,7 @@ export default function MemberDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.somitiName}>
-            {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
           </Text>
           <Text style={styles.memberTag}>
             {member.name} · <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>{member.code}</Text>
@@ -96,6 +109,7 @@ export default function MemberDashboardScreen() {
       </View>
 
       {/* Demo Role Switcher Banner */}
+      {canSwitchToAdmin && (
       <View style={styles.roleBanner}>
         <View style={styles.roleTagActive}>
           <Ionicons name="person" size={12} color="#0F766E" />
@@ -115,6 +129,7 @@ export default function MemberDashboardScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* Toast Feedback */}
       {copyFeedback && (
@@ -138,7 +153,7 @@ export default function MemberDashboardScreen() {
           <View style={styles.heroMetricsRow}>
             <View style={styles.heroMetricCol}>
               <Text style={styles.metricSub}>{l('Monthly Savings', 'মাসিক সঞ্চয়')}</Text>
-              <Text style={styles.metricVal}>{formatMoney(member.monthlyAmount || 2000)}</Text>
+              <Text style={styles.metricVal}>{formatMoney(member.monthlyAmount || 0)}</Text>
             </View>
 
             <View style={styles.metricSeparator} />
@@ -163,7 +178,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.heroMetricCol}>
               <Text style={styles.metricSub}>{l('Estimated Profit', 'অর্জিত মুনাফা')}</Text>
               <Text style={[styles.metricVal, { color: '#059669' }]}>
-                {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 8500)}
+                {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 0)}
               </Text>
             </View>
           </View>
@@ -187,11 +202,11 @@ export default function MemberDashboardScreen() {
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
               <Text style={styles.accTitle}>{l('bKash Merchant', 'বিকাশ মার্চেন্ট')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bkashNo || '01711-223344'}</Text>
+              <Text style={styles.accNumber}>{somitiInfo.bkashNo || '—'}</Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bkashNo || '01711-223344', 'বিকাশ নম্বর')}
+              onPress={() => handleCopy(somitiInfo.bkashNo || '', 'বিকাশ নম্বর')}
             >
               <Ionicons name="copy-outline" size={15} color="#0F766E" />
               <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
@@ -201,11 +216,11 @@ export default function MemberDashboardScreen() {
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
               <Text style={styles.accTitle}>{l('Islami Bank', 'ইসলামী ব্যাংক বাংলাদেশ')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bankAccountNo || '2050-1402-1028-900'}</Text>
+              <Text style={styles.accNumber}>{somitiInfo.bankAccountNo || '—'}</Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bankAccountNo || '2050-1402-1028-900', 'ব্যাংক হিসাব')}
+              onPress={() => handleCopy(somitiInfo.bankAccountNo || '', 'ব্যাংক হিসাব')}
             >
               <Ionicons name="copy-outline" size={15} color="#0F766E" />
               <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
@@ -218,16 +233,16 @@ export default function MemberDashboardScreen() {
           <View style={styles.cardHeaderRow}>
             <Ionicons name="calendar-outline" size={18} color="#0F766E" />
             <Text style={styles.cardSectionTitle}>
-              {l('12-Month Digital Passbook (2026)', '১২ মাসের ডিজিটাল পাসবুক (২০২৬)')}
+              {l(`12-Month Digital Passbook (${year})`, `১২ মাসের ডিজিটাল পাসবুক (${toBengaliDigits(year)})`)}
             </Text>
           </View>
 
           <View style={styles.monthsGrid}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((mNum) => {
-              // Up to September: 1..7 paid, 8..9 due, 10..12 upcoming
-              const isPaid = mNum <= 7;
-              const isDueMonth = mNum === 8 || mNum === 9;
-              const isUpcoming = mNum > 9;
+              const st = member.monthsStatus?.[mNum - 1];
+              const isPaid = st === 'paid';
+              const isDueMonth = st === 'due';
+              const isUpcoming = !isPaid && !isDueMonth;
 
               return (
                 <TouchableOpacity
@@ -278,37 +293,24 @@ export default function MemberDashboardScreen() {
             </Text>
           </View>
 
-          <View style={styles.noticeItem}>
-            <View style={styles.noticeDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.noticeTitle}>
-                {l('Monthly General Meeting Notice', 'মাসিক সাধারণ সভা নোটিশ')}
-              </Text>
-              <Text style={styles.noticeBody}>
-                {l(
-                  'All members are requested to attend the monthly general meeting on 10th October at 10:00 AM at the somiti office.',
-                  'আগামী ১০ অক্টোবর শুক্রবার সকাল ১০টায় সমিতি কার্যালয়ে সাধারণ সভা অনুষ্ঠিত হবে। সকল সদস্যকে উপস্থিত থাকার অনুরোধ করা হলো।'
-                )}
-              </Text>
-              <Text style={styles.noticeTime}>০২ অক্টোবর ২০২৬ · পরিচালনা পর্ষদ</Text>
+          {(!notices || notices.length === 0) && (
+            <Text style={styles.noticeBody}>{l('No notices yet.', 'এখনো কোনো নোটিশ নেই।')}</Text>
+          )}
+          {(notices || []).slice(0, 5).map((n: any, i: number, arr: any[]) => (
+            <View
+              key={n.id}
+              style={[styles.noticeItem, i === arr.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 }]}
+            >
+              <View style={[styles.noticeDot, i % 2 === 1 && { backgroundColor: '#059669' }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>{n.title}</Text>
+                {!!n.body && <Text style={styles.noticeBody}>{n.body}</Text>}
+                <Text style={styles.noticeTime}>
+                  {bnDate(n.createdAt)} · {n.createdBy}
+                </Text>
+              </View>
             </View>
-          </View>
-
-          <View style={[styles.noticeItem, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-            <View style={[styles.noticeDot, { backgroundColor: '#059669' }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.noticeTitle}>
-                {l('Profit Dividend Credited', 'বার্ষিক মুনাফা বণ্টন সম্পন্ন')}
-              </Text>
-              <Text style={styles.noticeBody}>
-                {l(
-                  'The project profit dividend for the last tenure has been approved and credited to member accounts.',
-                  'বিগত মেয়াদের প্রজেক্ট মুনাফা সদস্যদের সঞ্চয়ের হার অনুযায়ী একাউন্টে জমা করা হয়েছে।'
-                )}
-              </Text>
-              <Text style={styles.noticeTime}>২৫ সেপ্টেম্বর ২০২৬ · কোষাধ্যক্ষ</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
         {/* 5. Helpline Support Bar */}
@@ -350,7 +352,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.voucherHeader}>
               <View>
                 <Text style={styles.voucherSomitiTitle}>
-                  {somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি'}
+                  {somitiInfo.name || 'আমানত সমিতি'}
                 </Text>
                 <Text style={styles.voucherSubtitle}>{l('Official Money Receipt', 'অফিশিয়াল মানি রিসিট')}</Text>
               </View>
@@ -362,7 +364,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.voucherBody}>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Voucher No:', 'ভাউচার নং:')}</Text>
-                <Text style={styles.voucherValBold}>REC-2026-0{selectedVoucherMonth}</Text>
+                <Text style={styles.voucherValBold}>{txnForMonth(selectedVoucherMonth)?.receiptNo || '—'}</Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Member Name:', 'সদস্যের নাম:')}</Text>
@@ -371,18 +373,21 @@ export default function MemberDashboardScreen() {
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Month of Payment:', 'পরিশোধিত মাস:')}</Text>
                 <Text style={styles.voucherVal}>
-                  {MONTH_NAMES_BN[selectedVoucherMonth - 1]} ২০২৬
+                  {BENGALI_MONTHS_FULL[selectedVoucherMonth - 1]} {toBengaliDigits(year)}
                 </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Amount Paid:', 'জমার পরিমাণ:')}</Text>
                 <Text style={[styles.voucherValBold, { color: '#059669', fontSize: 16 }]}>
-                  {formatMoney(member.monthlyAmount || 2000)}
+                  {formatMoney(member.monthlyAmount || 0)}
                 </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Payment Method:', 'মাধ্যম:')}</Text>
-                <Text style={styles.voucherVal}>হাতে নগদ (ক্যাশিয়ার)</Text>
+                <Text style={styles.voucherVal}>
+                  {({ cash: 'হাতে নগদ', bkash: 'বিকাশ', nagad: 'নগদ', bank: 'ব্যাংক' } as any)[txnForMonth(selectedVoucherMonth)?.paymentMethod] || '—'}
+                  {txnForMonth(selectedVoucherMonth)?.date ? ` · ${txnForMonth(selectedVoucherMonth)?.date}` : ''}
+                </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Status:', 'অবস্থা:')}</Text>

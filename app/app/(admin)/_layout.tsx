@@ -29,6 +29,8 @@ export default function AdminLayout() {
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="somiti" options={{ headerShown: false }} />
       <Stack.Screen name="audit" options={{ headerShown: false }} />
+      <Stack.Screen name="notices" options={{ headerShown: false }} />
+      <Stack.Screen name="roles" options={{ headerShown: false }} />
     </Stack>
   );
 }

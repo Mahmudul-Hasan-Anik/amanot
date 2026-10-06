@@ -12,12 +12,21 @@ import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { CustomKeypad } from '../../src/components/CustomKeypad';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { isSupabaseConfigured } from '../../src/lib/supabase';
+
+const REMOTE = isSupabaseConfigured();
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function PinScreen() {
   const router = useRouter();
-  const { verifyPin, currentUser } = useAuthStore();
+  const { verifyPin, currentUser, loginWithPin, phoneRegistered } = useAuthStore();
+  const [checking, setChecking] = useState(false);
+
+  const goHome = () => {
+    const role = useAuthStore.getState().userRole;
+    router.replace(role === 'member' ? '/(member)' : '/(admin)/(tabs)');
+  };
   const { l } = useLanguage();
   const [pinDigits, setPinDigits] = useState<string[]>([]);
 
@@ -25,6 +34,21 @@ export default function PinScreen() {
     if (pinDigits.length < 4) {
       const nextPin = [...pinDigits, digit];
       setPinDigits(nextPin);
+
+      if (nextPin.length === 4 && REMOTE) {
+        if (checking) return;
+        setChecking(true);
+        loginWithPin(nextPin.join('')).then((res) => {
+          setChecking(false);
+          if (res.ok) {
+            goHome();
+          } else {
+            Alert.alert(l('Login failed', 'লগইন ব্যর্থ'), res.error || l('Incorrect PIN', 'পিন সঠিক নয়'));
+            setPinDigits([]);
+          }
+        });
+        return;
+      }
 
       if (nextPin.length === 4) {
         setTimeout(() => {
@@ -55,6 +79,10 @@ export default function PinScreen() {
   };
 
   const handleBiometricAuth = () => {
+    if (REMOTE) {
+      Alert.alert(l('Not available', 'চালু নেই'), l('Please enter your PIN.', 'অনুগ্রহ করে পিন দিন।'));
+      return;
+    }
     verifyPin('1234');
     const role = useAuthStore.getState().userRole;
     if (role === 'member') {
@@ -65,6 +93,17 @@ export default function PinScreen() {
   };
 
   const handleForgotPin = () => {
+    if (REMOTE) {
+      Alert.alert(
+        l('Forgot PIN?', 'পিন ভুলে গেছেন?'),
+        l('Ask your somiti admin to reset your PIN, then log in with the new PIN.', 'সমিতির অ্যাডমিনকে আপনার পিন রিসেট করতে বলুন, তারপর নতুন পিন দিয়ে লগইন করুন।'),
+        [
+          { text: l('Return to Login', 'লগইনে ফিরুন'), onPress: () => { useAuthStore.getState().logout(); router.replace('/(auth)/login'); } },
+          { text: l('OK', 'ঠিক আছে'), style: 'cancel' },
+        ]
+      );
+      return;
+    }
     Alert.alert(
       l('Forgot PIN?', 'পিন ভুলে গেছেন?'),
       l('Default test PIN is: 1234. Or you can log in again.', 'ডিফল্ট টেস্ট পিন কোড হলো: ১২৩৪। অথবা আপনি পুনরায় লগইন করতে পারেন।'),
@@ -95,10 +134,14 @@ export default function PinScreen() {
 
         {/* User Info Header */}
         <Text style={styles.welcomeText}>
-          {l('Welcome, Anwar Hossain', `স্বাগতম, ${currentUser?.name || 'আনোয়ার হোসেন'}`)}
+          {REMOTE
+            ? l(`Welcome${currentUser?.name && currentUser.name.length > 1 ? ', ' + (currentUser.nameEn || currentUser.name) : ''}`, `স্বাগতম${currentUser?.name && currentUser.name.length > 1 ? ', ' + currentUser.name : ''}`)
+            : l('Welcome, Anwar Hossain', `স্বাগতম, ${currentUser?.name || 'আনোয়ার হোসেন'}`)}
         </Text>
         <Text style={styles.roleText}>
-          {l('President · Super Admin', currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন')}
+          {REMOTE
+            ? (phoneRegistered ? (currentUser?.role || '') : l('First login: use the PIN your admin gave you', 'প্রথমবার: অ্যাডমিনের দেওয়া পিন দিন'))
+            : l('President · Super Admin', currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন')}
         </Text>
 
         {/* PIN Title */}
@@ -120,8 +163,8 @@ export default function PinScreen() {
           })}
         </View>
 
-        {/* Hint (Dev-only) */}
-        {__DEV__ && (
+        {/* Hint (Dev-only, demo mode) */}
+        {__DEV__ && !REMOTE && (
           <Text style={styles.hintText}>
             {l('💡 PIN Code: 1234 (or tap biometric icon)', '💡 পিন কোড: ১২৩৪ (বা বায়োমেট্রিক আইকন চাপুন)')}
           </Text>

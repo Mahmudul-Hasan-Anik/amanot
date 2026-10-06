@@ -24,14 +24,14 @@ export default function ReceiptScreen() {
   const txn = getTransactionById(id as string) || transactions[0];
   const member = txn ? getMemberById(txn.memberId) || members.find((m) => m.id === txn.memberId) : members[0];
 
-  const receiptNo = txn?.receiptNo || '#1088';
-  const amount = txn?.amount || 4100;
-  const memberName = txn?.memberName || member?.name || 'Karim Uddin';
-  const memberCode = txn?.memberCode || member?.code || 'SM-042';
-  const monthsStr = txn?.months?.join(', ') || (l('August, September 2026', 'আগস্ট, সেপ্টেম্বর ২০২৬'));
+  const receiptNo = txn?.receiptNo || '';
+  const amount = txn?.amount || 0;
+  const memberName = txn?.memberName || member?.name || '';
+  const memberCode = txn?.memberCode || member?.code || '';
+  const monthsStr = txn?.months?.join(', ') || l('General deposit', 'সাধারণ জমা');
   const lateFee = txn?.lateFee || 0;
   const baseDeposit = amount - lateFee;
-  const dateStr = txn?.date || (l('2 October 2026', '২ অক্টোবর ২০২৬'));
+  const dateStr = txn?.date || '';
   const methodStr =
     txn?.paymentMethod === 'bkash'
       ? `${l('bKash', 'বিকাশ')} ${txn.trxId ? `· ${txn.trxId}` : ''}`
@@ -42,17 +42,17 @@ export default function ReceiptScreen() {
       : l('Cash', 'হাতে নগদ');
 
   const handleWhatsApp = () => {
-    const rawPhone = member?.phone || '01712345678';
+    const rawPhone = member?.phone || '';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
     const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-    const msg = `${l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit Amount:', 'জমার পরিমাণ:')} ${formatMoney(amount)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Current Balance:', 'মোট জমা স্থিতি:')} ${formatMoney(member?.totalDeposit || amount)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`;
+    const msg = `${l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit Amount:', 'জমার পরিমাণ:')} ${formatMoney(amount)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Current Balance:', 'মোট জমা স্থিতি:')} ${formatMoney(member?.totalDeposit || amount)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`;
     Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`);
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')} - ${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(member?.totalDeposit || amount)}`,
+        message: `${l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')} - ${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(member?.totalDeposit || amount)}`,
       });
     } catch (e) {}
   };
@@ -84,7 +84,7 @@ export default function ReceiptScreen() {
           <View style={styles.voucherTop}>
             <Text style={styles.voucherNo}>{l('Receipt', 'রসিদ')} {receiptNo}</Text>
             <Text style={styles.voucherSomiti}>
-              {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+              {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
             </Text>
           </View>
 

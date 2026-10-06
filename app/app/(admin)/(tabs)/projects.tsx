@@ -8,17 +8,50 @@ import {
   SafeAreaView,
   StatusBar,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { AppModal } from '../../../src/components/AppModal';
+import { toEnglishDigits } from '../../../src/lib/bengali';
 
 const ALLOC_COLORS = ['#0F766E', '#14B8A6', '#5EEAD4', '#A7F3D0', '#CBD5E1'];
 
 export default function ProjectsScreen() {
   const router = useRouter();
-  const { projects } = useSomitiStore();
+  const { projects, addProject, cashAccounts } = useSomitiStore();
+  const [showNew, setShowNew] = useState(false);
+  const [np, setNp] = useState({ name: '', type: '', location: '', manager: '', amount: '', startDate: '', expectedEnd: '' });
+  const [npSource, setNpSource] = useState<'bank' | 'cash' | 'bkash'>('bank');
+  const setField = (k: keyof typeof np) => (v: string) => setNp((x) => ({ ...x, [k]: v }));
+
+  const handleCreateProject = () => {
+    const amt = Number(toEnglishDigits(np.amount).replace(/[^\d]/g, '')) || 0;
+    if (!np.name.trim()) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter project name', 'প্রজেক্টের নাম লিখুন'));
+      return;
+    }
+    const accType = npSource === 'cash' ? 'cashier' : npSource;
+    const acc = cashAccounts.find((a) => a.type === accType);
+    if (amt > 0 && acc && acc.amount < amt) {
+      Alert.alert(l('Insufficient balance', 'পর্যাপ্ত ব্যালেন্স নেই'), `${acc.name}: ${formatMoney(acc.amount)}`);
+      return;
+    }
+    addProject({
+      name: np.name.trim(),
+      type: np.type.trim(),
+      location: np.location.trim(),
+      manager: np.manager.trim(),
+      investedAmount: amt,
+      startDate: np.startDate.trim(),
+      expectedEnd: np.expectedEnd.trim(),
+      paymentSource: npSource,
+    });
+    setShowNew(false);
+    setNp({ name: '', type: '', location: '', manager: '', amount: '', startDate: '', expectedEnd: '' });
+  };
   const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'delayed' | 'completed'>('all');
@@ -258,12 +291,79 @@ export default function ProjectsScreen() {
       {/* FAB: + নতুন প্রজেক্ট */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/(admin)/project/p1')}
+        onPress={() => setShowNew(true)}
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
         <Text style={styles.fabText}>{l('New Project', 'নতুন প্রজেক্ট')}</Text>
       </TouchableOpacity>
+      <AppModal visible={showNew} onClose={() => setShowNew(false)}>
+        <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
+          <Text style={{ fontFamily: 'HindSiliguri-Bold', fontSize: 18, color: '#1E293B', marginBottom: 12 }}>
+            {l('New Project', 'নতুন প্রজেক্ট')}
+          </Text>
+          {([
+            ['name', l('Project name *', 'প্রজেক্টের নাম *'), l('e.g. Fish farm', 'যেমন: মাছ চাষ')],
+            ['type', l('Type', 'ধরন'), l('Land / Rent / Agriculture', 'জমি / ভাড়া / কৃষি')],
+            ['location', l('Location', 'অবস্থান'), ''],
+            ['manager', l('Manager', 'দায়িত্বপ্রাপ্ত'), ''],
+            ['amount', l('Investment amount (৳)', 'বিনিয়োগের পরিমাণ (৳)'), '0'],
+            ['startDate', l('Start', 'শুরু'), l('e.g. October 2026', 'যেমন: অক্টোবর ২০২৬')],
+            ['expectedEnd', l('Expected end', 'সম্ভাব্য সমাপ্তি'), ''],
+          ] as const).map(([key, label, ph]) => (
+            <View key={key} style={{ marginBottom: 10 }}>
+              <Text style={{ fontFamily: 'HindSiliguri-Medium', fontSize: 13, color: '#64748B', marginBottom: 4 }}>{label}</Text>
+              <TextInput
+                value={(np as any)[key]}
+                onChangeText={setField(key as any)}
+                placeholder={ph}
+                placeholderTextColor="#94A3B8"
+                keyboardType={key === 'amount' ? 'numeric' : 'default'}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 9,
+                  fontFamily: 'HindSiliguri-Regular',
+                  fontSize: 15,
+                  color: '#1E293B',
+                }}
+              />
+            </View>
+          ))}
+          <Text style={{ fontFamily: 'HindSiliguri-Medium', fontSize: 13, color: '#64748B', marginBottom: 6 }}>
+            {l('Money taken from', 'টাকা যাবে কোথা থেকে')}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            {(['bank', 'cash', 'bkash'] as const).map((src) => (
+              <TouchableOpacity
+                key={src}
+                onPress={() => setNpSource(src)}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  paddingVertical: 8,
+                  alignItems: 'center',
+                  borderColor: npSource === src ? '#0F766E' : '#E2E8F0',
+                  backgroundColor: npSource === src ? '#CCFBF1' : '#FFFFFF',
+                }}
+              >
+                <Text style={{ fontFamily: 'HindSiliguri-SemiBold', fontSize: 13, color: '#1E293B' }}>
+                  {src === 'bank' ? l('Bank', 'ব্যাংক') : src === 'cash' ? l('Cash', 'হাতে নগদ') : l('bKash', 'বিকাশ')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+            onPress={handleCreateProject}
+            style={{ backgroundColor: '#0F766E', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}
+          >
+            <Text style={{ fontFamily: 'HindSiliguri-SemiBold', fontSize: 15, color: '#FFFFFF' }}>{l('Create Project', 'প্রজেক্ট তৈরি করুন')}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </AppModal>
     </SafeAreaView>
   );
 }

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { REMOTE } from '../../src/store/somitiStore';
+import { bnDate } from '../../src/lib/api';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 
@@ -25,62 +27,69 @@ interface AuditItem {
 export default function AuditLogScreen() {
   const router = useRouter();
   const { l, formatMoney } = useLanguage();
-  const { transactions, expenses } = useSomitiStore();
+  const { transactions, auditLogs } = useSomitiStore();
   const [filter, setFilter] = useState<'all' | 'financial' | 'member' | 'settings'>('all');
 
   const liveAuditLogs = useMemo(() => {
-    const list: AuditItem[] = [];
+    const ACTIONS: Record<string, { en: string; bn: string; cat: AuditItem['category'] }> = {
+      account_created: { en: 'Account activated', bn: 'অ্যাকাউন্ট চালু', cat: 'member' },
+      member_added: { en: 'Member added', bn: 'নতুন সদস্য যোগ', cat: 'member' },
+      member_updated: { en: 'Member info updated', bn: 'সদস্যের তথ্য হালনাগাদ', cat: 'member' },
+      member_deleted: { en: 'Member removed', bn: 'সদস্য বাদ', cat: 'member' },
+      role_changed: { en: 'Role changed', bn: 'রোল পরিবর্তন', cat: 'member' },
+      pin_reset: { en: 'PIN reset', bn: 'পিন রিসেট', cat: 'member' },
+      deposit_recorded: { en: 'Deposit', bn: 'জমা এন্ট্রি', cat: 'financial' },
+      expense_added: { en: 'Expense', bn: 'ব্যয় এন্ট্রি', cat: 'financial' },
+      approval_approved: { en: 'Approval granted', bn: 'অনুমোদন দেওয়া হয়েছে', cat: 'financial' },
+      approval_rejected: { en: 'Approval rejected', bn: 'অনুমোদন প্রত্যাখ্যাত', cat: 'financial' },
+      project_saved: { en: 'Project saved', bn: 'প্রজেক্ট সংরক্ষণ', cat: 'financial' },
+      project_return: { en: 'Project income', bn: 'প্রজেক্ট আয়', cat: 'financial' },
+      cash_transfer: { en: 'Cash transfer', bn: 'হিসাব স্থানান্তর', cat: 'financial' },
+      cash_account_saved: { en: 'Cash account saved', bn: 'হিসাব সংরক্ষণ', cat: 'settings' },
+      profit_distributed: { en: 'Profit distributed', bn: 'লাভ বণ্টন', cat: 'financial' },
+      somiti_updated: { en: 'Somiti settings updated', bn: 'সমিতির সেটিংস হালনাগাদ', cat: 'settings' },
+      notice_added: { en: 'Notice posted', bn: 'নোটিশ প্রকাশ', cat: 'settings' },
+      notice_deleted: { en: 'Notice deleted', bn: 'নোটিশ মুছে ফেলা', cat: 'settings' },
+      dues_accrued: { en: 'Monthly dues added', bn: 'মাসিক বকেয়া যোগ', cat: 'financial' },
+    };
 
-    // Transactions into audit log
+    if (REMOTE) {
+      return (auditLogs || []).map((a): AuditItem => {
+        const meta = ACTIONS[a.action] || { en: a.action, bn: a.action, cat: 'settings' as const };
+        const d = a.details || {};
+        const parts: string[] = [];
+        if (d.amount !== undefined) parts.push(formatMoney(Number(d.amount)));
+        if (d.receipt) parts.push(`${l('Receipt', 'রসিদ')} ${d.receipt}`);
+        if (d.member || d.code) parts.push(String(d.member || d.code));
+        if (d.name) parts.push(String(d.name));
+        if (d.title) parts.push(String(d.title));
+        if (d.role) parts.push(String(d.role));
+        if (d.reason) parts.push(String(d.reason));
+        if (Array.isArray(d.fields)) parts.push(d.fields.join(', '));
+        if (d.from && d.to) parts.push(`${d.from} → ${d.to}`);
+        return {
+          id: a.id,
+          header: `${bnDate(a.createdAt)} · ${a.actor || l('System', 'সিস্টেম')}`,
+          title: l(meta.en, meta.bn),
+          sub: parts.join(' · '),
+          category: meta.cat,
+        };
+      });
+    }
+
+    const list: AuditItem[] = [];
     transactions.forEach((tx) => {
       const method = tx.paymentMethod === 'bkash' ? l('bKash', 'বিকাশ') : tx.paymentMethod === 'bank' ? l('Bank', 'ব্যাংক') : l('Cash', 'হাতে নগদ');
       list.push({
         id: `audit-${tx.id}`,
-        header: `${tx.date} · ${l('Cashier', 'কোষাধ্যক্ষ')}`,
+        header: `${tx.date}`,
         title: `${tx.type === 'deposit' ? l('Deposit Entry', 'জমা এন্ট্রি') : l('Expense', 'ব্যয়')}: ${tx.memberName} ${formatMoney(tx.amount)}`,
         sub: `${l('Receipt', 'রসিদ')} ${tx.receiptNo} · ${l('Method:', 'মাধ্যম:')} ${method}${tx.trxId ? ` · TrxID: ${tx.trxId}` : ''}`,
         category: 'financial',
       });
     });
-
-    // Expenses into audit log
-    expenses.forEach((exp) => {
-      list.push({
-        id: `audit-${exp.id}`,
-        header: `${exp.date} · ${l('Mahmuda Khatun', 'মাহমুদা খাতুন')}`,
-        title: `${l('Expense Entry:', 'ব্যয় এন্ট্রি:')} ${exp.title} ${formatMoney(exp.amount)}`,
-        sub: `${l('Voucher No', 'ভাউচার নং')} ${exp.voucherNo} · ${l('Source:', 'উৎস:')} ${exp.paymentSource}`,
-        category: 'financial',
-      });
-    });
-
-    // Static system audit items
-    list.push(
-      {
-        id: 'sys-1',
-        header: `28 Sep · ${l('Anwar Hossain', 'আনোয়ার হোসেন')}`,
-        title: l('Settings: Expense Approval Limit', 'সেটিংস: ব্যয় অনুমোদন সীমা'),
-        sub: `৳5,000 → ৳10,000 · ${l('Approved', 'অনুমোদিত')}`,
-        category: 'settings',
-      },
-      {
-        id: 'sys-2',
-        header: `25 Sep · ${l('Zahid Hasan', 'জাহিদ হাসান')}`,
-        title: l('Member Info: Nasrin Akter', 'সদস্যের তথ্য: নাসরিন আক্তার'),
-        sub: l('Mobile number and nominee details updated', 'মোবাইল নম্বর ও নমিনির তথ্য আপডেট'),
-        category: 'member',
-      },
-      {
-        id: 'sys-3',
-        header: `01 Jan · ${l('Anwar Hossain', 'আনোয়ার হোসেন')}`,
-        title: l('Settings: Reserve 10%, Director 10%', 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%'),
-        sub: `${l('Locked', 'লক করা হয়েছে')} · ${l('Approval: Zahid Hasan', 'অনুমোদন: জাহিদ হাসান')}`,
-        category: 'settings',
-      }
-    );
-
     return list;
-  }, [transactions, expenses, l, formatMoney]);
+  }, [transactions, auditLogs, l, formatMoney]);
 
   const filteredLogs = useMemo(() => {
     return liveAuditLogs.filter((item) => {

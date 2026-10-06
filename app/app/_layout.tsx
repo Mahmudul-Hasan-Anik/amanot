@@ -20,8 +20,18 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return;
     }
     const cancel = buttons.find((b) => b.style === 'cancel');
-    const action = buttons.find((b) => b !== cancel) || buttons[buttons.length - 1];
-    if (window.confirm(text)) action.onPress?.();
+    const actions = buttons.filter((b) => b !== cancel);
+    if (actions.length <= 1) {
+      const action = actions[0] || buttons[buttons.length - 1];
+      if (window.confirm(text)) action.onPress?.();
+      else cancel?.onPress?.();
+      return;
+    }
+    // several choices: let the user pick by number
+    const menu = actions.map((b, i) => `${i + 1}. ${b.text || ''}`).join('\n');
+    const answer = window.prompt(`${text}\n\n${menu}`, '1');
+    const idx = answer ? parseInt(answer.replace(/[০-৯]/g, (c) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))), 10) - 1 : -1;
+    if (idx >= 0 && idx < actions.length) actions[idx].onPress?.();
     else cancel?.onPress?.();
   };
 

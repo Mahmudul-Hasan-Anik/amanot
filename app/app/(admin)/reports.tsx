@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../src/lib/bengali';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -33,6 +34,10 @@ export default function ReportsScreen() {
   const [autoMemberBalance, setAutoMemberBalance] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
 
+  const _now = new Date();
+  const _last = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
+  const periodEn = `1 – ${_last} ${_now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
+  const periodBn = `১ – ${toBengaliDigits(_last)} ${BENGALI_MONTHS_FULL[_now.getMonth()]} ${toBengaliDigits(_now.getFullYear())}`;
   const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0), [members]);
 
   const reportsData: ReportRow[] = [
@@ -46,13 +51,13 @@ export default function ReportsScreen() {
       id: '2',
       icon: 'warning-outline',
       title: l('Due List Report', 'বকেয়া তালিকা'),
-      sub: `${formatNum(dueMembers.length)} ${l('Members · Total Due', 'জন সদস্য · মোট বকেয়া')} ${formatMoney(somitiInfo.totalDueAmount)}`,
+      sub: `${formatNum(dueMembers.length)} ${l('Members · Total Due', 'জন সদস্য · মোট বকেয়া')} ${formatMoney(dueMembers.reduce((a, m) => a + m.dueAmount, 0))}`,
     },
     {
       id: '3',
       icon: 'trending-up-outline',
       title: l('Income-Expense Report', 'আয়-ব্যয় রিপোর্ট'),
-      sub: `${l('Income', 'আয়')} ${formatMoney(somitiInfo.monthlyCollected)} · ${l('Expense', 'ব্যয়')} ${formatMoney(somitiInfo.monthlyExpense)}`,
+      sub: `${l('Income', 'আয়')} ${formatMoney(somitiInfo.monthlyIncome || 0)} · ${l('Expense', 'ব্যয়')} ${formatMoney(somitiInfo.monthlyExpense)}`,
     },
     {
       id: '4',
@@ -117,7 +122,7 @@ export default function ReportsScreen() {
         {/* Date Selector Pill */}
         <TouchableOpacity style={styles.datePill} activeOpacity={0.8}>
           <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.datePillText}>{l('1 – 31 October 2026', '১ – ৩১ অক্টোবর ২০২৬')}</Text>
+          <Text style={styles.datePillText}>{l(periodEn, periodBn)}</Text>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
 
@@ -228,7 +233,7 @@ export default function ReportsScreen() {
           <View style={styles.previewDivider} />
 
           <View style={styles.previewMetaBox}>
-            <Text style={styles.previewMetaTitle}>{l('Reporting Period:', 'প্রতিবেদন সময়কাল:')} ১ – ৩১ অক্টোবর ২০২৬</Text>
+            <Text style={styles.previewMetaTitle}>{l('Reporting Period:', 'প্রতিবেদন সময়কাল:')} {l(periodEn, periodBn)}</Text>
             <Text style={styles.previewMetaDesc}>{selectedReport?.sub}</Text>
           </View>
 

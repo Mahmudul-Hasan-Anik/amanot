@@ -17,21 +17,28 @@ import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
+import { useAuthStore } from '../../../src/features/auth/authStore';
+import { bnDate } from '../../../src/lib/api';
 
 export default function NewExpenseScreen() {
   const router = useRouter();
-  const { addExpense, somitiInfo } = useSomitiStore();
+  const { addExpense, somitiInfo, cashAccounts } = useSomitiStore();
   const { l, formatMoney, formatNum } = useLanguage();
 
-  const [amount, setAmount] = useState('12,500');
+  const { currentUser, actualRole } = useAuthStore();
+  const canApproveOwn = actualRole === 'super_admin' || actualRole === 'admin';
+  const [amount, setAmount] = useState('');
   const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
   const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const [date, setDate] = useState('2 October 2026');
-  const [spender, setSpender] = useState('Anwar Hossain');
-  const [reason, setReason] = useState('AGM lunch catering (100 persons)');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(
+    l(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), bnDate(todayStr))
+  );
+  const [spender, setSpender] = useState(currentUser?.name || '');
+  const [reason, setReason] = useState('');
   const [showLimitModal, setShowLimitModal] = useState(false);
 
-  const expenseLimit = somitiInfo?.expenseApprovalLimit || 5000;
+  const expenseLimit = Number(somitiInfo?.expenseApprovalLimit) || 10000;
 
   const EXPENSE_CATEGORIES = [
     { key: 'meeting', en: 'Meeting & Refreshment', bn: 'সভা ও আপ্যায়ন' },
@@ -92,8 +99,25 @@ export default function NewExpenseScreen() {
       return;
     }
 
-    if (cleanAmount > expenseLimit) {
+    if (cleanAmount > expenseLimit && actualRole !== 'super_admin') {
       setShowLimitModal(true);
+      return;
+    }
+
+    // the paying account must have enough money (server checks too)
+    const accType = source === 'bank' ? 'bank' : source === 'bkash' ? 'bkash' : 'cashier';
+    const acc = cashAccounts.find((a) => a.type === accType);
+    if (canApproveOwn && acc && acc.amount < cleanAmount) {
+      Alert.alert(
+        l('Insufficient balance', 'পর্যাপ্ত ব্যালেন্স নেই'),
+        l(`${acc.name} has only ${formatMoney(acc.amount)}.`, `${acc.name}-এ আছে মাত্র ${formatMoney(acc.amount)}।`)
+      );
+      return;
+    }
+
+    // cashier / field worker entries always go to the committee (maker-checker)
+    if (!canApproveOwn) {
+      processExpense('pending');
       return;
     }
 
@@ -129,7 +153,7 @@ export default function NewExpenseScreen() {
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
-            placeholder="12,500"
+            placeholder="0"
             placeholderTextColor="#94A3B8"
           />
           <View style={styles.amountUnderline} />

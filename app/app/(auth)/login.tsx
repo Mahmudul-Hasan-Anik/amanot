@@ -19,6 +19,9 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { AppModal } from '../../src/components/AppModal';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { isSupabaseConfigured } from '../../src/lib/supabase';
+
+const REMOTE = isSupabaseConfigured();
 import { useSomitiStore } from '../../src/store/somitiStore';
 import {
   toBengaliDigits,
@@ -31,7 +34,8 @@ import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { requestOtp, verifyOtp, setPhone, checkPhoneRegistration, loginAs, registerSomiti } = useAuthStore();
+  const { requestOtp, verifyOtp, setPhone, checkPhoneRegistration, loginAs, registerSomiti, continueWithPhone, registerSomitiRemote } = useAuthStore();
+  const [busy, setBusy] = useState(false);
   const { members, somitiInfo } = useSomitiStore();
   const { l, isBengali, useBengaliDigits, formatNum } = useLanguage();
 
@@ -96,6 +100,22 @@ export default function LoginScreen() {
 
     const fullPhone = '0' + phoneDigits;
 
+    if (REMOTE) {
+      // Backend mode: phone + PIN (no SMS). Check the number, then ask for the PIN.
+      setBusy(true);
+      continueWithPhone(fullPhone).then((res) => {
+        setBusy(false);
+        if (res.error) {
+          Alert.alert(l('Connection problem', 'সংযোগ সমস্যা'), res.error);
+        } else if (!res.found) {
+          setShowUnregisteredModal(true);
+        } else {
+          router.replace('/(auth)/pin');
+        }
+      });
+      return;
+    }
+
     // Check phone registration in Somiti membership pool
     const check = checkPhoneRegistration(fullPhone, members);
     if (!check.found) {
@@ -149,6 +169,19 @@ export default function LoginScreen() {
       return;
     }
     const cleanPin = regAdminPin.trim() || '1234';
+    if (REMOTE) {
+      setBusy(true);
+      registerSomitiRemote(regSomitiName, regAdminName, regAdminPhone, cleanPin).then((res) => {
+        setBusy(false);
+        if (!res.ok) {
+          Alert.alert(l('Registration failed', 'নিবন্ধন ব্যর্থ'), res.error || '');
+          return;
+        }
+        setShowRegisterModal(false);
+        router.replace('/(admin)/(tabs)');
+      });
+      return;
+    }
     registerSomiti(regSomitiName, regAdminName, regAdminPhone, cleanPin);
     setShowRegisterModal(false);
     router.replace('/(admin)/(tabs)');
@@ -226,7 +259,8 @@ export default function LoginScreen() {
           </View>
 
           <Button
-            title={otpSent ? l('Resend OTP', 'ওটিপি পুনরায় পাঠান') : l('Send OTP', 'ওটিপি পাঠান')}
+            loading={busy}
+            title={REMOTE ? l('Continue', 'এগিয়ে যান') : otpSent ? l('Resend OTP', 'ওটিপি পুনরায় পাঠান') : l('Send OTP', 'ওটিপি পাঠান')}
             variant={isPhoneValid ? 'primary' : 'mint'}
             onPress={handleSendOtp}
             disabled={!isPhoneValid}
@@ -328,7 +362,7 @@ export default function LoginScreen() {
         )}
 
         {/* 1-Tap Testing Switcher (Dev-only, clean non-overflowing vertical layout) */}
-        {__DEV__ && (
+        {__DEV__ && !REMOTE && (
           <View style={styles.demoSection}>
             <Text style={styles.demoSectionTitle}>
               {l('⚡ Instant Testing Switcher (Dev Only)', '⚡ টেস্ট ড্রাইভ (১-ক্লিক প্রবেশ)')}
@@ -491,6 +525,7 @@ export default function LoginScreen() {
             title={l('Create Somiti & Login', 'সমিতি তৈরি করুন ও লগইন')}
             variant="primary"
             onPress={handleRegisterSomitiSubmit}
+            loading={busy}
             style={{ marginTop: 16 }}
           />
         </ScrollView>

@@ -31,9 +31,9 @@ export default function MembersScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   // Aggregated totals matching Somiti level counts
-  const totalCount = somitiInfo.totalMembersCount || members.length || 100;
-  const activeCount = somitiInfo.activeMembersCount || members.filter((m) => m.status !== 'inactive').length || 96;
-  const dueCount = somitiInfo.dueCount || members.filter((m) => m.status === 'due' || m.status === 'partial').length || 22;
+  const totalCount = members.length || somitiInfo.totalMembersCount || 0;
+  const activeCount = members.filter((m) => m.status !== 'inactive').length;
+  const dueCount = members.filter((m) => m.dueAmount > 0).length;
   const inactiveCount = somitiInfo.inactiveMembersCount || members.filter((m) => m.status === 'inactive').length || 4;
 
   const filteredMembers = useMemo(() => {

@@ -61,6 +61,15 @@ export default function ReminderScreen() {
     setMessage(tmpl.text);
   };
 
+  const renderFor = (m: any) =>
+    message
+      .replace(/{নাম}/g, m.name)
+      .replace(/{বকেয়া_টাকা}/g, String(m.dueAmount || 0))
+      .replace(/{বকেয়া_মাস}/g, String(m.dueMonths || 0))
+      .replace(/{মোট_জমা}/g, String(m.totalDeposit || 0))
+      .replace(/{বিকাশ_নম্বর}/g, somitiInfo.bkashNo || somitiInfo.phone || '')
+      .replace(/{সমিতির_নাম}/g, somitiInfo.name || '');
+
   const handleSend = () => {
     if (recipients.length === 0) {
       Alert.alert(l('No Recipients', 'কোনো প্রাপক নেই'), l('Please select at least one recipient.', 'অনুগ্রহ করে অন্তত একজন প্রাপক নির্বাচন করুন।'));
@@ -71,12 +80,7 @@ export default function ReminderScreen() {
       const first = recipients[0];
       const cleanPhone = (first.whatsapp || first.phone).replace(/[^0-9]/g, '');
       const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-      const renderedMsg = message
-        .replace(/{নাম}/g, first.name)
-        .replace(/{বকেয়া_টাকা}/g, String(first.dueAmount || 2000))
-        .replace(/{বকেয়া_মাস}/g, String(first.dueMonths || 1))
-        .replace(/{মোট_জমা}/g, String(first.totalDeposit || 0))
-        .replace(/{বিকাশ_নম্বর}/g, somitiInfo.phone || '01712-345678');
+      const renderedMsg = renderFor(first);
       Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`);
     }
 
@@ -221,10 +225,10 @@ export default function ReminderScreen() {
         </View>
 
         {/* Section: প্রিভিউ · রফিকুল ইসলাম */}
-        <Text style={styles.sectionHeader}>{l('Preview · Rafiqul Islam', 'প্রিভিউ · রফিকুল ইসলাম')}</Text>
+        <Text style={styles.sectionHeader}>{l(`Preview · ${recipients[0]?.name || ''}`, `প্রিভিউ · ${recipients[0]?.name || ''}`)}</Text>
         <View style={styles.previewBox}>
           <Text style={styles.previewText}>
-            {l('Assalamu Alaikum Rafiqul Islam, your deposit of ৳6,300 for July–September is still pending. Please pay soon.', 'আসসালামু আলাইকুম রফিকুল ইসলাম, আপনার জুলাই–সেপ্টেম্বর মাসের জমা ৳৬,৩০০ টাকা এখনো বাকি আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: [বিকাশ নম্বর]। ধন্যবাদ, [সমিতির নাম]')}
+            {recipients[0] ? renderFor(recipients[0]) : l('No due members to preview.', 'প্রিভিউ দেখানোর মতো বকেয়া সদস্য নেই।')}
           </Text>
         </View>
 

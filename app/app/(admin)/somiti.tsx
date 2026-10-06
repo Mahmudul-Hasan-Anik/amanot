@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -51,12 +52,12 @@ export default function SomitiProfileScreen() {
     address: somitiInfo.address,
     phone: somitiInfo.phone,
     email: somitiInfo.email,
-    authority: somitiInfo.authority || 'উপজেলা সমবায় কার্যালয়',
-    committeeTenure: somitiInfo.committeeTenure || '২০২৫–২০২৭',
-    bankName: somitiInfo.bankName || 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)',
-    bankAccountNo: somitiInfo.bankAccountNo || '2050-1402-1028-900',
-    bkashNo: somitiInfo.bkashNo || '01711-223344',
-    nagadNo: somitiInfo.nagadNo || '01811-223344',
+    authority: somitiInfo.authority || '',
+    committeeTenure: somitiInfo.committeeTenure || '',
+    bankName: somitiInfo.bankName || '',
+    bankAccountNo: somitiInfo.bankAccountNo || '',
+    bkashNo: somitiInfo.bkashNo || '',
+    nagadNo: somitiInfo.nagadNo || '',
   });
 
   const triggerToast = (msg: string) => {
@@ -79,12 +80,12 @@ export default function SomitiProfileScreen() {
       address: somitiInfo.address,
       phone: somitiInfo.phone,
       email: somitiInfo.email,
-      authority: somitiInfo.authority || 'উপজেলা সমবায় কার্যালয়',
-      committeeTenure: somitiInfo.committeeTenure || '২০২৫–২০২৭',
-      bankName: somitiInfo.bankName || 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)',
-      bankAccountNo: somitiInfo.bankAccountNo || '2050-1402-1028-900',
-      bkashNo: somitiInfo.bkashNo || '01711-223344',
-      nagadNo: somitiInfo.nagadNo || '01811-223344',
+      authority: somitiInfo.authority || '',
+      committeeTenure: somitiInfo.committeeTenure || '',
+      bankName: somitiInfo.bankName || '',
+      bankAccountNo: somitiInfo.bankAccountNo || '',
+      bkashNo: somitiInfo.bkashNo || '',
+      nagadNo: somitiInfo.nagadNo || '',
     });
     setIsEditModalOpen(true);
   };
@@ -122,7 +123,7 @@ export default function SomitiProfileScreen() {
   };
 
   const committeeMembers = members.filter(
-    (m) => m.role && m.role !== 'সাধারণ সদস্য'
+    (m: any) => (m.appRole ? m.appRole !== 'member' : m.role && m.role !== 'সাধারণ সদস্য')
   );
 
   return (
@@ -169,7 +170,7 @@ export default function SomitiProfileScreen() {
             <Text style={styles.logoText}>{l((somitiInfo as any).nameEn?.charAt(0) || 'U', 'স')}</Text>
           </View>
           <Text style={styles.somitiName}>
-            {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
           </Text>
           <Text style={styles.somitiSub}>
             {l('Reg. No', 'নিবন্ধন নং')} {somitiInfo.regNo} · {l('Est.', 'প্রতিষ্ঠা')} {formatNum(somitiInfo.establishedYear)}
@@ -256,7 +257,7 @@ export default function SomitiProfileScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.tenureSub}>
-          {l('Tenure: ', 'মেয়াদ: ')}{somitiInfo.committeeTenure || '২০২৫–২০২৭'}
+          {l('Tenure: ', 'মেয়াদ: ')}{somitiInfo.committeeTenure || ''}
         </Text>
 
         <View style={styles.card}>
@@ -301,40 +302,40 @@ export default function SomitiProfileScreen() {
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>{l('Bank', 'ব্যাংক')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bankName || 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)'}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.bankName || ''}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
             style={styles.row}
-            onPress={() => handleCopy(somitiInfo.bankAccountNo || '2050-1402-1028-900', l('Account number', 'হিসাব নম্বর'))}
+            onPress={() => handleCopy(somitiInfo.bankAccountNo || '', l('Account number', 'হিসাব নম্বর'))}
             activeOpacity={0.7}
           >
             <Text style={styles.rowLabel}>{l('Account Number', 'হিসাব নম্বর')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bankAccountNo || '2050-1402-1028-900'}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.bankAccountNo || ''}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
             style={styles.row}
-            onPress={() => handleCopy(somitiInfo.bkashNo || '01711-223344', l('bKash number', 'বিকাশ নম্বর'))}
+            onPress={() => handleCopy(somitiInfo.bkashNo || '', l('bKash number', 'বিকাশ নম্বর'))}
             activeOpacity={0.7}
           >
             <Text style={styles.rowLabel}>{l('bKash', 'বিকাশ')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bkashNo || '01711-223344'}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.bkashNo || ''}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
             style={styles.row}
-            onPress={() => handleCopy(somitiInfo.nagadNo || '01811-223344', l('Nagad', 'নগদ'))}
+            onPress={() => handleCopy(somitiInfo.nagadNo || '', l('Nagad', 'নগদ'))}
             activeOpacity={0.7}
           >
             <Text style={styles.rowLabel}>{l('Nagad', 'নগদ')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.nagadNo || '01811-223344'}</Text>
+            <Text style={styles.rowValue}>{somitiInfo.nagadNo || ''}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.accountsNotice}>
@@ -345,6 +346,11 @@ export default function SomitiProfileScreen() {
         <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
           {l('Documents', 'ডকুমেন্ট')}
         </Text>
+        {REMOTE ? (
+          <Text style={styles.accountsNotice}>
+            {l('Document upload is coming soon.', 'ডকুমেন্ট আপলোড শীঘ্রই আসছে।')}
+          </Text>
+        ) : (
         <View style={styles.docsList}>
           {/* Doc 1: গঠনতন্ত্র */}
           <TouchableOpacity
@@ -394,6 +400,7 @@ export default function SomitiProfileScreen() {
             </View>
           </TouchableOpacity>
         </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -656,48 +663,20 @@ export default function SomitiProfileScreen() {
             </View>
 
             <ScrollView style={{ maxHeight: 380 }}>
-              {/* Term 1 */}
               <View style={styles.historyTermCard}>
                 <View style={styles.termTopRow}>
-                  <Text style={styles.termTitle}>{l('2025 – 2027 Executive Committee', '২০২৫ – ২০২৭ কার্যনির্বাহী কমিটি')}</Text>
+                  <Text style={styles.termTitle}>
+                    {l('Current Committee', 'বর্তমান কমিটি')}
+                    {somitiInfo.committeeTenure ? ` (${somitiInfo.committeeTenure})` : ''}
+                  </Text>
                   <View style={styles.currentBadge}>
                     <Text style={styles.currentBadgeText}>{l('Active', 'বর্তমান')}</Text>
                   </View>
                 </View>
                 <Text style={styles.termDetail}>
-                  • {l('President: Anwar Hossain', 'সভাপতি: আনোয়ার হোসেন')}{'\n'}
-                  • {l('General Secretary: Jahid Hasan', 'সাধারণ সম্পাদক: জাহিদ হাসান')}{'\n'}
-                  • {l('Treasurer: Mahmuda Khatun', 'কোষাধ্যক্ষ: মাহমুদা খাতুন')}{'\n'}
-                  • {l('Executive Member: Habibur Rahman', 'সদস্য: হাবিবুর রহমান')}
-                </Text>
-              </View>
-
-              {/* Term 2 */}
-              <View style={styles.historyTermCard}>
-                <View style={styles.termTopRow}>
-                  <Text style={styles.termTitle}>{l('2023 – 2025 Committee', '২০২৩ – ২০২৫ পূর্ববর্তী কমিটি')}</Text>
-                  <View style={styles.expiredBadge}>
-                    <Text style={styles.expiredBadgeText}>{l('Completed', 'মেয়াদ উত্তীর্ণ')}</Text>
-                  </View>
-                </View>
-                <Text style={styles.termDetail}>
-                  • {l('President: Md. Rafiqul Islam', 'সভাপতি: মো: রফিকুল ইসলাম')}{'\n'}
-                  • {l('General Secretary: Anwar Hossain', 'সাধারণ সম্পাদক: আনোয়ার হোসেন')}{'\n'}
-                  • {l('Treasurer: Khalilur Rahman', 'কোষাধ্যক্ষ: খলিলুর রহমান')}
-                </Text>
-              </View>
-
-              {/* Term 3 */}
-              <View style={styles.historyTermCard}>
-                <View style={styles.termTopRow}>
-                  <Text style={styles.termTitle}>{l('2021 – 2023 Convening Committee', '২০২১ – ২০২৩ আহ্বায়ক কমিটি')}</Text>
-                  <View style={styles.expiredBadge}>
-                    <Text style={styles.expiredBadgeText}>{l('Founding', 'প্রতিষ্ঠাতা')}</Text>
-                  </View>
-                </View>
-                <Text style={styles.termDetail}>
-                  • {l('Convener: Anwar Hossain', 'আহ্বায়ক: আনোয়ার হোসেন')}{'\n'}
-                  • {l('Joint Convener: Dr. Shafiqul Islam', 'যুগ্ম আহ্বায়ক: ডা: শফিকুল ইসলাম')}
+                  {committeeMembers.length
+                    ? committeeMembers.map((m) => `• ${m.role || ''}: ${m.name}`).join('\n')
+                    : l('No committee roles assigned yet (More → Users & Roles).', 'এখনো কমিটির রোল দেওয়া হয়নি (আরও → ব্যবহারকারী ও রোল)।')}
                 </Text>
               </View>
             </ScrollView>
@@ -745,7 +724,7 @@ export default function SomitiProfileScreen() {
                 <Ionicons name="library-outline" size={28} color="#0F766E" />
               </View>
               <Text style={styles.paperOrgName}>
-                {l((somitiInfo as any).nameEn || 'Uttara Model Samity', somitiInfo.name || 'উত্তরা মডেল সমবায় সমিতি')}
+                {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
               </Text>
               <Text style={styles.paperSubtitle}>{previewDoc?.subtitle}</Text>
               <View style={styles.paperDivider} />

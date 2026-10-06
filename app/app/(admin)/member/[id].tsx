@@ -22,6 +22,9 @@ import { AppModal } from '../../../src/components/AppModal';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { isSupabaseConfigured } from '../../../src/lib/supabase';
+import { BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
+import { ENGLISH_MONTHS } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 
@@ -29,8 +32,9 @@ export default function MemberProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
-  const { getMemberById, members, updateMember } = useSomitiStore();
-  const { resetMemberPin, customPins } = useAuthStore();
+  const { getMemberById, members, updateMember, deleteMember } = useSomitiStore();
+  const { resetMemberPin, customPins, actualRole, currentUser } = useAuthStore();
+  const isAdminUser = actualRole === 'super_admin' || actualRole === 'admin';
 
   const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
 
@@ -46,11 +50,10 @@ export default function MemberProfileScreen() {
   // Edit Follow-up Modal State
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [followupDate, setFollowupDate] = useState(
-    member?.nextFollowup?.date || (isBengali ? '৩ অক্টোবর' : '3 October')
+    member?.nextFollowup?.date || ''
   );
   const [followupNote, setFollowupNote] = useState(
-    member?.nextFollowup?.note ||
-      (isBengali ? '২৮ সেপ্টেম্বর কল: "মাসের শুরুতে দেবেন"' : '28 Sep call: "Will pay at month start"')
+    member?.nextFollowup?.note || ''
   );
 
   const openEditModal = () => {
@@ -166,7 +169,7 @@ export default function MemberProfileScreen() {
       return;
     }
     const fullPhone = raw.startsWith('88') ? raw : `88${raw}`;
-    const currPin = customPins[member.id] || '1234';
+    const currPin = isSupabaseConfigured() ? l('(PIN given by admin)', '(অ্যাডমিনের দেওয়া পিন)') : customPins[member.id] || '1234';
     const text = isBengali
       ? `আসসালামু আলাইকুম ${member.name}।\nআমানত সমিতিতে আপনার সদস্য পোর্টাল প্রস্তুত।\n\nআইডি: ${member.code}\nমোবাইল: ${formatNum(member.phone)}\nলগইন পিন: ${formatNum(currPin)}\n\nঅ্যাপে লগইন করে আপনার মাসিক সঞ্চয় ও রসিদ দেখতে পারবেন।`
       : `Assalamu Alaikum ${displayName}.\nYour member portal at Amanot Somiti is ready.\n\nMember ID: ${member.code}\nMobile: ${formatNum(member.phone)}\nLogin PIN: ${formatNum(currPin)}\n\nLog in to the app to view your monthly savings and receipts.`;
@@ -194,6 +197,37 @@ export default function MemberProfileScreen() {
           text: l('Update Follow-up', 'ফলো-আপ আপডেট'),
           onPress: () => setShowFollowupModal(true),
         },
+        ...(isAdminUser && member.id !== currentUser?.id
+          ? [
+              {
+                text: member.status === 'inactive' ? l('Reactivate member', 'সদস্য সক্রিয় করুন') : l('Mark inactive', 'নিষ্ক্রিয় করুন'),
+                onPress: () => updateMember(member.id, { status: member.status === 'inactive' ? 'paid' : 'inactive' }),
+              },
+              {
+                text: l('Remove member', 'সদস্য বাদ দিন'),
+                style: 'destructive' as const,
+                onPress: () =>
+                  Alert.alert(
+                    l('Remove member?', 'সদস্য বাদ দেবেন?'),
+                    l(
+                      `${member.name} will be removed from the list and can no longer log in. Their past transactions stay in the ledger.`,
+                      `${member.name} তালিকা থেকে বাদ যাবেন এবং লগইন করতে পারবেন না। আগের লেনদেন হিসাবে থেকে যাবে।`
+                    ),
+                    [
+                      { text: l('Cancel', 'বাতিল'), style: 'cancel' },
+                      {
+                        text: l('Remove', 'বাদ দিন'),
+                        style: 'destructive',
+                        onPress: () => {
+                          deleteMember(member.id);
+                          router.replace('/(admin)/(tabs)/members');
+                        },
+                      },
+                    ]
+                  ),
+              },
+            ]
+          : []),
         {
           text: l('Cancel', 'বাতিল'),
           style: 'cancel',
@@ -256,52 +290,44 @@ export default function MemberProfileScreen() {
     return relation;
   };
 
-  const monthsData = [
-    { name: l('Jan', 'জানু'), status: 'paid' as const },
-    { name: l('Feb', 'ফেব্রু'), status: 'paid' as const },
-    { name: l('Mar', 'মার্চ'), status: 'paid' as const },
-    { name: l('Apr', 'এপ্রিল'), status: 'paid' as const },
-    { name: l('May', 'মে'), status: 'paid' as const },
-    { name: l('Jun', 'জুন'), status: 'paid' as const },
-    { name: l('Jul', 'জুলাই'), status: 'paid' as const },
-    { name: l('Aug', 'আগস্ট'), status: 'due' as const },
-    { name: l('Sep', 'সেপ্টে'), status: 'due' as const },
-    { name: l('Oct', 'অক্টো'), status: 'upcoming' as const },
-    { name: l('Nov', 'নভে'), status: 'upcoming' as const },
-    { name: l('Dec', 'ডিসে'), status: 'upcoming' as const },
-  ];
+  const SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const SHORT_BN = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+  const thisYear = new Date().getFullYear();
+  const thisMonth = new Date().getMonth();
+  const monthsData = SHORT_EN.map((en, i) => ({
+    name: l(en, SHORT_BN[i]),
+    status: (member?.monthsStatus?.[i] === 'paid' ? 'paid' : member?.monthsStatus?.[i] === 'due' ? 'due' : 'upcoming') as
+      | 'paid'
+      | 'due'
+      | 'upcoming',
+  }));
+  const paidMonthsCount = monthsData.filter((m) => m.status === 'paid').length;
+  const dueMonthIdx = monthsData.map((m, i) => (m.status === 'due' ? i : -1)).filter((i) => i >= 0);
+  const dueMonthNames = dueMonthIdx.map((i) => l(ENGLISH_MONTHS[i], BENGALI_MONTHS_FULL[i])).join(', ');
+  const joinISO: string | undefined = (member as any)?.joinDateISO;
+  const monthsSinceJoin = joinISO
+    ? Math.max(
+        0,
+        (thisYear - Number(joinISO.slice(0, 4))) * 12 + (thisMonth - (Number(joinISO.slice(5, 7)) - 1)) + 1
+      )
+    : 0;
+  const elapsedThisYear = joinISO && Number(joinISO.slice(0, 4)) === thisYear ? thisMonth - (Number(joinISO.slice(5, 7)) - 1) + 1 : thisMonth + 1;
 
-  const recentTransactions = [
-    {
-      date: l('8 July', '৮ জুলাই'),
-      title: l('July Deposit', 'জুলাই মাসের জমা'),
-      amount: 2000,
-      receipt: 'No.' + formatNum(1042),
-      type: l('bKash', 'বিকাশ'),
-    },
-    {
-      date: l('9 June', '৯ জুন'),
-      title: l('June Deposit', 'জুন মাসের জমা'),
-      amount: 2000,
-      receipt: 'No.' + formatNum(987),
-      type: l('Cash in Hand', 'হাতে নগদ'),
-    },
-    {
-      date: l('15 January', '১৫ জানুয়ারি'),
-      title: l('2025 Profit Share', '২০২৫ সালের লাভের অংশ'),
-      amount: 7800,
-      receipt: undefined,
-      type: l('Annual Distribution', 'বার্ষিক বণ্টন'),
-    },
-  ];
+  const recentTransactions = (member?.recentTxns || []).map((t) => ({
+    date: t.date,
+    title: t.title,
+    amount: t.amount,
+    receipt: t.receiptNo,
+    type: t.type,
+  }));
 
   const infoRows = [
     { label: l('Mobile', 'মোবাইল'), value: formatNum(member.phone) },
     { label: l('WhatsApp', 'হোয়াটসঅ্যাপ'), value: formatNum(member.whatsapp || member.phone) },
-    { label: l('National ID (NID)', 'জাতীয় পরিচয়পত্র'), value: formatNum(member.nid || '1985 2612 7449 031') },
+    { label: l('National ID (NID)', 'জাতীয় পরিচয়পত্র'), value: member.nid ? formatNum(member.nid) : '—' },
     {
       label: l('Nominee', 'নমিনি'),
-      value: `${displayNominee} (${formatRelation(member.nomineeRelation || 'স্ত্রী')})`,
+      value: member.nomineeRelation ? `${displayNominee} (${formatRelation(member.nomineeRelation)})` : displayNominee || '—',
     },
     {
       label: l('Address', 'ঠিকানা'),
@@ -429,32 +455,34 @@ export default function MemberProfileScreen() {
             {formatMoney(member.totalDeposit)}
           </Text>
           <Text style={styles.cardSubText}>
-            {l('Monthly Deposit', 'মাসিক জমা')} {formatMoney(member.monthlyAmount)} · {formatNum(54)} {l('Months', 'মাস')}
+            {l('Monthly Deposit', 'মাসিক জমা')} {formatMoney(member.monthlyAmount)} · {formatNum(monthsSinceJoin)} {l('Months', 'মাস')}
           </Text>
 
           {/* Overdue Banner */}
-          <View style={styles.overdueBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.overdueTitle}>{l('Due: August, September', 'বকেয়া: আগস্ট, সেপ্টেম্বর')}</Text>
-              <Text style={styles.overdueSub}>
-                {l('Inc. Late Fee', 'বিলম্ব ফি')} {formatMoney(100)} {l('incl.', 'সহ')}
-              </Text>
+          {member.dueAmount > 0 && (
+            <View style={styles.overdueBanner}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.overdueTitle}>{l(`Due: ${dueMonthNames}`, `বকেয়া: ${dueMonthNames}`)}</Text>
+                <Text style={styles.overdueSub}>
+                  {formatNum(member.dueMonths)} {l('month(s) · incl. late fee if any', 'মাস · বিলম্ব ফি থাকলে সহ')}
+                </Text>
+              </View>
+              <Text style={styles.overdueAmount}>{formatMoney(member.dueAmount)}</Text>
             </View>
-            <Text style={styles.overdueAmount}>{formatMoney(member.dueAmount || 4100)}</Text>
-          </View>
+          )}
 
           {/* Profit 2-columns */}
           <View style={styles.profitGrid}>
             <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>{l('2025 Profit', '২০২৫ সালের লাভ')}</Text>
+              <Text style={styles.profitLabel}>{l(`${thisYear - 1} Profit`, `${toBengaliDigits(thisYear - 1)} সালের লাভ`)}</Text>
               <Text style={styles.profitVal}>
-                +{formatMoney(member.profit2025 || 7800)}
+                +{formatMoney(member.profit2025 || 0)}
               </Text>
             </View>
             <View style={styles.profitCol}>
               <Text style={styles.profitLabel}>{l('This Year (Est.)', 'এ বছর (আনুমানিক)')}</Text>
               <Text style={styles.profitVal}>
-                +{formatMoney(member.estimatedProfit2026 || 5786)}
+                +{formatMoney(member.estimatedProfit2026 || 0)}
               </Text>
             </View>
           </View>
@@ -463,8 +491,8 @@ export default function MemberProfileScreen() {
         {/* Card: ২০২৬ সালের জমা (৭/৯ মাস) */}
         <Card style={styles.card}>
           <View style={styles.cardHeaderFlex}>
-            <Text style={styles.cardTitle}>{l('2026 Deposits', '২০২৬ সালের জমা')}</Text>
-            <Text style={styles.fractionText}>{`${formatNum(7)}/${formatNum(9)} ${l('Months', 'মাস')}`}</Text>
+            <Text style={styles.cardTitle}>{l(`${thisYear} Deposits`, `${toBengaliDigits(thisYear)} সালের জমা`)}</Text>
+            <Text style={styles.fractionText}>{`${formatNum(paidMonthsCount)}/${formatNum(Math.max(0, elapsedThisYear))} ${l('Months', 'মাস')}`}</Text>
           </View>
 
           <View style={styles.monthGrid}>
@@ -540,6 +568,9 @@ export default function MemberProfileScreen() {
         </View>
 
         <Card style={styles.card}>
+          {recentTransactions.length === 0 && (
+            <Text style={[styles.txnMeta, { paddingVertical: 12 }]}>{l('No transactions yet', 'এখনো কোনো লেনদেন নেই')}</Text>
+          )}
           {recentTransactions.map((txn, index) => (
             <TouchableOpacity
               key={index}
@@ -593,7 +624,7 @@ export default function MemberProfileScreen() {
               <Ionicons name="calendar-outline" size={22} color={colors.text} />
               <View style={styles.followupContent}>
                 <Text style={styles.followupHeader}>
-                  {l('Next Follow-up:', 'পরবর্তী ফলো-আপ:')} {followupDate}
+                  {l('Next Follow-up:', 'পরবর্তী ফলো-আপ:')} {followupDate || l('Not set', 'নির্ধারিত নেই')}
                 </Text>
                 <Text style={styles.followupText}>
                   {followupNote}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
-import { toEnglishDigits } from '../../src/lib/bengali';
+import { toEnglishDigits, toBengaliDigits } from '../../src/lib/bengali';
+import { REMOTE } from '../../src/store/somitiStore';
+import * as api from '../../src/lib/api';
 
 const AVATAR_COLORS = [
   { bg: '#E0F2FE', text: '#0284C7' },
@@ -38,13 +40,28 @@ export default function ProfitDistributionScreen() {
   const [managementPercent, setManagementPercent] = useState<string>('0');
 
   // Financial calculations
-  const totalProjectProfit = useMemo(() => {
-    const sum = projects.reduce((acc, p) => acc + p.netProfit, 0);
-    return sum > 0 ? sum : 375000;
-  }, [projects]);
+  const year = new Date().getFullYear();
+  const bnYear = toBengaliDigits(year);
+  // Server-side numbers (same formula the server uses when distributing)
+  const [preview, setPreview] = useState<any>(null);
+  const loadPreview = () => {
+    if (REMOTE) api.profitPreview(year).then(setPreview).catch(() => {});
+  };
+  useEffect(loadPreview, []);
+  useEffect(() => {
+    if (preview?.alreadyDistributed) {
+      setIsApproved(true);
+      setCurrentStep(4);
+    }
+  }, [preview?.alreadyDistributed]);
 
-  const otherIncome = 28000;
-  const operatingExpense = 103000;
+  const totalProjectProfit = useMemo(() => {
+    if (preview) return Number(preview.projectProfit) || 0;
+    return projects.reduce((acc, p) => acc + Math.max(0, p.netProfit), 0);
+  }, [projects, preview]);
+
+  const otherIncome = 0;
+  const operatingExpense = preview ? Number(preview.expenses) || 0 : 0;
   const netProfit = totalProjectProfit + otherIncome - operatingExpense;
 
   const rPct = (parseFloat(toEnglishDigits(reservePercent)) || 0) / 100;
@@ -54,13 +71,11 @@ export default function ProfitDistributionScreen() {
   const managementShare = Math.round(netProfit * mPct);
   const distributableProfit = Math.max(0, netProfit - reserveFund - managementShare);
 
-  const totalMembersDeposit = useMemo(() => {
-    const sum = members.reduce((acc, m) => acc + m.totalDeposit, 0);
-    return sum > 0 ? sum : 4480000;
-  }, [members]);
+  const eligibleMembers = useMemo(() => members.filter((m) => m.status !== 'inactive' && m.totalDeposit > 0), [members]);
+  const totalMembersDeposit = useMemo(() => eligibleMembers.reduce((acc, m) => acc + m.totalDeposit, 0), [eligibleMembers]);
 
   const memberShares = useMemo(() => {
-    return members.map((m, idx) => {
+    return eligibleMembers.map((m, idx) => {
       const share = totalMembersDeposit > 0
         ? Math.round((m.totalDeposit / totalMembersDeposit) * distributableProfit)
         : 0;
@@ -77,20 +92,30 @@ export default function ProfitDistributionScreen() {
         profitShare: share,
       };
     });
-  }, [members, totalMembersDeposit, distributableProfit]);
+  }, [eligibleMembers, totalMembersDeposit, distributableProfit]);
 
   const handleApprove = () => {
     Alert.alert(
       l('Profit Distribution Approval', 'লাভ বণ্টন অনুমোদন'),
-      `${l('Confirm distribution of total', '২০২৬ সালের মোট')} ${formatMoney(distributableProfit)} ${l('for year 2026?', 'বণ্টন নিশ্চিত করতে চান?')}`,
+      `${l('Confirm distribution of total', `${bnYear} সালের মোট`)} ${formatMoney(distributableProfit)} ${l(`for year ${year}?`, 'বণ্টন নিশ্চিত করতে চান? এটি পরে পরিবর্তন করা যাবে না।')}`,
       [
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
           text: l('Yes, Approve', 'হ্যাঁ, অনুমোদন দিন'),
-          onPress: () => {
+          onPress: async () => {
+            if (REMOTE) {
+              try {
+                await api.distributeProfit(year, rPct * 100, mPct * 100);
+                await useSomitiStore.getState().syncFromServer();
+                loadPreview();
+              } catch (e: any) {
+                Alert.alert(l('Failed', 'ব্যর্থ'), e?.message || String(e));
+                return;
+              }
+            }
             setIsApproved(true);
             setCurrentStep(4);
-            Alert.alert(l('Success', 'সফল'), l('2026 Annual profit distribution has been approved and prepared!', '২০২৬ সালের বার্ষিক লাভ বণ্টন অনুমোদিত ও প্রস্তুত হয়েছে!'));
+            Alert.alert(l('Success', 'সফল'), l(`${year} profit distribution approved. Each member's share is now on their profile.`, `${bnYear} সালের লাভ বণ্টন অনুমোদিত হয়েছে। প্রত্যেক সদস্যের অংশ তাদের প্রোফাইলে দেখা যাবে।`));
           },
         },
       ]
@@ -98,7 +123,7 @@ export default function ProfitDistributionScreen() {
   };
 
   const handleDownloadDraft = () => {
-    Alert.alert(l('Download Draft', 'খসড়া ডাউনলোড'), l('2026 Profit distribution complete statement PDF is preparing.', '২০২৬ সালের লাভ বণ্টনের পূর্ণাঙ্গ স্টেটমেন্ট PDF প্রস্তুত হচ্ছে।'));
+    Alert.alert(l('Download Draft', 'খসড়া ডাউনলোড'), l('PDF export is coming soon. Use the screen above as the draft.', 'PDF ডাউনলোড শীঘ্রই আসছে। আপাতত উপরের হিসাবটিই খসড়া।'));
   };
 
   return (
@@ -116,7 +141,7 @@ export default function ProfitDistributionScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>{l('Annual Profit Distribution', 'বার্ষিক লাভ বণ্টন')}</Text>
-          <Text style={styles.headerSubtitle}>{l('Accounting Year 2026', 'হিসাব বছর ২০২৬')}</Text>
+          <Text style={styles.headerSubtitle}>{l(`Accounting Year ${year}`, `হিসাব বছর ${bnYear}`)}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>

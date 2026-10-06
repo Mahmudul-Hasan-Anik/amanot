@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BENGALI_MONTHS_FULL } from '../../src/lib/bengali';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -28,7 +29,7 @@ export default function StatementScreen() {
 
   const [target, setTarget] = useState<'all' | 'due' | 'single'>(params.memberId ? 'single' : 'all');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
-    (params.memberId as string) || members[0]?.id || '1'
+    (params.memberId as string) || members[0]?.id || ''
   );
   const [showMemberPicker, setShowMemberPicker] = useState(false);
 
@@ -40,6 +41,9 @@ export default function StatementScreen() {
   const [autoFullPdf, setAutoFullPdf] = useState(true);
   const [autoAnnual, setAutoAnnual] = useState(true);
 
+  const _now = new Date();
+  const periodBn = `জানুয়ারি – ${BENGALI_MONTHS_FULL[_now.getMonth()]} ${toBengaliDigits(_now.getFullYear())}`;
+  const periodEn = `January – ${_now.toLocaleDateString('en-GB', { month: 'long' })} ${_now.getFullYear()}`;
   const activeMembers = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
   const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0), [members]);
   const selectedMember = useMemo(() => members.find((m) => m.id === selectedMemberId) || members[0], [members, selectedMemberId]);
@@ -62,10 +66,10 @@ export default function StatementScreen() {
       const fullPhone = phoneDigits.startsWith('88') ? phoneDigits : (phoneDigits.startsWith('0') ? `88${phoneDigits}` : `880${phoneDigits}`);
       const msg = `*${somitiInfo.name}*\n` +
         `👤 সদস্য: ${selectedMember.name} (${selectedMember.code})\n` +
-        `📅 হিসাব সময়কাল: জানুয়ারি – অক্টোবর ২০২৬\n\n` +
+        `📅 হিসাব সময়কাল: ${periodBn}\n\n` +
         `💰 মোট সঞ্চয় জমা: ৳${toBengaliDigits(selectedMember.totalDeposit)}\n` +
         `⚠️ বর্তমান বকেয়া: ৳${toBengaliDigits(selectedMember.dueAmount)}\n` +
-        `📈 প্রাক্কলিত মুনাফা অংশ: ৳${toBengaliDigits(selectedMember.estimatedProfit2026 || 5786)}\n\n` +
+        `📈 সর্বশেষ মুনাফা অংশ: ৳${toBengaliDigits(selectedMember.profit2025 || 0)}\n\n` +
         `নিয়মিত সঞ্চয় জমা দিয়ে সমিতির সার্বিক উন্নয়নে অংশ নিন।\n` +
         `জরুরি প্রয়োজনে যোগাযোগ: ${somitiInfo.phone}`;
 
@@ -108,7 +112,7 @@ export default function StatementScreen() {
         {/* Section: সময়কাল */}
         <Text style={styles.sectionTitle}>{l('Period', 'সময়কাল')}</Text>
         <View style={styles.periodBox}>
-          <Text style={styles.periodText}>{l('January – October 2026', 'জানুয়ারি – অক্টোবর ২০২৬')}</Text>
+          <Text style={styles.periodText}>{l(periodEn, periodBn)}</Text>
           <Ionicons name="calendar-outline" size={18} color="#64748B" />
         </View>
 
@@ -219,10 +223,10 @@ export default function StatementScreen() {
           <View style={styles.previewHeader}>
             <View>
               <Text style={styles.previewMemberName}>
-                {target === 'single' ? selectedMember?.name : (l('Karim Uddin', 'করিম উদ্দিন'))}
+                {selectedMember?.name}
               </Text>
               <Text style={styles.previewMemberCode}>
-                {l('Code:', 'কোড:')} {target === 'single' ? selectedMember?.code : 'SM-042'}
+                {l('Code:', 'কোড:')} {selectedMember?.code}
               </Text>
             </View>
             <View style={styles.previewBadge}>
@@ -235,18 +239,18 @@ export default function StatementScreen() {
           <View style={styles.previewRow}>
             <Text style={styles.previewLabel}>{l('Total Deposit', 'মোট জমা')}</Text>
             <Text style={styles.previewVal}>
-              {formatMoney(target === 'single' ? selectedMember?.totalDeposit || 0 : 108000)}
+              {formatMoney(selectedMember?.totalDeposit || 0)}
             </Text>
           </View>
           <View style={styles.previewRow}>
             <Text style={styles.previewLabel}>{l('Current Due', 'বর্তমান বকেয়া')}</Text>
-            <Text style={[styles.previewVal, { color: (target === 'single' ? selectedMember?.dueAmount || 0 : 4100) > 0 ? '#DC2626' : '#059669' }]}>
-              {formatMoney(target === 'single' ? selectedMember?.dueAmount || 0 : 4100)}
+            <Text style={[styles.previewVal, { color: (selectedMember?.dueAmount || 0) > 0 ? '#DC2626' : '#059669' }]}>
+              {formatMoney(selectedMember?.dueAmount || 0)}
             </Text>
           </View>
           <View style={styles.previewRow}>
             <Text style={styles.previewLabel}>{l('Estimated Profit Share', 'সম্ভাব্য লাভ অংশ')}</Text>
-            <Text style={[styles.previewVal, { color: '#059669' }]}>+{formatMoney(5786)}</Text>
+            <Text style={[styles.previewVal, { color: '#059669' }]}>+{formatMoney(selectedMember?.profit2025 || 0)}</Text>
           </View>
         </View>
 

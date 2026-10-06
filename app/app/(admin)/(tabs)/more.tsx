@@ -16,7 +16,8 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { logout, currentUser, actualRole } = useAuthStore();
+  const roleLabel = ({ super_admin: ['Super Admin', 'সুপার অ্যাডমিন'], admin: ['Admin', 'অ্যাডমিন'], cashier: ['Cashier', 'কোষাধ্যক্ষ'], field_worker: ['Field Worker', 'মাঠকর্মী'], member: ['Member', 'সদস্য'] } as Record<string, string[]>)[actualRole] || ['', ''];
   const { l, formatNum } = useLanguage();
 
   const handleLogout = () => {
@@ -53,11 +54,11 @@ export default function MoreScreen() {
         {/* Profile Card */}
         <TouchableOpacity style={styles.profileCard} activeOpacity={0.8}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{l('A', 'আ')}</Text>
+            <Text style={styles.avatarText}>{(currentUser?.name || 'আ').charAt(0)}</Text>
           </View>
           <View style={styles.profileDetails}>
-            <Text style={styles.profileName}>{l('Anwar Hossain', 'আনোয়ার হোসেন')}</Text>
-            <Text style={styles.profileRole}>{l('President · Super Admin', 'সভাপতি · সুপার অ্যাডমিন')}</Text>
+            <Text style={styles.profileName}>{currentUser?.name || ''}</Text>
+            <Text style={styles.profileRole}>{[currentUser?.role, l(roleLabel[0], roleLabel[1])].filter(Boolean).join(' · ')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
         </TouchableOpacity>
@@ -208,7 +209,7 @@ export default function MoreScreen() {
           <View style={styles.menuDivider} />
 
           {/* সভা ও নোটিশ */}
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7} onPress={() => router.push('/(admin)/notices')}>
             <View style={styles.iconBox}>
               <Ionicons name="easel-outline" size={18} color="#0F766E" />
             </View>
@@ -219,7 +220,16 @@ export default function MoreScreen() {
           <View style={styles.menuDivider} />
 
           {/* ডকুমেন্ট */}
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.menuRow}
+            activeOpacity={0.7}
+            onPress={() =>
+              Alert.alert(
+                l('Documents', 'ডকুমেন্ট'),
+                l('Document upload is coming soon. Use Somiti Profile for registration info for now.', 'ডকুমেন্ট আপলোড শীঘ্রই আসছে। আপাতত নিবন্ধন তথ্য সমিতির প্রোফাইলে রাখুন।')
+              )
+            }
+          >
             <View style={styles.iconBox}>
               <Ionicons name="folder-outline" size={18} color="#0F766E" />
             </View>
@@ -232,7 +242,7 @@ export default function MoreScreen() {
         <Text style={styles.sectionHeader}>{l('Administration', 'প্রশাসন')}</Text>
         <View style={styles.menuCard}>
           {/* ব্যবহারকারী ও রোল */}
-          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7} onPress={() => router.push('/(admin)/roles')}>
             <View style={styles.iconBox}>
               <Ionicons name="key-outline" size={18} color="#0F766E" />
             </View>

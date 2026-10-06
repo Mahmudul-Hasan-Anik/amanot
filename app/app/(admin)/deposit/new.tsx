@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import { AppModal } from '../../../src/components/AppModal';
 import { toEnglishDigits } from '../../../src/lib/money';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
+import { getDepositMonthOptions, defaultSelectedMonths, MonthOption } from '../../../src/lib/months';
+import { bnDate } from '../../../src/lib/api';
 
 export default function RecordDepositScreen() {
   const router = useRouter();
@@ -36,58 +38,71 @@ export default function RecordDepositScreen() {
 
   const currentMember = members.find((m) => m.id === selectedMemberId) || members[0];
 
-  const [augustSelected, setAugustSelected] = useState(true);
-  const [septemberSelected, setSeptemberSelected] = useState(true);
-  const [octoberSelected, setOctoberSelected] = useState(false);
+  const { somitiInfo } = useSomitiStore();
+  const lateFeePerMonth = Number((somitiInfo as any).lateFee ?? 100) || 0;
 
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'bank'>('bkash');
-  const [trxId, setTrxId] = useState('BK7X29QM4L');
-  const [date, setDate] = useState('2 October 2026');
+  // Months this member can pay for (due months, current month, next month advance)
+  const monthOptions: MonthOption[] = useMemo(() => getDepositMonthOptions(currentMember), [currentMember]);
+  const [selectedMonths, setSelectedMonths] = useState<number[]>(() => defaultSelectedMonths(getDepositMonthOptions(currentMember)));
+
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'bank'>('cash');
+  const [trxId, setTrxId] = useState('');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const date = l(
+    new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+    bnDate(todayStr)
+  );
 
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [sendSMS, setSendSMS] = useState(false);
   const [sendPush, setSendPush] = useState(true);
 
-  // Recalculate amount dynamically based on selected months
-  const monthsCount = (augustSelected ? 1 : 0) + (septemberSelected ? 1 : 0) + (octoberSelected ? 1 : 0);
-  const lateFee = augustSelected ? 100 : 0;
-  const rate = currentMember?.monthlyAmount || 2000;
+  const rate = currentMember?.monthlyAmount || 0;
+  const partialCredit = Number((currentMember as any)?.partialCredit || 0);
+  const calc = (sel: number[], r: number) => {
+    const chosen = monthOptions.filter((o) => sel.includes(o.index));
+    const fee = chosen.filter((o) => o.overdue).length * lateFeePerMonth;
+    return { count: chosen.length, fee, total: Math.max(0, chosen.length * r + fee - partialCredit) };
+  };
+  const { count: monthsCount, fee: lateFee } = calc(selectedMonths, rate);
   const baseAmount = monthsCount * rate;
-  const defaultTotal = baseAmount + lateFee;
+  const defaultTotal = calc(selectedMonths, rate).total;
 
   // Fully editable amount state (defaults to calculated total, but user can edit e.g. 1500 or 5000)
   const [customAmount, setCustomAmount] = useState<string>(String(defaultTotal));
 
-  const toggleAugust = () => {
-    const nextAug = !augustSelected;
-    setAugustSelected(nextAug);
-    const count = (nextAug ? 1 : 0) + (septemberSelected ? 1 : 0) + (octoberSelected ? 1 : 0);
-    const fee = nextAug ? 100 : 0;
-    setCustomAmount(String(count * rate + fee));
+  const toggleMonth = (idx: number) => {
+    const next = selectedMonths.includes(idx) ? selectedMonths.filter((i) => i !== idx) : [...selectedMonths, idx].sort((a, b) => a - b);
+    setSelectedMonths(next);
+    setCustomAmount(String(calc(next, rate).total));
   };
 
-  const toggleSeptember = () => {
-    const nextSep = !septemberSelected;
-    setSeptemberSelected(nextSep);
-    const count = (augustSelected ? 1 : 0) + (nextSep ? 1 : 0) + (octoberSelected ? 1 : 0);
-    const fee = augustSelected ? 100 : 0;
-    setCustomAmount(String(count * rate + fee));
-  };
+  // members arrive from the server after mount: pick a default once they do
+  useEffect(() => {
+    if (!members.find((m) => m.id === selectedMemberId) && members.length) {
+      setSelectedMemberId((params.memberId as string) || members.find((m) => m.dueAmount > 0)?.id || members[0].id);
+    }
+  }, [members.length]);
 
-  const toggleOctober = () => {
-    const nextOct = !octoberSelected;
-    setOctoberSelected(nextOct);
-    const count = (augustSelected ? 1 : 0) + (septemberSelected ? 1 : 0) + (nextOct ? 1 : 0);
-    const fee = augustSelected ? 100 : 0;
-    setCustomAmount(String(count * rate + fee));
-  };
+  // reset months + amount whenever the member changes
+  useEffect(() => {
+    if (currentMember) resetForMember(currentMember.id);
+  }, [currentMember?.id]);
 
   const handleSelectMember = (mId: string) => {
     setSelectedMemberId(mId);
     setShowMemberModal(false);
+  };
+
+  const resetForMember = (mId: string) => {
     const m = members.find((x) => x.id === mId);
-    const mRate = m?.monthlyAmount || 2000;
-    setCustomAmount(String(monthsCount * mRate + lateFee));
+    const opts = getDepositMonthOptions(m);
+    const sel = defaultSelectedMonths(opts);
+    setSelectedMonths(sel);
+    const chosen = opts.filter((o) => sel.includes(o.index));
+    const fee = chosen.filter((o) => o.overdue).length * lateFeePerMonth;
+    const credit = Number((m as any)?.partialCredit || 0);
+    setCustomAmount(String(Math.max(0, chosen.length * (m?.monthlyAmount || 0) + fee - credit)));
   };
 
   const handleConfirmDeposit = () => {
@@ -100,23 +115,25 @@ export default function RecordDepositScreen() {
       return;
     }
 
-    const selectedMonths: string[] = [];
-    if (augustSelected) selectedMonths.push('আগস্ট');
-    if (septemberSelected) selectedMonths.push('সেপ্টেম্বর');
-    if (octoberSelected) selectedMonths.push('অক্টোবর');
-    if (selectedMonths.length === 0) {
-      selectedMonths.push('চলতি জমা');
+    if (!currentMember) {
+      Alert.alert(l('No member', 'সদস্য নেই'), l('Please add a member first.', 'আগে একজন সদস্য যোগ করুন।'));
+      return;
     }
+    if (paymentMethod !== 'cash' && !trxId.trim()) {
+      Alert.alert(l('Transaction ID needed', 'ট্রানজ্যাকশন আইডি দিন'), l('Enter the TrxID for this payment.', 'এই পেমেন্টের TrxID লিখুন।'));
+      return;
+    }
+    const monthNames = monthOptions.filter((o) => selectedMonths.includes(o.index)).map((o) => o.bn);
 
     const newTxn = recordDeposit({
       memberId: currentMember.id,
-      months: selectedMonths,
-      baseAmount: Math.max(0, cleanAmount - lateFee),
-      lateFee,
+      months: monthNames,
+      baseAmount: Math.max(0, cleanAmount - Math.min(lateFee, cleanAmount)),
+      lateFee: Math.min(lateFee, cleanAmount),
       totalAmount: cleanAmount,
       paymentMethod,
       trxId: paymentMethod !== 'cash' ? trxId : undefined,
-      note: `${selectedMonths.join(', ')} কিস্তি`,
+      note: monthNames.length ? `${monthNames.join(', ')} কিস্তি` : 'অতিরিক্ত / সাধারণ জমা',
       sendWhatsApp,
       sendSMS,
     });
@@ -167,50 +184,35 @@ export default function RecordDepositScreen() {
         {/* 1. Month Selection */}
         <Text style={styles.sectionTitle}>{l('Which month deposit?', 'কোন মাসের জমা?')}</Text>
         <View style={styles.monthPillsRow}>
-          <TouchableOpacity
-            style={[styles.monthPill, augustSelected && styles.monthPillActive]}
-            onPress={toggleAugust}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={augustSelected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={16}
-              color={augustSelected ? '#0F766E' : '#94A3B8'}
-            />
-            <Text style={[styles.monthPillText, augustSelected && styles.monthPillTextActive]}>
-              {l('August Due', 'আগস্ট বকেয়া')}
+          {monthOptions.length === 0 && (
+            <Text style={styles.amountHintText}>
+              {l('No dues. Amount will be saved as general deposit.', 'কোনো বকেয়া নেই। টাকা সাধারণ জমা হিসেবে যোগ হবে।')}
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.monthPill, septemberSelected && styles.monthPillActive]}
-            onPress={toggleSeptember}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={septemberSelected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={16}
-              color={septemberSelected ? '#0F766E' : '#94A3B8'}
-            />
-            <Text style={[styles.monthPillText, septemberSelected && styles.monthPillTextActive]}>
-              {l('September', 'সেপ্টেম্বর')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.monthPill, octoberSelected && styles.monthPillActive]}
-            onPress={toggleOctober}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={octoberSelected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={16}
-              color={octoberSelected ? '#0F766E' : '#94A3B8'}
-            />
-            <Text style={[styles.monthPillText, octoberSelected && styles.monthPillTextActive]}>
-              {l('October Advance', 'অক্টোবর অগ্রিম')}
-            </Text>
-          </TouchableOpacity>
+          )}
+          {monthOptions.map((o) => {
+            const active = selectedMonths.includes(o.index);
+            const label =
+              o.kind === 'due'
+                ? l(`${o.en} Due`, `${o.bn} বকেয়া`)
+                : o.kind === 'advance'
+                ? l(`${o.en} Advance`, `${o.bn} অগ্রিম`)
+                : l(o.en, o.bn);
+            return (
+              <TouchableOpacity
+                key={o.index}
+                style={[styles.monthPill, active && styles.monthPillActive]}
+                onPress={() => toggleMonth(o.index)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={active ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={active ? '#0F766E' : '#94A3B8'}
+                />
+                <Text style={[styles.monthPillText, active && styles.monthPillTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* 2. Amount Breakdown & Editable Amount Card */}
@@ -247,7 +249,7 @@ export default function RecordDepositScreen() {
           {lateFee > 0 && (
             <View style={styles.amountRow}>
               <View style={styles.lateFeeLabelRow}>
-                <Text style={styles.amountLabel}>{l('Late fee (August)', 'বিলম্ব ফি (আগস্ট)')}</Text>
+                <Text style={styles.amountLabel}>{l('Late fee', 'বিলম্ব ফি')}</Text>
                 <View style={styles.lateFeeBadge}>
                   <Text style={styles.lateFeeBadgeText}>+{formatMoney(lateFee)}</Text>
                 </View>
@@ -256,6 +258,12 @@ export default function RecordDepositScreen() {
             </View>
           )}
         </View>
+
+        {partialCredit > 0 && (
+          <Text style={[styles.amountHintText, { marginTop: -8, marginBottom: 12 }]}>
+            {l(`Previous partial payment ${formatMoney(partialCredit)} adjusted`, `আগের আংশিক জমা ${formatMoney(partialCredit)} সমন্বয় করা হয়েছে`)}
+          </Text>
+        )}
 
         {/* 3. Payment Method */}
         <Text style={styles.sectionTitle}>{l('Payment Method', 'পরিশোধের মাধ্যম')}</Text>
@@ -329,7 +337,7 @@ export default function RecordDepositScreen() {
               style={styles.textInput}
               value={trxId}
               onChangeText={setTrxId}
-              placeholder="e.g. BK7X29QM4L"
+              placeholder={l("e.g. BK7X29QM4L", "যেমন: BK7X29QM4L")}
               placeholderTextColor="#94A3B8"
             />
           </View>
@@ -337,13 +345,7 @@ export default function RecordDepositScreen() {
 
         <View style={styles.inputCard}>
           <Text style={styles.inputCardLabel}>{l('Deposit Date', 'জমার তারিখ')}</Text>
-          <TextInput
-            style={styles.textInput}
-            value={date}
-            onChangeText={setDate}
-            placeholder={l('2 October 2026', '২ অক্টোবর ২০২৬')}
-            placeholderTextColor="#94A3B8"
-          />
+          <Text style={styles.textInput}>{date}</Text>
         </View>
 
         {/* 4. Notification Channels */}
