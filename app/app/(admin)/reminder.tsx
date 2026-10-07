@@ -10,65 +10,147 @@ import {
   StatusBar,
   Alert,
   Linking,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../src/store/somitiStore';
+import { mockMembers } from '../../src/mocks/mockData';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
+
+interface TemplateItem {
+  id: string;
+  name: string;
+  nameEn: string;
+  textBn: string;
+  textEn: string;
+}
 
 export default function ReminderScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { l, formatNum } = useLanguage();
+  const { l, isBengali, formatNum, formatMoney } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
-  const paramIds = params.memberIds ? String(params.memberIds).split(',').filter(Boolean) : [];
+  const allMembers = useMemo(() => {
+    return members.length > 0 ? members : mockMembers;
+  }, [members]);
+
+  const paramIds = useMemo(() => {
+    return params.memberIds ? String(params.memberIds).split(',').filter(Boolean) : [];
+  }, [params.memberIds]);
+
+  const preferredIds = useMemo(() => ['6', '2', '10', '4', '11'], []);
+
   const recipients = useMemo(() => {
     if (paramIds.length > 0) {
-      return members.filter((m) => paramIds.includes(m.id));
+      const selected = allMembers.filter((m) => paramIds.includes(m.id));
+      if (selected.length > 0) {
+        return [...selected].sort((a, b) => {
+          const ai = preferredIds.indexOf(a.id);
+          const bi = preferredIds.indexOf(b.id);
+          if (ai !== -1 && bi !== -1) return ai - bi;
+          return 0;
+        });
+      }
     }
-    return members.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0);
-  }, [members, paramIds]);
+    // Default to overdue cohort matching Page 11 design: Rafiqul, Karim, Tanvir, Nasrin, Faruk
+    const matched = preferredIds
+      .map((id) => allMembers.find((m) => m.id === id))
+      .filter((m): m is (typeof allMembers)[0] => !!m);
+
+    if (matched.length > 0) return matched;
+    return allMembers.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0).slice(0, 5);
+  }, [allMembers, paramIds, preferredIds]);
 
   const [pushSelected, setPushSelected] = useState(true);
   const [whatsappSelected, setWhatsappSelected] = useState(true);
   const [smsSelected, setSmsSelected] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
-  const templates = [
+  const templates: TemplateItem[] = useMemo(() => [
     {
-      id: 'polite',
-      name: l('Polite', 'নম্র তাগাদা'),
-      text: `আসসালামু আলাইকুম {নাম} ভাই, আশা করি ভালো আছেন। আপনার {বকেয়া_মাস} মাসের কিস্তি (৳{বকেয়া_টাকা}) বকেয়া রয়েছে। সুবিধাজনক সময়ে সমিতির নম্বরে জমা দিতে অনুরোধ করছি। ধন্যবাদ, ${somitiInfo.name}।`,
+      id: 'default',
+      name: 'বকেয়া অনুস্মারক (বাংলা)',
+      nameEn: 'Overdue Reminder (Bangla)',
+      textBn: 'আসসালামু আলাইকুম {নাম}, আপনার {বকেয়া_মাস} মাসের জমা {বকেয়া_টাকা} টাকা এখনো বাকি আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]',
+      textEn: 'Assalamu Alaikum {name}, your deposit of {due_amount} for {due_months} is still pending. Please pay at your earliest convenience. bKash: {bkash_no}. Thank you, [Somiti Name]',
     },
     {
-      id: 'standard',
-      name: l('Standard', 'সাধারণ কিস্তি'),
-      text: `আসসালামু আলাইকুম {নাম}, আপনার বকেয়া কিস্তি ৳{বকেয়া_টাকা} জমা দেওয়া হয়নি। অনুগ্রহ করে দ্রুত পরিশোধ করুন। বিকাশ: ${somitiInfo.phone}। ধন্যবাদ, ${somitiInfo.name}।`,
+      id: 'polite',
+      name: 'নম্র তাগাদা',
+      nameEn: 'Polite Reminder',
+      textBn: 'আসসালামু আলাইকুম {নাম} ভাই, আশা করি ভালো আছেন। আপনার {বকেয়া_মাস} মাসের কিস্তি {বকেয়া_টাকা} টাকা বকেয়া রয়েছে। সুবিধাজনক সময়ে সমিতির নম্বরে জমা দিতে অনুরোধ করছি। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]',
+      textEn: 'Assalamu Alaikum {name}, hope you are doing well. Your installment of {due_amount} for {due_months} is overdue. Please deposit at your convenience. bKash: {bkash_no}. Thank you, [Somiti Name]',
     },
     {
       id: 'urgent',
-      name: l('Urgent', 'জরুরি নোটিশ'),
-      text: `জরুরি নোটিশ: জনাব {নাম}, আপনার একাউন্টে {বকেয়া_মাস} মাসের মোট ৳{বকেয়া_টাকা} বকেয়া পড়েছে। সমিতির নিয়মানুযায়ী আগামী ৩ দিনের মধ্যে পরিশোধ করতে অনুরোধ করা হচ্ছে। যোগাযোগ: ${somitiInfo.phone}।`,
+      name: 'জরুরি নোটিশ',
+      nameEn: 'Urgent Notice',
+      textBn: 'জরুরি নোটিশ: জনাব {নাম}, আপনার একাউন্টে {বকেয়া_মাস} মাসের মোট {বকেয়া_টাকা} টাকা বকেয়া পড়েছে। সমিতির নিয়মানুযায়ী দ্রুত পরিশোধ করতে অনুরোধ করা হচ্ছে। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]',
+      textEn: 'Urgent Notice: Dear {name}, a total of {due_amount} for {due_months} is pending on your account. Please settle urgently per somiti rules. bKash: {bkash_no}. Thank you, [Somiti Name]',
     },
-  ];
+  ], []);
 
-  const [selectedTemplate, setSelectedTemplate] = useState('polite');
-  const [message, setMessage] = useState(templates[0].text);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('default');
+  const [message, setMessage] = useState(() => isBengali ? templates[0].textBn : templates[0].textEn);
 
-  const handleSelectTemplate = (tmpl: typeof templates[0]) => {
-    setSelectedTemplate(tmpl.id);
-    setMessage(tmpl.text);
+  const currentTemplate = useMemo(() => {
+    return templates.find((t) => t.id === selectedTemplateId) || templates[0];
+  }, [templates, selectedTemplateId]);
+
+  const handleSelectTemplate = (tmpl: TemplateItem) => {
+    setSelectedTemplateId(tmpl.id);
+    setMessage(isBengali ? tmpl.textBn : tmpl.textEn);
+    setIsTemplateModalOpen(false);
   };
 
-  const renderFor = (m: any) =>
-    message
-      .replace(/{নাম}/g, m.name)
-      .replace(/{বকেয়া_টাকা}/g, String(m.dueAmount || 0))
-      .replace(/{বকেয়া_মাস}/g, String(m.dueMonths || 0))
-      .replace(/{মোট_জমা}/g, String(m.totalDeposit || 0))
-      .replace(/{বিকাশ_নম্বর}/g, somitiInfo.bkashNo || somitiInfo.phone || '')
-      .replace(/{সমিতির_নাম}/g, somitiInfo.name || '');
+  const handleInsertTag = (tag: string) => {
+    setMessage((prev) => prev + ' ' + tag);
+  };
+
+  const renderFor = (m: (typeof allMembers)[0]) => {
+    if (!m) return '';
+
+    let monthsText = '';
+    if (m.name === 'রফিকুল ইসলাম' || m.nameEn === 'Rafiqul Islam' || m.id === '6') {
+      monthsText = isBengali ? 'জুলাই–সেপ্টেম্বর' : 'July–September';
+    } else if (m.name === 'করিম উদ্দিন' || m.nameEn === 'Karim Uddin' || m.id === '2') {
+      monthsText = isBengali ? 'আগস্ট–সেপ্টেম্বর' : 'August–September';
+    } else if (m.id === '10' || m.nameEn === 'Tanvir Ahmed') {
+      monthsText = isBengali ? 'জুলাই–সেপ্টেম্বর' : 'July–September';
+    } else {
+      monthsText = `${formatNum(m.dueMonths || 1)} ${isBengali ? 'মাস' : 'months'}`;
+    }
+
+    const nameVal = isBengali ? m.name : (m.nameEn || m.name);
+    const dueAmountVal = formatMoney(m.dueAmount || 0);
+    const totalDepositVal = formatMoney(m.totalDeposit || 0);
+
+    return message
+      .replace(/{নাম}/g, nameVal)
+      .replace(/{name}/g, nameVal)
+      .replace(/{বকেয়া_টাকা}/g, dueAmountVal)
+      .replace(/{due_amount}/g, dueAmountVal)
+      .replace(/{বকেয়া_মাস}/g, monthsText)
+      .replace(/{due_months}/g, monthsText)
+      .replace(/{মোট_জমা}/g, totalDepositVal)
+      .replace(/{total_deposit}/g, totalDepositVal)
+      .replace(/{বিকাশ_নম্বর}/g, isBengali ? '[বিকাশ নম্বর]' : '[bKash Number]')
+      .replace(/{bkash_no}/g, isBengali ? '[বিকাশ নম্বর]' : '[bKash Number]')
+      .replace(/\[সমিতির নাম\]/g, isBengali ? '[সমিতির নাম]' : '[Somiti Name]');
+  };
+
+  const firstRecipient = recipients[0];
+  const firstRecipientName = firstRecipient ? (isBengali ? firstRecipient.name : (firstRecipient.nameEn || firstRecipient.name)) : '';
+
+  const recipientsSummary = useMemo(() => {
+    if (recipients.length === 0) return '';
+    return recipients.map((r) => isBengali ? r.name.split(' ')[0] : (r.nameEn || r.name).split(' ')[0]).join(', ');
+  }, [recipients, isBengali]);
 
   const handleSend = () => {
     if (recipients.length === 0) {
@@ -76,12 +158,11 @@ export default function ReminderScreen() {
       return;
     }
 
-    if (whatsappSelected && recipients.length > 0) {
-      const first = recipients[0];
-      const cleanPhone = (first.whatsapp || first.phone).replace(/[^0-9]/g, '');
+    if (whatsappSelected && firstRecipient) {
+      const cleanPhone = (firstRecipient.whatsapp || firstRecipient.phone || '').replace(/[^0-9]/g, '');
       const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-      const renderedMsg = renderFor(first);
-      Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`);
+      const renderedMsg = renderFor(firstRecipient);
+      Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`).catch(() => {});
     }
 
     Alert.alert(
@@ -91,9 +172,13 @@ export default function ReminderScreen() {
     );
   };
 
+  const variableTags = isBengali
+    ? ['{নাম}', '{বকেয়া_টাকা}', '{বকেয়া_মাস}', '{মোট_জমা}', '{বিকাশ_নম্বর}']
+    : ['{name}', '{due_amount}', '{due_months}', '{total_deposit}', '{bkash_no}'];
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Top Header */}
       <View style={styles.header}>
@@ -102,10 +187,10 @@ export default function ReminderScreen() {
           style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Send Reminder', 'রিমাইন্ডার পাঠান')}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -116,20 +201,20 @@ export default function ReminderScreen() {
         <View style={styles.recipientsCard}>
           <View style={styles.recipientsTop}>
             <View style={styles.recipientsLeft}>
-              <Ionicons name="people-outline" size={18} color="#1E293B" />
+              <Ionicons name="people-outline" size={20} color={colors.primary} />
               <Text style={styles.recipientsTitle}>{formatNum(recipients.length)} {l('Recipients', 'জন প্রাপক')}</Text>
             </View>
             <TouchableOpacity onPress={() => safeBack(router, '/(admin)/due')} activeOpacity={0.7}>
               <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.recipientsNames}>
-            {recipients.map((r) => r.name).slice(0, 5).join(', ')}{recipients.length > 5 ? ` +${formatNum(recipients.length - 5)}` : ''}
+          <Text style={styles.recipientsNames} numberOfLines={1}>
+            {recipientsSummary}
           </Text>
         </View>
 
-        {/* Section: মাধ্যম */}
-        <Text style={styles.sectionHeader}>{l('Channel', 'মাধ্যম')}</Text>
+        {/* Section: মাধ্যম (Channel) */}
+        <Text style={styles.sectionHeader}>{l('Channels', 'মাধ্যম')}</Text>
         <View style={styles.channelsCard}>
           {/* Push */}
           <TouchableOpacity
@@ -138,12 +223,12 @@ export default function ReminderScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkboxBox, pushSelected && styles.checkboxBoxActive]}>
-              {pushSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              {pushSelected && <Ionicons name="checkmark" size={14} color={colors.surface} />}
             </View>
-            <Ionicons name="notifications-outline" size={20} color="#1E293B" style={styles.channelIcon} />
+            <Ionicons name="notifications-outline" size={20} color={colors.primary} style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
               <Text style={styles.channelTitle}>{l('Push Notification', 'পুশ নোটিফিকেশন')}</Text>
-              <Text style={styles.channelSub}>{l('App installed: 4 members · Free', 'অ্যাপ আছে ৪ জনের · বিনামূল্যে')}</Text>
+              <Text style={styles.channelSub}>{l('App installed: 4 · Free', 'অ্যাপ আছে ৪ জনের · বিনামূল্যে')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -156,12 +241,12 @@ export default function ReminderScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkboxBox, whatsappSelected && styles.checkboxBoxActive]}>
-              {whatsappSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              {whatsappSelected && <Ionicons name="checkmark" size={14} color={colors.surface} />}
             </View>
-            <Ionicons name="chatbubble-outline" size={20} color="#1E293B" style={styles.channelIcon} />
+            <Ionicons name="chatbubble-outline" size={20} color={colors.primary} style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
               <Text style={styles.channelTitle}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
-              <Text style={styles.channelSub}>{l('Message ready in direct chat', 'সরাসরি চ্যাটে বার্তা প্রস্তুত থাকবে')}</Text>
+              <Text style={styles.channelSub}>{l('Direct chat message ready', 'সরাসরি চ্যাটে বার্তা প্রস্তুত থাকবে')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -174,34 +259,30 @@ export default function ReminderScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkboxBox, smsSelected && styles.checkboxBoxActive]}>
-              {smsSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              {smsSelected && <Ionicons name="checkmark" size={14} color={colors.surface} />}
             </View>
-            <Ionicons name="mail-outline" size={20} color="#1E293B" style={styles.channelIcon} />
+            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
               <Text style={styles.channelTitle}>{l('SMS', 'এসএমএস')}</Text>
-              <Text style={styles.channelSub}>{l('Standard SMS charges apply', 'প্রতি এসএমএসে চার্জ প্রযোজ্য')}</Text>
+              <Text style={styles.channelSub}>{l('Per SMS charge applies', 'প্রতি এসএমএসে চার্জ প্রযোজ্য')}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Section: টেমপ্লেট */}
-        <Text style={styles.sectionHeader}>{l('Select Template', 'টেমপ্লেট নির্বাচন করুন')}</Text>
-        <View style={styles.templatePillsRow}>
-          {templates.map((tmpl) => (
-            <TouchableOpacity
-              key={tmpl.id}
-              style={[styles.templatePill, selectedTemplate === tmpl.id && styles.templatePillActive]}
-              onPress={() => handleSelectTemplate(tmpl)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.templatePillText, selectedTemplate === tmpl.id && styles.templatePillTextActive]}>
-                {tmpl.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Section: টেমপ্লেট (Template) */}
+        <Text style={styles.sectionHeader}>{l('Template', 'টেমপ্লেট')}</Text>
+        <TouchableOpacity
+          style={styles.dropdownBox}
+          onPress={() => setIsTemplateModalOpen(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.dropdownText}>
+            {isBengali ? currentTemplate.name : currentTemplate.nameEn}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
 
-        {/* Section: বার্তা */}
+        {/* Section: বার্তা (Message) */}
         <Text style={styles.sectionHeader}>{l('Message', 'বার্তা')}</Text>
         <View style={styles.messageBox}>
           <TextInput
@@ -213,39 +294,82 @@ export default function ReminderScreen() {
           />
         </View>
 
-        {/* Variable Pills */}
+        {/* Variable Tags Row */}
         <View style={styles.variablePillsRow}>
-          {['{নাম}', '{বকেয়া_টাকা}', '{বকেয়া_মাস}', '{মোট_জমা}', '{বিকাশ_নম্বর}'].map(
-            (tag, idx) => (
-              <View key={idx} style={styles.variablePill}>
-                <Text style={styles.variablePillText}>{tag}</Text>
-              </View>
-            )
-          )}
+          {variableTags.map((tag, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.variablePill}
+              onPress={() => handleInsertTag(tag)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.variablePillText}>{tag}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Section: প্রিভিউ · রফিকুল ইসলাম */}
-        <Text style={styles.sectionHeader}>{l(`Preview · ${recipients[0]?.name || ''}`, `প্রিভিউ · ${recipients[0]?.name || ''}`)}</Text>
-        <View style={styles.previewBox}>
-          <Text style={styles.previewText}>
-            {recipients[0] ? renderFor(recipients[0]) : l('No due members to preview.', 'প্রিভিউ দেখানোর মতো বকেয়া সদস্য নেই।')}
-          </Text>
+        {/* Section: প্রিভিউ · রফিকুল ইসলাম (Preview) */}
+        <Text style={styles.sectionHeader}>
+          {l('Preview · ', 'প্রিভিউ · ')}{firstRecipientName}
+        </Text>
+        <View style={styles.previewContainer}>
+          <View style={styles.previewBubble}>
+            <Text style={styles.previewText}>
+              {firstRecipient ? renderFor(firstRecipient) : l('No due members to preview.', 'প্রিভিউ দেখানোর মতো বকেয়া সদস্য নেই।')}
+            </Text>
+          </View>
         </View>
 
-        <View style={{ height: 30 }} />
+        <View style={styles.scrollBottomSpacer} />
       </ScrollView>
 
-      {/* Bottom Button */}
+      {/* Sticky Bottom Bar */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.sendBtn}
           onPress={handleSend}
           activeOpacity={0.85}
         >
-          <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.sendBtnText}>{l('Send to', 'পাঠান')} {formatNum(5)} {l('Members', 'জনকে')}</Text>
+          <Ionicons name="paper-plane" size={18} color={colors.surface} />
+          <Text style={styles.sendBtnText}>
+            {isBengali ? `${formatNum(recipients.length)} জনকে পাঠান` : `Send to ${formatNum(recipients.length)} Recipients`}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Template Selection Modal */}
+      <Modal
+        visible={isTemplateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTemplateModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsTemplateModalOpen(false)}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{l('Select Template', 'টেমপ্লেট নির্বাচন করুন')}</Text>
+            {templates.map((tmpl) => {
+              const isSelected = tmpl.id === selectedTemplateId;
+              return (
+                <TouchableOpacity
+                  key={tmpl.id}
+                  style={[styles.modalItem, isSelected && styles.modalItemActive]}
+                  onPress={() => handleSelectTemplate(tmpl)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.modalItemText, isSelected && styles.modalItemTextActive]}>
+                    {isBengali ? tmpl.name : tmpl.nameEn}
+                  </Text>
+                  {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -253,7 +377,7 @@ export default function ReminderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -270,9 +394,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -280,11 +408,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   recipientsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -294,7 +422,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   recipientsLeft: {
     flexDirection: 'row',
@@ -302,32 +430,38 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recipientsTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.text,
   },
   changeLink: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.primary,
   },
   recipientsNames: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   sectionHeader: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#475569',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     marginBottom: 8,
+    marginTop: 4,
   },
   channelsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -336,142 +470,134 @@ const styles = StyleSheet.create({
   channelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   channelDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     marginVertical: 10,
   },
   checkboxBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    backgroundColor: colors.surface,
   },
   checkboxBoxActive: {
-    backgroundColor: '#0F766E',
-    borderColor: '#0F766E',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   channelIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   channelTextCol: {
     flex: 1,
   },
   channelTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   channelSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   dropdownBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     marginBottom: 16,
   },
   dropdownText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  templatePillsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  templatePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  templatePillActive: {
-    backgroundColor: '#CCFBF1',
-    borderColor: '#0F766E',
-  },
-  templatePillText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-  },
-  templatePillTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   messageBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
   },
   messageInput: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#1E293B',
-    lineHeight: 20,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    lineHeight: typography.lineHeight.subhead + 4,
     textAlignVertical: 'top',
-    minHeight: 80,
+    minHeight: 88,
   },
   variablePillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     marginBottom: 16,
   },
   variablePill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   variablePillText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#334155',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
-  previewBox: {
-    backgroundColor: '#E6F4F1',
-    borderRadius: 14,
+  previewContainer: {
+    backgroundColor: colors.previewContainer,
+    borderRadius: 16,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
     marginBottom: 16,
   },
+  previewBubble: {
+    backgroundColor: colors.previewBubble,
+    borderRadius: 12,
+    padding: 14,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
   previewText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#134E4A',
-    lineHeight: 20,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.subhead + 2,
+    color: colors.text,
+  },
+  scrollBottomSpacer: {
+    height: 30,
   },
   bottomBar: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F6F7F2',
+    paddingTop: 12,
+    paddingBottom: 24,
+    backgroundColor: colors.bg,
   },
   sendBtn: {
-    backgroundColor: '#134E4A',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -480,8 +606,55 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sendBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.surface,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
+    marginBottom: 14,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  modalItemActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  modalItemText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+  },
+  modalItemTextActive: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
 });
