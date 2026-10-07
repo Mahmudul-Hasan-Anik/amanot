@@ -13,25 +13,34 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { mockProjects } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
 import { toEnglishDigits } from '../../../src/lib/bengali';
+import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
-  const { l, formatMoney, formatNum } = useLanguage();
+  const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { projects, recordProjectReturn } = useSomitiStore();
 
-  const [showReturnModal, setShowReturnModal] = useState(false);
+  const allProjects = projects.length > 0 ? projects : mockProjects;
+  const project = allProjects.find(
+    (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
+  ) || allProjects[0];
+
+  const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [returnAmount, setReturnAmount] = useState('');
   const [returnSource, setReturnSource] = useState<'bank' | 'cash'>('bank');
   const [returnNote, setReturnNote] = useState('');
 
-  const project = projects.find(
-    (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
-  ) || projects[0];
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseSource, setExpenseSource] = useState<'bank' | 'cash'>('bank');
+  const [expenseNote, setExpenseNote] = useState('');
 
   const isProfit = project ? project.netProfit >= 0 : true;
 
@@ -54,22 +63,102 @@ export default function ProjectDetailScreen() {
       note: returnNote.trim() || 'প্রজেক্ট কিস্তি / মুনাফা আদায়',
     });
 
-    setShowReturnModal(false);
+    setShowIncomeModal(false);
     setReturnAmount('');
     setReturnNote('');
 
     Alert.alert(
       l('Success', 'সফল'),
-      l(
-        `Received ${formatMoney(cleanAmount)} return from ${project.name}. Capital recovery updated.`,
-        `${project.name} থেকে ${formatMoney(cleanAmount)} টাকা আয় জমা হয়েছে। মূলধন ফেরত আপডেট করা হয়েছে।`
-      )
+      `${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`
     );
   };
 
+  const handleRecordExpense = () => {
+    const cleanAmount = Number(toEnglishDigits(expenseAmount.replace(/[^\d]/g, ''))) || 0;
+    if (cleanAmount <= 0) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক পরিমাণ লিখুন।'));
+      return;
+    }
+    if (!project) return;
+
+    setShowExpenseModal(false);
+    setExpenseAmount('');
+    setExpenseNote('');
+
+    Alert.alert(
+      l('Success', 'সফল'),
+      `${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`
+    );
+  };
+
+  // Sample transactions matching Page 13
+  const sampleTransactions = [
+    {
+      id: 't1',
+      titleBn: 'বিনিয়োগ প্রদান',
+      titleEn: 'Investment Disbursed',
+      metaBn: '১০ মার্চ ২০২৫ · ব্যাংক',
+      metaEn: '10 March 2025 · Bank',
+      amount: -500000,
+      isIncome: false,
+    },
+    {
+      id: 't2',
+      titleBn: 'বিনিয়োগ প্রদান (২য় কিস্তি)',
+      titleEn: 'Investment Disbursed (2nd Installment)',
+      metaBn: '১৫ জুন ২০২৫ · ব্যাংক',
+      metaEn: '15 June 2025 · Bank',
+      amount: -1000000,
+      isIncome: false,
+    },
+    {
+      id: 't3',
+      titleBn: 'আয়: প্লট বিক্রয় (আংশিক)',
+      titleEn: 'Income: Plot Sale (Partial)',
+      metaBn: '২০ জানুয়ারি ২০২৬',
+      metaEn: '20 January 2026',
+      amount: 240000,
+      isIncome: true,
+    },
+    {
+      id: 't4',
+      titleBn: 'আয়: প্লট বিক্রয়',
+      titleEn: 'Income: Plot Sale',
+      metaBn: '১২ আগস্ট ২০২৬',
+      metaEn: '12 August 2026',
+      amount: 180000,
+      isIncome: true,
+    },
+  ];
+
+  const projectTitle = isBengali
+    ? project.name
+    : project.id === 'p1'
+    ? 'Site A: Land Project'
+    : project.id === 'p2'
+    ? 'Shop Rental Project'
+    : project.id === 'p3'
+    ? 'Poultry Farm'
+    : project.id === 'p4'
+    ? 'Site B: Construction'
+    : project.name;
+
+  const typeLabel =
+    project.type === 'জমি'
+      ? l('Land', 'জমি')
+      : project.type === 'ভাড়া'
+      ? l('Rent', 'ভাড়া')
+      : project.type === 'কৃষি'
+      ? l('Agriculture', 'কৃষি')
+      : project.type === 'নির্মাণ'
+      ? l('Construction', 'নির্মাণ')
+      : project.type;
+
+  const locLabel = project.location === '[স্থান]' ? l('[Location]', '[স্থান]') : project.location;
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
@@ -78,23 +167,23 @@ export default function ProjectDetailScreen() {
           style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{l('Project Details', 'প্রজেক্টের বিবরণ')}</Text>
+        <Text style={styles.headerTitle}>{l('Projects', 'প্রজেক্ট')}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit project details', 'প্রজেক্টের বিবরণ সম্পাদনা করুন'))}
             activeOpacity={0.7}
           >
-            <Ionicons name="pencil-outline" size={20} color="#1E293B" />
+            <Ionicons name="pencil-outline" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Report', 'রিপোর্ট'), l('Full project report will be downloaded', 'প্রজেক্টের পূর্ণাঙ্গ রিপোর্ট ডাউনলোড করা হবে'))}
+            onPress={() => Alert.alert(l('Menu', 'মেনু'), l('More options', 'আরও অপশন'))}
             activeOpacity={0.7}
           >
-            <Ionicons name="download-outline" size={20} color="#1E293B" />
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -106,30 +195,36 @@ export default function ProjectDetailScreen() {
         {/* Category & Status Tags */}
         <View style={styles.tagsRow}>
           <View style={styles.tagPill}>
-            <Text style={styles.tagPillText}>{project.type}</Text>
+            <Text style={styles.tagPillText}>{typeLabel}</Text>
           </View>
           <View
             style={[
               styles.tagPill,
-              project.status === 'delayed' ? { backgroundColor: '#FEE2E2' } : { backgroundColor: '#CCFBF1' },
+              project.status === 'delayed' ? styles.tagPillDelayed : styles.tagPillOngoing,
             ]}
           >
             <Text
               style={[
                 styles.tagPillText,
-                project.status === 'delayed' ? { color: '#DC2626' } : { color: '#0F766E' },
+                project.status === 'delayed' ? styles.tagPillTextDelayed : styles.tagPillTextOngoing,
               ]}
             >
-              {project.status === 'delayed' ? l('Delayed', 'বিলম্বিত') : project.status === 'completed' ? l('Completed', 'সমাপ্ত') : l('Running', 'চলমান')}
+              {project.status === 'delayed'
+                ? l('Delayed', 'বিলম্বিত')
+                : project.status === 'completed'
+                ? l('Completed', 'সমাপ্ত')
+                : l('Ongoing', 'চলমান')}
             </Text>
           </View>
         </View>
 
         {/* Project Title and Meta */}
-        <Text style={styles.projectMainTitle}>{project.name}</Text>
-        <Text style={styles.projectMetaLine}>{l('Manager:', 'দায়িত্বে:')} {project.manager} · {project.location}</Text>
+        <Text style={styles.projectMainTitle}>{projectTitle}</Text>
         <Text style={styles.projectMetaLine}>
-          {l('Started', 'শুরু')} {project.startDate} · {l('Est. Completion', 'সম্ভাব্য শেষ')} {project.expectedEnd}
+          {l('Manager:', 'দায়িত্বে:')} {project.manager} · {locLabel}
+        </Text>
+        <Text style={styles.projectMetaLine}>
+          {l('Start', 'শুরু')} {project.startDate} · {l('Est. End', 'সম্ভাব্য শেষ')} {project.expectedEnd}
         </Text>
 
         {/* 2x2 Metric Cards Grid */}
@@ -148,13 +243,23 @@ export default function ProjectDetailScreen() {
           <View style={styles.gridRow}>
             <View style={styles.metricCard}>
               <Text style={styles.metricCardLabel}>{l('Net Profit', 'নিট লাভ')}</Text>
-              <Text style={[styles.metricCardVal, { color: isProfit ? '#059669' : '#DC2626' }]}>
+              <Text
+                style={[
+                  styles.metricCardVal,
+                  isProfit ? styles.profitColor : styles.lossColor,
+                ]}
+              >
                 {isProfit ? `+${formatMoney(project.netProfit)}` : `−${formatMoney(Math.abs(project.netProfit))}`}
               </Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricCardLabel}>{l('ROI', 'ROI')}</Text>
-              <Text style={[styles.metricCardVal, { color: isProfit ? '#1E293B' : '#DC2626' }]}>
+              <Text
+                style={[
+                  styles.metricCardVal,
+                  isProfit ? styles.profitColor : styles.lossColor,
+                ]}
+              >
                 {formatNum(project.roiPct)}%
               </Text>
             </View>
@@ -179,108 +284,121 @@ export default function ProjectDetailScreen() {
 
         {/* Transactions Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>{l('Transaction History', 'লেনদেন বিবরণী')}</Text>
+          <Text style={styles.sectionTitle}>{l('Transactions', 'লেনদেন')}</Text>
           <TouchableOpacity
             onPress={() => router.push('/(admin)/audit')}
             activeOpacity={0.7}
           >
-            <Text style={styles.seeAllLink}>{l('View All', 'সব দেখুন')}</Text>
+            <Text style={styles.seeAllLink}>{l('See All', 'সব দেখুন')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.transactionsCard}>
-          {/* Sample project transactions */}
-          <View style={styles.txnRow}>
-            <View style={[styles.txnIconCircle, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="arrow-up" size={16} color="#DC2626" />
-            </View>
-            <View style={styles.txnDetails}>
-              <Text style={styles.txnTitle}>{l('Investment Disbursed', 'বিনিয়োগ প্রদান')}</Text>
-              <Text style={styles.txnMeta}>{project.startDate} · {l('Bank', 'ব্যাংক')}</Text>
-            </View>
-            <Text style={[styles.txnAmount, { color: '#DC2626' }]}>
-              −{formatMoney(project.investedAmount)}
-            </Text>
-          </View>
-
-          {project.returnedAmount > 0 && (
-            <>
-              <View style={styles.txnDivider} />
+          {sampleTransactions.map((txn, idx) => (
+            <React.Fragment key={txn.id}>
+              {idx > 0 && <View style={styles.txnDivider} />}
               <View style={styles.txnRow}>
-                <View style={[styles.txnIconCircle, { backgroundColor: '#CCFBF1' }]}>
-                  <Ionicons name="arrow-down" size={16} color="#0F766E" />
+                <View
+                  style={[
+                    styles.txnIconCircle,
+                    txn.isIncome ? styles.txnIconIncome : styles.txnIconExpense,
+                  ]}
+                >
+                  <Ionicons
+                    name={txn.isIncome ? 'arrow-down' : 'arrow-up'}
+                    size={16}
+                    color={txn.isIncome ? colors.primary : colors.text}
+                  />
                 </View>
                 <View style={styles.txnDetails}>
-                  <Text style={styles.txnTitle}>{l('Income / Return Installment', 'আয় / কিস্তি ফেরত')}</Text>
-                  <Text style={styles.txnMeta}>{l('Current Year', 'চলতি বছর')} · {l('Bank', 'ব্যাংক')}</Text>
+                  <Text style={styles.txnTitle}>{isBengali ? txn.titleBn : txn.titleEn}</Text>
+                  <Text style={styles.txnMeta}>{isBengali ? txn.metaBn : txn.metaEn}</Text>
                 </View>
-                <Text style={[styles.txnAmount, { color: '#059669' }]}>
-                  +{formatMoney(project.returnedAmount)}
+                <Text
+                  style={[
+                    styles.txnAmount,
+                    txn.isIncome ? styles.profitColor : styles.normalAmountColor,
+                  ]}
+                >
+                  {txn.isIncome ? `+${formatMoney(txn.amount)}` : `−${formatMoney(Math.abs(txn.amount))}`}
                 </Text>
               </View>
-            </>
-          )}
+            </React.Fragment>
+          ))}
         </View>
 
         {/* Documents Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>{l('Documents', 'ডকুমেন্ট')}</Text>
+        <Text style={[styles.sectionTitle, styles.docsHeader]}>{l('Documents', 'ডকুমেন্ট')}</Text>
         <View style={styles.docsRow}>
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen(l('Agreement', 'চুক্তিপত্র'))}
+            onPress={() => handleDocOpen(l('Contract', 'চুক্তিপত্র'))}
             activeOpacity={0.8}
           >
-            <Ionicons name="document-text-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>{l('Agreement', 'চুক্তিপত্র')}</Text>
+            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+            <Text style={styles.docText}>{l('Contract', 'চুক্তিপত্র')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen(l('Audit Report', 'অডিট রিপোর্ট'))}
+            onPress={() => handleDocOpen(l('Site Photos (3)', 'সাইটের ছবি (৩)'))}
             activeOpacity={0.8}
           >
-            <Ionicons name="shield-checkmark-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>{l('Audit Report', 'অডিট রিপোর্ট')}</Text>
+            <Ionicons name="image-outline" size={24} color={colors.primary} />
+            <Text style={styles.docText}>
+              {l('Site Photos (3)', 'সাইটের ছবি (৩)')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.docCard}
-            onPress={() => handleDocOpen(l('Bank Voucher', 'ব্যাংক রশিদ'))}
+            onPress={() => handleDocOpen(l('Receipts (6)', 'রসিদ (৬)'))}
             activeOpacity={0.8}
           >
-            <Ionicons name="receipt-outline" size={24} color="#0F766E" />
-            <Text style={styles.docText}>{l('Bank Voucher', 'ব্যাংক রশিদ')}</Text>
+            <Ionicons name="receipt-outline" size={24} color={colors.primary} />
+            <Text style={styles.docText}>
+              {l('Receipts (6)', 'রসিদ (৬)')}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.scrollSpacer} />
       </ScrollView>
 
-      {/* Bottom Action Button */}
+      {/* Bottom Fixed Dual Action Buttons */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.returnBtn}
-          onPress={() => setShowReturnModal(true)}
+          style={styles.expenseBtn}
+          onPress={() => setShowExpenseModal(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-up-outline" size={18} color={colors.text} />
+          <Text style={styles.expenseBtnText}>{l('Record Expense', 'খরচ লিখুন')}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.incomeBtn}
+          onPress={() => setShowIncomeModal(true)}
           activeOpacity={0.85}
         >
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.returnBtnText}>{l('Add Project Return / Income', 'প্রজেক্ট থেকে আয় যোগ করুন')}</Text>
+          <Ionicons name="arrow-down-outline" size={18} color={colors.surface} />
+          <Text style={styles.incomeBtnText}>{l('Record Income/Return', 'আয়/ফেরত লিখুন')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Record Return Modal */}
+      {/* Record Return / Income Modal */}
       <AppModal
-        visible={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
-        title={l('Record Project Return', 'প্রজেক্ট আয় / ফেরত লিপিবদ্ধ করুন')}
+        visible={showIncomeModal}
+        onClose={() => setShowIncomeModal(false)}
+        title={l('Record Project Income / Return', 'প্রজেক্ট আয় / ফেরত লিখুন')}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalProjectName}>{project?.name}</Text>
+          <Text style={styles.modalProjectName}>{projectTitle}</Text>
           <Text style={styles.modalProjectSub}>
-            {l('Current Recovery:', 'বর্তমান ফেরত:')} {formatMoney(project?.returnedAmount || 0)} ({formatNum(project?.recoveryPct || 0)}%)
+            {l('Current Return:', 'বর্তমান ফেরত:')} {formatMoney(project?.returnedAmount || 0)} ({formatNum(project?.recoveryPct || 0)}%)
           </Text>
 
-          <Text style={styles.inputTitle}>{l('Return Amount (BDT)', 'প্রাপ্ত আয়ের পরিমাণ (টাকা)')}</Text>
+          <Text style={styles.inputTitle}>{l('Income Amount (৳)', 'প্রাপ্ত আয়ের পরিমাণ (৳)')}</Text>
           <View style={styles.amountInputRow}>
             <Text style={styles.currencySign}>৳</Text>
             <TextInput
@@ -288,7 +406,7 @@ export default function ProjectDetailScreen() {
               value={returnAmount}
               onChangeText={setReturnAmount}
               placeholder="৫০,০০০"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               autoFocus
             />
@@ -299,52 +417,92 @@ export default function ProjectDetailScreen() {
             <TouchableOpacity
               style={[styles.sourceToggleBtn, returnSource === 'bank' && styles.sourceToggleBtnActive]}
               onPress={() => setReturnSource('bank')}
-              activeOpacity={0.8}
             >
-              <Ionicons name="business-outline" size={16} color={returnSource === 'bank' ? '#FFFFFF' : '#64748B'} />
-              <Text style={[styles.sourceToggleText, returnSource === 'bank' && styles.sourceToggleTextActive]}>
-                {l('Bank Account', 'ব্যাংক হিসাব')}
-              </Text>
+              <Text style={styles.sourceToggleText}>{l('Bank Account', 'ব্যাংক হিসাব')}</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.sourceToggleBtn, returnSource === 'cash' && styles.sourceToggleBtnActive]}
               onPress={() => setReturnSource('cash')}
-              activeOpacity={0.8}
             >
-              <Ionicons name="cash-outline" size={16} color={returnSource === 'cash' ? '#FFFFFF' : '#64748B'} />
-              <Text style={[styles.sourceToggleText, returnSource === 'cash' && styles.sourceToggleTextActive]}>
-                {l('Cash In Hand', 'হাতে নগদ')}
-              </Text>
+              <Text style={styles.sourceToggleText}>{l('Cash in Hand', 'হাতে নগদ')}</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.inputTitle}>{l('Note / Voucher Info', 'বিবরণ বা ভাউচার নম্বর (ঐচ্ছিক)')}</Text>
+          <Text style={styles.inputTitle}>{l('Note / Description', 'বিবরণ')}</Text>
           <TextInput
             style={styles.modalNoteInput}
             value={returnNote}
             onChangeText={setReturnNote}
-            placeholder={l('e.g. 3rd installment or land lease profit', 'যেমন: ৩য় কিস্তির আয় বা লিজের মুনাফা')}
-            placeholderTextColor="#94A3B8"
+            placeholder={l('e.g. Plot Sale Installment', 'যেমন: প্লট বিক্রয়ের কিস্তি')}
+            placeholderTextColor={colors.textSecondary}
           />
 
-          <View style={styles.modalActionsRow}>
-            <TouchableOpacity
-              style={styles.modalCancelBtn}
-              onPress={() => setShowReturnModal(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalSubmitBtn}
+            onPress={handleRecordReturn}
+          >
+            <Text style={styles.modalSubmitBtnText}>{l('Save Income', 'আয় সংরক্ষণ করুন')}</Text>
+          </TouchableOpacity>
+        </View>
+      </AppModal>
 
+      {/* Record Expense Modal */}
+      <AppModal
+        visible={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        title={l('Record Project Expense', 'প্রজেক্টের খরচ লিখুন')}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalProjectName}>{projectTitle}</Text>
+          <Text style={styles.modalProjectSub}>
+            {l('Total Invested:', 'মোট বিনিয়োগ:')} {formatMoney(project?.investedAmount || 0)}
+          </Text>
+
+          <Text style={styles.inputTitle}>{l('Expense Amount (৳)', 'খরচের পরিমাণ (৳)')}</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.currencySign}>৳</Text>
+            <TextInput
+              style={styles.modalAmountInput}
+              value={expenseAmount}
+              onChangeText={setExpenseAmount}
+              placeholder="২০,০০০"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="numeric"
+              autoFocus
+            />
+          </View>
+
+          <Text style={styles.inputTitle}>{l('Paid From', 'যে হিসাব থেকে প্রদান')}</Text>
+          <View style={styles.sourceToggleRow}>
             <TouchableOpacity
-              style={styles.modalSubmitBtn}
-              onPress={handleRecordReturn}
-              activeOpacity={0.85}
+              style={[styles.sourceToggleBtn, expenseSource === 'bank' && styles.sourceToggleBtnActive]}
+              onPress={() => setExpenseSource('bank')}
             >
-              <Text style={styles.modalSubmitText}>{l('Confirm & Save', 'সংরক্ষণ করুন')}</Text>
+              <Text style={styles.sourceToggleText}>{l('Bank Account', 'ব্যাংক হিসাব')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sourceToggleBtn, expenseSource === 'cash' && styles.sourceToggleBtnActive]}
+              onPress={() => setExpenseSource('cash')}
+            >
+              <Text style={styles.sourceToggleText}>{l('Cash in Hand', 'হাতে নগদ')}</Text>
             </TouchableOpacity>
           </View>
+
+          <Text style={styles.inputTitle}>{l('Expense Purpose', 'খরচের খাত')}</Text>
+          <TextInput
+            style={styles.modalNoteInput}
+            value={expenseNote}
+            onChangeText={setExpenseNote}
+            placeholder={l('e.g. Materials purchase', 'যেমন: মালামাল ক্রয়')}
+            placeholderTextColor={colors.textSecondary}
+          />
+
+          <TouchableOpacity
+            style={styles.modalSubmitBtn}
+            onPress={handleRecordExpense}
+          >
+            <Text style={styles.modalSubmitBtnText}>{l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
+          </TouchableOpacity>
         </View>
       </AppModal>
     </SafeAreaView>
@@ -354,7 +512,7 @@ export default function ProjectDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -371,17 +529,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   iconBtn: {
-    padding: 6,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -393,31 +555,47 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagPill: {
-    backgroundColor: '#EAEBE6',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+  },
+  tagPillOngoing: {
+    backgroundColor: colors.primarySoft,
+  },
+  tagPillDelayed: {
+    backgroundColor: colors.warningSoft,
   },
   tagPillText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.primary,
+  },
+  tagPillTextOngoing: {
+    color: colors.primary,
+  },
+  tagPillTextDelayed: {
+    color: colors.warning,
   },
   projectMainTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 22,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.lineHeight.xxl,
+    color: colors.text,
     marginBottom: 4,
   },
   projectMetaLine: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   gridContainer: {
     marginTop: 14,
     gap: 10,
+    marginBottom: 12,
   },
   gridRow: {
     flexDirection: 'row',
@@ -425,32 +603,40 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     padding: 14,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
   },
   metricCardLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   metricCardVal: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
+  },
+  profitColor: {
+    color: colors.primary,
+  },
+  lossColor: {
+    color: colors.warning,
   },
   recoveryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: 16,
-    marginTop: 14,
-    shadowColor: '#000',
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -460,59 +646,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   recoveryTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   recoveryPct: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.textSecondary,
   },
   recoveryTrack: {
     height: 8,
-    backgroundColor: '#F1F5F9',
     borderRadius: 4,
+    backgroundColor: colors.primarySoft,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginVertical: 6,
   },
   recoveryFill: {
     height: '100%',
-    backgroundColor: '#0F766E',
     borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   recoverySub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.text,
   },
   seeAllLink: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.primary,
   },
   transactionsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -521,7 +711,12 @@ const styles = StyleSheet.create({
   txnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 6,
+  },
+  txnDivider: {
+    height: 1,
+    backgroundColor: colors.surfaceMuted,
+    marginVertical: 6,
   },
   txnIconCircle: {
     width: 32,
@@ -531,190 +726,204 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  txnIconExpense: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  txnIconIncome: {
+    backgroundColor: colors.primarySoft,
+  },
   txnDetails: {
     flex: 1,
   },
   txnTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   txnMeta: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   txnAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
   },
-  txnDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+  normalAmountColor: {
+    color: colors.text,
+  },
+  docsHeader: {
+    marginBottom: 10,
   },
   docsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 8,
+    marginBottom: 16,
   },
   docCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
-    gap: 6,
-    shadowColor: '#000',
+    justifyContent: 'center',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
   },
   docText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
+    marginTop: 6,
+  },
+  scrollSpacer: {
+    height: 100,
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 24,
+    backgroundColor: colors.bg,
+    gap: 10,
   },
-  returnBtn: {
+  expenseBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
-    borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     gap: 6,
   },
-  returnBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+  expenseBtnText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+  },
+  incomeBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    gap: 6,
+  },
+  incomeBtnText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.surface,
   },
   modalContent: {
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   modalProjectName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#0F766E',
-    marginBottom: 2,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.text,
   },
   modalProjectSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 14,
   },
   inputTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#334155',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     marginBottom: 6,
-    marginTop: 8,
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#0F766E',
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    marginBottom: 14,
+    backgroundColor: colors.surface,
   },
   currencySign: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#0F766E',
-    marginRight: 6,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    color: colors.text,
+    marginRight: 8,
   },
   modalAmountInput: {
     flex: 1,
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
-    padding: 0,
+    height: 44,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    color: colors.text,
   },
   sourceToggleRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 14,
   },
   sourceToggleBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   sourceToggleBtnActive: {
-    backgroundColor: '#0F766E',
-    borderColor: '#0F766E',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   sourceToggleText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-  },
-  sourceToggleTextActive: {
-    color: '#FFFFFF',
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
   },
   modalNoteInput: {
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#1E293B',
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 20,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    color: colors.text,
+    marginBottom: 16,
   },
   modalSubmitBtn: {
-    flex: 1.5,
+    backgroundColor: colors.primary,
+    borderRadius: 28,
     paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#0F766E',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  modalSubmitText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+  modalSubmitBtnText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.surface,
   },
 });
