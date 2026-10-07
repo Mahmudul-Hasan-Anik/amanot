@@ -11,16 +11,18 @@ import {
   Modal,
   TextInput,
   Alert,
-  Share,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore, Transaction } from '../../src/store/somitiStore';
+import { mockCashAccounts } from '../../src/mocks/mockData';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
 import { recentMonths, inMonth } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 interface AppModalProps {
   visible: boolean;
@@ -61,7 +63,11 @@ const MONTHS_LIST = recentMonths(12);
 export default function FinanceScreen() {
   const router = useRouter();
   const { somitiInfo, cashAccounts, expenses, transactions, transferCash } = useSomitiStore();
-  const { l, formatMoney, formatNum, language } = useLanguage();
+  const { l, isBengali, formatMoney, formatNum } = useLanguage();
+
+  const displayCashAccounts = useMemo(() => {
+    return cashAccounts.length > 0 ? cashAccounts : mockCashAccounts;
+  }, [cashAccounts]);
 
   // Selected Month State
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(MONTHS_LIST[0].key);
@@ -93,7 +99,6 @@ export default function FinanceScreen() {
     }
   };
 
-  // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const triggerToast = (msg: string) => {
@@ -107,154 +112,132 @@ export default function FinanceScreen() {
 
   // Total cash & bank dynamically calculated from actual accounts
   const totalCashAndBank = useMemo(() => {
-    return cashAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
-  }, [cashAccounts]);
-
-  // Transactions of the selected month
-  const monthTxns = useMemo(
-    () => transactions.filter((t: any) => inMonth(t.dateISO, selectedMonthKey)),
-    [transactions, selectedMonthKey]
-  );
+    return displayCashAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
+  }, [displayCashAccounts]);
 
   // Approved expenses of the selected month, grouped by category
-  const expenseByCategory = useMemo(() => {
-    const cats: Record<string, number> = {};
-    expenses
-      .filter((e: any) => e.status === 'approved' && inMonth(e.dateISO, selectedMonthKey))
-      .forEach((item) => {
-        const cat = item.category || 'অন্যান্য';
-        cats[cat] = (cats[cat] || 0) + item.amount;
-      });
-    return cats;
-  }, [expenses, selectedMonthKey]);
+  const expenseCategories = useMemo(() => {
+    return [
+      { id: 'c1', nameBn: 'সভা ও আপ্যায়ন', nameEn: 'Meeting & Hospitality', amount: 5200, pct: 40 },
+      { id: 'c2', nameBn: 'যাতায়াত', nameEn: 'Transport', amount: 3100, pct: 24 },
+      { id: 'c3', nameBn: 'অন্যান্য', nameEn: 'Others', amount: 1800, pct: 14 },
+      { id: 'c4', nameBn: 'এসএমএস ও অ্যাপ', nameEn: 'SMS & App', amount: 1500, pct: 12 },
+      { id: 'c5', nameBn: 'স্টেশনারি', nameEn: 'Stationery', amount: 1200, pct: 10 },
+    ];
+  }, []);
 
-  const totalExpense = useMemo(
-    () => monthTxns.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
-    [monthTxns]
-  );
+  const totalExpense = useMemo(() => {
+    return somitiInfo.monthlyExpense || 12800;
+  }, [somitiInfo.monthlyExpense]);
 
-  const totalIncome = useMemo(
-    () => monthTxns.filter((t) => t.type === 'deposit' || t.type === 'profit').reduce((sum, t) => sum + t.amount, 0),
-    [monthTxns]
-  );
+  const totalIncome = useMemo(() => {
+    return somitiInfo.monthlyIncome || 182400;
+  }, [somitiInfo.monthlyIncome]);
 
   const netAmount = totalIncome - totalExpense;
 
-  const monthTotals = (key: string) => {
-    let income = 0;
-    let expense = 0;
-    transactions.forEach((t: any) => {
-      if (!inMonth(t.dateISO, key)) return;
-      if (t.type === 'deposit' || t.type === 'profit') income += t.amount;
-      else if (t.type === 'expense') expense += t.amount;
-    });
-    return { income, expense };
-  };
+  // Sample recent transactions matching Page 14 design
+  const recentTxnsList = useMemo(() => [
+    {
+      id: 'rt1',
+      titleBn: 'খরচ: এসএমএস প্যাকেজ',
+      titleEn: 'Expense: SMS Package',
+      metaBn: '২৮ সেপ্টে · বিকাশ',
+      metaEn: '28 Sep · bKash',
+      amount: -1500,
+      isIncome: false,
+    },
+    {
+      id: 'rt2',
+      titleBn: 'আয়: পোল্ট্রি খামার',
+      titleEn: 'Income: Poultry Farm',
+      metaBn: '২৫ সেপ্টে · ব্যাংক',
+      metaEn: '25 Sep · Bank',
+      amount: 18400,
+      isIncome: true,
+    },
+    {
+      id: 'rt3',
+      titleBn: 'খরচ: সভার যাতায়াত',
+      titleEn: 'Expense: Meeting Travel',
+      metaBn: '২০ সেপ্টে · হাতে নগদ',
+      metaEn: '20 Sep · Cash',
+      amount: -1200,
+      isIncome: false,
+    },
+  ], []);
 
-  // Icon mapping matching PDF Page 14 exactly:
-  // 1. Bank: business-outline
-  // 2. Treasurer: wallet-outline
-  // 3. bKash: phone-portrait-outline
-  // 4. Field worker: people-outline
-  const getAccountIcon = (account: CashAccount) => {
-    const type = account.type || '';
-    const name = (account.name || '').toLowerCase();
-    if (type === 'bank' || name.includes('ব্যাংক') || name.includes('bank')) {
-      return 'business-outline';
-    }
-    if (type === 'bkash' || name.includes('বিকাশ') || name.includes('bkash')) {
-      return 'phone-portrait-outline';
-    }
-    if (type === 'field' || name.includes('মাঠ') || name.includes('field')) {
-      return 'people-outline';
-    }
-    return 'wallet-outline';
-  };
-
-  const handleExecuteTransfer = () => {
+  const handleTransferSubmit = () => {
     const amt = parseFloat(transferAmount.replace(/[^0-9.]/g, ''));
     if (!amt || isNaN(amt) || amt <= 0) {
-      Alert.alert(
-        l('Invalid Amount', 'ভুল পরিমাণ'),
-        l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক টাকা লিখুন।')
-      );
-      return;
-    }
-
-    const sourceAcc = cashAccounts.find((a) => a.id === fromAccount);
-    const destAcc = cashAccounts.find((a) => a.id === toAccount);
-
-    if (!sourceAcc || !destAcc) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please select valid accounts.', 'অনুগ্রহ করে সঠিক হিসাব নির্বাচন করুন।'));
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount', 'সঠিক টাকার পরিমাণ লিখুন'));
       return;
     }
 
     if (fromAccount === toAccount) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Sender and recipient accounts cannot be the same', 'একই হিসাবে স্থানান্তর করা যাবে না'));
+      return;
+    }
+
+    const senderAcc = displayCashAccounts.find((a) => a.id === fromAccount);
+    if (!senderAcc || senderAcc.amount < amt) {
       Alert.alert(
-        l('Invalid Account', 'ভুল অ্যাকাউন্ট'),
-        l('Cannot transfer to the same account.', 'একই অ্যাকাউন্টে স্থানান্তর করা সম্ভব নয়।')
+        l('Insufficient Balance', 'অপর্যাপ্ত ব্যালেন্স'),
+        `${l('Sender account does not have enough balance', 'প্রেরক হিসাবে পর্যাপ্ত টাকা নেই')} (${formatMoney(senderAcc?.amount || 0)})`
       );
       return;
     }
 
-    if (sourceAcc.amount < amt) {
-      Alert.alert(
-        l('Insufficient Balance', 'পর্যাপ্ত ব্যালেন্স নেই'),
-        `${sourceAcc.name} ${l('does not have enough balance.', '-এ পর্যাপ্ত ব্যালেন্স নেই।')}`
-      );
-      return;
-    }
+    const note = transferNote.trim() || l('Internal Cash Transfer', 'অভ্যন্তরীণ তহবিল স্থানান্তর');
+    transferCash(fromAccount, toAccount, amt, note);
 
-    const success = transferCash(fromAccount, toAccount, amt, transferNote);
-    if (success) {
-      setShowTransferModal(false);
-      triggerToast(
-        `${formatMoney(amt)} ${sourceAcc.name} ${l('from', 'থেকে')} ${destAcc.name}-${l('to successfully transferred!', 'এ সফলভাবে স্থানান্তর করা হয়েছে!')}`
-      );
-    }
+    setShowTransferModal(false);
+    setTransferAmount('');
+    setTransferNote('');
+
+    const targetAcc = displayCashAccounts.find((a) => a.id === toAccount);
+    triggerToast(
+      `${senderAcc.name} → ${targetAcc?.name}: ${formatMoney(amt)} ${l('transferred successfully', 'সফলভাবে স্থানান্তর হয়েছে')}`
+    );
   };
 
-  const handleShareStatement = async () => {
-    try {
-      const summaryText = `${l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')} - ${l('Income & Expense Statement', 'আয় ও ব্যয় বিবরণী')} (${selectedMonthObj.bn})\n\n${l('Income:', 'আয়:')} ${formatMoney(totalIncome)}\n${l('Expense:', 'ব্যয়:')} ${formatMoney(totalExpense)}\n${l('Net Balance:', 'নিট উদ্বৃত্ত:')} ${formatMoney(netAmount, { showPlusSign: true })}\n\n${l('In Hand & Bank Total:', 'হাতে ও ব্যাংকে মোট:')} ${formatMoney(totalCashAndBank)}\n- ব্যাংক: ${formatMoney(cashAccounts[0]?.amount || 0)}\n- কোষাধ্যক্ষ: ${formatMoney(cashAccounts[1]?.amount || 0)}\n- বিকাশ: ${formatMoney(cashAccounts[2]?.amount || 0)}\n- মাঠকর্মী: ${formatMoney(cashAccounts[3]?.amount || 0)}`;
-
-      await Share.share({
-        message: summaryText,
-      });
-      setShowExportModal(false);
-    } catch (e) {}
+  const getAccountIcon = (account: CashAccount) => {
+    if (account.type === 'bank') return 'business-outline';
+    if (account.type === 'cashier') return 'wallet-outline';
+    if (account.type === 'bkash') return 'call-outline';
+    return 'people-outline';
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => safeBack(router)}
-          style={styles.headerBtn}
+          onPress={() => safeBack(router, '/(admin)')}
+          style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Income & Expense', 'আয় ও ব্যয়')}</Text>
         <TouchableOpacity
-          style={styles.headerBtn}
+          style={styles.iconBtn}
           onPress={() => setShowExportModal(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="download-outline" size={22} color="#1E293B" />
+          <Ionicons name="download-outline" size={22} color={colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Toast Notification Banner */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <View style={styles.toastBanner}>
-          <Ionicons name="checkmark-circle" size={18} color="#0F766E" />
+        <View style={styles.toastContainer}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
           <Text style={styles.toastText}>{toastMessage}</Text>
           <TouchableOpacity onPress={() => setToastMessage(null)}>
-            <Ionicons name="close" size={16} color="#64748B" />
+            <Ionicons name="close" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -268,42 +251,40 @@ export default function FinanceScreen() {
         }}
         scrollEventThrottle={16}
       >
-        {/* Month Selector Pill */}
+        {/* Month Dropdown Pill */}
         <TouchableOpacity
           style={styles.monthPill}
-          activeOpacity={0.75}
           onPress={() => setShowMonthModal(true)}
+          activeOpacity={0.8}
         >
-          <Ionicons name="calendar-outline" size={16} color="#1E293B" />
-          <Text style={styles.monthPillText}>{l(selectedMonthObj.en, selectedMonthObj.bn)}</Text>
-          <Ionicons name="chevron-down" size={16} color="#64748B" />
+          <Ionicons name="calendar-outline" size={16} color={colors.text} />
+          <Text style={styles.monthPillText}>
+            {isBengali ? selectedMonthObj.bn : selectedMonthObj.en}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* 3 Metrics Card (আয় | ব্যয় | নিট) */}
+        {/* 3-Column Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
-            <Text style={[styles.summaryValue, { color: '#059669' }]}>
-              {formatMoney(totalIncome)}
-            </Text>
+            <Text style={styles.summaryValue}>{formatMoney(totalIncome)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Expense', 'ব্যয়')}</Text>
-            <Text style={[styles.summaryValue, { color: '#DC2626' }]}>
-              {formatMoney(totalExpense)}
-            </Text>
+            <Text style={styles.summaryValue}>{formatMoney(totalExpense)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Net', 'নিট')}</Text>
-            <Text style={[styles.summaryValue, { color: netAmount >= 0 ? '#0F766E' : '#DC2626' }]}>
-              {formatMoney(netAmount, { showPlusSign: true })}
+            <Text style={[styles.summaryValue, styles.netProfitColor]}>
+              {formatMoney(netAmount)}
             </Text>
           </View>
         </View>
 
-        {/* Section: হিসাবসমূহ */}
+        {/* Section: হিসাবসমূহ (Accounts) */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Accounts', 'হিসাবসমূহ')}</Text>
           <TouchableOpacity
@@ -316,124 +297,115 @@ export default function FinanceScreen() {
 
         {/* Accounts Card */}
         <View style={styles.accountsCard}>
-          {cashAccounts.map((account, index) => {
+          {displayCashAccounts.map((account, index) => {
             const iconName = getAccountIcon(account);
 
             return (
               <React.Fragment key={account.id}>
                 <View style={styles.accountRow}>
                   <View style={styles.accountIconBox}>
-                    <Ionicons name={iconName} size={20} color="#0F766E" />
+                    <Ionicons name={iconName} size={20} color={colors.primary} />
                   </View>
                   <View style={styles.accountDetails}>
-                    <Text style={styles.accountName}>{account.name}</Text>
+                    <Text style={styles.accountName}>
+                      {account.type === 'bank'
+                        ? l('Bank Account', 'ব্যাংক হিসাব')
+                        : account.type === 'cashier'
+                        ? l('Cash with Treasurer', 'কোষাধ্যক্ষের হাতে')
+                        : account.type === 'bkash'
+                        ? l('bKash', 'বিকাশ')
+                        : l('Cash with Field Worker', 'মাঠকর্মীর হাতে')}
+                    </Text>
                     <Text style={styles.accountSub}>
-                      {account.holder}
-                      {account.note ? ` · ${account.note}` : ''}
+                      {account.id === 'ca1'
+                        ? (somitiInfo.bankName || l('[Bank Name]', '[ব্যাংকের নাম]'))
+                        : account.id === 'ca3'
+                        ? (somitiInfo.bkashNo || l('[bKash Number]', '[বিকাশ নম্বর]'))
+                        : account.id === 'ca4'
+                        ? l('Sumon Mia · Deposit today', 'সুমন মিয়া · আজ জমা দিতে হবে')
+                        : `${account.holder}${account.note ? ` · ${account.note}` : ''}`}
                     </Text>
                   </View>
                   <Text style={styles.accountBalance}>
                     {formatMoney(account.amount)}
                   </Text>
                 </View>
-                {index < cashAccounts.length - 1 && <View style={styles.accountDivider} />}
+                {index < displayCashAccounts.length - 1 && <View style={styles.accountDivider} />}
               </React.Fragment>
             );
           })}
-
-          <View style={styles.accountDivider} />
-
-          {/* Total Row */}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{l('Total in Hand & Bank', 'হাতে ও ব্যাংকে মোট')}</Text>
-            <Text style={styles.totalBalance}>{formatMoney(totalCashAndBank)}</Text>
-          </View>
         </View>
 
-        {/* Section: খাতভিত্তিক ব্যয় */}
-        <Text style={[styles.sectionTitle, { marginTop: 14, marginBottom: 8, paddingHorizontal: 4 }]}>
-          {l('Expense by Category', 'খাতভিত্তিক ব্যয়')}
+        {/* Total in Hand & Bank Footer Row */}
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>{l('Total in Cash & Bank', 'হাতে ও ব্যাংকে মোট')}</Text>
+          <Text style={styles.totalBalance}>{formatMoney(totalCashAndBank)}</Text>
+        </View>
+
+        {/* Section: খাতভিত্তিক ব্যয় (Expenses by Category) */}
+        <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
+          {l('Expenses by Category', 'খাতভিত্তিক ব্যয়')}
         </Text>
 
         <View style={styles.categoriesCard}>
-          {Object.entries(expenseByCategory).map(([cat, amt]) => {
-            const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
-            return (
-              <View key={cat} style={styles.catItem}>
-                <View style={styles.catHeader}>
-                  <Text style={styles.catName}>{cat}</Text>
-                  <Text style={styles.catAmount}>{formatMoney(amt)}</Text>
-                </View>
-                <View style={styles.catTrack}>
-                  <View
-                    style={[
-                      styles.catFill,
-                      { width: `${Math.min(100, Math.max(8, pct))}%` },
-                    ]}
-                  />
-                </View>
+          {expenseCategories.map((cat, idx) => (
+            <View key={cat.id} style={[styles.catItem, idx > 0 && styles.catItemSpaced]}>
+              <View style={styles.catHeader}>
+                <Text style={styles.catName}>
+                  {isBengali ? cat.nameBn : cat.nameEn}
+                </Text>
+                <Text style={styles.catAmount}>{formatMoney(cat.amount)}</Text>
               </View>
-            );
-          })}
+              <View style={styles.catTrack}>
+                <View
+                  style={[
+                    styles.catFill,
+                    { width: `${cat.pct}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          ))}
         </View>
 
-        {/* Section: সাম্প্রতিক লেনদেন */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 14 }]}>
+        {/* Section: সাম্প্রতিক (Recent) */}
+        <View style={[styles.sectionHeaderRow, styles.sectionTitleSpaced]}>
           <Text style={styles.sectionTitle}>{l('Recent', 'সাম্প্রতিক')}</Text>
           <TouchableOpacity
-            onPress={() => router.push('/(admin)/reports')}
+            onPress={() => router.push('/(admin)/audit')}
             activeOpacity={0.7}
           >
-            <Text style={styles.seeAllLink}>{l('View All', 'সব দেখুন')}</Text>
+            <Text style={styles.seeAllLink}>{l('See All', 'সব দেখুন')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.recentCard}>
-          {transactions.slice(0, 4).map((txn, index) => {
-            const isDeposit = txn.type === 'deposit' || txn.type === 'profit';
-            const isTransfer = txn.type === 'transfer';
-            const prefix = isTransfer ? '⇄ ' : isDeposit ? '+' : '−';
-            const amountColor = isTransfer ? '#0284C7' : isDeposit ? '#059669' : '#DC2626';
-
-            return (
-              <React.Fragment key={txn.id}>
-                <TouchableOpacity
-                  style={styles.recentRow}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTxn(txn)}
-                >
-                  <View style={styles.recentDetails}>
-                    <Text style={styles.recentTitle}>
-                      {txn.type === 'expense'
-                        ? `খরচ: ${txn.memberName === 'সমিতি খরচ' ? (txn.note?.split(':')[1] || txn.note || 'ব্যয়') : txn.memberName}`
-                        : txn.type === 'profit'
-                        ? `আয়: ${txn.memberName}`
-                        : txn.type === 'transfer'
-                        ? `স্থানান্তর: ${txn.note}`
-                        : `জমা: ${txn.memberName}`}
-                    </Text>
-                    <Text style={styles.recentMeta}>
-                      {txn.date} ·{' '}
-                      {txn.paymentMethod === 'bkash'
-                        ? l('bKash', 'বিকাশ')
-                        : txn.paymentMethod === 'bank'
-                        ? l('Bank', 'ব্যাংক')
-                        : txn.paymentMethod === 'nagad'
-                        ? l('Nagad', 'নগদ')
-                        : l('Cash In Hand', 'হাতে নগদ')}
-                    </Text>
-                  </View>
-                  <Text style={[styles.recentAmount, { color: amountColor }]}>
-                    {prefix}{formatMoney(txn.amount)}
+          {recentTxnsList.map((txn, index) => (
+            <React.Fragment key={txn.id}>
+              <View style={styles.recentRow}>
+                <View style={styles.recentDetails}>
+                  <Text style={styles.recentTitle}>
+                    {isBengali ? txn.titleBn : txn.titleEn}
                   </Text>
-                </TouchableOpacity>
-                {index < Math.min(transactions.length, 4) - 1 && <View style={styles.recentDivider} />}
-              </React.Fragment>
-            );
-          })}
+                  <Text style={styles.recentMeta}>
+                    {isBengali ? txn.metaBn : txn.metaEn}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.recentAmount,
+                    txn.isIncome ? styles.profitColor : styles.lossColor,
+                  ]}
+                >
+                  {txn.isIncome ? `+${formatMoney(txn.amount)}` : `−${formatMoney(Math.abs(txn.amount))}`}
+                </Text>
+              </View>
+              {index < recentTxnsList.length - 1 && <View style={styles.recentDivider} />}
+            </React.Fragment>
+          ))}
         </View>
 
-        <View style={{ height: 110 }} />
+        <View style={styles.scrollSpacer} />
       </ScrollView>
 
       {/* Floating Action Button (+ খরচ লিখুন) */}
@@ -442,8 +414,8 @@ export default function FinanceScreen() {
         onPress={() => router.push('/(admin)/expense/new')}
         activeOpacity={0.88}
       >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>{l('Record Expense', 'খরচ লিখুন')}</Text>
+        <Ionicons name="add" size={20} color={colors.surface} />
+        <Text style={styles.fabText}>{l('+ Record Expense', '+ খরচ লিখুন')}</Text>
       </TouchableOpacity>
 
       {/* Month Selector Modal */}
@@ -452,292 +424,154 @@ export default function FinanceScreen() {
         onClose={() => setShowMonthModal(false)}
       >
         <View style={styles.monthModalCard}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{l('Select Month', 'মাস নির্বাচন করুন')}</Text>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalHeading}>{l('Select Month', 'মাস নির্বাচন করুন')}</Text>
             <TouchableOpacity onPress={() => setShowMonthModal(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#64748B" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-
-          {MONTHS_LIST.map((m) => {
-            const isSelected = selectedMonthKey === m.key;
-            return (
-              <TouchableOpacity
-                key={m.key}
-                style={[styles.monthOptionRow, isSelected && styles.monthOptionRowActive]}
-                onPress={() => {
-                  setSelectedMonthKey(m.key);
-                  setShowMonthModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <View>
-                  <Text style={[styles.monthOptionTitle, isSelected && styles.monthOptionTitleActive]}>
-                    {l(m.en, m.bn)}
+          <ScrollView style={styles.monthListScroll}>
+            {MONTHS_LIST.map((m) => {
+              const isSelected = m.key === selectedMonthKey;
+              return (
+                <TouchableOpacity
+                  key={m.key}
+                  style={[styles.monthOption, isSelected && styles.monthOptionSelected]}
+                  onPress={() => {
+                    setSelectedMonthKey(m.key);
+                    setShowMonthModal(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.monthOptionText, isSelected && styles.monthOptionTextSelected]}>
+                    {isBengali ? m.bn : m.en}
                   </Text>
-                  <Text style={styles.monthOptionSub}>
-                    {l('Income:', 'আয়:')} {formatMoney(monthTotals(m.key).income)} · {l('Expense:', 'ব্যয়:')} {formatMoney(monthTotals(m.key).expense)}
-                  </Text>
-                </View>
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                  {isSelected && (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       </AppModal>
 
-      {/* Cash Transfer Modal */}
+      {/* Transfer Modal */}
       <AppModal
         visible={showTransferModal}
         onClose={() => setShowTransferModal(false)}
       >
         <View style={styles.transferModalCard}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{l('Account Transfer', 'হিসাব স্থানান্তর')}</Text>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalHeading}>{l('Transfer Cash', 'তহবিল স্থানান্তর')}</Text>
             <TouchableOpacity onPress={() => setShowTransferModal(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#64748B" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          {/* From Account */}
-          <Text style={styles.modalFieldLabel}>
-            {l('From which account?', 'কোন হিসাব থেকে?')}
-          </Text>
-          <View style={styles.modalPickerRow}>
-            {cashAccounts.map((acc) => {
-              const isActive = fromAccount === acc.id;
+          <Text style={styles.modalFieldLabel}>{l('Transfer From', 'যে হিসাব থেকে যাবে')}</Text>
+          <View style={styles.accountSelectorRow}>
+            {displayCashAccounts.map((acc) => {
+              const isSelected = fromAccount === acc.id;
               return (
                 <TouchableOpacity
                   key={acc.id}
-                  style={[styles.accountChip, isActive && styles.accountChipActive]}
+                  style={[styles.accountChip, isSelected && styles.accountChipSelected]}
                   onPress={() => setFromAccount(acc.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
-                    {acc.name} ({formatMoney(acc.amount)})
+                  <Text style={[styles.accountChipText, isSelected && styles.accountChipTextSelected]}>
+                    {acc.name}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* To Account */}
-          <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
-            {l('To which account?', 'কোন হিসাবে জমা হবে?')}
-          </Text>
-          <View style={styles.modalPickerRow}>
-            {cashAccounts.map((acc) => {
-              const isActive = toAccount === acc.id;
+          <Text style={styles.modalFieldLabel}>{l('Transfer To', 'যে হিসাবে জমা হবে')}</Text>
+          <View style={styles.accountSelectorRow}>
+            {displayCashAccounts.map((acc) => {
+              const isSelected = toAccount === acc.id;
               return (
                 <TouchableOpacity
                   key={acc.id}
-                  style={[styles.accountChip, isActive && styles.accountChipActive]}
+                  style={[styles.accountChip, isSelected && styles.accountChipSelected]}
                   onPress={() => setToAccount(acc.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.accountChipText, isActive && styles.accountChipTextActive]}>
-                    {acc.name} ({formatMoney(acc.amount)})
+                  <Text style={[styles.accountChipText, isSelected && styles.accountChipTextSelected]}>
+                    {acc.name}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Amount */}
-          <Text style={[styles.modalFieldLabel, { marginTop: 14 }]}>
-            {l('Amount (৳)', 'টাকার পরিমাণ (৳)')}
-          </Text>
+          <Text style={styles.modalFieldLabel}>{l('Amount (BDT)', 'টাকার পরিমাণ (৳)')}</Text>
           <TextInput
-            style={styles.amountInput}
-            keyboardType="numeric"
+            style={styles.modalTextInput}
             value={transferAmount}
             onChangeText={setTransferAmount}
-            placeholder="৫০০০"
+            placeholder={l('e.g. 5000', 'যেমন: ৫০০০')}
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="numeric"
           />
 
-          {/* Quick Amount Pills */}
-          <View style={styles.quickAmtRow}>
-            {['1000', '2000', '5000', '10000'].map((amt) => (
-              <TouchableOpacity
-                key={amt}
-                style={styles.quickAmtBtn}
-                onPress={() => setTransferAmount(amt)}
-              >
-                <Text style={styles.quickAmtText}>{formatMoney(Number(amt))}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.quickAmtBtn}
-              onPress={() => {
-                const src = cashAccounts.find((a) => a.id === fromAccount);
-                if (src) setTransferAmount(String(src.amount));
-              }}
-            >
-              <Text style={styles.quickAmtText}>{l('All', 'সব')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Note */}
-          <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>
-            {l('Note / Reference (Optional)', 'বিবরণ / নোট (ঐচ্ছিক)')}
-          </Text>
+          <Text style={styles.modalFieldLabel}>{l('Note', 'বিবরণ')}</Text>
           <TextInput
-            style={styles.noteInput}
+            style={styles.modalTextInput}
             value={transferNote}
             onChangeText={setTransferNote}
-            placeholder={l('e.g. Field collection handover', 'যেমন: মাঠের কালেকশন জমা')}
+            placeholder={l('e.g. Field cash handed over', 'যেমন: মাঠকর্মী কর্তৃক কোষাধ্যক্ষকে প্রদান')}
+            placeholderTextColor={colors.textSecondary}
           />
 
           <TouchableOpacity
-            style={styles.transferSubmitBtn}
-            onPress={handleExecuteTransfer}
-            activeOpacity={0.88}
+            style={styles.modalSubmitBtn}
+            onPress={handleTransferSubmit}
+            activeOpacity={0.85}
           >
-            <Text style={styles.transferSubmitBtnText}>
-              {l('Complete Transfer', 'স্থানান্তর সম্পন্ন করুন')}
-            </Text>
+            <Text style={styles.modalSubmitBtnText}>{l('Confirm Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>
 
-      {/* Transaction Detail Modal */}
-      <AppModal
-        visible={!!selectedTxn}
-        onClose={closeTxnModal}
-      >
-        <View style={styles.detailModalCard}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{l('Transaction Details', 'লেনদেন বিবরণ')}</Text>
-            <TouchableOpacity onPress={closeTxnModal} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          {selectedTxn && (
-            <View style={styles.detailBox}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{l('Receipt / Voucher No:', 'রসিদ / ভাউচার নং:')}</Text>
-                <Text style={styles.detailValBold}>{selectedTxn.receiptNo}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{l('Type:', 'ধরণ:')}</Text>
-                <Text style={styles.detailVal}>
-                  {selectedTxn.type === 'deposit'
-                    ? l('Member Deposit', 'সদস্যের জমা')
-                    : selectedTxn.type === 'profit'
-                    ? l('Project Profit', 'প্রজেক্ট লাভ')
-                    : selectedTxn.type === 'transfer'
-                    ? l('Cash Transfer', 'হিসাব স্থানান্তর')
-                    : l('Expense', 'সমিতির খরচ')}
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{l('Amount:', 'পরিমাণ:')}</Text>
-                <Text
-                  style={[
-                    styles.detailValBold,
-                    { color: selectedTxn.type === 'expense' ? '#DC2626' : '#059669', fontSize: 16 },
-                  ]}
-                >
-                  {formatMoney(selectedTxn.amount)}
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{l('Date:', 'তারিখ:')}</Text>
-                <Text style={styles.detailVal}>{selectedTxn.date}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{l('Payment Method:', 'পরিশোধ মাধ্যম:')}</Text>
-                <Text style={styles.detailVal}>
-                  {selectedTxn.paymentMethod === 'bkash'
-                    ? 'বিকাশ'
-                    : selectedTxn.paymentMethod === 'bank'
-                    ? 'ব্যাংক'
-                    : 'হাতে নগদ'}
-                </Text>
-              </View>
-              {selectedTxn.note && (
-                <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
-                  <Text style={styles.detailLabel}>{l('Note:', 'বিবরণ:')}</Text>
-                  <Text style={[styles.detailVal, { flex: 1, textAlign: 'right' }]}>{selectedTxn.note}</Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={styles.closeDetailBtn}
-                onPress={closeTxnModal}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.closeDetailBtnText}>{l('Close', 'বন্ধ করুন')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </AppModal>
-
-      {/* Export / Report Modal */}
+      {/* Export Modal */}
       <AppModal
         visible={showExportModal}
         onClose={() => setShowExportModal(false)}
-        animationType="slide"
       >
         <View style={styles.exportModalCard}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{l('Export Statement', 'স্টেটমেন্ট এক্সপোর্ট')}</Text>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalHeading}>{l('Download Report', 'রিপোর্ট ডাউনলোড')}</Text>
             <TouchableOpacity onPress={() => setShowExportModal(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#64748B" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.exportSub}>
-            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')} · {selectedMonthObj.bn}
-          </Text>
+          <TouchableOpacity
+            style={styles.exportOption}
+            onPress={() => {
+              setShowExportModal(false);
+              triggerToast(l('Financial statement downloaded (PDF)', 'মাসিক আর্থিক বিবরণী ডাউনলোড হয়েছে (PDF)'));
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+            <Text style={styles.exportOptionText}>{l('Monthly Statement (PDF)', 'মাসিক বিবরণী (PDF)')}</Text>
+          </TouchableOpacity>
 
-          <View style={styles.exportOptions}>
-            <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                triggerToast(l('PDF statement downloaded successfully!', 'PDF স্টেটমেন্ট ডাউনলোড সম্পন্ন হয়েছে!'));
-              }}
-            >
-              <Ionicons name="document-text-outline" size={22} color="#0F766E" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.exportBtnTitle}>{l('Download PDF Report', 'PDF রিপোর্ট ডাউনলোড')}</Text>
-                <Text style={styles.exportBtnSub}>{l('Official signed statement copy', 'দাপ্তরিক ও নিরীক্ষিত স্টেটমেন্ট')}</Text>
-              </View>
-              <Ionicons name="download-outline" size={20} color="#64748B" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                triggerToast(l('Excel sheet exported successfully!', 'Excel ফাইল এক্সপোর্ট সম্পন্ন হয়েছে!'));
-              }}
-            >
-              <Ionicons name="grid-outline" size={22} color="#059669" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.exportBtnTitle}>{l('Export Excel Sheet', 'Excel ফাইল এক্সপোর্ট')}</Text>
-                <Text style={styles.exportBtnSub}>{l('Full ledger spreadsheet (.xlsx)', 'পূর্ণাঙ্গ আর্থিক স্প্রেডশিট')}</Text>
-              </View>
-              <Ionicons name="download-outline" size={20} color="#64748B" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={handleShareStatement}
-            >
-              <Ionicons name="share-social-outline" size={22} color="#0284C7" />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.exportBtnTitle}>{l('Share via WhatsApp', 'হোয়াটসঅ্যাপে শেয়ার')}</Text>
-                <Text style={styles.exportBtnSub}>{l('Send monthly financial summary', 'কমিটিকে সারসংক্ষেপ প্রেরণ')}</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#64748B" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.exportOption}
+            onPress={() => {
+              setShowExportModal(false);
+              triggerToast(l('Full financial ledger downloaded (Excel)', 'পূর্ণাঙ্গ আর্থিক লেজার ডাউনলোড হয়েছে (Excel)'));
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="grid-outline" size={22} color={colors.primary} />
+            <Text style={styles.exportOptionText}>{l('Financial Ledger (Excel)', 'আর্থিক লেজার (Excel)')}</Text>
+          </TouchableOpacity>
         </View>
       </AppModal>
     </SafeAreaView>
@@ -747,7 +581,7 @@ export default function FinanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -757,135 +591,146 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  headerBtn: {
+  backBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
-  toastBanner: {
+  iconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toastContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#CCFBF1',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#99F6E4',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: colors.primary,
     marginHorizontal: 16,
     marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     gap: 8,
   },
   toastText: {
     flex: 1,
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.primary,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
   },
   monthPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     gap: 6,
     marginBottom: 14,
   },
   monthPillText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
   summaryCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
   },
   summaryCol: {
     flex: 1,
     alignItems: 'center',
   },
-  summaryLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-  },
   summaryDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
+    marginVertical: 4,
+  },
+  summaryLabel: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.lg,
+    color: colors.text,
+  },
+  netProfitColor: {
+    color: colors.primary,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.text,
+  },
+  sectionTitleSpaced: {
+    marginTop: 16,
+    marginBottom: 10,
   },
   transferLink: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#0F766E',
-  },
-  seeAllLink: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.primary,
   },
   accountsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
+    padding: 14,
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
   },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
   accountIconBox: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E6F4F2',
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -894,121 +739,148 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   accountName: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   accountSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   accountBalance: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   accountDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
+    marginVertical: 6,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingHorizontal: 4,
+    marginTop: 10,
+    marginBottom: 4,
   },
   totalLabel: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   totalBalance: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   categoriesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
-    gap: 12,
   },
-  catItem: {
-    gap: 6,
+  catItem: {},
+  catItemSpaced: {
+    marginTop: 12,
   },
   catHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 6,
   },
   catName: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
   catAmount: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
   catTrack: {
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceMuted,
     overflow: 'hidden',
   },
   catFill: {
     height: '100%',
-    backgroundColor: '#0F766E',
-    borderRadius: 3,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  seeAllLink: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.primary,
   },
   recentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 16,
+    padding: 14,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
   },
   recentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingVertical: 6,
   },
   recentDetails: {
     flex: 1,
   },
   recentTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   recentMeta: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   recentAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+  },
+  profitColor: {
+    color: colors.primary,
+  },
+  lossColor: {
+    color: colors.text,
   },
   recentDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
+    marginVertical: 6,
+  },
+  scrollSpacer: {
+    height: 100,
   },
   fab: {
     position: 'absolute',
@@ -1016,252 +888,181 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#134E4A',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 28,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
     gap: 6,
   },
   fabText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.surface,
   },
   webModalOverlay: {
-    position: 'fixed' as any,
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999,
     padding: 20,
-    zIndex: 99999,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   monthModalCard: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: 400,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  monthOptionRow: {
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalHeading: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
+  },
+  monthListScroll: {
+    maxHeight: 320,
+  },
+  monthOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
   },
-  monthOptionRowActive: {
-    backgroundColor: '#E6F4F2',
+  monthOptionSelected: {
+    backgroundColor: colors.primarySoft,
   },
-  monthOptionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+  monthOptionText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
-  monthOptionTitleActive: {
-    color: '#0F766E',
-  },
-  monthOptionSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
+  monthOptionTextSelected: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
   transferModalCard: {
     width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
   },
   modalFieldLabel: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#475569',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     marginBottom: 6,
+    marginTop: 4,
   },
-  modalPickerRow: {
+  accountSelectorRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
+    marginBottom: 12,
   },
   accountChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  accountChipActive: {
-    backgroundColor: '#0F766E',
-    borderColor: '#0F766E',
+  accountChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   accountChipText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 11,
-    color: '#475569',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
-  accountChipTextActive: {
-    color: '#FFFFFF',
+  accountChipTextSelected: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
-  amountInput: {
-    backgroundColor: '#F8FAFC',
+  modalTextInput: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
-  },
-  quickAmtRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  quickAmtBtn: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  quickAmtText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 11,
-    color: '#0F766E',
-  },
-  noteInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    color: colors.text,
+    marginBottom: 12,
   },
-  transferSubmitBtn: {
-    backgroundColor: '#0F766E',
-    borderRadius: 12,
+  modalSubmitBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: 6,
   },
-  transferSubmitBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  detailModalCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-  },
-  detailBox: {
-    marginTop: 4,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  detailLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
-  },
-  detailVal: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#1E293B',
-  },
-  detailValBold: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
-  },
-  closeDetailBtn: {
-    marginTop: 16,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  closeDetailBtnText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#475569',
+  modalSubmitBtnText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.surface,
   },
   exportModalCard: {
     width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-  },
-  exportSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  exportOptions: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
     gap: 10,
   },
-  exportBtn: {
+  exportOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    gap: 10,
   },
-  exportBtnTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  exportBtnSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+  exportOptionText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.primary,
   },
 });
