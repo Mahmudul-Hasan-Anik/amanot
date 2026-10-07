@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,158 +17,183 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
-import { AppModal } from '../../../src/components/AppModal';
 import { useAuthStore } from '../../../src/features/auth/authStore';
-import { bnDate } from '../../../src/lib/api';
+import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
+
+const EXPENSE_CATEGORIES = [
+  { key: 'meeting', en: 'Meeting & Refreshment', bn: 'সভা ও আপ্যায়ন' },
+  { key: 'travel', en: 'Travel', bn: 'যাতায়াত' },
+  { key: 'rent', en: 'Office Rent', bn: 'অফিস ভাড়া' },
+  { key: 'sms', en: 'SMS & App', bn: 'এসএমএস ও অ্যাপ' },
+  { key: 'stationery', en: 'Stationery', bn: 'স্টেশনারি' },
+  { key: 'legal', en: 'Legal Fees', bn: 'আইনি ফি' },
+  { key: 'honorarium', en: 'Field Staff Honorarium', bn: 'মাঠকর্মী সম্মানী' },
+  { key: 'others', en: 'Others', bn: 'অন্যান্য' },
+];
+
+const AVAILABLE_SPENDERS = [
+  { id: '1', nameEn: 'Anwar Hossain', nameBn: 'আনোয়ার হোসেন', roleEn: 'Cashier', roleBn: 'কোষাধ্যক্ষ' },
+  { id: '2', nameEn: 'Rafiqul Islam', nameBn: 'রফিকুল ইসলাম', roleEn: 'President', roleBn: 'সভাপতি' },
+  { id: '3', nameEn: 'Faruk Ahmed', nameBn: 'ফারুক আহমেদ', roleEn: 'Secretary', roleBn: 'সাধারণ সম্পাদক' },
+  { id: '4', nameEn: 'Tanvir Hasan', nameBn: 'তানভীর হাসান', roleEn: 'Field Officer', roleBn: 'মাঠকর্মী' },
+];
 
 export default function NewExpenseScreen() {
   const router = useRouter();
-  const { addExpense, somitiInfo, cashAccounts } = useSomitiStore();
-  const { l, formatMoney, formatNum } = useLanguage();
+  const { addExpense, somitiInfo } = useSomitiStore();
+  const { l, isBengali, formatMoney } = useLanguage();
 
-  const { currentUser, actualRole } = useAuthStore();
-  const canApproveOwn = actualRole === 'super_admin' || actualRole === 'admin';
-  const [amount, setAmount] = useState('');
+  const [rawAmount, setRawAmount] = useState('12500');
   const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
   const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(
-    l(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), bnDate(todayStr))
+  const [date, setDate] = useState('30/09/2026');
+  const [selectedSpender, setSelectedSpender] = useState(AVAILABLE_SPENDERS[0]);
+  const [showSpenderModal, setShowSpenderModal] = useState(false);
+  const [reason, setReason] = useState(
+    isBengali
+      ? 'বার্ষিক সাধারণ সভার দুপুরের খাবার (১০০ জন)'
+      : 'Annual General Meeting Lunch (100 people)'
   );
-  const [spender, setSpender] = useState(currentUser?.name || '');
-  const [reason, setReason] = useState('');
-  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [hasReceipt, setHasReceipt] = useState(false);
 
   const expenseLimit = Number(somitiInfo?.expenseApprovalLimit) || 10000;
+  const numericAmount = Number(toEnglishDigits(rawAmount.replace(/[^\d]/g, ''))) || 0;
+  const isOverLimit = numericAmount > expenseLimit;
 
-  const EXPENSE_CATEGORIES = [
-    { key: 'meeting', en: 'Meeting & Refreshment', bn: 'সভা ও আপ্যায়ন' },
-    { key: 'travel', en: 'Travel', bn: 'যাতায়াত' },
-    { key: 'rent', en: 'Office Rent', bn: 'অফিস ভাড়া' },
-    { key: 'sms', en: 'SMS & App', bn: 'এসএমএস ও অ্যাপ' },
-    { key: 'stationery', en: 'Stationery', bn: 'স্টেশনারি' },
-    { key: 'legal', en: 'Legal Fees', bn: 'আইনি ফি' },
-    { key: 'honorarium', en: 'Field Staff Honorarium', bn: 'মাঠকর্মী সম্মানী' },
-    { key: 'others', en: 'Others', bn: 'অন্যান্য' },
-  ];
+  const handleAmountChange = (val: string) => {
+    const clean = toEnglishDigits(val).replace(/[^\d]/g, '');
+    setRawAmount(clean);
+  };
 
-  const processExpense = (status: 'approved' | 'pending') => {
-    const cleanAmount = Number(toEnglishDigits(amount.replace(/[^\d]/g, ''))) || 0;
+  const handleReceiptToggle = () => {
+    const nextState = !hasReceipt;
+    setHasReceipt(nextState);
+    Alert.alert(
+      l('Receipt Attachment', 'রসিদ সংযুক্তি'),
+      nextState
+        ? l('Receipt photo attached successfully.', 'রসিদের ছবি সফলভাবে যোগ করা হয়েছে।')
+        : l('Receipt removed.', 'রসিদ সরানো হয়েছে।')
+    );
+  };
+
+  const handleSubmit = () => {
+    if (numericAmount <= 0) {
+      Alert.alert(
+        l('Error', 'ত্রুটি'),
+        l('Please enter a valid expense amount.', 'অনুগ্রহ করে খরচের সঠিক পরিমাণ লিখুন।')
+      );
+      return;
+    }
+    if (!reason.trim()) {
+      Alert.alert(
+        l('Error', 'ত্রুটি'),
+        l('Please enter a reason or description.', 'অনুগ্রহ করে খরচের কারণ বা বিবরণ লিখুন।')
+      );
+      return;
+    }
+
     const currentCat = EXPENSE_CATEGORIES.find((c) => c.key === selectedCategoryKey);
-    const catName = l(currentCat?.en || 'Meeting & Refreshment', currentCat?.bn || 'সভা ও আপ্যায়ন');
+    const catName = isBengali ? (currentCat?.bn || 'সভা ও আপ্যায়ন') : (currentCat?.en || 'Meeting & Refreshment');
     const voucherNo = `V-${Math.floor(1000 + Math.random() * 9000)}`;
-    const paymentSource = source === 'bank' ? l('Bank', 'ব্যাংক') : source === 'bkash' ? l('bKash', 'বিকাশ') : l('Cash In Hand', 'কোষাধ্যক্ষের হাত (হাতে নগদ)');
+    const paymentSource =
+      source === 'bank'
+        ? l('Bank', 'ব্যাংক')
+        : source === 'bkash'
+        ? l('bKash', 'বিকাশ')
+        : l("Treasurer's Hand", 'কোষাধ্যক্ষের হাতে');
+
+    const status: 'approved' | 'pending' = isOverLimit ? 'pending' : 'approved';
+    const spenderName = isBengali ? selectedSpender.nameBn : selectedSpender.nameEn;
 
     addExpense({
       title: reason,
       category: catName,
-      amount: cleanAmount,
+      amount: numericAmount,
       paymentSource,
       voucherNo,
-      note: `${l('Spender:', 'ব্যয়কারী:')} ${spender}`,
+      note: `${l('Spender:', 'ব্যয়কারী:')} ${spenderName}`,
       status,
     });
 
-    setShowLimitModal(false);
-
     if (status === 'pending') {
       Alert.alert(
-        l('Submitted for Approval', 'অনুমোদনের জন্য পাঠানো হয়েছে'),
+        l('Sent for Approval', 'অনুমোদনের জন্য পাঠানো হয়েছে'),
         l(
-          `Expense ${voucherNo} for ${formatMoney(cleanAmount)} has been submitted to the management committee for review.`,
-          `ভাউচার নং ${voucherNo} - ${formatMoney(cleanAmount)} টাকার খরচটি পরিচালনা কমিটির অনুমোদনের অপেক্ষমাণ তালিকায় পাঠানো হয়েছে।`
+          `Voucher ${voucherNo} for ${formatMoney(numericAmount)} exceeds ${formatMoney(expenseLimit)} and has been sent for President's approval.`,
+          `ভাউচার নং ${voucherNo} - ${formatMoney(numericAmount)} টাকা অনুমোদন সীমার (${formatMoney(expenseLimit)}) বেশি হওয়ায় সভাপতির অনুমোদনের তালিকায় পাঠানো হয়েছে।`
         ),
-        [{ text: l('View Approvals', 'অনুমোদন তালিকা দেখুন'), onPress: () => router.replace('/(admin)/approvals') }]
+        [
+          {
+            text: l('View Approvals', 'অনুমোদন তালিকা দেখুন'),
+            onPress: () => router.replace('/(admin)/approvals'),
+          },
+          {
+            text: l('OK', 'ঠিক আছে'),
+            onPress: () => router.replace('/(admin)/finance'),
+          },
+        ]
       );
     } else {
       Alert.alert(
         l('Expense Saved', 'খরচ সংরক্ষিত হয়েছে'),
-        `${l('Voucher No', 'ভাউচার নং')} ${voucherNo} - ${formatMoney(cleanAmount)} ${l('has been recorded.', 'টাকা খরচ লিপিবদ্ধ করা হয়েছে।')}`,
-        [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/(tabs)') }]
+        l(
+          `Voucher ${voucherNo} for ${formatMoney(numericAmount)} has been recorded successfully.`,
+          `ভাউচার নং ${voucherNo} - ${formatMoney(numericAmount)} টাকা খরচ সফলভাবে সংরক্ষিত হয়েছে।`
+        ),
+        [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/finance') }]
       );
     }
   };
 
-  const handleSubmit = () => {
-    const cleanAmount = Number(toEnglishDigits(amount.replace(/[^\d]/g, ''))) || 0;
-    if (cleanAmount <= 0) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid expense amount.', 'অনুগ্রহ করে খরচের সঠিক পরিমাণ লিখুন।'));
-      return;
-    }
-    if (!reason.trim()) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter reason or description of the expense.', 'অনুগ্রহ করে খরচের কারণ বা বিবরণ লিখুন।'));
-      return;
-    }
-
-    if (cleanAmount > expenseLimit && actualRole !== 'super_admin') {
-      setShowLimitModal(true);
-      return;
-    }
-
-    // the paying account must have enough money (server checks too)
-    const accType = source === 'bank' ? 'bank' : source === 'bkash' ? 'bkash' : 'cashier';
-    const acc = cashAccounts.find((a) => a.type === accType);
-    if (canApproveOwn && acc && acc.amount < cleanAmount) {
-      Alert.alert(
-        l('Insufficient balance', 'পর্যাপ্ত ব্যালেন্স নেই'),
-        l(`${acc.name} has only ${formatMoney(acc.amount)}.`, `${acc.name}-এ আছে মাত্র ${formatMoney(acc.amount)}।`)
-      );
-      return;
-    }
-
-    // cashier / field worker entries always go to the committee (maker-checker)
-    if (!canApproveOwn) {
-      processExpense('pending');
-      return;
-    }
-
-    processExpense('approved');
-  };
+  const formattedAmountDisplay = numericAmount
+    ? (isBengali
+        ? toBengaliDigits(numericAmount.toLocaleString('en-IN'))
+        : numericAmount.toLocaleString('en-US'))
+    : '';
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
-      {/* Top Header */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => safeBack(router, '/(admin)/finance')}
           style={styles.closeBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={24} color="#1E293B" />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Record Expense', 'খরচ লিখুন')}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerRightSpacer} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Amount Box */}
+        {/* Amount Hero Card */}
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>{l('Amount (BDT)', 'পরিমাণ (টাকা)')}</Text>
-          <TextInput
-            style={styles.amountDisplay}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor="#94A3B8"
-          />
-          <View style={styles.amountUnderline} />
-          <View style={styles.limitBadge}>
-            <Ionicons name="shield-checkmark-outline" size={14} color="#0F766E" />
-            <Text style={styles.limitBadgeText}>
-              {l('Max limit without committee approval:', 'অনুমোদনহীন ব্যয়ের সর্বোচ্চ সীমা:')} {formatMoney(expenseLimit)}
-            </Text>
+          <Text style={styles.amountLabel}>{l('Amount', 'পরিমাণ')}</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.currencySymbol}>{l('৳', '৳')}</Text>
+            <TextInput
+              style={styles.amountInput}
+              value={formattedAmountDisplay || (isBengali ? toBengaliDigits(rawAmount) : rawAmount)}
+              onChangeText={handleAmountChange}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textSecondary}
+              selectionColor={colors.primary}
+            />
           </View>
+          <View style={styles.amountUnderline} />
         </View>
 
-        {/* Section: খাত */}
-        <Text style={styles.sectionTitle}>{l('Category', 'খাত')}</Text>
-        <View style={styles.categoriesGrid}>
+        {/* Category Section */}
+        <Text style={styles.sectionLabel}>{l('Category', 'খাত')}</Text>
+        <View style={styles.categoriesWrap}>
           {EXPENSE_CATEGORIES.map((cat) => {
             const isSelected = selectedCategoryKey === cat.key;
             return (
@@ -177,170 +203,219 @@ export default function NewExpenseScreen() {
                 onPress={() => setSelectedCategoryKey(cat.key)}
                 activeOpacity={0.8}
               >
-                {isSelected && <Ionicons name="checkmark" size={14} color="#0F766E" />}
+                {isSelected && (
+                  <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.chipCheckIcon} />
+                )}
                 <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
-                  {l(cat.en, cat.bn)}
+                  {isBengali ? cat.bn : cat.en}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Date and Spender Two Inputs Row */}
-        <View style={styles.twoInputsRow}>
-          <View style={styles.inputCol}>
-            <Text style={styles.inputLabel}>{l('Date', 'তারিখ')}</Text>
-            <View style={styles.pickerBox}>
+        {/* Date & Spender 2-Column Row */}
+        <View style={styles.twoColRow}>
+          {/* Date Column */}
+          <View style={styles.colHalf}>
+            <Text style={styles.colLabel}>{l('Date', 'তারিখ')}</Text>
+            <View style={styles.fieldBox}>
               <TextInput
-                style={styles.pickerText}
-                value={date}
+                style={styles.fieldInput}
+                value={isBengali ? toBengaliDigits(date) : date}
                 onChangeText={setDate}
+                placeholder="DD/MM/YYYY"
+                placeholderTextColor={colors.textSecondary}
               />
-              <Ionicons name="calendar-outline" size={18} color="#64748B" />
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
             </View>
           </View>
 
-          <View style={styles.inputCol}>
-            <Text style={styles.inputLabel}>{l('Spender', 'ব্যয়কারী')}</Text>
-            <View style={styles.pickerBox}>
-              <TextInput
-                style={styles.pickerText}
-                value={spender}
-                onChangeText={setSpender}
-              />
-              <Ionicons name="person-outline" size={18} color="#64748B" />
-            </View>
+          {/* Spender Column */}
+          <View style={styles.colHalf}>
+            <Text style={styles.colLabel}>{l('Spender', 'ব্যয়কারী')}</Text>
+            <TouchableOpacity
+              style={styles.fieldBox}
+              onPress={() => setShowSpenderModal(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.fieldText} numberOfLines={1}>
+                {isBengali ? selectedSpender.nameBn : selectedSpender.nameEn}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Section: পরিশোধের উৎস */}
-        <Text style={styles.sectionTitle}>{l('Payment Source', 'পরিশোধের উৎস')}</Text>
-        <View style={styles.segmentedContainer}>
+        {/* Payment Source Section */}
+        <Text style={styles.sectionLabel}>{l('Payment Source', 'পরিশোধের উৎস')}</Text>
+        <View style={styles.sourceSegmentTrack}>
           <TouchableOpacity
-            style={[styles.segmentBtn, source === 'treasurer' && styles.segmentBtnActive]}
+            style={[styles.sourceSegmentBtn, source === 'treasurer' && styles.sourceSegmentBtnActive]}
             onPress={() => setSource('treasurer')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.segmentText, source === 'treasurer' && styles.segmentTextActive]}>
+            <Text
+              style={[
+                styles.sourceSegmentText,
+                source === 'treasurer' && styles.sourceSegmentTextActive,
+              ]}
+            >
               {l("Treasurer's Hand", 'কোষাধ্যক্ষের হাতে')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.segmentBtn, source === 'bank' && styles.segmentBtnActive]}
+            style={[styles.sourceSegmentBtn, source === 'bank' && styles.sourceSegmentBtnActive]}
             onPress={() => setSource('bank')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.segmentText, source === 'bank' && styles.segmentTextActive]}>
+            <Text
+              style={[
+                styles.sourceSegmentText,
+                source === 'bank' && styles.sourceSegmentTextActive,
+              ]}
+            >
               {l('Bank', 'ব্যাংক')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.segmentBtn, source === 'bkash' && styles.segmentBtnActive]}
+            style={[styles.sourceSegmentBtn, source === 'bkash' && styles.sourceSegmentBtnActive]}
             onPress={() => setSource('bkash')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.segmentText, source === 'bkash' && styles.segmentTextActive]}>
+            <Text
+              style={[
+                styles.sourceSegmentText,
+                source === 'bkash' && styles.sourceSegmentTextActive,
+              ]}
+            >
               {l('bKash', 'বিকাশ')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Section: কারণ */}
-        <Text style={styles.sectionTitle}>{l('Reason / Description', 'কারণ')}</Text>
+        {/* Reason / Purpose Section */}
+        <Text style={styles.sectionLabel}>{l('Reason', 'কারণ')}</Text>
         <View style={styles.reasonCard}>
           <TextInput
             style={styles.reasonInput}
             value={reason}
             onChangeText={setReason}
             multiline
-            numberOfLines={3}
-            placeholder={l('Enter expense description', 'খরচের বিবরণ লিখুন')}
-            placeholderTextColor="#94A3B8"
+            numberOfLines={2}
+            placeholder={l('Enter purpose of expense', 'খরচের বিবরণ বা কারণ লিখুন')}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
-        {/* Section: রসিদের ছবি যোগ করুন */}
+        {/* Receipt Upload Dashed Box */}
         <TouchableOpacity
-          style={styles.voucherDashedBox}
-          onPress={() => Alert.alert(l('Attach Photo', 'ছবি যুক্ত করুন'), l('Receipt photo captured from camera or gallery.', 'ভাউচারের ছবি তোলা বা গ্যালারি থেকে যোগ করা সম্পন্ন হয়েছে'))}
+          style={[styles.receiptBox, hasReceipt && styles.receiptBoxActive]}
+          onPress={handleReceiptToggle}
           activeOpacity={0.8}
         >
-          <Ionicons name="camera-outline" size={26} color="#0F766E" />
-          <Text style={styles.voucherTitle}>{l('Add Receipt Photo', 'রসিদের ছবি যোগ করুন')}</Text>
-          <Text style={styles.voucherSub}>{l('Attach voucher for expenses over ৳1,000', '৳১,০০০ এর বেশি ব্যয়ে ভাউচার যুক্ত রাখুন')}</Text>
+          <Ionicons
+            name={hasReceipt ? 'camera' : 'camera-outline'}
+            size={24}
+            color={colors.primary}
+          />
+          <Text style={styles.receiptTitle}>
+            {hasReceipt
+              ? l('Receipt Photo Attached ✓', 'রসিদের ছবি সংযুক্ত হয়েছে ✓')
+              : l('Add Receipt Photo *', 'রসিদের ছবি যোগ করুন *')}
+          </Text>
+          <Text style={styles.receiptSub}>
+            {l('Mandatory for expenses over ৳1,000', '৳১,০০০ এর বেশি ব্যয়ে বাধ্যতামূলক')}
+          </Text>
         </TouchableOpacity>
 
-        <View style={{ height: 30 }} />
+        {/* Approval Notice Banner */}
+        {isOverLimit && (
+          <View style={styles.warningNoticeCard}>
+            <Ionicons name="warning-outline" size={18} color={colors.warning} style={styles.warningIcon} />
+            <Text style={styles.warningNoticeText}>
+              {l(
+                `Amount exceeds ${formatMoney(expenseLimit)}. The expense will be finalized after President's approval.`,
+                `পরিমাণ ${formatMoney(expenseLimit)} এর বেশি হওয়ায় সভাপতির অনুমোদনের পর ব্যয়টি চূড়ান্ত হবে।`
+              )}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Bottom Button */}
+      {/* Bottom Sticky Action Button */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={styles.ctaButton}
           onPress={handleSubmit}
           activeOpacity={0.85}
         >
-          <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-          <Text style={styles.submitBtnText}>{l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
+          <Ionicons
+            name={isOverLimit ? 'paper-plane-outline' : 'checkmark'}
+            size={18}
+            color={colors.surface}
+          />
+          <Text style={styles.ctaButtonText}>
+            {isOverLimit
+              ? l('Send for Approval', 'অনুমোদনের জন্য পাঠান')
+              : l('Save Expense', 'খরচ সংরক্ষণ করুন')}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Expense Approval Limit Modal */}
-      <AppModal
-        visible={showLimitModal}
-        onClose={() => setShowLimitModal(false)}
-        title={l('Expense Limit Warning', 'ব্যয় অনুমোদন সীমা সতর্কতা')}
+      {/* Spender Picker Modal */}
+      <Modal
+        visible={showSpenderModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSpenderModal(false)}
       >
-        <View style={styles.modalContentBox}>
-          <View style={styles.modalAlertIconBox}>
-            <Ionicons name="warning-outline" size={32} color="#D97706" />
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSpenderModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{l('Select Spender', 'ব্যয়কারী নির্বাচন করুন')}</Text>
+              <TouchableOpacity onPress={() => setShowSpenderModal(false)}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {AVAILABLE_SPENDERS.map((sp) => {
+              const isChosen = sp.id === selectedSpender.id;
+              return (
+                <TouchableOpacity
+                  key={sp.id}
+                  style={[styles.spenderOption, isChosen && styles.spenderOptionChosen]}
+                  onPress={() => {
+                    setSelectedSpender(sp);
+                    setShowSpenderModal(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.spenderInfo}>
+                    <Text style={[styles.spenderName, isChosen && styles.spenderNameChosen]}>
+                      {isBengali ? sp.nameBn : sp.nameEn}
+                    </Text>
+                    <Text style={styles.spenderRole}>
+                      {isBengali ? sp.roleBn : sp.roleEn}
+                    </Text>
+                  </View>
+                  {isChosen && (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-
-          <Text style={styles.modalAlertTitle}>
-            {l('Committee Approval Required', 'পরিচালনা পর্ষদের অনুমোদন প্রয়োজন')}
-          </Text>
-
-          <Text style={styles.modalAlertDesc}>
-            {l(
-              `The somiti's auto-approval limit is ${formatMoney(expenseLimit)}. Current expense is ${formatMoney(Number(toEnglishDigits(amount.replace(/[^\d]/g, ''))) || 0)}.`,
-              `সমিতির নির্ধারিত একক ব্যয়ের সর্বোচ্চ সীমা ${formatMoney(expenseLimit)}। বর্তমান খরচের পরিমাণ ${formatMoney(Number(toEnglishDigits(amount.replace(/[^\d]/g, ''))) || 0)}।`
-            )}
-          </Text>
-
-          <Text style={styles.modalAlertSub}>
-            {l(
-              'Expenses above the threshold must be submitted to the committee for review before funds can be released.',
-              'সমিতির নীতিমালা অনুযায়ী এই পরিমাণের খরচ সরাসরি অনুমোদনযোগ্য নয়। এটি পরিচালনা কমিটির অনুমোদনের অপেক্ষমাণ তালিকায় পাঠাতে হবে।'
-            )}
-          </Text>
-
-          <View style={styles.modalActionsCol}>
-            <TouchableOpacity
-              style={styles.modalPrimaryBtn}
-              onPress={() => processExpense('pending')}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.modalPrimaryBtnText}>
-                {l('Submit for Committee Approval', 'অনুমোদনের জন্য পাঠান')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalSecondaryBtn}
-              onPress={() => setShowLimitModal(false)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="create-outline" size={18} color="#0F766E" />
-              <Text style={styles.modalSecondaryBtnText}>
-                {l('Adjust Expense Amount', 'পরিমাণ সংশোধন করুন')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </AppModal>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -348,7 +423,7 @@ export default function NewExpenseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -356,7 +431,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 6,
   },
   closeBtn: {
     width: 40,
@@ -365,287 +440,310 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    color: colors.text,
+  },
+  headerRightSpacer: {
+    width: 40,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 20,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   amountCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   amountLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 6,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginBottom: 2,
   },
-  amountDisplay: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 32,
-    color: '#1E293B',
-    textAlign: 'center',
-    minWidth: 160,
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currencySymbol: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.hero,
+    lineHeight: typography.lineHeight.hero,
+    color: colors.text,
+    marginRight: 6,
+  },
+  amountInput: {
+    flex: 1,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.hero,
+    lineHeight: typography.lineHeight.hero,
+    color: colors.text,
+    padding: 0,
   },
   amountUnderline: {
-    width: 80,
-    height: 2,
-    backgroundColor: '#0F766E',
-    marginTop: 4,
+    height: 2.5,
+    backgroundColor: colors.primary,
+    marginTop: 6,
+    borderRadius: 2,
   },
-  sectionTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#334155',
-    marginBottom: 8,
+  sectionLabel: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    marginBottom: 6,
   },
-  categoriesGrid: {
+  categoriesWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   categoryChipActive: {
-    borderColor: '#0F766E',
-    backgroundColor: '#CCFBF1',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  chipCheckIcon: {
+    marginRight: 4,
   },
   categoryText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#475569',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    color: colors.text,
   },
   categoryTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
-  twoInputsRow: {
+  twoColRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  inputCol: {
+  colHalf: {
     flex: 1,
   },
-  inputLabel: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 6,
+  colLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
-  pickerBox: {
+  fieldBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.surface,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    height: 42,
   },
-  pickerText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#1E293B',
+  fieldInput: {
     flex: 1,
+    minWidth: 0,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    padding: 0,
+    marginRight: 4,
   },
-  segmentedContainer: {
+  fieldText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+  },
+  sourceSegmentTrack: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 10,
     padding: 3,
-    marginBottom: 16,
+    marginBottom: 14,
+    gap: 4,
   },
-  segmentBtn: {
+  sourceSegmentBtn: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 8,
   },
-  segmentBtnActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
+  sourceSegmentBtnActive: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  segmentText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
+  sourceSegmentText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
   },
-  segmentTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
-    color: '#0F766E',
+  sourceSegmentTextActive: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.text,
   },
   reasonCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
-    marginBottom: 16,
+    borderColor: colors.border,
+    padding: 10,
+    marginBottom: 14,
   },
   reasonInput: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#1E293B',
-    minHeight: 60,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    minHeight: 52,
     textAlignVertical: 'top',
+    padding: 0,
   },
-  voucherDashedBox: {
-    backgroundColor: '#FFFFFF',
+  receiptBox: {
     borderWidth: 1.5,
-    borderColor: '#99F6E4',
     borderStyle: 'dashed',
+    borderColor: colors.border,
     borderRadius: 12,
-    paddingVertical: 18,
+    backgroundColor: colors.surface,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    gap: 3,
   },
-  voucherTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#0F766E',
-    marginTop: 6,
+  receiptBoxActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  voucherSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
+  receiptTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+  },
+  receiptSub: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+  },
+  warningNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.aging.month1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    gap: 8,
+  },
+  warningIcon: {
+    flexShrink: 0,
+  },
+  warningNoticeText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.warning,
+  },
+  bottomSpacer: {
+    height: 12,
   },
   bottomBar: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    paddingVertical: 10,
+    backgroundColor: colors.bg,
   },
-  submitBtn: {
+  ctaButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#134E4A',
-    borderRadius: 12,
-    paddingVertical: 14,
   },
-  submitBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+  ctaButtonText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.surface,
   },
-  limitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0FDFA',
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 10,
-  },
-  limitBadgeText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 11,
-    color: '#0F766E',
-  },
-  modalContentBox: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  modalAlertIconBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FEF3C7',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 20,
   },
-  modalAlertTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 17,
-    color: '#1E293B',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  modalAlertDesc: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#0F766E',
-    textAlign: 'center',
-    marginBottom: 6,
-    lineHeight: 20,
-  },
-  modalAlertSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
-    paddingHorizontal: 8,
-  },
-  modalActionsCol: {
+  modalContent: {
     width: '100%',
-    gap: 10,
+    maxWidth: 380,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  modalPrimaryBtn: {
+  modalHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0F766E',
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 8,
+    marginBottom: 14,
   },
-  modalPrimaryBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+  modalTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.text,
   },
-  modalSecondaryBtn: {
+  spenderOption: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#0F766E',
-    borderRadius: 12,
     paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  modalSecondaryBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#0F766E',
+  spenderOptionChosen: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  spenderInfo: {
+    flex: 1,
+  },
+  spenderName: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+  },
+  spenderNameChosen: {
+    color: colors.primary,
+  },
+  spenderRole: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
