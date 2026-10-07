@@ -13,19 +13,53 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { mockProjects } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { AppModal } from '../../../src/components/AppModal';
 import { toEnglishDigits } from '../../../src/lib/bengali';
-
-const ALLOC_COLORS = ['#0F766E', '#14B8A6', '#5EEAD4', '#A7F3D0', '#CBD5E1'];
+import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
 
 export default function ProjectsScreen() {
   const router = useRouter();
-  const { projects, addProject, cashAccounts } = useSomitiStore();
+  const { projects, addProject, cashAccounts, somitiInfo } = useSomitiStore();
+  const { l, isBengali, formatMoney, formatNum } = useLanguage();
+
   const [showNew, setShowNew] = useState(false);
   const [np, setNp] = useState({ name: '', type: '', location: '', manager: '', amount: '', startDate: '', expectedEnd: '' });
   const [npSource, setNpSource] = useState<'bank' | 'cash' | 'bkash'>('bank');
   const setField = (k: keyof typeof np) => (v: string) => setNp((x) => ({ ...x, [k]: v }));
+
+  const displayProjects = useMemo(() => {
+    return projects.length > 0 ? projects : mockProjects;
+  }, [projects]);
+
+  const [filter, setFilter] = useState<'all' | 'ongoing' | 'delayed' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
+  const totalInvested = useMemo(() => {
+    return displayProjects.reduce((sum, p) => sum + p.investedAmount, 0);
+  }, [displayProjects]);
+
+  const totalProfit = useMemo(() => {
+    return displayProjects.reduce((sum, p) => sum + p.netProfit, 0);
+  }, [displayProjects]);
+
+  const ongoingCount = useMemo(() => displayProjects.filter((p) => p.status === 'ongoing').length, [displayProjects]);
+  const delayedCount = useMemo(() => displayProjects.filter((p) => p.status === 'delayed').length, [displayProjects]);
+  const completedCount = useMemo(() => displayProjects.filter((p) => p.status === 'completed').length, [displayProjects]);
+
+  const filteredProjects = useMemo(() => {
+    return displayProjects.filter((p) => {
+      if (filter !== 'all' && p.status !== filter) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        return p.name.toLowerCase().includes(query) || p.type.toLowerCase().includes(query);
+      }
+      return true;
+    });
+  }, [displayProjects, filter, searchQuery]);
 
   const handleCreateProject = () => {
     const amt = Number(toEnglishDigits(np.amount).replace(/[^\d]/g, '')) || 0;
@@ -52,41 +86,25 @@ export default function ProjectsScreen() {
     setShowNew(false);
     setNp({ name: '', type: '', location: '', manager: '', amount: '', startDate: '', expectedEnd: '' });
   };
-  const { l, formatMoney, formatNum } = useLanguage();
 
-  const [filter, setFilter] = useState<'all' | 'ongoing' | 'delayed' | 'completed'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
-
-  const totalInvested = useMemo(() => {
-    return projects.reduce((sum, p) => sum + p.investedAmount, 0);
-  }, [projects]);
-
-  const totalProfit = useMemo(() => {
-    return projects.reduce((sum, p) => sum + p.netProfit, 0);
-  }, [projects]);
-
-  const filteredProjects = useMemo(() => {
-    return projects.filter((p) => {
-      if (filter !== 'all' && p.status !== filter) return false;
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        return p.name.toLowerCase().includes(query) || p.type.toLowerCase().includes(query);
-      }
-      return true;
-    });
-  }, [projects, filter, searchQuery]);
+  const allocSegments = [
+    { key: 'siteA', labelBn: 'সাইট এ', labelEn: 'Site A', flex: 150, color: colors.chart.segment1 },
+    { key: 'shop', labelBn: 'দোকান', labelEn: 'Shop', flex: 102, color: colors.chart.segment2 },
+    { key: 'poultry', labelBn: 'পোল্ট্রি', labelEn: 'Poultry', flex: 80, color: colors.chart.segment3 },
+    { key: 'siteB', labelBn: 'সাইট বি', labelEn: 'Site B', flex: 60, color: colors.chart.segment4 },
+    { key: 'idle', labelBn: 'অলস টাকা', labelEn: 'Idle Cash', flex: 93, color: colors.chart.idle },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{l('Projects', 'প্রজেক্ট')}</Text>
           <Text style={styles.headerSubtitle}>
-            {formatNum(projects.length)} {l('projects ·', 'টি প্রজেক্টে')} {formatMoney(totalInvested)}
+            {formatNum(displayProjects.length)} {l('projects ·', 'টি প্রজেক্টে')} {formatMoney(totalInvested)}
           </Text>
         </View>
 
@@ -95,25 +113,25 @@ export default function ProjectsScreen() {
           onPress={() => setShowSearch(!showSearch)}
           activeOpacity={0.7}
         >
-          <Ionicons name="search" size={20} color="#1E293B" />
+          <Ionicons name="search" size={22} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       {/* Search Input Box */}
       {showSearch && (
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#94A3B8" />
+          <Ionicons name="search" size={18} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder={l('Search by project name...', 'প্রজেক্টের নাম দিয়ে খুঁজুন...')}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -130,52 +148,52 @@ export default function ProjectsScreen() {
               <Text style={styles.statLabel}>{l('Total Investment', 'মোট বিনিয়োগ')}</Text>
               <Text style={styles.statAmountInvest}>{formatMoney(totalInvested)}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.statLabel}>{l('Profit This Year', 'এ বছর লাভ')}</Text>
+            <View style={styles.statRightCol}>
+              <Text style={styles.statLabel}>{l('This Year Profit', 'এ বছর লাভ')}</Text>
               <Text style={styles.statAmountProfit}>
                 {formatMoney(totalProfit, { showPlusSign: true })}
               </Text>
             </View>
           </View>
 
-          <Text style={styles.allocLabel}>{l('Fund Allocation', 'মোট তহবিলের বণ্টন')}</Text>
+          <Text style={styles.allocLabel}>{l('Total Fund Allocation', 'মোট তহবিলের বণ্টন')}</Text>
 
           {/* Allocation Multi-Segment Bar */}
           <View style={styles.allocBar}>
-            {projects.map((p, idx) => {
-              const flexVal = totalInvested > 0 ? Math.max(10, Math.round((p.investedAmount / totalInvested) * 100)) : 25;
-              return (
-                <View
-                  key={p.id}
-                  style={[
-                    styles.allocSegment,
-                    { flex: flexVal, backgroundColor: ALLOC_COLORS[idx % ALLOC_COLORS.length] },
-                  ]}
-                />
-              );
-            })}
+            {allocSegments.map((seg) => (
+              <View
+                key={seg.key}
+                style={[
+                  styles.allocSegment,
+                  { flex: seg.flex, backgroundColor: seg.color },
+                ]}
+              />
+            ))}
           </View>
 
           {/* Legend Items */}
           <View style={styles.legendRow}>
-            {projects.slice(0, 4).map((p, idx) => (
-              <View key={p.id} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: ALLOC_COLORS[idx % ALLOC_COLORS.length] }]} />
-                <Text style={styles.legendText}>{p.name.split(':')[0].trim()}</Text>
+            {allocSegments.map((seg) => (
+              <View key={seg.key} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+                <Text style={styles.legendText}>
+                  {isBengali ? seg.labelBn : seg.labelEn}
+                </Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Filter Pills */}
+        {/* Filter Chips */}
         <View style={styles.filterRow}>
           <TouchableOpacity
             style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
             onPress={() => setFilter('all')}
             activeOpacity={0.8}
           >
+            {filter === 'all' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
             <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              {l('All', 'সব')} {formatNum(projects.length)}
+              {l('All', 'সব')} {formatNum(displayProjects.length)}
             </Text>
           </TouchableOpacity>
 
@@ -184,8 +202,9 @@ export default function ProjectsScreen() {
             onPress={() => setFilter('ongoing')}
             activeOpacity={0.8}
           >
+            {filter === 'ongoing' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
             <Text style={[styles.filterText, filter === 'ongoing' && styles.filterTextActive]}>
-              {l('Ongoing', 'চলমান')}
+              {l('Ongoing', 'চলমান')} {formatNum(ongoingCount)}
             </Text>
           </TouchableOpacity>
 
@@ -194,8 +213,9 @@ export default function ProjectsScreen() {
             onPress={() => setFilter('delayed')}
             activeOpacity={0.8}
           >
+            {filter === 'delayed' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
             <Text style={[styles.filterText, filter === 'delayed' && styles.filterTextActive]}>
-              {l('Delayed', 'বিলম্বিত')}
+              {l('Delayed', 'বিলম্বিত')} {formatNum(delayedCount)}
             </Text>
           </TouchableOpacity>
 
@@ -204,8 +224,9 @@ export default function ProjectsScreen() {
             onPress={() => setFilter('completed')}
             activeOpacity={0.8}
           >
+            {filter === 'completed' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
             <Text style={[styles.filterText, filter === 'completed' && styles.filterTextActive]}>
-              {l('Completed', 'সমাপ্ত')}
+              {l('Completed', 'সমাপ্ত')} {formatNum(completedCount)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -218,6 +239,31 @@ export default function ProjectsScreen() {
               ? `+${formatMoney(project.netProfit)} · ${formatNum(project.roiPct)}%`
               : `−${formatMoney(Math.abs(project.netProfit))} · −${formatNum(Math.abs(project.roiPct))}%`;
 
+            const projectTitle = isBengali
+              ? project.name
+              : project.id === 'p1'
+              ? 'Site A: Land Project'
+              : project.id === 'p2'
+              ? 'Shop Rental Project'
+              : project.id === 'p3'
+              ? 'Poultry Farm'
+              : project.id === 'p4'
+              ? 'Site B: Construction'
+              : project.name;
+
+            const typeLabel =
+              project.type === 'জমি'
+                ? l('Land', 'জমি')
+                : project.type === 'ভাড়া'
+                ? l('Rent', 'ভাড়া')
+                : project.type === 'কৃষি'
+                ? l('Agriculture', 'কৃষি')
+                : project.type === 'নির্মাণ'
+                ? l('Construction', 'নির্মাণ')
+                : project.type;
+
+            const locLabel = project.location === '[স্থান]' ? l('[Location]', '[স্থান]') : project.location;
+
             return (
               <TouchableOpacity
                 key={project.id}
@@ -226,10 +272,10 @@ export default function ProjectsScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{project.name}</Text>
+                  <View style={styles.cardTitleCol}>
+                    <Text style={styles.cardTitle}>{projectTitle}</Text>
                     <Text style={styles.cardSub}>
-                      {project.type} · {project.location} · {l('Manager:', 'দায়িত্বে:')} {project.manager}
+                      {typeLabel} · {locLabel}
                     </Text>
                   </View>
 
@@ -242,12 +288,13 @@ export default function ProjectsScreen() {
                       <Text style={styles.delayedBadgeText}>{l('Delayed', 'বিলম্বিত')}</Text>
                     </View>
                   ) : (
-                    <View style={[styles.ongoingBadge, { backgroundColor: '#E0F2FE' }]}>
-                      <Text style={[styles.ongoingBadgeText, { color: '#0369A1' }]}>{l('Completed', 'সমাপ্ত')}</Text>
+                    <View style={styles.completedBadge}>
+                      <Text style={styles.completedBadgeText}>{l('Completed', 'সমাপ্ত')}</Text>
                     </View>
                   )}
                 </View>
 
+                {/* 3 Metrics Columns */}
                 <View style={styles.metricsRow}>
                   <View style={styles.metricCol}>
                     <Text style={styles.metricLabel}>{l('Investment', 'বিনিয়োগ')}</Text>
@@ -259,7 +306,7 @@ export default function ProjectsScreen() {
                     <Text style={styles.metricValue}>{formatMoney(project.returnedAmount)}</Text>
                   </View>
 
-                  <View style={[styles.metricCol, { alignItems: 'flex-end' }]}>
+                  <View style={styles.metricColEnd}>
                     <Text style={styles.metricLabel}>{l('P&L · ROI', 'লাভ-ক্ষতি · ROI')}</Text>
                     <Text
                       style={[
@@ -276,16 +323,16 @@ export default function ProjectsScreen() {
           })}
 
           {filteredProjects.length === 0 && (
-            <View style={{ padding: 24, alignItems: 'center' }}>
-              <Ionicons name="briefcase-outline" size={32} color="#94A3B8" />
-              <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={32} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>
                 {l('No projects found', 'কোনো প্রজেক্ট পাওয়া যায়নি')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.scrollSpacer} />
       </ScrollView>
 
       {/* FAB: + নতুন প্রজেক্ট */}
@@ -294,12 +341,14 @@ export default function ProjectsScreen() {
         onPress={() => setShowNew(true)}
         activeOpacity={0.85}
       >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>{l('New Project', 'নতুন প্রজেক্ট')}</Text>
+        <Ionicons name="add" size={20} color={colors.surface} />
+        <Text style={styles.fabText}>{l('+ New Project', '+ নতুন প্রজেক্ট')}</Text>
       </TouchableOpacity>
+
+      {/* Create Project Modal */}
       <AppModal visible={showNew} onClose={() => setShowNew(false)}>
-        <ScrollView style={{ maxHeight: 520 }} showsVerticalScrollIndicator={false}>
-          <Text style={{ fontFamily: 'HindSiliguri-Bold', fontSize: 18, color: '#1E293B', marginBottom: 12 }}>
+        <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+          <Text style={styles.modalTitle}>
             {l('New Project', 'নতুন প্রজেক্ট')}
           </Text>
           {([
@@ -311,46 +360,32 @@ export default function ProjectsScreen() {
             ['startDate', l('Start', 'শুরু'), l('e.g. October 2026', 'যেমন: অক্টোবর ২০২৬')],
             ['expectedEnd', l('Expected end', 'সম্ভাব্য সমাপ্তি'), ''],
           ] as const).map(([key, label, ph]) => (
-            <View key={key} style={{ marginBottom: 10 }}>
-              <Text style={{ fontFamily: 'HindSiliguri-Medium', fontSize: 13, color: '#64748B', marginBottom: 4 }}>{label}</Text>
+            <View key={key} style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>{label}</Text>
               <TextInput
                 value={(np as any)[key]}
                 onChangeText={setField(key as any)}
                 placeholder={ph}
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType={key === 'amount' ? 'numeric' : 'default'}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  paddingVertical: 9,
-                  fontFamily: 'HindSiliguri-Regular',
-                  fontSize: 15,
-                  color: '#1E293B',
-                }}
+                style={styles.modalInputField}
               />
             </View>
           ))}
-          <Text style={{ fontFamily: 'HindSiliguri-Medium', fontSize: 13, color: '#64748B', marginBottom: 6 }}>
-            {l('Money taken from', 'টাকা যাবে কোথা থেকে')}
+          <Text style={styles.modalInputLabel}>
+            {l('Payment source', 'টাকা যাবে কোথা থেকে')}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          <View style={styles.sourceButtonsRow}>
             {(['bank', 'cash', 'bkash'] as const).map((src) => (
               <TouchableOpacity
                 key={src}
                 onPress={() => setNpSource(src)}
-                style={{
-                  flex: 1,
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  paddingVertical: 8,
-                  alignItems: 'center',
-                  borderColor: npSource === src ? '#0F766E' : '#E2E8F0',
-                  backgroundColor: npSource === src ? '#CCFBF1' : '#FFFFFF',
-                }}
+                style={[
+                  styles.sourceButton,
+                  npSource === src && styles.sourceButtonActive,
+                ]}
               >
-                <Text style={{ fontFamily: 'HindSiliguri-SemiBold', fontSize: 13, color: '#1E293B' }}>
+                <Text style={styles.sourceButtonText}>
                   {src === 'bank' ? l('Bank', 'ব্যাংক') : src === 'cash' ? l('Cash', 'হাতে নগদ') : l('bKash', 'বিকাশ')}
                 </Text>
               </TouchableOpacity>
@@ -358,9 +393,9 @@ export default function ProjectsScreen() {
           </View>
           <TouchableOpacity
             onPress={handleCreateProject}
-            style={{ backgroundColor: '#0F766E', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}
+            style={styles.createProjectBtn}
           >
-            <Text style={{ fontFamily: 'HindSiliguri-SemiBold', fontSize: 15, color: '#FFFFFF' }}>{l('Create Project', 'প্রজেক্ট তৈরি করুন')}</Text>
+            <Text style={styles.createProjectBtnText}>{l('Create Project', 'প্রজেক্ট তৈরি করুন')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </AppModal>
@@ -371,7 +406,7 @@ export default function ProjectsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -382,15 +417,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 22,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.lineHeight.xxl,
+    color: colors.text,
   },
   headerSubtitle: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: -2,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   searchBtn: {
     padding: 6,
@@ -398,21 +435,21 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 42,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.subhead,
+    color: colors.text,
     padding: 0,
   },
   scrollContent: {
@@ -420,11 +457,11 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 14,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -435,27 +472,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  statRightCol: {
+    alignItems: 'flex-end',
+  },
   statLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   statAmountInvest: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
   statAmountProfit: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#059669',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.primary,
   },
   allocLabel: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 8,
+    marginTop: 4,
   },
   allocBar: {
     flexDirection: 'row',
@@ -476,7 +521,7 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
   legendDot: {
     width: 6,
@@ -484,9 +529,10 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   legendText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
   filterRow: {
     flexDirection: 'row',
@@ -494,30 +540,41 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   filterChip: {
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#EAEBE6',
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
   },
   filterChipActive: {
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primarySoft,
+  },
+  filterCheck: {
+    marginRight: -2,
   },
   filterText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   filterTextActive: {
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
   projectsList: {
     gap: 10,
   },
   projectCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -527,67 +584,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  cardTitleCol: {
+    flex: 1,
+    marginRight: 8,
   },
   cardTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.text,
   },
   cardSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   ongoingBadge: {
-    backgroundColor: '#CCFBF1',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
   ongoingBadgeText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 11,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.primary,
   },
   delayedBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.warningSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
   },
   delayedBadgeText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 11,
-    color: '#DC2626',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.warning,
+  },
+  completedBadge: {
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  completedBadgeText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
   },
   metricsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 10,
+    marginTop: 6,
   },
   metricCol: {
     flex: 1,
   },
+  metricColEnd: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
   metricLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   metricValue: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   profitText: {
-    color: '#059669',
+    color: colors.primary,
   },
   lossText: {
-    color: '#DC2626',
+    color: colors.warning,
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  scrollSpacer: {
+    height: 100,
   },
   fab: {
     position: 'absolute',
@@ -595,11 +689,11 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#134E4A',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 28,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -607,8 +701,75 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fabText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.surface,
+  },
+  modalScroll: {
+    maxHeight: 520,
+  },
+  modalTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  modalInputGroup: {
+    marginBottom: 10,
+  },
+  modalInputLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  modalInputField: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.md,
+    color: colors.text,
+  },
+  sourceButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  sourceButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  sourceButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  sourceButtonText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
+  },
+  createProjectBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  createProjectBtnText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.surface,
   },
 });
