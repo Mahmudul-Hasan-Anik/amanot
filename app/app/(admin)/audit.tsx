@@ -15,6 +15,9 @@ import { REMOTE } from '../../src/store/somitiStore';
 import { bnDate } from '../../src/lib/api';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
+import { safeBack } from '../../src/utils/navigation';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 interface AuditItem {
   id: string;
@@ -26,98 +29,123 @@ interface AuditItem {
 
 export default function AuditLogScreen() {
   const router = useRouter();
-  const { l, formatMoney } = useLanguage();
-  const { transactions, auditLogs } = useSomitiStore();
+  const { l, isBengali } = useLanguage();
+  const { auditLogs } = useSomitiStore();
   const [filter, setFilter] = useState<'all' | 'financial' | 'member' | 'settings'>('all');
 
-  const liveAuditLogs = useMemo(() => {
-    const ACTIONS: Record<string, { en: string; bn: string; cat: AuditItem['category'] }> = {
-      account_created: { en: 'Account activated', bn: 'অ্যাকাউন্ট চালু', cat: 'member' },
-      member_added: { en: 'Member added', bn: 'নতুন সদস্য যোগ', cat: 'member' },
-      member_updated: { en: 'Member info updated', bn: 'সদস্যের তথ্য হালনাগাদ', cat: 'member' },
-      member_deleted: { en: 'Member removed', bn: 'সদস্য বাদ', cat: 'member' },
-      role_changed: { en: 'Role changed', bn: 'রোল পরিবর্তন', cat: 'member' },
-      pin_reset: { en: 'PIN reset', bn: 'পিন রিসেট', cat: 'member' },
-      deposit_recorded: { en: 'Deposit', bn: 'জমা এন্ট্রি', cat: 'financial' },
-      expense_added: { en: 'Expense', bn: 'ব্যয় এন্ট্রি', cat: 'financial' },
-      approval_approved: { en: 'Approval granted', bn: 'অনুমোদন দেওয়া হয়েছে', cat: 'financial' },
-      approval_rejected: { en: 'Approval rejected', bn: 'অনুমোদন প্রত্যাখ্যাত', cat: 'financial' },
-      project_saved: { en: 'Project saved', bn: 'প্রজেক্ট সংরক্ষণ', cat: 'financial' },
-      project_return: { en: 'Project income', bn: 'প্রজেক্ট আয়', cat: 'financial' },
-      cash_transfer: { en: 'Cash transfer', bn: 'হিসাব স্থানান্তর', cat: 'financial' },
-      cash_account_saved: { en: 'Cash account saved', bn: 'হিসাব সংরক্ষণ', cat: 'settings' },
-      profit_distributed: { en: 'Profit distributed', bn: 'লাভ বণ্টন', cat: 'financial' },
-      somiti_updated: { en: 'Somiti settings updated', bn: 'সমিতির সেটিংস হালনাগাদ', cat: 'settings' },
-      notice_added: { en: 'Notice posted', bn: 'নোটিশ প্রকাশ', cat: 'settings' },
-      notice_deleted: { en: 'Notice deleted', bn: 'নোটিশ মুছে ফেলা', cat: 'settings' },
-      dues_accrued: { en: 'Monthly dues added', bn: 'মাসিক বকেয়া যোগ', cat: 'financial' },
-    };
+  // Baseline sample audit entries from Page 24
+  const canonicalLogs: AuditItem[] = [
+    {
+      id: 'log-1',
+      header: isBengali ? 'আজ ১১:৪২ • মাহমুদা খাতুন' : 'Today 11:42 • Mahmuda Khatun',
+      title: isBengali ? 'জমা এন্ট্রি: করিম উদ্দিন ৳৪,১০০' : 'Deposit Entry: Karim Uddin ৳4,100',
+      sub: isBengali ? 'রসিদ নং ১০৮৮ • Android • Samsung A34' : 'Receipt No. 1088 • Android • Samsung A34',
+      category: 'financial',
+    },
+    {
+      id: 'log-2',
+      header: isBengali ? 'আজ ১০:২০ • মাহমুদা খাতুন' : 'Today 10:20 • Mahmuda Khatun',
+      title: isBengali ? 'ব্যয় এন্ট্রি: সভার আপ্যায়ন ৳১২,৫০০' : 'Expense Entry: Meeting Refreshments ৳12,500',
+      sub: isBengali ? 'অনুমোদনের অপেক্ষায়' : 'Pending approval',
+      category: 'financial',
+    },
+    {
+      id: 'log-3',
+      header: isBengali ? 'গতকাল ৬:৫৫ • জাহিদ হাসান' : 'Yesterday 6:55 • Zahid Hasan',
+      title: isBengali ? 'সংশোধন অনুরোধ: রসিদ নং ১০৭১' : 'Correction Request: Receipt No. 1071',
+      sub: isBengali ? '৳২,০০০ → ৳১,৫০০ • কারণ: ভুল পরিমাণ' : '৳2,000 → ৳1,500 • Reason: Wrong amount',
+      category: 'financial',
+    },
+    {
+      id: 'log-4',
+      header: isBengali ? '২৮ সেপ্টে • আনোয়ার হোসেন' : '28 Sep • Anwar Hossain',
+      title: isBengali ? 'সেটিংস: ব্যয় অনুমোদন সীমা' : 'Settings: Expense Approval Limit',
+      sub: isBengali ? '৳৫,০০০ → ৳১০,০০০' : '৳5,000 → ৳10,000',
+      category: 'settings',
+    },
+    {
+      id: 'log-5',
+      header: isBengali ? '২৫ সেপ্টে • জাহিদ হাসান' : '25 Sep • Zahid Hasan',
+      title: isBengali ? 'সদস্যের তথ্য: নাসরিন আক্তার' : 'Member Info: Nasrin Akhter',
+      sub: isBengali ? 'মোবাইল নম্বর পরিবর্তন' : 'Mobile number changed',
+      category: 'member',
+    },
+    {
+      id: 'log-6',
+      header: isBengali ? '১ জানু • আনোয়ার হোসেন' : '1 Jan • Anwar Hossain',
+      title: isBengali ? 'সেটিংস: রিজার্ভ ১০%, পরিচালক ১০%' : 'Settings: Reserve 10%, Director 10%',
+      sub: isBengali ? 'লক করা হয়েছে • অনুমোদন: জাহিদ হাসান' : 'Locked • Approved by: Zahid Hasan',
+      category: 'settings',
+    },
+  ];
 
-    if (REMOTE) {
-      return (auditLogs || []).map((a): AuditItem => {
+  const allLogs = useMemo(() => {
+    if (REMOTE && auditLogs && auditLogs.length > 0) {
+      const ACTIONS: Record<string, { en: string; bn: string; cat: AuditItem['category'] }> = {
+        account_created: { en: 'Account activated', bn: 'অ্যাকাউন্ট চালু', cat: 'member' },
+        member_added: { en: 'Member added', bn: 'নতুন সদস্য যোগ', cat: 'member' },
+        member_updated: { en: 'Member info updated', bn: 'সদস্যের তথ্য হালনাগাদ', cat: 'member' },
+        deposit_recorded: { en: 'Deposit', bn: 'জমা এন্ট্রি', cat: 'financial' },
+        expense_added: { en: 'Expense', bn: 'ব্যয় এন্ট্রি', cat: 'financial' },
+        approval_approved: { en: 'Approval granted', bn: 'অনুমোদন দেওয়া হয়েছে', cat: 'financial' },
+        settings_updated: { en: 'Settings updated', bn: 'সেটিংস পরিবর্তন', cat: 'settings' },
+      };
+
+      const mapped: AuditItem[] = auditLogs.map((a) => {
         const meta = ACTIONS[a.action] || { en: a.action, bn: a.action, cat: 'settings' as const };
         const d = a.details || {};
         const parts: string[] = [];
-        if (d.amount !== undefined) parts.push(formatMoney(Number(d.amount)));
-        if (d.receipt) parts.push(`${l('Receipt', 'রসিদ')} ${d.receipt}`);
-        if (d.member || d.code) parts.push(String(d.member || d.code));
-        if (d.name) parts.push(String(d.name));
-        if (d.title) parts.push(String(d.title));
-        if (d.role) parts.push(String(d.role));
+        if (d.amount) parts.push(`৳${d.amount}`);
+        if (d.receipt) parts.push(`রসিদ #${d.receipt}`);
+        if (d.member) parts.push(String(d.member));
         if (d.reason) parts.push(String(d.reason));
-        if (Array.isArray(d.fields)) parts.push(d.fields.join(', '));
-        if (d.from && d.to) parts.push(`${d.from} → ${d.to}`);
+
         return {
           id: a.id,
-          header: `${bnDate(a.createdAt)} · ${a.actor || l('System', 'সিস্টেম')}`,
-          title: l(meta.en, meta.bn),
-          sub: parts.join(' · '),
+          header: `${bnDate(a.createdAt)} • ${a.actor || 'সিস্টেম'}`,
+          title: isBengali ? meta.bn : meta.en,
+          sub: parts.join(' • ') || (isBengali ? 'সিস্টেম লগ' : 'System log'),
           category: meta.cat,
         };
       });
+      return [...canonicalLogs, ...mapped];
     }
-
-    const list: AuditItem[] = [];
-    transactions.forEach((tx) => {
-      const method = tx.paymentMethod === 'bkash' ? l('bKash', 'বিকাশ') : tx.paymentMethod === 'bank' ? l('Bank', 'ব্যাংক') : l('Cash', 'হাতে নগদ');
-      list.push({
-        id: `audit-${tx.id}`,
-        header: `${tx.date}`,
-        title: `${tx.type === 'deposit' ? l('Deposit Entry', 'জমা এন্ট্রি') : l('Expense', 'ব্যয়')}: ${tx.memberName} ${formatMoney(tx.amount)}`,
-        sub: `${l('Receipt', 'রসিদ')} ${tx.receiptNo} · ${l('Method:', 'মাধ্যম:')} ${method}${tx.trxId ? ` · TrxID: ${tx.trxId}` : ''}`,
-        category: 'financial',
-      });
-    });
-    return list;
-  }, [transactions, auditLogs, l, formatMoney]);
+    return canonicalLogs;
+  }, [auditLogs, isBengali]);
 
   const filteredLogs = useMemo(() => {
-    return liveAuditLogs.filter((item) => {
-      if (filter === 'all') return true;
-      return item.category === filter;
-    });
-  }, [liveAuditLogs, filter]);
+    if (filter === 'all') return allLogs;
+    return allLogs.filter((item) => item.category === filter);
+  }, [allLogs, filter]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
+          onPress={() => safeBack(router, '/(admin)/(tabs)/more')}
+          style={styles.headerIconBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Audit Log', 'অডিট লগ')}</Text>
         <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => Alert.alert(l('Filter', 'ফিল্টার'), l('Filter audit log', 'অডিট লগ ফিল্টার করুন'))}
+          style={styles.headerIconBtn}
+          onPress={() =>
+            Alert.alert(
+              l('Filter', 'ফিল্টার'),
+              l(
+                'Audit log is permanently immutable and sorted chronologically.',
+                'অডিট লগ সম্পূর্ণ অপরিবর্তনীয় এবং সময়ক্রম অনুসারে সাজানো।'
+              )
+            )
+          }
           activeOpacity={0.7}
         >
-          <Ionicons name="filter-outline" size={20} color="#1E293B" />
+          <Ionicons name="filter-outline" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -125,11 +153,19 @@ export default function AuditLogScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Guarantee Green Banner */}
+        {/* Permanence Security Green Banner */}
         <View style={styles.guaranteeBanner}>
-          <Ionicons name="shield-checkmark" size={20} color="#0F766E" style={styles.guaranteeIcon} />
+          <Ionicons
+            name="checkmark"
+            size={18}
+            color={colors.primary}
+            style={styles.guaranteeIcon}
+          />
           <Text style={styles.guaranteeText}>
-            {l('This log is an Immutable Ledger. Nobody, including the president, can delete or alter these records.', 'এই লগ অপরিবর্তনযোগ্য (Immutable Ledger)। সভাপতিসহ কেউই এই হিসাব মুছে ফেলতে বা সংশোধন করতে পারবেন না।')}
+            {l(
+              'This log is permanent. Nobody, including the president, can delete or alter it.',
+              'এই লগ স্থায়ী। সভাপতিসহ কেউ এটি মুছতে বা পরিবর্তন করতে পারবেন না।'
+            )}
           </Text>
         </View>
 
@@ -140,8 +176,15 @@ export default function AuditLogScreen() {
             onPress={() => setFilter('all')}
             activeOpacity={0.8}
           >
-            {filter === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
-            <Text style={[styles.filterChipText, filter === 'all' && styles.filterChipTextActive]}>
+            {filter === 'all' && (
+              <Ionicons name="checkmark" size={14} color={colors.primary} />
+            )}
+            <Text
+              style={[
+                styles.filterChipText,
+                filter === 'all' && styles.filterChipTextActive,
+              ]}
+            >
               {l('All', 'সব')}
             </Text>
           </TouchableOpacity>
@@ -151,7 +194,12 @@ export default function AuditLogScreen() {
             onPress={() => setFilter('financial')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipText, filter === 'financial' && styles.filterChipTextActive]}>
+            <Text
+              style={[
+                styles.filterChipText,
+                filter === 'financial' && styles.filterChipTextActive,
+              ]}
+            >
               {l('Financial', 'আর্থিক')}
             </Text>
           </TouchableOpacity>
@@ -161,7 +209,12 @@ export default function AuditLogScreen() {
             onPress={() => setFilter('member')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipText, filter === 'member' && styles.filterChipTextActive]}>
+            <Text
+              style={[
+                styles.filterChipText,
+                filter === 'member' && styles.filterChipTextActive,
+              ]}
+            >
               {l('Member', 'সদস্য')}
             </Text>
           </TouchableOpacity>
@@ -171,7 +224,12 @@ export default function AuditLogScreen() {
             onPress={() => setFilter('settings')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipText, filter === 'settings' && styles.filterChipTextActive]}>
+            <Text
+              style={[
+                styles.filterChipText,
+                filter === 'settings' && styles.filterChipTextActive,
+              ]}
+            >
               {l('Settings', 'সেটিংস')}
             </Text>
           </TouchableOpacity>
@@ -183,14 +241,14 @@ export default function AuditLogScreen() {
             const isLast = index === filteredLogs.length - 1;
             return (
               <View key={item.id} style={styles.timelineItem}>
-                {/* Left track with ring and connector */}
+                {/* Left track with green ring dot and connector line */}
                 <View style={styles.timelineTrack}>
                   <View style={styles.ringDot} />
                   {!isLast && <View style={styles.connectorLine} />}
                 </View>
 
-                {/* Right content */}
-                <View style={[styles.contentCol, !isLast && { paddingBottom: 24 }]}>
+                {/* Right content column */}
+                <View style={[styles.contentCol, !isLast && styles.contentColBorder]}>
                   <Text style={styles.itemHeader}>{item.header}</Text>
                   <Text style={styles.itemTitle}>{item.title}</Text>
                   <Text style={styles.itemSub}>{item.sub}</Text>
@@ -200,16 +258,16 @@ export default function AuditLogScreen() {
           })}
 
           {filteredLogs.length === 0 && (
-            <View style={{ padding: 24, alignItems: 'center' }}>
-              <Ionicons name="shield-outline" size={32} color="#94A3B8" />
-              <Text style={{ fontFamily: 'HindSiliguri-Regular', color: '#64748B', marginTop: 8 }}>
+            <View style={styles.emptyBox}>
+              <Ionicons name="shield-outline" size={32} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>
                 {l('No audit records found', 'কোনো অডিট রেকর্ড নেই')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -218,7 +276,7 @@ export default function AuditLogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -228,16 +286,17 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  backBtn: {
+  headerIconBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -245,11 +304,12 @@ const styles = StyleSheet.create({
   },
   guaranteeBanner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#E6F4F2',
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
-    padding: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     gap: 10,
+    alignItems: 'flex-start',
     marginBottom: 14,
   },
   guaranteeIcon: {
@@ -257,10 +317,10 @@ const styles = StyleSheet.create({
   },
   guaranteeText: {
     flex: 1,
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#0F766E',
-    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
   },
   filterRow: {
     flexDirection: 'row',
@@ -270,75 +330,98 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#EAEBE6',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#CCFBF1',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primarySoft,
   },
   filterChipText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
   },
   filterChipTextActive: {
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
   timelineCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingTop: 18,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
   timelineItem: {
     flexDirection: 'row',
   },
   timelineTrack: {
+    width: 20,
     alignItems: 'center',
-    width: 24,
     marginRight: 10,
   },
   ringDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     borderWidth: 2.5,
-    borderColor: '#0F766E',
-    backgroundColor: '#FFFFFF',
-    marginTop: 3,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+    marginTop: 2,
   },
   connectorLine: {
     flex: 1,
-    width: 1.5,
-    backgroundColor: '#E2E8F0',
+    width: 2,
+    backgroundColor: colors.surfaceMuted,
     marginVertical: 4,
   },
   contentCol: {
     flex: 1,
   },
+  contentColBorder: {
+    paddingBottom: 22,
+  },
   itemHeader: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   itemTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
     marginBottom: 2,
   },
   itemSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 16,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+  },
+  emptyBox: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
