@@ -18,6 +18,8 @@ import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -50,7 +52,10 @@ export default function SettingsScreen() {
 
   // In live (Supabase) mode these settings belong to the somiti and are saved on the server
   const info: any = somitiInfo;
-  const pick = (key: string, local: number) => (REMOTE && info?.[key] !== undefined && info?.[key] !== '' ? Number(info[key]) : local);
+  const pick = (key: string, local: number) =>
+    REMOTE && info?.[key] !== undefined && info?.[key] !== ''
+      ? Number(info[key])
+      : local;
   const dueDateDay = pick('dueDay', localDueDay);
   const gracePeriodDays = pick('graceDays', localGrace);
   const defaultMonthlyDeposit = pick('defaultMonthly', localDefaultDeposit);
@@ -60,6 +65,9 @@ export default function SettingsScreen() {
     if (REMOTE) updateSomitiInfo({ [key]: value } as any);
   };
 
+  // Auto-approve toggle state (defaults to true per user directive)
+  const [autoApprove, setAutoApprove] = useState(true);
+
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -68,7 +76,10 @@ export default function SettingsScreen() {
   const handleResetData = () => {
     if (REMOTE) {
       resetAllData(); // live mode: reload from server, never deletes anything
-      Alert.alert(l('Done', 'সম্পন্ন'), l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।'));
+      Alert.alert(
+        l('Done', 'সম্পন্ন'),
+        l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।')
+      );
       return;
     }
     Alert.alert(
@@ -84,7 +95,10 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             resetAllData();
-            Alert.alert(l('Success', 'সফল'), l('All demo data has been reset.', 'অ্যাপের সকল ডেমো তথ্য সফলভাবে রিসেট হয়েছে।'));
+            Alert.alert(
+              l('Success', 'সফল'),
+              l('All demo data has been reset.', 'অ্যাপের সকল ডেমো তথ্য সফলভাবে রিসেট হয়েছে।')
+            );
           },
         },
       ]
@@ -94,7 +108,7 @@ export default function SettingsScreen() {
   const handleLogout = () => {
     Alert.alert(
       l('Logout Confirmation', 'লগআউট নিশ্চিতকরণ'),
-      l('Are you sure you want to log out of Amanat?', 'আপনি কি আমানত অ্যাপ থেকে লগআউট করতে চান?'),
+      l('Are you sure you want to log out of Amanot?', 'আপনি কি আমানত অ্যাপ থেকে লগআউট করতে চান?'),
       [
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
@@ -112,13 +126,16 @@ export default function SettingsScreen() {
   const handleBackupNow = () => {
     Alert.alert(
       l('Backup Status', 'ব্যাকআপ অবস্থা'),
-      l('Local data successfully backed up right now.', 'সকল তথ্য সফলভাবে ক্লাউড ও লোকাল মেমোরিতে ব্যাকআপ সম্পন্ন হয়েছে।')
+      l(
+        'Local data successfully backed up right now.',
+        'সকল তথ্য সফলভাবে ক্লাউড ও লোকাল মেমোরিতে ব্যাকআপ সম্পন্ন হয়েছে।'
+      )
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
@@ -127,10 +144,10 @@ export default function SettingsScreen() {
           style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Settings', 'সেটিংস')}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.backBtn} />
       </View>
 
       <ScrollView
@@ -147,12 +164,16 @@ export default function SettingsScreen() {
             onPress={() => setShowDepositModal(true)}
           >
             <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>{l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}</Text>
-              <Text style={styles.rowSub}>{l('Customizable per member', 'সদস্যভিত্তিক পরিবর্তনযোগ্য')}</Text>
+              <Text style={styles.rowTitle}>
+                {l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}
+              </Text>
+              <Text style={styles.rowSub}>
+                {l('Customizable per member', 'সদস্যভিত্তিক পরিবর্তনযোগ্য')}
+              </Text>
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{formatMoney(defaultMonthlyDeposit)}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -167,9 +188,11 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>{l('Deposit Due Date', 'জমার শেষ তারিখ')}</Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>
-                {isBengali ? `প্রতি মাসের ${formatNum(dueDateDay)} তারিখ` : `${dueDateDay}th of every month`}
+                {isBengali
+                  ? `প্রতি মাসের ${formatNum(dueDateDay)} তারিখ`
+                  : `${dueDateDay}th of every month`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -180,7 +203,14 @@ export default function SettingsScreen() {
             style={styles.row}
             activeOpacity={0.7}
             onPress={() => {
-              const next = gracePeriodDays === 5 ? 7 : gracePeriodDays === 7 ? 10 : gracePeriodDays === 10 ? 3 : 5;
+              const next =
+                gracePeriodDays === 5
+                  ? 7
+                  : gracePeriodDays === 7
+                  ? 10
+                  : gracePeriodDays === 10
+                  ? 3
+                  : 5;
               setGracePeriodDays(next);
               saveSetting('graceDays', next);
             }}
@@ -190,7 +220,7 @@ export default function SettingsScreen() {
               <Text style={styles.valText}>
                 {isBengali ? `${formatNum(gracePeriodDays)} দিন` : `${gracePeriodDays} days`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -201,7 +231,14 @@ export default function SettingsScreen() {
             style={styles.row}
             activeOpacity={0.7}
             onPress={() => {
-              const next = lateFeeAmount === 100 ? 150 : lateFeeAmount === 150 ? 200 : lateFeeAmount === 200 ? 50 : 100;
+              const next =
+                lateFeeAmount === 100
+                  ? 150
+                  : lateFeeAmount === 150
+                  ? 200
+                  : lateFeeAmount === 200
+                  ? 50
+                  : 100;
               setLateFeeAmount(next);
               saveSetting('lateFee', next);
             }}
@@ -209,15 +246,19 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>{l('Late Fee', 'বিলম্ব ফি')}</Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>
-                {isBengali ? `${formatMoney(lateFeeAmount)} (নির্দিষ্ট)` : `${formatMoney(lateFeeAmount)} (Fixed)`}
+                {isBengali
+                  ? `${formatMoney(lateFeeAmount)} (নির্দিষ্ট)`
+                  : `${formatMoney(lateFeeAmount)} (Fixed)`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Section 2: লাভ-ক্ষতি বণ্টন (Profit-Loss Distribution) */}
-        <Text style={styles.sectionTitle}>{l('Profit-Loss Distribution', 'লাভ-ক্ষতি বণ্টন')}</Text>
+        <Text style={styles.sectionTitle}>
+          {l('Profit-Loss Distribution', 'লাভ-ক্ষতি বণ্টন')}
+        </Text>
         <View style={styles.card}>
           {/* Row 1: Accounting Year */}
           <TouchableOpacity
@@ -235,7 +276,7 @@ export default function SettingsScreen() {
                   ? l('Jan – Dec', 'জানু – ডিসে')
                   : l('Jul – Jun', 'জুলাই – জুন')}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -245,8 +286,10 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.row} activeOpacity={0.7}>
             <Text style={styles.rowTitle}>{l('Distribution Method', 'বণ্টন পদ্ধতি')}</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>{l('Proportional to Deposit', 'মোট জমার অনুপাতে')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Text style={styles.valText}>
+                {l('Proportional to Deposit', 'মোট জমার অনুপাতে')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -262,7 +305,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{formatNum('10')}%</Text>
-              <Ionicons name="lock-closed" size={14} color="#64748B" />
+              <Ionicons name="lock-closed" size={14} color={colors.textSecondary} />
             </View>
           </View>
 
@@ -278,7 +321,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{formatNum('10')}%</Text>
-              <Ionicons name="lock-closed" size={14} color="#64748B" />
+              <Ionicons name="lock-closed" size={14} color={colors.textSecondary} />
             </View>
           </View>
 
@@ -286,10 +329,12 @@ export default function SettingsScreen() {
 
           {/* Row 5: Director Max Cap */}
           <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>{l('Director Max Limit', 'পরিচালক অংশের সর্বোচ্চ সীমা')}</Text>
+            <Text style={styles.rowTitle}>
+              {l('Director Max Limit', 'পরিচালক অংশের সর্বোচ্চ সীমা')}
+            </Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{formatNum('20')}%</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -300,14 +345,19 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>{l('In Case of Loss', 'ক্ষতি হলে')}</Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{l('From members deposit', 'সদস্যদের জমা থেকে')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Notice Info Box */}
         <View style={styles.noticeBox}>
-          <Ionicons name="information-circle-outline" size={18} color="#475569" style={styles.noticeIcon} />
+          <Ionicons
+            name="information-circle-outline"
+            size={18}
+            color={colors.textSecondary}
+            style={styles.noticeIcon}
+          />
           <Text style={styles.noticeText}>
             {l(
               'Changing percentages mid-year requires approval from the President and another committee member.',
@@ -324,10 +374,12 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
             onPress={() => setShowApprovalModal(true)}
           >
-            <Text style={styles.rowTitle}>{l('Expense Approval Limit', 'ব্যয় অনুমোদনের সীমা')}</Text>
+            <Text style={styles.rowTitle}>
+              {l('Expense Approval Limit', 'ব্যয় অনুমোদনের সীমা')}
+            </Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>{formatMoney(expenseApprovalLimit)}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -336,10 +388,32 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.row} activeOpacity={0.7}>
             <Text style={styles.rowTitle}>{l('New Investment', 'নতুন বিনিয়োগ')}</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>{l('Always Require Approval', 'সবসময় অনুমোদন')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Text style={styles.valText}>
+                {l('Always Require Approval', 'সবসময় অনুমোদন')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* User Request: Auto-Approve Feature */}
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle}>
+                {l('Auto Approval', 'স্বয়ংক্রিয় অনুমোদন')}
+              </Text>
+              <Text style={styles.rowSub}>
+                {l('Auto-approve expenses within limit', 'সীমার ভেতরের ব্যয় স্বয়ংক্রিয় অনুমোদন')}
+              </Text>
+            </View>
+            <Switch
+              value={autoApprove}
+              onValueChange={setAutoApprove}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
+            />
+          </View>
         </View>
 
         {/* Section 4: যোগাযোগ (Communication) - Page 22 */}
@@ -347,7 +421,9 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>{l('Automatic Due Reminder', 'স্বয়ংক্রিয় বকেয়া রিমাইন্ডার')}</Text>
+              <Text style={styles.rowTitle}>
+                {l('Automatic Due Reminder', 'স্বয়ংক্রিয় বকেয়া রিমাইন্ডার')}
+              </Text>
               <Text style={styles.rowSub}>
                 {l('3 days before the due date', 'শেষ তারিখের ৩ দিন আগে থেকে')}
               </Text>
@@ -355,8 +431,8 @@ export default function SettingsScreen() {
             <Switch
               value={autoReminder}
               onValueChange={setAutoReminder}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -369,8 +445,8 @@ export default function SettingsScreen() {
           >
             <Text style={styles.rowTitle}>{l('Message Templates', 'বার্তার টেমপ্লেট')}</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>{isBengali ? '৬টি' : '6'}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Text style={styles.valText}>{isBengali ? '৫টি' : '5'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -379,8 +455,10 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.row} activeOpacity={0.7}>
             <Text style={styles.rowTitle}>{l('SMS Gateway', 'এসএমএস গেটওয়ে')}</Text>
             <View style={styles.rowRight}>
-              <Text style={[styles.valText, { color: '#0F766E' }]}>{l('Connected', 'সংযুক্ত')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Text style={[styles.valText, { color: colors.primary }]}>
+                {l('Connected', 'সংযুক্ত')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -396,10 +474,10 @@ export default function SettingsScreen() {
           >
             <Text style={styles.rowTitle}>{l('Language', 'ভাষা')}</Text>
             <View style={styles.rowRight}>
-              <Text style={[styles.valText, { color: '#0F766E', fontWeight: '700' }]}>
+              <Text style={[styles.valText, { color: colors.primary, fontFamily: typography.fontFamily.bold }]}>
                 {language === 'bn' ? 'বাংলা' : 'English'}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -411,8 +489,8 @@ export default function SettingsScreen() {
             <Switch
               value={useBengaliDigits}
               onValueChange={setUseBengaliDigits}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
@@ -426,8 +504,10 @@ export default function SettingsScreen() {
           >
             <Text style={styles.rowTitle}>{l('Backup', 'ব্যাকআপ')}</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>{l('Daily · Today 2:00', 'প্রতিদিন · আজ ২:০০')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              <Text style={styles.valText}>
+                {l('Daily · Today 2:00', 'প্রতিদিন · আজ ২:০০')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -441,14 +521,16 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <Text style={[styles.rowTitle, { color: '#D97706' }]}>
-                {REMOTE ? l('Reload data from server', 'সার্ভার থেকে তথ্য রিলোড করুন') : l('Reset Demo Data', 'ডেমো ডেটা রিসেট করুন')}
+              <Text style={[styles.rowTitle, { color: colors.warning }]}>
+                {REMOTE
+                  ? l('Reload data from server', 'সার্ভার থেকে তথ্য রিলোড করুন')
+                  : l('Reset Demo Data', 'ডেমো ডেটা রিসেট করুন')}
               </Text>
               <Text style={styles.rowSub}>
                 {l('Restore all demo records to initial state', 'নতুন করে প্রাথমিক ডেটা লোড হবে')}
               </Text>
             </View>
-            <Ionicons name="refresh-outline" size={20} color="#D97706" />
+            <Ionicons name="refresh-outline" size={20} color={colors.warning} />
           </TouchableOpacity>
 
           <View style={styles.divider} />
@@ -459,25 +541,27 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <Text style={[styles.rowTitle, { color: '#DC2626' }]}>
+              <Text style={[styles.rowTitle, { color: colors.warning }]}>
                 {l('Logout', 'লগআউট')}
               </Text>
               <Text style={styles.rowSub}>
                 {l('End current account session', 'বর্তমান অ্যাকাউন্ট সেশন সমাপ্ত করুন')}
               </Text>
             </View>
-            <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+            <Ionicons name="log-out-outline" size={20} color={colors.warning} />
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Language Picker Modal */}
       <Modal visible={showLanguageModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{l('Select Language', 'ভাষা নির্বাচন করুন')}</Text>
+            <Text style={styles.modalTitle}>
+              {l('Select Language', 'ভাষা নির্বাচন করুন')}
+            </Text>
             <TouchableOpacity
               style={[styles.modalOption, language === 'bn' && styles.modalOptionActive]}
               onPress={() => {
@@ -485,10 +569,17 @@ export default function SettingsScreen() {
                 setShowLanguageModal(false);
               }}
             >
-              <Text style={[styles.modalOptionText, language === 'bn' && styles.modalOptionTextActive]}>
+              <Text
+                style={[
+                  styles.modalOptionText,
+                  language === 'bn' && styles.modalOptionTextActive,
+                ]}
+              >
                 বাংলা (Bengali)
               </Text>
-              {language === 'bn' && <Ionicons name="checkmark" size={18} color="#0F766E" />}
+              {language === 'bn' && (
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -498,10 +589,17 @@ export default function SettingsScreen() {
                 setShowLanguageModal(false);
               }}
             >
-              <Text style={[styles.modalOptionText, language === 'en' && styles.modalOptionTextActive]}>
+              <Text
+                style={[
+                  styles.modalOptionText,
+                  language === 'en' && styles.modalOptionTextActive,
+                ]}
+              >
                 English
               </Text>
-              {language === 'en' && <Ionicons name="checkmark" size={18} color="#0F766E" />}
+              {language === 'en' && (
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -514,11 +612,13 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Due Date Picker Modal (Date Fetch / Setting) */}
+      {/* Due Date Picker Modal */}
       <Modal visible={showDateModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{l('Set Monthly Due Date', 'জমার শেষ তারিখ নির্ধারণ')}</Text>
+            <Text style={styles.modalTitle}>
+              {l('Set Monthly Due Date', 'জমার শেষ তারিখ নির্ধারণ')}
+            </Text>
             {[1, 5, 7, 10, 15, 20, 25].map((day) => (
               <TouchableOpacity
                 key={day}
@@ -529,10 +629,19 @@ export default function SettingsScreen() {
                   setShowDateModal(false);
                 }}
               >
-                <Text style={[styles.modalOptionText, dueDateDay === day && styles.modalOptionTextActive]}>
-                  {isBengali ? `প্রতি মাসের ${formatNum(day)} তারিখ` : `${day}th of every month`}
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    dueDateDay === day && styles.modalOptionTextActive,
+                  ]}
+                >
+                  {isBengali
+                    ? `প্রতি মাসের ${formatNum(day)} তারিখ`
+                    : `${day}th of every month`}
                 </Text>
-                {dueDateDay === day && <Ionicons name="checkmark" size={18} color="#0F766E" />}
+                {dueDateDay === day && (
+                  <Ionicons name="checkmark" size={18} color={colors.primary} />
+                )}
               </TouchableOpacity>
             ))}
 
@@ -550,21 +659,33 @@ export default function SettingsScreen() {
       <Modal visible={showDepositModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}</Text>
+            <Text style={styles.modalTitle}>
+              {l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}
+            </Text>
             {[1000, 1500, 2000, 2500, 3000, 5000].map((amt) => (
               <TouchableOpacity
                 key={amt}
-                style={[styles.modalOption, defaultMonthlyDeposit === amt && styles.modalOptionActive]}
+                style={[
+                  styles.modalOption,
+                  defaultMonthlyDeposit === amt && styles.modalOptionActive,
+                ]}
                 onPress={() => {
                   setDefaultMonthlyDeposit(amt);
                   saveSetting('defaultMonthly', amt);
                   setShowDepositModal(false);
                 }}
               >
-                <Text style={[styles.modalOptionText, defaultMonthlyDeposit === amt && styles.modalOptionTextActive]}>
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    defaultMonthlyDeposit === amt && styles.modalOptionTextActive,
+                  ]}
+                >
                   {formatMoney(amt)}
                 </Text>
-                {defaultMonthlyDeposit === amt && <Ionicons name="checkmark" size={18} color="#0F766E" />}
+                {defaultMonthlyDeposit === amt && (
+                  <Ionicons name="checkmark" size={18} color={colors.primary} />
+                )}
               </TouchableOpacity>
             ))}
 
@@ -582,21 +703,33 @@ export default function SettingsScreen() {
       <Modal visible={showApprovalModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{l('Expense Approval Limit', 'ব্যয় অনুমোদনের সীমা')}</Text>
+            <Text style={styles.modalTitle}>
+              {l('Expense Approval Limit', 'ব্যয় অনুমোদনের সীমা')}
+            </Text>
             {[5000, 10000, 20000, 50000, 100000].map((lim) => (
               <TouchableOpacity
                 key={lim}
-                style={[styles.modalOption, expenseApprovalLimit === lim && styles.modalOptionActive]}
+                style={[
+                  styles.modalOption,
+                  expenseApprovalLimit === lim && styles.modalOptionActive,
+                ]}
                 onPress={() => {
                   setExpenseApprovalLimit(lim);
                   saveSetting('expenseApprovalLimit', lim);
                   setShowApprovalModal(false);
                 }}
               >
-                <Text style={[styles.modalOptionText, expenseApprovalLimit === lim && styles.modalOptionTextActive]}>
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    expenseApprovalLimit === lim && styles.modalOptionTextActive,
+                  ]}
+                >
                   {formatMoney(lim)}
                 </Text>
-                {expenseApprovalLimit === lim && <Ionicons name="checkmark" size={18} color="#0F766E" />}
+                {expenseApprovalLimit === lim && (
+                  <Ionicons name="checkmark" size={18} color={colors.primary} />
+                )}
               </TouchableOpacity>
             ))}
 
@@ -616,7 +749,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -633,32 +766,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
   sectionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
     marginBottom: 8,
     marginTop: 10,
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     paddingHorizontal: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
   },
   row: {
     flexDirection: 'row',
@@ -670,15 +800,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   rowSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    lineHeight: typography.lineHeight.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   rowRight: {
     flexDirection: 'row',
@@ -686,18 +818,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   valText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceMuted,
   },
   noticeBox: {
     flexDirection: 'row',
-    backgroundColor: '#E8ECE6',
-    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
     padding: 12,
     gap: 8,
     alignItems: 'flex-start',
@@ -708,10 +841,10 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.text,
   },
   modalOverlay: {
     flex: 1,
@@ -722,15 +855,15 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
-    elevation: 5,
   },
   modalTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 17,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.lg,
+    color: colors.text,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -742,21 +875,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceMuted,
   },
   modalOptionActive: {
-    backgroundColor: '#E6F4F2',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#0F766E',
+    borderColor: colors.primary,
   },
   modalOptionText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   modalOptionTextActive: {
-    fontFamily: 'HindSiliguri-Bold',
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
   },
   modalCancelBtn: {
     marginTop: 10,
@@ -764,8 +898,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.textSecondary,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
