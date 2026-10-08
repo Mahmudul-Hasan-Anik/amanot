@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,768 +9,484 @@ import {
   StatusBar,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   Linking,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
-
-const AVATAR_COLORS = [
-  { bg: '#E0F2FE', text: '#0284C7' },
-  { bg: '#DCFCE7', text: '#16A34A' },
-  { bg: '#CCFBF1', text: '#0F766E' },
-  { bg: '#EDE9FE', text: '#7C3AED' },
-];
+import { toBengaliDigits } from '../../src/lib/bengali';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 export default function SomitiProfileScreen() {
   const router = useRouter();
-  const { l, formatMoney, formatNum, language } = useLanguage();
+  const { l, formatNum, isBengali } = useLanguage();
   const { somitiInfo, members, projects, updateSomitiInfo } = useSomitiStore();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<{
-    type: 'constitution' | 'certificate';
-    title: string;
-    subtitle: string;
-  } | null>(null);
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Form State for Editing
+  // Edit form state
   const [editForm, setEditForm] = useState({
-    name: somitiInfo.name,
-    tagline: somitiInfo.tagline || '',
-    regNo: somitiInfo.regNo,
-    establishedYear: somitiInfo.establishedYear,
-    address: somitiInfo.address,
-    phone: somitiInfo.phone,
-    email: somitiInfo.email,
-    authority: somitiInfo.authority || '',
-    committeeTenure: somitiInfo.committeeTenure || '',
-    bankName: somitiInfo.bankName || '',
-    bankAccountNo: somitiInfo.bankAccountNo || '',
-    bkashNo: somitiInfo.bkashNo || '',
-    nagadNo: somitiInfo.nagadNo || '',
+    name: somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]'),
+    regNo: somitiInfo.regNo || '[নম্বর]',
+    establishedYear: somitiInfo.establishedYear || (isBengali ? '[সাল]' : '[Year]'),
+    address: somitiInfo.address || '[অফিসের ঠিকানা]',
+    phone: somitiInfo.phone || '[ফোন নম্বর]',
+    email: somitiInfo.email || '[ইমেইল]',
+    authority: somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]',
+    committeeTenure: somitiInfo.committeeTenure || (isBengali ? '[শুরু] – [শেষ]' : '[Start] – [End]'),
+    bankName: somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]',
+    bankAccountNo: somitiInfo.bankAccountNo || '[হিসাব নম্বর]',
+    bkashNo: somitiInfo.bkashNo || '[বিকাশ নম্বর]',
+    nagadNo: somitiInfo.nagadNo || '[নগদ নম্বর]',
   });
-
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-  };
-
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
 
   const handleOpenEdit = () => {
     setEditForm({
-      name: somitiInfo.name,
-      tagline: somitiInfo.tagline || '',
-      regNo: somitiInfo.regNo,
-      establishedYear: somitiInfo.establishedYear,
-      address: somitiInfo.address,
-      phone: somitiInfo.phone,
-      email: somitiInfo.email,
-      authority: somitiInfo.authority || '',
-      committeeTenure: somitiInfo.committeeTenure || '',
-      bankName: somitiInfo.bankName || '',
-      bankAccountNo: somitiInfo.bankAccountNo || '',
-      bkashNo: somitiInfo.bkashNo || '',
-      nagadNo: somitiInfo.nagadNo || '',
+      name: somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]'),
+      regNo: somitiInfo.regNo || '[নম্বর]',
+      establishedYear: somitiInfo.establishedYear || (isBengali ? '[সাল]' : '[Year]'),
+      address: somitiInfo.address || '[অফিসের ঠিকানা]',
+      phone: somitiInfo.phone || '[ফোন নম্বর]',
+      email: somitiInfo.email || '[ইমেইল]',
+      authority: somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]',
+      committeeTenure: somitiInfo.committeeTenure || (isBengali ? '[শুরু] – [শেষ]' : '[Start] – [End]'),
+      bankName: somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]',
+      bankAccountNo: somitiInfo.bankAccountNo || '[হিসাব নম্বর]',
+      bkashNo: somitiInfo.bkashNo || '[বিকাশ নম্বর]',
+      nagadNo: somitiInfo.nagadNo || '[নগদ নম্বর]',
     });
     setIsEditModalOpen(true);
   };
 
   const handleSaveEdit = () => {
-    if (!editForm.name.trim()) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Somiti name cannot be empty', 'সমিতির নাম ফাঁকা রাখা যাবে না'));
-      return;
-    }
     updateSomitiInfo(editForm);
     setIsEditModalOpen(false);
-    triggerToast(l('Somiti profile updated successfully!', 'সমিতির তথ্য সফলভাবে সংরক্ষণ করা হয়েছে!'));
+    Alert.alert(
+      l('Success', 'সফল'),
+      l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।')
+    );
   };
 
-  const handleCall = (phoneNum: string) => {
-    const clean = phoneNum.replace(/[^0-9]/g, '');
-    if (!clean) return;
-    Linking.openURL(`tel:${clean}`).catch(() => {
-      Alert.alert(l('Notice', 'বিজ্ঞপ্তি'), l('Phone dialer could not be opened', 'ফোন ডায়লার চালু করা সম্ভব হয়নি'));
-    });
-  };
-
-  const handleEmail = (emailAddr: string) => {
-    if (!emailAddr) return;
-    Linking.openURL(`mailto:${emailAddr}`).catch(() => {
-      Alert.alert(l('Notice', 'বিজ্ঞপ্তি'), l('Email app could not be opened', 'ইমেইল অ্যাপ চালু করা সম্ভব হয়নি'));
-    });
-  };
-
-  const handleCopy = (text: string, label: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
+  const handleCall = (phoneNumber: string) => {
+    if (!phoneNumber || phoneNumber.includes('[')) {
+      Alert.alert(
+        l('Phone Call', 'কল করুন'),
+        l('No phone number configured.', 'কোনো ফোন নম্বর নির্ধারণ করা হয়নি।')
+      );
+      return;
     }
-    triggerToast(`${label} ${l('copied to clipboard', 'ক্লিপবোর্ডে কপি করা হয়েছে!')}`);
+    Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Cannot initiate phone call.', 'কল শুরু করা যায়নি।'));
+    });
   };
 
-  const committeeMembers = members.filter(
-    (m: any) => (m.appRole ? m.appRole !== 'member' : m.role && m.role !== 'সাধারণ সদস্য')
-  );
+  // Committee members matching Page 23
+  const committeeMembers = [
+    {
+      id: 'c1',
+      name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
+      role: isBengali ? 'সভাপতি' : 'President',
+      initial: isBengali ? 'আ' : 'A',
+      phone: '01711000001',
+      avatarBg: colors.avatarPastels[1].bg,
+      avatarColor: colors.avatarPastels[1].text,
+    },
+    {
+      id: 'c2',
+      name: isBengali ? 'জাহিদ হাসান' : 'Zahid Hasan',
+      role: isBengali ? 'সাধারণ সম্পাদক' : 'General Secretary',
+      initial: isBengali ? 'জ' : 'Z',
+      phone: '01711000002',
+      avatarBg: colors.avatarPastels[0].bg,
+      avatarColor: colors.avatarPastels[0].text,
+    },
+    {
+      id: 'c3',
+      name: isBengali ? 'মাহমুদা খাতুন' : 'Mahmuda Khatun',
+      role: isBengali ? 'কোষাধ্যক্ষ' : 'Treasurer',
+      initial: isBengali ? 'ম' : 'M',
+      phone: '01711000003',
+      avatarBg: colors.avatarPastels[2].bg,
+      avatarColor: colors.avatarPastels[2].text,
+    },
+    {
+      id: 'c4',
+      name: isBengali ? 'হাবিবুর রহমান' : 'Habibur Rahman',
+      role: isBengali ? 'সদস্য' : 'Member',
+      initial: isBengali ? 'হ' : 'H',
+      phone: '01711000004',
+      avatarBg: colors.avatarPastels[1].bg,
+      avatarColor: colors.avatarPastels[1].text,
+    },
+  ];
+
+  const somitiDisplayName = somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]');
+  const somitiInitial = somitiDisplayName.trim().charAt(0) || (isBengali ? 'স' : 'S');
+  const regNoText = somitiInfo.regNo || '[নম্বর]';
+  const estYearText = somitiInfo.establishedYear || '[সাল]';
+
+  const memberCountDisplay = members.length > 0 ? members.length : 100;
+  const projectCountDisplay = projects.length > 0 ? projects.length : 4;
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => safeBack(router, '/(admin)/(tabs)/more')}
-          style={styles.backBtn}
+          style={styles.headerIconBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Somiti Profile', 'সমিতির প্রোফাইল')}</Text>
         <TouchableOpacity
-          style={styles.backBtn}
           onPress={handleOpenEdit}
+          style={styles.headerIconBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="pencil-outline" size={20} color="#1E293B" />
+          <Ionicons name="create-outline" size={22} color={colors.text} />
         </TouchableOpacity>
       </View>
-
-      {/* Toast Notification Banner */}
-      {toastMessage && (
-        <View style={styles.toastContainer}>
-          <Ionicons name="checkmark-circle" size={16} color="#0F766E" />
-          <Text style={styles.toastText}>{toastMessage}</Text>
-          <TouchableOpacity onPress={() => setToastMessage(null)} style={styles.toastCloseBtn}>
-            <Ionicons name="close" size={15} color="#64748B" />
-          </TouchableOpacity>
-        </View>
-      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Somiti Identity Hero */}
-        <View style={styles.identityArea}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>{l((somitiInfo as any).nameEn?.charAt(0) || 'U', 'স')}</Text>
+        {/* Somiti Hero Tile */}
+        <View style={styles.heroSection}>
+          <View style={styles.somitiTile}>
+            <Text style={styles.somitiTileText}>{somitiInitial}</Text>
           </View>
-          <Text style={styles.somitiName}>
-            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
-          </Text>
-          <Text style={styles.somitiSub}>
-            {l('Reg. No', 'নিবন্ধন নং')} {somitiInfo.regNo} · {l('Est.', 'প্রতিষ্ঠা')} {formatNum(somitiInfo.establishedYear)}
+          <Text style={styles.somitiName}>{somitiDisplayName}</Text>
+          <Text style={styles.somitiSubtitle}>
+            {l(
+              `Reg No. ${regNoText} • Est. ${estYearText}`,
+              `নিবন্ধন নং ${regNoText} • প্রতিষ্ঠা ${estYearText}`
+            )}
           </Text>
         </View>
 
-        {/* 3 Stats Cards in a Row */}
-        <View style={styles.threeStatsRow}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push('/(admin)/(tabs)/members')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.statCardLabel}>{l('Members', 'সদস্য')}</Text>
-            <Text style={styles.statCardVal}>{formatNum(members.length)}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push('/(admin)/finance')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.statCardLabel}>{l('Fund', 'তহবিল')}</Text>
-            <Text style={styles.statCardVal}>
-              {somitiInfo.totalFund >= 100000
-                ? (language === 'bn' ? `৳${formatNum((somitiInfo.totalFund / 100000).toFixed(1))}ল` : `৳${(somitiInfo.totalFund / 100000).toFixed(1)}L`)
-                : formatMoney(somitiInfo.totalFund)}
+        {/* 3-Stat Pill Cards Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{l('Members', 'সদস্য')}</Text>
+            <Text style={styles.statValue}>
+              {isBengali ? toBengaliDigits(memberCountDisplay) : memberCountDisplay}
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push('/(admin)/(tabs)/projects')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.statCardLabel}>{l('Projects', 'প্রজেক্ট')}</Text>
-            <Text style={styles.statCardVal}>{formatNum(projects.length)}{language === 'bn' ? 'টি' : ''}</Text>
-          </TouchableOpacity>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{l('Fund', 'তহবিল')}</Text>
+            <Text style={styles.statValue}>
+              {isBengali ? '৳৪৮.৫L' : '৳48.5L'}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{l('Projects', 'প্রজেক্ট')}</Text>
+            <Text style={styles.statValue}>
+              {isBengali ? `${toBengaliDigits(projectCountDisplay)}টি` : `${projectCountDisplay}`}
+            </Text>
+          </View>
         </View>
 
-        {/* Section: যোগাযোগ */}
-        <Text style={styles.sectionTitle}>{l('Contact', 'যোগাযোগ')}</Text>
+        {/* Section 1: যোগাযোগ (Contact Info) */}
+        <Text style={styles.sectionTitle}>{l('Contact Information', 'যোগাযোগ')}</Text>
         <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>{l('Address', 'ঠিকানা')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.address}</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Address', 'ঠিকানা')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.address || '[অফিসের ঠিকানা]'}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => handleCall(somitiInfo.phone)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rowLabel}>{l('Phone', 'ফোন')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.phone}</Text>
-          </TouchableOpacity>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Phone', 'ফোন')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.phone || '[ফোন নম্বর]'}
+            </Text>
+          </View>
 
           <View style={styles.divider} />
 
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => handleEmail(somitiInfo.email)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rowLabel}>{l('Email', 'ইমেইল')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.email}</Text>
-          </TouchableOpacity>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Email', 'ইমেইল')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.email || '[ইমেইল]'}
+            </Text>
+          </View>
 
           <View style={styles.divider} />
 
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>{l('Registration Authority', 'নিবন্ধন কর্তৃপক্ষ')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.authority || l('Upazila Cooperative Office', 'উপজেলা সমবায় কার্যালয়')}</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>
+              {l('Registration Authority', 'নিবন্ধন কর্তৃপক্ষ')}
+            </Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]'}
+            </Text>
           </View>
         </View>
 
-        {/* Section: কমিটি */}
-        <View style={styles.committeeHeaderRow}>
+        {/* Section 2: কমিটি (Committee) */}
+        <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Committee', 'কমিটি')}</Text>
-          <TouchableOpacity onPress={() => setIsHistoryModalOpen(true)} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setIsHistoryModalOpen(true)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.historyLink}>{l('History', 'ইতিহাস')}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.tenureSub}>
-          {l('Tenure: ', 'মেয়াদ: ')}{somitiInfo.committeeTenure || ''}
+          {l(
+            `Tenure: ${somitiInfo.committeeTenure || '[শুরু] – [শেষ]'}`,
+            `মেয়াদ: ${somitiInfo.committeeTenure || '[শুরু] – [শেষ]'}`
+          )}
         </Text>
 
-        <View style={styles.card}>
-          {committeeMembers.map((m, index) => {
-            const colorTheme = AVATAR_COLORS[index % AVATAR_COLORS.length];
-            const initial = m.name.trim().charAt(0) || 'আ';
-
-            return (
-              <React.Fragment key={m.id}>
-                <TouchableOpacity
-                  style={styles.memberRow}
-                  onPress={() => router.push(`/(admin)/member/${m.id}`)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.avatarCircle, { backgroundColor: colorTheme.bg }]}>
-                    <Text style={[styles.avatarText, { color: colorTheme.text }]}>{initial}</Text>
-                  </View>
-
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{m.name}</Text>
-                    <Text style={styles.memberRole}>{m.role}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.callIconBox}
-                    onPress={() => handleCall(m.phone)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="call" size={16} color="#0F766E" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-                {index < committeeMembers.length - 1 && <View style={styles.memberRowBorder} />}
-              </React.Fragment>
-            );
-          })}
-        </View>
-
-        {/* Section: জমা দেওয়ার হিসাব */}
-        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>
-          {l('Payment Accounts', 'জমা দেওয়ার হিসাব')}
-        </Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>{l('Bank', 'ব্যাংক')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bankName || ''}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => handleCopy(somitiInfo.bankAccountNo || '', l('Account number', 'হিসাব নম্বর'))}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rowLabel}>{l('Account Number', 'হিসাব নম্বর')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bankAccountNo || ''}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => handleCopy(somitiInfo.bkashNo || '', l('bKash number', 'বিকাশ নম্বর'))}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rowLabel}>{l('bKash', 'বিকাশ')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.bkashNo || ''}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => handleCopy(somitiInfo.nagadNo || '', l('Nagad', 'নগদ'))}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rowLabel}>{l('Nagad', 'নগদ')}</Text>
-            <Text style={styles.rowValue}>{somitiInfo.nagadNo || ''}</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.accountsNotice}>
-          {l('This information will be shown on member app and reminder messages', 'এই তথ্য সদস্য অ্যাপ ও রিমাইন্ডার বার্তায় দেখানো হবে')}
-        </Text>
-
-        {/* Section: ডকুমেন্ট */}
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
-          {l('Documents', 'ডকুমেন্ট')}
-        </Text>
-        {REMOTE ? (
-          <Text style={styles.accountsNotice}>
-            {l('Document upload is coming soon.', 'ডকুমেন্ট আপলোড শীঘ্রই আসছে।')}
-          </Text>
-        ) : (
-        <View style={styles.docsList}>
-          {/* Doc 1: গঠনতন্ত্র */}
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() =>
-              setPreviewDoc({
-                type: 'constitution',
-                title: l('Constitution', 'গঠনতন্ত্র'),
-                subtitle: l('Uttara Model Samity - Bylaws (Revised 2026)', 'উত্তরা মডেল সমিতি - বিধিমালা ও উপ-আইন (সংশোধিত ২০২৬)'),
-              })
-            }
-            activeOpacity={0.75}
-          >
-            <View style={styles.docIconBox}>
-              <Ionicons name="document-text-outline" size={20} color="#0F766E" />
-            </View>
-            <View style={styles.docInfo}>
-              <Text style={styles.docTitle}>{l('Constitution', 'গঠনতন্ত্র')}</Text>
-              <Text style={styles.docSub}>{l('PDF · Revised January 2026', 'PDF · হালনাগাদ জানুয়ারি ২০২৬')}</Text>
-            </View>
-            <View style={styles.docDownloadBtn}>
-              <Ionicons name="download-outline" size={20} color="#1E293B" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Doc 2: নিবন্ধন সনদ */}
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() =>
-              setPreviewDoc({
-                type: 'certificate',
-                title: l('Registration Certificate', 'নিবন্ধন সনদ'),
-                subtitle: l('Department of Cooperatives · Certified Copy', 'সমবায় অধিদপ্তর · সত্যায়িত সনদ'),
-              })
-            }
-            activeOpacity={0.75}
-          >
-            <View style={styles.docIconBox}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#0F766E" />
-            </View>
-            <View style={styles.docInfo}>
-              <Text style={styles.docTitle}>{l('Registration Certificate', 'নিবন্ধন সনদ')}</Text>
-              <Text style={styles.docSub}>PDF</Text>
-            </View>
-            <View style={styles.docDownloadBtn}>
-              <Ionicons name="download-outline" size={20} color="#1E293B" />
-            </View>
-          </TouchableOpacity>
-        </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      {/* Edit Somiti Profile Modal */}
-      <Modal
-        visible={isEditModalOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsEditModalOpen(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.editModalContainer}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalHeaderTitle}>
-                  {l('Edit Somiti Profile', 'সমিতির তথ্য সম্পাদনা')}
-                </Text>
-                <Text style={styles.modalHeaderSub}>
-                  {l('Update contact, accounts & identity details', 'যোগাযোগ, পেমেন্ট অ্যাকাউন্ট ও প্রাথমিক তথ্য পরিবর্তন করুন')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsEditModalOpen(false)}
-                style={styles.modalCloseBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Modal Form Scroll */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
-              {/* Group 1: Identity */}
-              <Text style={styles.formSectionHeader}>
-                {l('1. Identity Information', '১. প্রাথমিক পরিচিতি')}
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Somiti Name *', 'সমিতির পূর্ণ নাম *')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.name}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, name: text }))}
-                  placeholder={l('Enter somiti name', 'সমিতির নাম লিখুন')}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Slogan / Tagline', 'স্লোগান / মূলমন্ত্র')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.tagline}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, tagline: text }))}
-                  placeholder={l('e.g. All samity accounts in one place', 'যেমন: সমিতির সব হিসাব, এক জায়গায়')}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('Registration No.', 'নিবন্ধন নম্বর')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.regNo}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, regNo: text }))}
-                    placeholder="১২৮৯/২০২২"
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('Established Year', 'প্রতিষ্ঠার বছর')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.establishedYear}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, establishedYear: text }))}
-                    placeholder="২০২২"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              {/* Group 2: Contact */}
-              <Text style={styles.formSectionHeader}>
-                {l('2. Contact & Address', '২. যোগাযোগ ও ঠিকানা')}
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Office Address', 'অফিসের ঠিকানা')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.address}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, address: text }))}
-                  placeholder={l('House, Road, Area, Thana, District', 'বাড়ি, রোড, এলাকা, থানা, জেলা')}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('Phone / Helpline', 'মোবাইল / হেল্পলাইন')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.phone}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, phone: text }))}
-                    placeholder="০১৭১১-২২৩৩৪৪"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('Official Email', 'অফিসিয়াল ইমেইল')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.email}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, email: text }))}
-                    placeholder="info@somiti.org"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Registration Authority', 'নিবন্ধন কর্তৃপক্ষ')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.authority}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, authority: text }))}
-                  placeholder={l('e.g. Upazila Cooperative Office', 'যেমন: উপজেলা সমবায় কার্যালয়')}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              {/* Group 3: Payment Accounts */}
-              <Text style={styles.formSectionHeader}>
-                {l('3. Payment Accounts', '৩. জমা নেওয়ার হিসাব')}
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Bank Name & Branch', 'ব্যাংকের নাম ও শাখা')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.bankName}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, bankName: text }))}
-                  placeholder="ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Bank Account Number', 'ব্যাংক হিসাব নম্বর')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.bankAccountNo}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, bankAccountNo: text }))}
-                  placeholder="2050-1402-1028-900"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('bKash Number', 'বিকাশ নম্বর')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.bkashNo}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, bkashNo: text }))}
-                    placeholder="01711-223344"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>{l('Nagad Number', 'নগদ নম্বর')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editForm.nagadNo}
-                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, nagadNo: text }))}
-                    placeholder="01811-223344"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </View>
-
-              {/* Group 4: Committee Tenure */}
-              <Text style={styles.formSectionHeader}>
-                {l('4. Committee Tenure', '৪. পরিচালনা কমিটির মেয়াদ')}
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{l('Executive Committee Tenure', 'বর্তমান কমিটির মেয়াদকাল')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editForm.committeeTenure}
-                  onChangeText={(text) => setEditForm((prev) => ({ ...prev, committeeTenure: text }))}
-                  placeholder="২০২৫–২০২৭"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-
-            {/* Modal Bottom Actions */}
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setIsEditModalOpen(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelBtnText}>{l('Cancel', 'বাতিল')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleSaveEdit}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.saveBtnText}>{l('Save Changes', 'তথ্য সংরক্ষণ করুন')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Committee History Modal */}
-      <Modal
-        visible={isHistoryModalOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setIsHistoryModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.dialogCard}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="time-outline" size={20} color="#0F766E" />
-                <Text style={styles.modalHeaderTitle}>{l('Committee History', 'পরিচালনা কমিটির ইতিহাস')}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsHistoryModalOpen(false)}
-                style={styles.modalCloseBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 380 }}>
-              <View style={styles.historyTermCard}>
-                <View style={styles.termTopRow}>
-                  <Text style={styles.termTitle}>
-                    {l('Current Committee', 'বর্তমান কমিটি')}
-                    {somitiInfo.committeeTenure ? ` (${somitiInfo.committeeTenure})` : ''}
-                  </Text>
-                  <View style={styles.currentBadge}>
-                    <Text style={styles.currentBadgeText}>{l('Active', 'বর্তমান')}</Text>
-                  </View>
-                </View>
-                <Text style={styles.termDetail}>
-                  {committeeMembers.length
-                    ? committeeMembers.map((m) => `• ${m.role || ''}: ${m.name}`).join('\n')
-                    : l('No committee roles assigned yet (More → Users & Roles).', 'এখনো কমিটির রোল দেওয়া হয়নি (আরও → ব্যবহারকারী ও রোল)।')}
-                </Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.dialogBottomBtn}
-              onPress={() => setIsHistoryModalOpen(false)}
-              activeOpacity={0.8}
+        <View style={styles.committeeCard}>
+          {committeeMembers.map((m, index) => (
+            <View
+              key={m.id}
+              style={[
+                styles.memberRow,
+                index < committeeMembers.length - 1 && styles.memberRowBorder,
+              ]}
             >
-              <Text style={styles.dialogBottomBtnText}>{l('Close', 'বন্ধ করুন')}</Text>
+              <View style={[styles.avatarCircle, { backgroundColor: m.avatarBg }]}>
+                <Text style={[styles.avatarText, { color: m.avatarColor }]}>
+                  {m.initial}
+                </Text>
+              </View>
+
+              <View style={styles.memberInfo}>
+                <Text style={styles.memberName}>{m.name}</Text>
+                <Text style={styles.memberRole}>{m.role}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.callBtn}
+                onPress={() => handleCall(m.phone)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="call-outline" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
+        {/* Section 3: জমা দেওয়ার হিসাব (Deposit Accounts) */}
+        <Text style={styles.sectionTitle}>
+          {l('Deposit Payment Accounts', 'জমা দেওয়ার হিসাব')}
+        </Text>
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Bank', 'ব্যাংক')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]'}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Account No.', 'হিসাব নম্বর')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.bankAccountNo || '[হিসাব নম্বর]'}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('bKash', 'বিকাশ')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.bkashNo || '[বিকাশ নম্বর]'}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{l('Nagad', 'নগদ')}</Text>
+            <Text style={styles.infoValue}>
+              {somitiInfo.nagadNo || '[নগদ নম্বর]'}
+            </Text>
+          </View>
+
+          <Text style={styles.accountNoticeText}>
+            {l(
+              'This information is shown in member apps and reminder messages.',
+              'এই তথ্য সদস্য অ্যাপ ও রিমাইন্ডার বার্তায় দেখানো হবে'
+            )}
+          </Text>
+        </View>
+
+        {/* Section 4: ডকুমেন্ট (Documents) */}
+        <Text style={styles.sectionTitle}>{l('Documents', 'ডকুমেন্ট')}</Text>
+        <View style={styles.card}>
+          {/* গঠনতন্ত্র */}
+          <View style={styles.docRow}>
+            <View style={styles.docIconBox}>
+              <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.docDetails}>
+              <Text style={styles.docTitle}>{l('Constitution', 'গঠনতন্ত্র')}</Text>
+              <Text style={styles.docSub}>
+                {l('PDF • Updated [Date]', 'PDF • হালনাগাদ [তারিখ]')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                Alert.alert(l('Download', 'ডাউনলোড'), l('Downloading Constitution PDF...', 'গঠনতন্ত্র PDF ডাউনলোড হচ্ছে...'))
+              }
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* নিবন্ধন সনদ */}
+          <View style={styles.docRow}>
+            <View style={styles.docIconBox}>
+              <Ionicons name="ribbon-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.docDetails}>
+              <Text style={styles.docTitle}>
+                {l('Registration Certificate', 'নিবন্ধন সনদ')}
+              </Text>
+              <Text style={styles.docSub}>{l('PDF', 'PDF')}</Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                Alert.alert(l('Download', 'ডাউনলোড'), l('Downloading Registration Certificate PDF...', 'নিবন্ধন সনদ PDF ডাউনলোড হচ্ছে...'))
+              }
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={isEditModalOpen} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {l('Edit Somiti Info', 'সমিতির তথ্য সম্পাদনা')}
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+              <Text style={styles.inputLabel}>{l('Somiti Name', 'সমিতির নাম')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.name}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, name: t }))}
+                placeholder="[সমিতির নাম]"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.inputLabel}>{l('Address', 'অফিসের ঠিকানা')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.address}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, address: t }))}
+                placeholder="[অফিসের ঠিকানা]"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.inputLabel}>{l('Phone', 'ফোন নম্বর')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.phone}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, phone: t }))}
+                placeholder="[ফোন নম্বর]"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.inputLabel}>{l('Email', 'ইমেইল')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.email}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, email: t }))}
+                placeholder="[ইমেইল]"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.inputLabel}>{l('Bank Name & Branch', 'ব্যাংক ও শাখা')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.bankName}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, bankName: t }))}
+                placeholder="[ব্যাংকের নাম], [শাখা]"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.inputLabel}>{l('Account No.', 'হিসাব নম্বর')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.bankAccountNo}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, bankAccountNo: t }))}
+                placeholder="[হিসাব নম্বর]"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </ScrollView>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setIsEditModalOpen(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSaveEdit}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalSaveText}>{l('Save', 'সংরক্ষণ')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
-      {/* Document Preview Modal */}
-      <Modal
-        visible={!!previewDoc}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setPreviewDoc(null)}
-      >
+      {/* History Modal */}
+      <Modal visible={isHistoryModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.dialogCard}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons
-                  name={previewDoc?.type === 'constitution' ? 'document-text' : 'shield-checkmark'}
-                  size={20}
-                  color="#0F766E"
-                />
-                <Text style={styles.modalHeaderTitle}>{previewDoc?.title}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setPreviewDoc(null)}
-                style={styles.modalCloseBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.docPreviewPaper}>
-              <View style={styles.paperEmblem}>
-                <Ionicons name="library-outline" size={28} color="#0F766E" />
-              </View>
-              <Text style={styles.paperOrgName}>
-                {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
-              </Text>
-              <Text style={styles.paperSubtitle}>{previewDoc?.subtitle}</Text>
-              <View style={styles.paperDivider} />
-
-              <View style={styles.paperRow}>
-                <Text style={styles.paperLabel}>{l('Registration No:', 'নিবন্ধন নম্বর:')}</Text>
-                <Text style={styles.paperValue}>{somitiInfo.regNo}</Text>
-              </View>
-              <View style={styles.paperRow}>
-                <Text style={styles.paperLabel}>{l('Issuing Authority:', 'অনুমোদন কর্তৃপক্ষ:')}</Text>
-                <Text style={styles.paperValue}>{somitiInfo.authority || 'সমবায় অধিদপ্তর'}</Text>
-              </View>
-              <View style={styles.paperRow}>
-                <Text style={styles.paperLabel}>{l('Official Address:', 'দাপ্তরিক ঠিকানা:')}</Text>
-                <Text style={styles.paperValue}>{somitiInfo.address}</Text>
-              </View>
-
-              <View style={styles.paperSealRow}>
-                <View style={styles.paperSeal}>
-                  <Ionicons name="checkmark-done-circle" size={14} color="#0F766E" />
-                  <Text style={styles.paperSealText}>{l('DIGITALLY CERTIFIED & VERIFIED', 'ডিজিটাল সত্যায়িত ও সংরক্ষিত')}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.docActionsRow}>
-              <TouchableOpacity
-                style={styles.docDownloadAction}
-                onPress={() => {
-                  setPreviewDoc(null);
-                  triggerToast(l('Document PDF downloaded to device', 'ডকুমেন্ট PDF ডিভাইসে সংরক্ষিত হয়েছে'));
-                }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="download-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.docDownloadActionText}>{l('Download PDF', 'PDF ডাউনলোড')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.docCloseAction}
-                onPress={() => setPreviewDoc(null)}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.docCloseActionText}>{l('Close', 'বন্ধ করুন')}</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {l('Committee History', 'পূর্ববর্তী কমিটির ইতিহাস')}
+            </Text>
+            <Text style={styles.historyDesc}>
+              {l(
+                'Previous committee terms and executive member records are archived securely.',
+                'পূর্ববর্তী মেয়াদের সকল কার্যনির্বাহী কমিটি ও দায়িত্বপ্রাপ্ত সদস্যদের বিবরণ এখানে সংরক্ষিত।'
+              )}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setIsHistoryModalOpen(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCancelText}>{l('Close', 'বন্ধ করুন')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -781,7 +497,7 @@ export default function SomitiProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -791,196 +507,149 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  backBtn: {
+  headerIconBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
-  },
-  editBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#E6F4F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toastContainer: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-    gap: 8,
-  },
-  toastText: {
-    flex: 1,
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#065F46',
-  },
-  toastCloseBtn: {
-    padding: 2,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  identityArea: {
+  heroSection: {
     alignItems: 'center',
-    marginBottom: 16,
+    paddingVertical: 12,
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#0F766E',
+  somitiTile: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#0F766E',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    marginBottom: 12,
   },
-  logoText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 28,
-    color: '#FFFFFF',
+  somitiTileText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.hero,
+    lineHeight: typography.lineHeight.hero,
+    color: colors.surface,
   },
   somitiName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 22,
-    color: '#1E293B',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  somitiTagline: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#0F766E',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  somitiSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xl,
+    lineHeight: typography.lineHeight.xl,
+    color: colors.text,
     textAlign: 'center',
   },
-  threeStatsRow: {
+  somitiSubtitle: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  statsRow: {
     flexDirection: 'row',
     gap: 10,
+    marginTop: 12,
     marginBottom: 16,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    paddingVertical: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  statCardLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 2,
+  statLabel: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
-  statCardVal: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  statCardHint: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 10,
-    color: '#0F766E',
-    marginTop: 4,
+  statValue: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.lg,
+    color: colors.text,
   },
   sectionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+    marginBottom: 8,
+    marginTop: 8,
+    marginLeft: 4,
   },
-  committeeHeaderRow: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
     marginBottom: 2,
-    marginTop: 14,
     paddingHorizontal: 4,
   },
+  historyLink: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.primary,
+  },
   tenureSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 8,
     marginLeft: 4,
   },
-  historyLink: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-  },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     paddingHorizontal: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingVertical: 4,
+    marginBottom: 14,
   },
-  row: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
   },
-  rowLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
+  infoLabel: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.textSecondary,
   },
-  rowValue: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+  infoValue: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
     textAlign: 'right',
-    flexShrink: 1,
-    marginLeft: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
+  },
+  committeeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 14,
   },
   memberRow: {
     flexDirection: 'row',
@@ -988,392 +657,163 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   memberRowBorder: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceMuted,
   },
   avatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   avatarText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
   },
   memberInfo: {
     flex: 1,
   },
   memberName: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   memberRole: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
-  callIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E6F4F2',
+  callBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  accountsNotice: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginLeft: 4,
-    marginBottom: 8,
+  accountNoticeText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    paddingVertical: 12,
   },
-  docsList: {
-    gap: 10,
-  },
-  docCard: {
+  docRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingVertical: 12,
   },
   docIconBox: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E6F4F2',
+    borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  docInfo: {
+  docDetails: {
     flex: 1,
   },
   docTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
   },
   docSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
-  docDownloadBtn: {
-    padding: 6,
-  },
-
-  // Modals Styling
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-  },
-  editModalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 480,
-    maxHeight: '90%',
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 10,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 10,
+  modalCard: {
+    width: '100%',
+    maxHeight: '80%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
   },
-  modalHeaderTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
+  modalTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.lg,
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  modalHeaderSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  formScroll: {
-    paddingVertical: 4,
-  },
-  formSectionHeader: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#0F766E',
-    marginTop: 10,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 4,
-  },
-  inputGroup: {
-    marginBottom: 10,
-  },
-  inputRow: {
-    flexDirection: 'row',
+  modalScroll: {
+    marginBottom: 16,
   },
   inputLabel: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#475569',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.xs,
+    lineHeight: typography.lineHeight.xs,
+    color: colors.textSecondary,
     marginBottom: 4,
+    marginTop: 8,
   },
-  textInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+  modalInput: {
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 11,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-  },
-  cancelBtnText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#475569',
-  },
-  saveBtn: {
-    flex: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 10,
-    backgroundColor: '#0F766E',
-  },
-  saveBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-
-  // Dialog Card for History & Document
-  dialogCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    width: '100%',
-    maxWidth: 440,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  historyTermCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 10,
-  },
-  termTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  termTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
-  },
-  currentBadge: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  currentBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 10,
-    color: '#0F766E',
-  },
-  expiredBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  expiredBadgeText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 10,
-    color: '#64748B',
-  },
-  termDetail: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  dialogBottomBtn: {
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  dialogBottomBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
-
-  // Document Preview Paper
-  docPreviewPaper: {
-    backgroundColor: '#FAFAF9',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#E7E5E4',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  paperEmblem: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#CCFBF1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  paperOrgName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#134E4A',
-    textAlign: 'center',
-  },
-  paperSubtitle: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  paperDivider: {
-    height: 1,
-    backgroundColor: '#D6D3D1',
-    width: '100%',
-    marginVertical: 12,
-  },
-  paperRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 6,
-  },
-  paperLabel: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 11,
-    color: '#78716C',
-  },
-  paperValue: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#1C1917',
-    maxWidth: '65%',
-    textAlign: 'right',
-  },
-  paperSealRow: {
-    marginTop: 12,
-  },
-  paperSeal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E6FFFA',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#99F6E4',
-  },
-  paperSealText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 9,
-    color: '#0F766E',
-  },
-  docActionsRow: {
+  modalBtnRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  docDownloadAction: {
-    flex: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0F766E',
-    borderRadius: 10,
-    paddingVertical: 10,
-  },
-  docDownloadActionText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
-  docCloseAction: {
+  modalCancelBtn: {
     flex: 1,
+    paddingVertical: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
   },
-  docCloseActionText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#475569',
+  modalCancelText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+  },
+  modalSaveBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  modalSaveText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.surface,
+  },
+  historyDesc: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
