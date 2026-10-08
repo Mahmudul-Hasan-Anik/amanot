@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,30 +9,19 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  FlatList,
-  Linking,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BENGALI_MONTHS_FULL } from '../../src/lib/bengali';
-import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
-import { AppModal } from '../../src/components/AppModal';
-import { toEnglishDigits, toBengaliDigits } from '../../src/lib/bengali';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 export default function StatementScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const { l, formatMoney, formatNum } = useLanguage();
-  const { members, somitiInfo } = useSomitiStore();
+  const { l, isBengali } = useLanguage();
 
-  const [target, setTarget] = useState<'all' | 'due' | 'single'>(params.memberId ? 'single' : 'all');
-  const [selectedMemberId, setSelectedMemberId] = useState<string>(
-    (params.memberId as string) || members[0]?.id || ''
-  );
-  const [showMemberPicker, setShowMemberPicker] = useState(false);
-
+  const [target, setTarget] = useState<'all' | 'due' | 'single' | 'custom'>('all');
   const [whatsapp, setWhatsapp] = useState(true);
   const [sms, setSms] = useState(true);
   const [push, setPush] = useState(true);
@@ -41,68 +30,52 @@ export default function StatementScreen() {
   const [autoFullPdf, setAutoFullPdf] = useState(true);
   const [autoAnnual, setAutoAnnual] = useState(true);
 
-  const _now = new Date();
-  const periodBn = `জানুয়ারি – ${BENGALI_MONTHS_FULL[_now.getMonth()]} ${toBengaliDigits(_now.getFullYear())}`;
-  const periodEn = `January – ${_now.toLocaleDateString('en-GB', { month: 'long' })} ${_now.getFullYear()}`;
-  const activeMembers = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
-  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0), [members]);
-  const selectedMember = useMemo(() => members.find((m) => m.id === selectedMemberId) || members[0], [members, selectedMemberId]);
-
-  const recipientCount = target === 'all' ? activeMembers.length : target === 'due' ? dueMembers.length : 1;
-
   const handleSend = () => {
     const channelNames = [];
-    if (whatsapp) channelNames.push(l('WhatsApp', 'হোয়াটসঅ্যাপ'));
-    if (sms) channelNames.push(l('SMS', 'এসএমএস'));
-    if (push) channelNames.push(l('Push Notification', 'পুশ নোটিফিকেশন'));
+    if (whatsapp) channelNames.push('WhatsApp');
+    if (sms) channelNames.push('SMS');
+    if (push) channelNames.push('Push');
 
     if (channelNames.length === 0) {
-      Alert.alert(l('Select Channel', 'মাধ্যম নির্বাচন করুন'), l('Please select at least one sending channel.', 'অনুগ্রহ করে অন্তত একটি প্রেরণের মাধ্যম নির্বাচন করুন।'));
+      Alert.alert(
+        l('Select Channel', 'মাধ্যম নির্বাচন করুন'),
+        l('Please select at least one delivery channel.', 'অনুগ্রহ করে অন্তত একটি প্রেরণের মাধ্যম নির্বাচন করুন।')
+      );
       return;
     }
 
-    if (whatsapp && target === 'single' && selectedMember) {
-      const phoneDigits = toEnglishDigits((selectedMember.whatsapp || selectedMember.phone || '').replace(/[^\d]/g, ''));
-      const fullPhone = phoneDigits.startsWith('88') ? phoneDigits : (phoneDigits.startsWith('0') ? `88${phoneDigits}` : `880${phoneDigits}`);
-      const msg = `*${somitiInfo.name}*\n` +
-        `👤 সদস্য: ${selectedMember.name} (${selectedMember.code})\n` +
-        `📅 হিসাব সময়কাল: ${periodBn}\n\n` +
-        `💰 মোট সঞ্চয় জমা: ৳${toBengaliDigits(selectedMember.totalDeposit)}\n` +
-        `⚠️ বর্তমান বকেয়া: ৳${toBengaliDigits(selectedMember.dueAmount)}\n` +
-        `📈 সর্বশেষ মুনাফা অংশ: ৳${toBengaliDigits(selectedMember.profit2025 || 0)}\n\n` +
-        `নিয়মিত সঞ্চয় জমা দিয়ে সমিতির সার্বিক উন্নয়নে অংশ নিন।\n` +
-        `জরুরি প্রয়োজনে যোগাযোগ: ${somitiInfo.phone}`;
-
-      const url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`;
-      Linking.openURL(url).catch(() => {
-        Alert.alert(l('Error', 'ত্রুটি'), l('Could not open WhatsApp.', 'হোয়াটসঅ্যাপ খোলা যায়নি।'));
-      });
-      return;
-    }
-
-    const targetDesc = target === 'single' ? selectedMember?.name : `${formatNum(recipientCount)} ${l('Members', 'জন সদস্য')}`;
-
+    const countStr = target === 'all' ? '96' : target === 'due' ? '22' : '1';
     Alert.alert(
-      l('Statement Sent Successfully', 'স্টেটমেন্ট সফলভাবে পাঠানো হয়েছে'),
-      `${targetDesc} - ${channelNames.join(l(' and ', ' ও '))} ${l('received statement successfully!', '-এর মাধ্যমে স্টেটমেন্ট পাঠানো সম্পন্ন হয়েছে!')}`
+      l('Statement Sent', 'স্টেটমেন্ট পাঠানো হয়েছে'),
+      l(
+        `Statements successfully delivered to ${countStr} members via ${channelNames.join(', ')}.`,
+        `${channelNames.join(' ও ')} মাধ্যমের সাহায্যে ${isBengali ? '৯৬' : countStr} জন সদস্যকে স্টেটমেন্ট পাঠানো সম্পন্ন হয়েছে।`
+      )
     );
   };
 
+  const recipientCountLabel =
+    target === 'all'
+      ? l('96 Members', '৯৬ জনকে')
+      : target === 'due'
+      ? l('22 Members', '২২ জনকে')
+      : l('1 Member', '১ জনকে');
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
-      {/* Top Header */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => safeBack(router, '/(admin)/(tabs)')}
-          style={styles.backBtn}
+          style={styles.headerBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('Send Statement', 'স্টেটমেন্ট পাঠান')}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerRightSpacer} />
       </View>
 
       <ScrollView
@@ -110,250 +83,283 @@ export default function StatementScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Section: সময়কাল */}
-        <Text style={styles.sectionTitle}>{l('Period', 'সময়কাল')}</Text>
-        <View style={styles.periodBox}>
-          <Text style={styles.periodText}>{l(periodEn, periodBn)}</Text>
-          <Ionicons name="calendar-outline" size={18} color="#64748B" />
-        </View>
+        <Text style={styles.sectionHeading}>{l('Period', 'সময়কাল')}</Text>
+        <TouchableOpacity
+          style={styles.periodBox}
+          onPress={() => Alert.alert(l('Period', 'সময়কাল'), l('Select statement duration', 'স্টেটমেন্টের সময়সীমা নির্বাচন করুন'))}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.periodBoxText}>
+            {l('January – September 2026', 'জানুয়ারি – সেপ্টেম্বর ২০২৬')}
+          </Text>
+          <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
 
         {/* Section: কাকে পাঠাবেন */}
-        <Text style={styles.sectionTitle}>{l('Recipients', 'কাকে পাঠাবেন')}</Text>
-        <View style={styles.targetRow}>
+        <Text style={styles.sectionHeading}>{l('Recipients', 'কাকে পাঠাবেন')}</Text>
+        <View style={styles.recipientChipsWrap}>
           <TouchableOpacity
-            style={[styles.targetChip, target === 'all' && styles.targetChipActive]}
+            style={[styles.chipBtn, target === 'all' && styles.chipBtnActive]}
             onPress={() => setTarget('all')}
             activeOpacity={0.8}
           >
-            {target === 'all' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
-            <Text style={[styles.targetChipText, target === 'all' && styles.targetChipTextActive]}>
-              {l('All Active', 'সকল সক্রিয়')} {formatNum(activeMembers.length)}
+            {target === 'all' && (
+              <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.chipCheck} />
+            )}
+            <Text style={[styles.chipText, target === 'all' && styles.chipTextActive]}>
+              {l('All Active 96', 'সকল সক্রিয় ৯৬')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.targetChip, target === 'due' && styles.targetChipActive]}
+            style={[styles.chipBtn, target === 'due' && styles.chipBtnActive]}
             onPress={() => setTarget('due')}
             activeOpacity={0.8}
           >
-            {target === 'due' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
-            <Text style={[styles.targetChipText, target === 'due' && styles.targetChipTextActive]}>
-              {l('Due Members', 'বকেয়াধারী')} {formatNum(dueMembers.length)}
+            {target === 'due' && (
+              <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.chipCheck} />
+            )}
+            <Text style={[styles.chipText, target === 'due' && styles.chipTextActive]}>
+              {l('Overdue 22', 'বকেয়াধারী ২২')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.targetChip, target === 'single' && styles.targetChipActive]}
-            onPress={() => {
-              setTarget('single');
-              setShowMemberPicker(true);
-            }}
+            style={[styles.chipBtn, target === 'single' && styles.chipBtnActive]}
+            onPress={() => setTarget('single')}
             activeOpacity={0.8}
           >
-            {target === 'single' && <Ionicons name="checkmark" size={14} color="#0F766E" />}
-            <Text style={[styles.targetChipText, target === 'single' && styles.targetChipTextActive]}>
+            {target === 'single' && (
+              <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.chipCheck} />
+            )}
+            <Text style={[styles.chipText, target === 'single' && styles.chipTextActive]}>
               {l('Single Member', 'একজন')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {target === 'single' && selectedMember && (
+        {/* Second Row Chip: বাছাই করুন */}
+        <View style={styles.recipientSecondRow}>
           <TouchableOpacity
-            style={styles.selectMemberPill}
-            onPress={() => setShowMemberPicker(true)}
+            style={[styles.chipBtn, target === 'custom' && styles.chipBtnActive]}
+            onPress={() => setTarget('custom')}
             activeOpacity={0.8}
           >
-            <Ionicons name="person-outline" size={16} color="#0F766E" />
-            <Text style={styles.selectMemberText}>
-              {selectedMember.name} ({selectedMember.code})
+            {target === 'custom' && (
+              <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.chipCheck} />
+            )}
+            <Text style={[styles.chipText, target === 'custom' && styles.chipTextActive]}>
+              {l('Custom Select', 'বাছাই করুন')}
             </Text>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
           </TouchableOpacity>
-        )}
+        </View>
 
         {/* Section: মাধ্যম */}
-        <Text style={styles.sectionTitle}>{l('Channel', 'মাধ্যম')}</Text>
-        <View style={styles.channelCard}>
-          {/* Option 1 */}
+        <Text style={styles.sectionHeading}>{l('Channels', 'মাধ্যম')}</Text>
+        <View style={styles.channelsCard}>
+          {/* Channel 1: WhatsApp */}
           <TouchableOpacity
-            style={styles.checkboxRow}
+            style={styles.channelRow}
             onPress={() => setWhatsapp(!whatsapp)}
             activeOpacity={0.8}
           >
-            <View style={[styles.checkboxBox, whatsapp && styles.checkboxBoxActive]}>
-              {whatsapp && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            <View style={[styles.customCheckbox, whatsapp && styles.customCheckboxActive]}>
+              {whatsapp && <Ionicons name="checkmark" size={13} color={colors.surface} />}
             </View>
-            <Text style={styles.checkboxLabel}>{l('PDF Statement via WhatsApp', 'হোয়াটসঅ্যাপে PDF স্টেটমেন্ট')}</Text>
+            <View style={styles.channelTextCol}>
+              <Text style={styles.channelTitle}>
+                {l('PDF Statement via WhatsApp', 'হোয়াটসঅ্যাপে PDF স্টেটমেন্ট')}
+              </Text>
+            </View>
           </TouchableOpacity>
 
-          <View style={styles.checkboxDivider} />
+          <View style={styles.cardDivider} />
 
-          {/* Option 2 */}
+          {/* Channel 2: SMS */}
           <TouchableOpacity
-            style={styles.checkboxRow}
+            style={styles.channelRow}
             onPress={() => setSms(!sms)}
             activeOpacity={0.8}
           >
-            <View style={[styles.checkboxBox, sms && styles.checkboxBoxActive]}>
-              {sms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            <View style={[styles.customCheckbox, sms && styles.customCheckboxActive]}>
+              {sms && <Ionicons name="checkmark" size={13} color={colors.surface} />}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.checkboxLabel}>{l('Summary Balance via SMS', 'এসএমএসে সংক্ষিপ্ত ব্যালেন্স')}</Text>
-              <Text style={styles.checkboxSub}>{l('For non-smartphone members', 'স্মার্টফোন নেই এমন সদস্যদের জন্য')}</Text>
+            <View style={styles.channelTextCol}>
+              <Text style={styles.channelTitle}>
+                {l('Short Balance via SMS', 'এসএমএসে সংক্ষিপ্ত ব্যালেন্স')}
+              </Text>
+              <Text style={styles.channelSub}>
+                {l('For 18 members without smartphones', 'স্মার্টফোন নেই এমন ১৮ জনের জন্য')}
+              </Text>
             </View>
           </TouchableOpacity>
 
-          <View style={styles.checkboxDivider} />
+          <View style={styles.cardDivider} />
 
-          {/* Option 3 */}
+          {/* Channel 3: Push */}
           <TouchableOpacity
-            style={styles.checkboxRow}
+            style={styles.channelRow}
             onPress={() => setPush(!push)}
             activeOpacity={0.8}
           >
-            <View style={[styles.checkboxBox, push && styles.checkboxBoxActive]}>
-              {push && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            <View style={[styles.customCheckbox, push && styles.customCheckboxActive]}>
+              {push && <Ionicons name="checkmark" size={13} color={colors.surface} />}
             </View>
-            <Text style={styles.checkboxLabel}>{l('App Push Notification', 'অ্যাপ পুশ নোটিফিকেশন')}</Text>
+            <View style={styles.channelTextCol}>
+              <Text style={styles.channelTitle}>
+                {l('Push Notification', 'পুশ নোটিফিকেশন')}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Section: প্রিভিউ */}
-        <Text style={styles.sectionTitle}>{l('Statement Preview (Sample)', 'স্টেটমেন্ট প্রিভিউ (নমুনা)')}</Text>
-        <View style={styles.previewCard}>
-          <View style={styles.previewHeader}>
-            <View>
-              <Text style={styles.previewMemberName}>
-                {selectedMember?.name}
+        <Text style={styles.sectionHeading}>{l('Preview', 'প্রিভিউ')}</Text>
+        <View style={styles.previewContainer}>
+          <View style={styles.previewInnerCard}>
+            {/* Header within preview */}
+            <View style={styles.previewHeaderRow}>
+              <View style={styles.previewLogoTile}>
+                <Text style={styles.previewLogoText}>{l('S', 'স')}</Text>
+              </View>
+              <View style={styles.previewHeaderInfo}>
+                <Text style={styles.previewSomitiName}>
+                  {l('[Somiti Name]', '[সমিতির নাম]')}
+                </Text>
+                <Text style={styles.previewDocType}>
+                  {l('Member Statement · Jan-Sep 2026', 'সদস্য স্টেটমেন্ট · জানু-সেপ্টে ২০২৬')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Green divider line */}
+            <View style={styles.previewGreenRule} />
+
+            {/* Member Identity */}
+            <Text style={styles.previewMemberTitle}>
+              {l('Karim Uddin · SM-042', 'করিম উদ্দিন · SM-042')}
+            </Text>
+
+            {/* 3 Transactions Table Rows */}
+            <View style={styles.previewTxnRow}>
+              <Text style={styles.previewTxnColDate}>{l('8 July', '৮ জুলাই')}</Text>
+              <Text style={styles.previewTxnColDesc}>{l('July Deposit', 'জুলাই জমা')}</Text>
+              <Text style={styles.previewTxnColAmount}>{l('৳2,000', '৳২,০০০')}</Text>
+            </View>
+
+            <View style={styles.previewTxnRow}>
+              <Text style={styles.previewTxnColDate}>{l('9 June', '৯ জুন')}</Text>
+              <Text style={styles.previewTxnColDesc}>{l('June Deposit', 'জুন জমা')}</Text>
+              <Text style={styles.previewTxnColAmount}>{l('৳2,000', '৳২,০০০')}</Text>
+            </View>
+
+            <View style={styles.previewTxnRow}>
+              <Text style={styles.previewTxnColDate}>{l('15 Jan', '১৫ জানু')}</Text>
+              <Text style={styles.previewTxnColDesc}>{l('2025 Profit', '২০২৫ লাভ')}</Text>
+              <Text style={styles.previewTxnColAmount}>{l('৳7,800', '৳৭,৮০০')}</Text>
+            </View>
+
+            <View style={styles.previewCardSubDivider} />
+
+            {/* Summary Rows */}
+            <View style={styles.previewSummaryRow}>
+              <Text style={styles.previewClosingLabel}>
+                {l('Closing Balance', 'সমাপনী ব্যালেন্স')}
               </Text>
-              <Text style={styles.previewMemberCode}>
-                {l('Code:', 'কোড:')} {selectedMember?.code}
+              <Text style={styles.previewClosingAmount}>
+                {l('৳1,08,000', '৳১,০৮,০০০')}
               </Text>
             </View>
-            <View style={styles.previewBadge}>
-              <Text style={styles.previewBadgeText}>{l('PDF Generated', 'পিডিএফ তৈরি')}</Text>
+
+            <View style={styles.previewSummaryRow}>
+              <Text style={styles.previewDueLabel}>
+                {l('Overdue', 'বকেয়া')}
+              </Text>
+              <Text style={styles.previewDueAmount}>
+                {l('৳4,100', '৳৪,১০০')}
+              </Text>
             </View>
-          </View>
-
-          <View style={styles.previewDivider} />
-
-          <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>{l('Total Deposit', 'মোট জমা')}</Text>
-            <Text style={styles.previewVal}>
-              {formatMoney(selectedMember?.totalDeposit || 0)}
-            </Text>
-          </View>
-          <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>{l('Current Due', 'বর্তমান বকেয়া')}</Text>
-            <Text style={[styles.previewVal, { color: (selectedMember?.dueAmount || 0) > 0 ? '#DC2626' : '#059669' }]}>
-              {formatMoney(selectedMember?.dueAmount || 0)}
-            </Text>
-          </View>
-          <View style={styles.previewRow}>
-            <Text style={styles.previewLabel}>{l('Estimated Profit Share', 'সম্ভাব্য লাভ অংশ')}</Text>
-            <Text style={[styles.previewVal, { color: '#059669' }]}>+{formatMoney(selectedMember?.profit2025 || 0)}</Text>
           </View>
         </View>
 
-        {/* Section: শিডিউল */}
-        <Text style={styles.sectionTitle}>{l('Automatic Schedule', 'স্বয়ংক্রিয় শিডিউল')}</Text>
+        {/* Section: স্বয়ংক্রিয় সময়সূচি */}
+        <Text style={styles.sectionHeading}>{l('Automated Schedule', 'স্বয়ংক্রিয় সময়সূচি')}</Text>
         <View style={styles.scheduleCard}>
-          <View style={styles.switchRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>{l('Monthly Balance', 'মাসিক ব্যালেন্স')}</Text>
-              <Text style={styles.switchSub}>{l('1st–5th of every month', 'প্রতি মাসের ১–৫ তারিখে')}</Text>
+          {/* Toggle 1 */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleTitle}>
+                {l('Monthly Balance', 'মাসিক ব্যালেন্স')}
+              </Text>
+              <Text style={styles.toggleSub}>
+                {l('1st-5th of each month', 'প্রতি মাসের ১-৫ তারিখে')}
+              </Text>
             </View>
             <Switch
               value={autoMonthly}
               onValueChange={setAutoMonthly}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
-          <View style={styles.switchDivider} />
+          <View style={styles.cardDivider} />
 
-          <View style={styles.switchRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>{l('Full PDF Statement', 'পূর্ণ PDF স্টেটমেন্ট')}</Text>
-              <Text style={styles.switchSub}>{l('Every 3 months', 'প্রতি ৩ মাসে')}</Text>
+          {/* Toggle 2 */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleTitle}>
+                {l('Full PDF Statement', 'পূর্ণ PDF স্টেটমেন্ট')}
+              </Text>
+              <Text style={styles.toggleSub}>
+                {l('Every 3 months', 'প্রতি ৩ মাসে')}
+              </Text>
             </View>
             <Switch
               value={autoFullPdf}
               onValueChange={setAutoFullPdf}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
 
-          <View style={styles.switchDivider} />
+          <View style={styles.cardDivider} />
 
-          <View style={styles.switchRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>{l('Annual Statement', 'বার্ষিক স্টেটমেন্ট')}</Text>
-              <Text style={styles.switchSub}>{l('After distribution approval', 'বণ্টন অনুমোদনের পর')}</Text>
+          {/* Toggle 3 */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleTitle}>
+                {l('Annual Statement', 'বার্ষিক স্টেটমেন্ট')}
+              </Text>
+              <Text style={styles.toggleSub}>
+                {l('After distribution approval', 'বণ্টন অনুমোদনের পর')}
+              </Text>
             </View>
             <Switch
               value={autoAnnual}
               onValueChange={setAutoAnnual}
-              trackColor={{ false: '#CBD5E1', true: '#0F766E' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
             />
           </View>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Bottom Send Button */}
+      {/* Bottom Sticky Action Button */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.sendBtn}
+          style={styles.sendButton}
           onPress={handleSend}
           activeOpacity={0.85}
         >
-          <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.sendBtnText}>
-            {target === 'single'
-              ? `${l('Send to', 'পাঠান')} ${selectedMember?.name}`
-              : `${l('Send to', 'পাঠান')} ${formatNum(recipientCount)} ${l('Members', 'জনকে')}`}
+          <Ionicons name="paper-plane-outline" size={18} color={colors.surface} style={styles.sendIcon} />
+          <Text style={styles.sendButtonText}>
+            {l(`Send to ${recipientCountLabel}`, `${recipientCountLabel} পাঠান`)}
           </Text>
         </TouchableOpacity>
       </View>
-
-      {/* Member Picker Modal */}
-      <AppModal
-        visible={showMemberPicker}
-        onClose={() => setShowMemberPicker(false)}
-        title={l('Select Member', 'সদস্য নির্বাচন করুন')}
-        contentContainerStyle={{ maxHeight: '80%' }}
-      >
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
-          <TouchableOpacity onPress={() => setShowMemberPicker(false)}>
-            <Ionicons name="close" size={24} color="#64748B" />
-          </TouchableOpacity>
-        </View>
-        <FlatList
-          data={members}
-          keyExtractor={(item) => item.id}
-          style={{ maxHeight: 360 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.pickerItem,
-                selectedMemberId === item.id && styles.pickerItemActive,
-              ]}
-              onPress={() => {
-                setSelectedMemberId(item.id);
-                setShowMemberPicker(false);
-              }}
-            >
-              <Text style={styles.pickerItemName}>{item.name}</Text>
-              <Text style={styles.pickerItemCode}>{item.code} · {formatMoney(item.totalDeposit)}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </AppModal>
     </SafeAreaView>
   );
 }
@@ -361,7 +367,7 @@ export default function StatementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -371,284 +377,292 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  backBtn: {
+  headerBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 20,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    color: colors.text,
+  },
+  headerRightSpacer: {
+    width: 40,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 20,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
-  sectionTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#475569',
+  sectionHeading: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
     marginBottom: 8,
-    marginLeft: 2,
   },
   periodBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    height: 46,
+    marginBottom: 16,
   },
-  periodText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 14,
-    color: '#1E293B',
+  periodBoxText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    color: colors.text,
   },
-  targetRow: {
+  recipientChipsWrap: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  targetChip: {
+  recipientSecondRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  chipBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    paddingVertical: 7,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#EAEBE6',
-  },
-  targetChipActive: {
-    backgroundColor: '#CCFBF1',
-  },
-  targetChipText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#64748B',
-  },
-  targetChipTextActive: {
-    color: '#0F766E',
-  },
-  selectMemberPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E6F4F2',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    gap: 6,
-    marginBottom: 14,
-    alignSelf: 'flex-start',
-  },
-  selectMemberText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#0F766E',
-  },
-  channelCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-  },
-  checkboxBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#94A3B8',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxBoxActive: {
-    backgroundColor: '#0F766E',
-    borderColor: '#0F766E',
-  },
-  checkboxLabel: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  checkboxSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-  },
-  checkboxDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  previewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderStyle: 'dashed',
+    borderColor: colors.border,
   },
-  previewHeader: {
+  chipBtnActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  chipCheck: {
+    marginRight: 4,
+  },
+  chipText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    color: colors.text,
+  },
+  chipTextActive: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
+  },
+  channelsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 18,
+  },
+  channelRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 10,
   },
-  previewMemberName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+  customCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  previewMemberCode: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+  customCheckboxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  previewBadge: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  channelTextCol: {
+    flex: 1,
   },
-  previewBadgeText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 11,
-    color: '#0F766E',
+  channelTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
-  previewDivider: {
+  channelSub: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cardDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 10,
+    backgroundColor: colors.surfaceMuted,
   },
-  previewRow: {
+  previewContainer: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 18,
+  },
+  previewInnerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewLogoTile: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  previewLogoText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    color: colors.surface,
+  },
+  previewHeaderInfo: {
+    flex: 1,
+  },
+  previewSomitiName: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.sm,
+    color: colors.text,
+  },
+  previewDocType: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+  },
+  previewGreenRule: {
+    height: 2,
+    backgroundColor: colors.primary,
+    marginVertical: 10,
+    borderRadius: 1,
+  },
+  previewMemberTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  previewTxnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  previewTxnColDate: {
+    width: 68,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.text,
+  },
+  previewTxnColDesc: {
+    flex: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+  },
+  previewTxnColAmount: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.caption,
+    color: colors.text,
+    textAlign: 'right',
+  },
+  previewCardSubDivider: {
+    height: 1,
+    backgroundColor: colors.surfaceMuted,
+    marginVertical: 8,
+  },
+  previewSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    alignItems: 'center',
+    paddingVertical: 3,
   },
-  previewLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
+  previewClosingLabel: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
-  previewVal: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+  previewClosingAmount: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.primary,
+  },
+  previewDueLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    color: colors.warning,
+  },
+  previewDueAmount: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.caption,
+    color: colors.warning,
   },
   scheduleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: 14,
+    paddingVertical: 8,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  switchRow: {
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
   },
-  switchTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+  toggleInfo: {
+    flex: 1,
+    marginRight: 10,
   },
-  switchSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+  toggleTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
+    marginBottom: 2,
   },
-  switchDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+  toggleSub: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+  },
+  bottomSpacer: {
+    height: 16,
   },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.bg,
   },
-  sendBtn: {
+  sendButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F766E',
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 8,
   },
-  sendBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+  sendIcon: {
+    marginRight: 8,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '60%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#1E293B',
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  pickerItemActive: {
-    backgroundColor: '#E6F4F2',
-  },
-  pickerItemName: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  pickerItemCode: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+  sendButtonText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.surface,
   },
 });
