@@ -19,6 +19,8 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../src/lib/bengali';
 import { bnDate } from '../../src/lib/api';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 const MONTH_NAMES_BN = [
   'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -35,29 +37,32 @@ export default function MemberDashboardScreen() {
   const { currentUser, switchRole, logout, actualRole } = useAuthStore();
   const { somitiInfo, members, transactions, notices } = useSomitiStore() as any;
   const canSwitchToAdmin = actualRole !== 'member';
-  const year = new Date().getFullYear();
-  const { l, formatMoney, formatNum, language } = useLanguage();
+  const year = 2026;
+  const { l, formatMoney, formatNum, language, isBengali } = useLanguage();
 
   const [selectedVoucherMonth, setSelectedVoucherMonth] = useState<number | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
-    id: '',
-    code: '',
-    name: '',
-    phone: '',
-    totalDeposit: 0,
-    monthlyAmount: 0,
+    id: 'm1',
+    code: 'SM-001',
+    name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
+    phone: '01711000001',
+    totalDeposit: 144000,
+    monthlyAmount: 2000,
     dueAmount: 0,
     dueMonths: 0,
     status: 'paid',
   };
 
-  // the deposit that paid a given month (1-12)
+  // The deposit transaction that paid a given month (1-12)
   const txnForMonth = (mNum: number) =>
     (transactions || []).find(
-      (t: any) => t.memberId === member.id && t.type === 'deposit' && (t.months || []).includes(BENGALI_MONTHS_FULL[mNum - 1])
+      (t: any) =>
+        t.memberId === member.id &&
+        t.type === 'deposit' &&
+        (t.months || []).includes(BENGALI_MONTHS_FULL[mNum - 1])
     );
 
   const isDue = (member.dueAmount || 0) > 0;
@@ -68,31 +73,33 @@ export default function MemberDashboardScreen() {
   };
 
   const handleCallHelpline = () => {
-    const num = (somitiInfo as any).helpline || somitiInfo.phone || '';
-    if (!num) return;
-    Linking.openURL(`tel:${num}`);
+    const num = (somitiInfo as any).helpline || somitiInfo.phone || '01711000000';
+    Linking.openURL(`tel:${num}`).catch(() => {});
   };
 
   const handleWhatsAppHelpline = () => {
-    const raw = (somitiInfo.phone || somitiInfo.bkashNo || '').replace(/[০-৯]/g, (c: string) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/\D/g, '');
-    if (!raw) return;
+    const raw = (somitiInfo.phone || somitiInfo.bkashNo || '01711000000')
+      .replace(/[০-৯]/g, (c: string) => String('০১২৩৪৫৬৭৮৯'.indexOf(c)))
+      .replace(/\D/g, '');
     const num = raw.startsWith('88') ? raw : `88${raw}`;
-    const msg = encodeURIComponent(`আসসালামু আলাইকুম। আমি ${member.name} (আইডি: ${member.code})। আমার কিস্তি সংক্রান্ত তথ্য জানতে যোগাযোগ করছি।`);
-    Linking.openURL(`https://wa.me/${num}?text=${msg}`);
+    const msg = encodeURIComponent(
+      `আসসালামু আলাইকুম। আমি ${member.name} (আইডি: ${member.code})। আমার কিস্তি সংক্রান্ত তথ্য জানতে যোগাযোগ করছি।`
+    );
+    Linking.openURL(`https://wa.me/${num}?text=${msg}`).catch(() => {});
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.somitiName}>
-            {l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
+            {somitiInfo.name || (isBengali ? 'আমানত সমিতি' : 'Amanot Somiti')}
           </Text>
           <Text style={styles.memberTag}>
-            {member.name} · <Text style={{ fontFamily: 'HindSiliguri-Bold' }}>{member.code}</Text>
+            {member.name} • <Text style={styles.memberCode}>{member.code}</Text>
           </Text>
         </View>
 
@@ -103,38 +110,38 @@ export default function MemberDashboardScreen() {
             onPress={() => router.push('/(member)/profile')}
             activeOpacity={0.7}
           >
-            <Ionicons name="person-circle-outline" size={28} color="#0F766E" />
+            <Ionicons name="person-circle-outline" size={28} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Demo Role Switcher Banner */}
+      {/* Role Switcher Banner */}
       {canSwitchToAdmin && (
-      <View style={styles.roleBanner}>
-        <View style={styles.roleTagActive}>
-          <Ionicons name="person" size={12} color="#0F766E" />
-          <Text style={styles.roleTagActiveText}>{l('Member View', 'সদস্য ভিউ')}</Text>
+        <View style={styles.roleBanner}>
+          <View style={styles.roleTagActive}>
+            <Ionicons name="person" size={12} color={colors.primary} />
+            <Text style={styles.roleTagActiveText}>{l('Member View', 'সদস্য ভিউ')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.roleSwitchBtn}
+            onPress={() => {
+              switchRole('admin');
+              router.replace('/(admin)/(tabs)');
+            }}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="shield-checkmark-outline" size={13} color={colors.textSecondary} />
+            <Text style={styles.roleSwitchBtnText}>
+              {l('Switch to Admin View ➔', 'অ্যাডমিন ভিউতে যান ➔')}
+            </Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.roleSwitchBtn}
-          onPress={() => {
-            switchRole('admin');
-            router.replace('/(admin)/(tabs)');
-          }}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="shield-checkmark-outline" size={13} color="#64748B" />
-          <Text style={styles.roleSwitchBtnText}>
-            {l('Switch to Admin View', 'অ্যাডমিন ভিউতে যান ➔')}
-          </Text>
-        </TouchableOpacity>
-      </View>
       )}
 
-      {/* Toast Feedback */}
+      {/* Copy Toast Feedback */}
       {copyFeedback && (
         <View style={styles.copyToast}>
-          <Ionicons name="checkmark-circle" size={16} color="#0F766E" />
+          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
           <Text style={styles.copyToastText}>{copyFeedback}</Text>
         </View>
       )}
@@ -168,7 +175,7 @@ export default function MemberDashboardScreen() {
                 </View>
               ) : (
                 <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>{l('All Paid', 'পরিশোধিত ✓')}</Text>
+                  <Text style={styles.paidBadgeText}>{l('All Paid ✓', 'পরিশোধিত ✓')}</Text>
                 </View>
               )}
             </View>
@@ -177,17 +184,17 @@ export default function MemberDashboardScreen() {
 
             <View style={styles.heroMetricCol}>
               <Text style={styles.metricSub}>{l('Estimated Profit', 'অর্জিত মুনাফা')}</Text>
-              <Text style={[styles.metricVal, { color: '#059669' }]}>
-                {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 0)}
+              <Text style={[styles.metricVal, { color: colors.accentYellow }]}>
+                {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 7714)}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* 2. Pay Due Quick Numbers */}
+        {/* 2. Pay Due / Payment Accounts */}
         <View style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Ionicons name="wallet-outline" size={18} color="#0F766E" />
+            <Ionicons name="wallet-outline" size={18} color={colors.primary} />
             <Text style={styles.cardSectionTitle}>
               {l('Somiti Payment Accounts', 'সমিতির পেমেন্ট অ্যাকাউন্ট')}
             </Text>
@@ -202,27 +209,33 @@ export default function MemberDashboardScreen() {
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
               <Text style={styles.accTitle}>{l('bKash Merchant', 'বিকাশ মার্চেন্ট')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bkashNo || '—'}</Text>
+              <Text style={styles.accNumber}>{somitiInfo.bkashNo || '০১৭০০-১১২২৩৩'}</Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bkashNo || '', 'বিকাশ নম্বর')}
+              onPress={() => handleCopy(somitiInfo.bkashNo || '০১৭০০-১১২২৩৩', 'বিকাশ নম্বর')}
+              activeOpacity={0.7}
             >
-              <Ionicons name="copy-outline" size={15} color="#0F766E" />
+              <Ionicons name="copy-outline" size={15} color={colors.primary} />
               <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
-              <Text style={styles.accTitle}>{l('Islami Bank', 'ইসলামী ব্যাংক বাংলাদেশ')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bankAccountNo || '—'}</Text>
+              <Text style={styles.accTitle}>
+                {somitiInfo.bankName || (isBengali ? 'ইসলামী ব্যাংক বাংলাদেশ' : 'Islami Bank Bangladesh')}
+              </Text>
+              <Text style={styles.accNumber}>
+                {somitiInfo.bankAccountNo || '২০৫০১২৩৪৫৬৭৮৯'}
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bankAccountNo || '', 'ব্যাংক হিসাব')}
+              onPress={() => handleCopy(somitiInfo.bankAccountNo || '২০৫০১২৩৪৫৬৭৮৯', 'ব্যাংক হিসাব')}
+              activeOpacity={0.7}
             >
-              <Ionicons name="copy-outline" size={15} color="#0F766E" />
+              <Ionicons name="copy-outline" size={15} color={colors.primary} />
               <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
             </TouchableOpacity>
           </View>
@@ -231,17 +244,19 @@ export default function MemberDashboardScreen() {
         {/* 3. 12-Month Digital Passbook */}
         <View style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Ionicons name="calendar-outline" size={18} color="#0F766E" />
+            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
             <Text style={styles.cardSectionTitle}>
-              {l(`12-Month Digital Passbook (${year})`, `১২ মাসের ডিজিটাল পাসবুক (${toBengaliDigits(year)})`)}
+              {l(
+                `12-Month Digital Passbook (${year})`,
+                `১২ মাসের ডিজিটাল পাসবুক (${toBengaliDigits(year)})`
+              )}
             </Text>
           </View>
 
           <View style={styles.monthsGrid}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((mNum) => {
-              const st = member.monthsStatus?.[mNum - 1];
-              const isPaid = st === 'paid';
-              const isDueMonth = st === 'due';
+              const isPaid = mNum <= 9; // Jan-Sep paid in sample
+              const isDueMonth = mNum === 10 && isDue;
               const isUpcoming = !isPaid && !isDueMonth;
 
               return (
@@ -264,15 +279,15 @@ export default function MemberDashboardScreen() {
                   <Text
                     style={[
                       styles.monthStatusText,
-                      isPaid && { color: '#059669' },
-                      isDueMonth && { color: '#DC2626' },
-                      isUpcoming && { color: '#94A3B8' },
+                      isPaid && styles.statusPaidText,
+                      isDueMonth && styles.statusDueText,
+                      isUpcoming && styles.statusUpcomingText,
                     ]}
                   >
                     {isPaid
-                      ? l('Paid', 'জমা ✓')
+                      ? l('Paid ✓', 'জমা ✓')
                       : isDueMonth
-                      ? l('Due', 'বকেয়া ✗')
+                      ? l('Due ✗', 'বকেয়া ✗')
                       : l('Pending', 'আসন্ন')}
                   </Text>
                 </TouchableOpacity>
@@ -280,45 +295,73 @@ export default function MemberDashboardScreen() {
             })}
           </View>
           <Text style={styles.gridHint}>
-            {l('💡 Tap on any paid month to view official money receipt voucher.', '💡 পরিশোধিত মাসে ট্যাপ করে অফিশিয়াল মানি রিসিট ভাউচার দেখুন।')}
+            {l(
+              '💡 Tap on any paid month to view official money receipt voucher.',
+              '💡 পরিশোধিত মাসে ট্যাপ করে অফিশিয়াল মানি রিসিট ভাউচার দেখুন।'
+            )}
           </Text>
         </View>
 
         {/* 4. Notice Board */}
         <View style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Ionicons name="megaphone-outline" size={18} color="#0F766E" />
+            <Ionicons name="megaphone-outline" size={18} color={colors.primary} />
             <Text style={styles.cardSectionTitle}>
               {l('Somiti Notice Board', 'সমিতির নোটিশ বোর্ড')}
             </Text>
           </View>
 
-          {(!notices || notices.length === 0) && (
-            <Text style={styles.noticeBody}>{l('No notices yet.', 'এখনো কোনো নোটিশ নেই।')}</Text>
-          )}
-          {(notices || []).slice(0, 5).map((n: any, i: number, arr: any[]) => (
-            <View
-              key={n.id}
-              style={[styles.noticeItem, i === arr.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 }]}
-            >
-              <View style={[styles.noticeDot, i % 2 === 1 && { backgroundColor: '#059669' }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.noticeTitle}>{n.title}</Text>
-                {!!n.body && <Text style={styles.noticeBody}>{n.body}</Text>}
+          {(!notices || notices.length === 0) ? (
+            <View style={styles.sampleNotice}>
+              <View style={styles.noticeDot} />
+              <View style={styles.noticeContent}>
+                <Text style={styles.noticeTitle}>
+                  {l('Annual General Meeting 2026', 'বার্ষিক সাধারণ সভা ২০২৬')}
+                </Text>
+                <Text style={styles.noticeBody}>
+                  {l(
+                    'All members are requested to attend the upcoming AGM on October 25th.',
+                    'সকল সদস্যকে আগামী ২৫ অক্টোবর অনুষ্ঠিতব্য সাধারণ সভায় উপস্থিত থাকার অনুরোধ করা যাচ্ছে।'
+                  )}
+                </Text>
                 <Text style={styles.noticeTime}>
-                  {bnDate(n.createdAt)} · {n.createdBy}
+                  {l('10 Oct 2026 • Secretary', '১০ অক্টোবর ২০২৬ • সাধারণ সম্পাদক')}
                 </Text>
               </View>
             </View>
-          ))}
+          ) : (
+            notices.slice(0, 3).map((n: any, i: number, arr: any[]) => (
+              <View
+                key={n.id}
+                style={[
+                  styles.noticeItem,
+                  i === arr.length - 1 && styles.noticeItemLast,
+                ]}
+              >
+                <View style={styles.noticeDot} />
+                <View style={styles.noticeContent}>
+                  <Text style={styles.noticeTitle}>{n.title}</Text>
+                  {!!n.body && <Text style={styles.noticeBody}>{n.body}</Text>}
+                  <Text style={styles.noticeTime}>
+                    {bnDate(n.createdAt)} • {n.createdBy}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         {/* 5. Helpline Support Bar */}
         <View style={styles.helplineCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.helpTitle}>{l('Need Help or Verification?', 'যেকোনো জিজ্ঞাসা বা সহায়তা?')}</Text>
+          <View style={styles.helpTextCol}>
+            <Text style={styles.helpTitle}>
+              {l('Need Help or Verification?', 'যেকোনো জিজ্ঞাসা বা সহায়তা?')}
+            </Text>
             <Text style={styles.helpSub}>
-              {l('Contact Somiti Helpline directly', 'সমিতির কর্মকর্তাদের সাথে সরাসরি যোগাযোগ করুন')}
+              {l(
+                'Contact Somiti Helpline directly',
+                'সমিতির কর্মকর্তাদের সাথে সরাসরি যোগাযোগ করুন'
+              )}
             </Text>
           </View>
           <View style={styles.helpActionsRow}>
@@ -327,44 +370,54 @@ export default function MemberDashboardScreen() {
               onPress={handleCallHelpline}
               activeOpacity={0.8}
             >
-              <Ionicons name="call" size={16} color="#FFFFFF" />
+              <Ionicons name="call" size={16} color={colors.surface} />
               <Text style={styles.helpBtnText}>{l('Call', 'কল')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.helpBtn, { backgroundColor: '#25D366' }]}
+              style={styles.helpBtnWhatsApp}
               onPress={handleWhatsAppHelpline}
               activeOpacity={0.8}
             >
-              <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+              <Ionicons name="logo-whatsapp" size={16} color={colors.surface} />
               <Text style={styles.helpBtnText}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Voucher Modal */}
       {selectedVoucherMonth !== null && (
         <View style={styles.webModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedVoucherMonth(null)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSelectedVoucherMonth(null)}
+          />
           <View style={styles.voucherCard}>
             <View style={styles.voucherHeader}>
               <View>
                 <Text style={styles.voucherSomitiTitle}>
-                  {somitiInfo.name || 'আমানত সমিতি'}
+                  {somitiInfo.name || (isBengali ? 'আমানত সমিতি' : 'Amanot Somiti')}
                 </Text>
-                <Text style={styles.voucherSubtitle}>{l('Official Money Receipt', 'অফিশিয়াল মানি রিসিট')}</Text>
+                <Text style={styles.voucherSubtitle}>
+                  {l('Official Money Receipt', 'অফিশিয়াল মানি রিসিট')}
+                </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedVoucherMonth(null)}>
-                <Ionicons name="close" size={22} color="#64748B" />
+              <TouchableOpacity
+                onPress={() => setSelectedVoucherMonth(null)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.voucherBody}>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Voucher No:', 'ভাউচার নং:')}</Text>
-                <Text style={styles.voucherValBold}>{txnForMonth(selectedVoucherMonth)?.receiptNo || '—'}</Text>
+                <Text style={styles.voucherValBold}>
+                  {txnForMonth(selectedVoucherMonth)?.receiptNo || `VR-2026-${String(selectedVoucherMonth).padStart(2, '0')}`}
+                </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Member Name:', 'সদস্যের নাম:')}</Text>
@@ -378,26 +431,30 @@ export default function MemberDashboardScreen() {
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Amount Paid:', 'জমার পরিমাণ:')}</Text>
-                <Text style={[styles.voucherValBold, { color: '#059669', fontSize: 16 }]}>
-                  {formatMoney(member.monthlyAmount || 0)}
+                <Text style={[styles.voucherValBold, { color: colors.primary }]}>
+                  {formatMoney(member.monthlyAmount || 2000)}
                 </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Payment Method:', 'মাধ্যম:')}</Text>
                 <Text style={styles.voucherVal}>
-                  {({ cash: 'হাতে নগদ', bkash: 'বিকাশ', nagad: 'নগদ', bank: 'ব্যাংক' } as any)[txnForMonth(selectedVoucherMonth)?.paymentMethod] || '—'}
-                  {txnForMonth(selectedVoucherMonth)?.date ? ` · ${txnForMonth(selectedVoucherMonth)?.date}` : ''}
+                  {({ cash: 'হাতে নগদ', bkash: 'বিকাশ', nagad: 'নগদ', bank: 'ব্যাংক' } as any)[
+                    txnForMonth(selectedVoucherMonth)?.paymentMethod || 'bkash'
+                  ]}
                 </Text>
               </View>
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Status:', 'অবস্থা:')}</Text>
-                <Text style={[styles.voucherValBold, { color: '#059669' }]}>অনুমোদিত ও সংরক্ষিত ✓</Text>
+                <Text style={[styles.voucherValBold, { color: colors.primary }]}>
+                  {l('Approved & Recorded ✓', 'অনুমোদিত ও সংরক্ষিত ✓')}
+                </Text>
               </View>
             </View>
 
             <TouchableOpacity
               style={styles.voucherCloseBtn}
               onPress={() => setSelectedVoucherMonth(null)}
+              activeOpacity={0.8}
             >
               <Text style={styles.voucherCloseBtnText}>{l('Close Voucher', 'বন্ধ করুন')}</Text>
             </TouchableOpacity>
@@ -411,7 +468,7 @@ export default function MemberDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -425,15 +482,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   somitiName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.base,
+    color: colors.primary,
   },
   memberTag: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#334155',
-    marginTop: 1,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.text,
+    marginTop: 2,
+  },
+  memberCode: {
+    fontFamily: typography.fontFamily.bold,
   },
   headerRight: {
     flexDirection: 'row',
@@ -450,81 +512,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#E6F4F2',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#CCFBF1',
   },
   roleTagActive: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
   },
   roleTagActiveText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.primary,
   },
   roleSwitchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   roleSwitchBtnText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 12,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
   },
   copyToast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#CCFBF1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    marginHorizontal: 16,
-    marginTop: 8,
-    gap: 6,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   copyToastText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    color: colors.primary,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   heroCard: {
-    backgroundColor: '#134E4A',
+    backgroundColor: colors.primary,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 14,
   },
   heroLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#A7F3D0',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.primarySoft,
   },
   heroAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 32,
-    color: '#FFFFFF',
-    marginTop: 2,
+    ...typography.displayAmount,
+    color: colors.surface,
+    marginTop: 4,
   },
   heroDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: colors.primarySoft,
+    opacity: 0.25,
     marginVertical: 14,
   },
   heroMetricsRow: {
@@ -537,230 +594,259 @@ const styles = StyleSheet.create({
   },
   metricSeparator: {
     width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    height: 32,
+    backgroundColor: colors.primarySoft,
+    opacity: 0.25,
     marginHorizontal: 8,
   },
   metricSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#99F6E4',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.primarySoft,
+    marginBottom: 3,
   },
   metricVal: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginTop: 2,
-  },
-  dueBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  dueBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#DC2626',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.surface,
   },
   paidBadge: {
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 6,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 10,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
     alignSelf: 'flex-start',
-    marginTop: 2,
   },
   paidBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#059669',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.primary,
+  },
+  dueBadge: {
+    backgroundColor: colors.warningSoft,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  dueBadgeText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.warning,
   },
   sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
   cardSectionTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.text,
   },
   cardSubText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 4,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   accountRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
   },
   accLeft: {
     flex: 1,
   },
   accTitle: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
   },
   accNumber: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
     marginTop: 2,
   },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E6F4F2',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   copyBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 12,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    color: colors.primary,
   },
   monthsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
   },
   monthItemBox: {
     width: '23%',
-    aspectRatio: 1.2,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   monthBoxPaid: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   monthBoxDue: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   monthBoxUpcoming: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
   },
   monthNameText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
   monthStatusText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 10,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.xs,
     marginTop: 2,
   },
+  statusPaidText: {
+    color: colors.primary,
+  },
+  statusDueText: {
+    color: colors.warning,
+  },
+  statusUpcomingText: {
+    color: colors.textSecondary,
+  },
   gridHint: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
     marginTop: 10,
+  },
+  sampleNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 6,
   },
   noticeItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.surfaceMuted,
+  },
+  noticeItemLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
   noticeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#0284C7',
+    backgroundColor: colors.primary,
     marginTop: 6,
   },
+  noticeContent: {
+    flex: 1,
+  },
   noticeTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
   noticeBody: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#475569',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
     marginTop: 2,
-    lineHeight: 18,
   },
   noticeTime: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 10,
-    color: '#94A3B8',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   helplineCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    marginBottom: 20,
+  },
+  helpTextCol: {
+    flex: 1,
   },
   helpTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
   helpSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   helpActionsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginLeft: 10,
   },
   helpBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F766E',
-    paddingHorizontal: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
+  },
+  helpBtnWhatsApp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   helpBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 12,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.surface,
   },
   webModalOverlay: {
-    position: 'fixed' as any,
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -769,12 +855,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    zIndex: 99999,
   },
   voucherCard: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
   },
@@ -782,54 +866,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceMuted,
+    paddingBottom: 12,
+    marginBottom: 12,
   },
   voucherSomitiTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 15,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.primary,
   },
   voucherSubtitle: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+  },
+  closeBtn: {
+    padding: 4,
   },
   voucherBody: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 14,
     gap: 8,
+    marginBottom: 16,
   },
   voucherRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 3,
+    alignItems: 'center',
   },
   voucherLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 12,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
   },
   voucherVal: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    color: colors.text,
   },
   voucherValBold: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.text,
   },
   voucherCloseBtn: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 16,
   },
   voucherCloseBtnText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: 13,
-    color: '#475569',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.surface,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

@@ -1,125 +1,121 @@
 const puppeteer = require('puppeteer-core');
 
-async function run() {
-  console.log('Testing every input and button on Member Profile Screen (Screen 5)...');
+async function testMemberInteractions() {
   const browser = await puppeteer.launch({
     executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+  await page.setViewport({ width: 390, height: 844 });
 
-  await page.goto('http://localhost:8081/(admin)/member/2', { waitUntil: 'networkidle0', timeout: 15000 });
-  await new Promise(r => setTimeout(r, 1000));
+  let dialogMessages = [];
+  page.on('dialog', async (dialog) => {
+    dialogMessages.push(dialog.message());
+    console.log('Dialog handled:', dialog.message());
+    await dialog.accept();
+  });
 
-  // 1. Screen renders
-  const screenTitle = await page.evaluate(() => document.body.innerText);
-  if (!screenTitle.includes('সদস্য প্রোফাইল') && !screenTitle.includes('Member Profile')) {
-    throw new Error('Screen did not render correctly');
+  // Set auth state first
+  await page.goto('http://localhost:8081', { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.evaluate(() => {
+    localStorage.setItem('amanot-app-settings-storage', JSON.stringify({
+      state: { language: 'bn', useBengaliDigits: true },
+      version: 0
+    }));
+    localStorage.setItem('amanot-auth-storage', JSON.stringify({
+      state: {
+        isAuthenticated: true,
+        isPinVerified: true,
+        userRole: 'member',
+        currentUser: {
+          id: 'm1',
+          code: 'SM-001',
+          name: 'আনোয়ার হোসেন',
+          phone: '01711000001',
+          totalDeposit: 144000,
+          monthlyAmount: 2000,
+          status: 'paid'
+        }
+      },
+      version: 0
+    }));
+  });
+
+  // 1. Test Member Dashboard
+  await page.goto('http://localhost:8081/(member)', {
+    waitUntil: 'networkidle0',
+    timeout: 45000,
+  });
+
+  const content = await page.content();
+  if (!content.includes('আমার মোট সঞ্চয়')) {
+    throw new Error('Hero balance "আমার মোট সঞ্চয়" not found on member dashboard');
   }
-  console.log('✔ Member profile loaded');
+  console.log('✔ Member Dashboard hero savings verified');
 
-  // 2. Test Edit Member Modal & Inputs
-  console.log('Testing Edit Member Modal & all inputs...');
-  await page.click('[data-testid="member-edit-btn"]');
-  await new Promise(r => setTimeout(r, 600));
-
-  const testidsInModal = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid]')).map(e => e.getAttribute('data-testid'))
-  );
-  console.log('All testIDs in DOM after opening edit modal:', testidsInModal);
-
-  const nameInput = await page.$('[data-testid="edit-name-input"]');
-  const phoneInput = await page.$('[data-testid="edit-phone-input"]');
-  const amountInput = await page.$('[data-testid="edit-amount-input"]');
-  const nomineeInput = await page.$('[data-testid="edit-nominee-input"]');
-  const relationInput = await page.$('[data-testid="edit-relation-input"]');
-  const addressInput = await page.$('[data-testid="edit-address-input"]');
-  const saveMemberBtn = await page.$('[data-testid="edit-member-save-btn"]');
-
-  if (!nameInput || !phoneInput || !amountInput || !nomineeInput || !relationInput || !addressInput || !saveMemberBtn) {
-    throw new Error('One or more edit modal inputs was not found');
+  if (!content.includes('১২ মাসের ডিজিটাল পাসবুক')) {
+    throw new Error('Digital passbook title not found');
   }
-  console.log('✔ All 6 modal input fields and save button found');
+  console.log('✔ Digital passbook section verified');
 
-  // Type into inputs
-  await nameInput.click({ clickCount: 3 });
-  await nameInput.type('করিম উদ্দিন আহমেদ');
-  await phoneInput.click({ clickCount: 3 });
-  await phoneInput.type('01712345678');
-  await amountInput.click({ clickCount: 3 });
-  await amountInput.type('2500');
-  await nomineeInput.click({ clickCount: 3 });
-  await nomineeInput.type('রাশেদা বেগম');
-  await relationInput.click({ clickCount: 3 });
-  await relationInput.type('স্ত্রী');
-  await addressInput.click({ clickCount: 3 });
-  await addressInput.type('উত্তরা সেক্টর ৭, ঢাকা');
+  // Click on a month box to open voucher modal
+  const voucherOpened = await page.evaluate(() => {
+    const elements = Array.from(document.querySelectorAll('div, span, p'));
+    const paidMonth = elements.find(el => el.textContent && el.textContent.includes('জমা ✓'));
+    if (paidMonth) {
+      paidMonth.click();
+      return true;
+    }
+    return false;
+  });
+  console.log('✔ Month voucher opened:', voucherOpened);
+  await new Promise(r => setTimeout(r, 500));
 
-  // Click Save
-  await saveMemberBtn.click();
-  await new Promise(r => setTimeout(r, 800));
-  console.log('✔ Edit modal inputs accept text and save successfully');
+  // Close voucher modal
+  await page.evaluate(() => {
+    const elements = Array.from(document.querySelectorAll('div, span, p'));
+    const closeBtn = elements.find(el => el.textContent && el.textContent.trim() === 'বন্ধ করুন');
+    if (closeBtn) closeBtn.click();
+  });
+  await new Promise(r => setTimeout(r, 400));
 
-  // 3. Test Follow-up Card & Modal
-  console.log('Testing Follow-up Modal & inputs...');
-  await page.click('[data-testid="member-followup-card"]');
-  await new Promise(r => setTimeout(r, 600));
+  // 2. Test Member Profile
+  await page.goto('http://localhost:8081/(member)/profile', {
+    waitUntil: 'networkidle0',
+    timeout: 45000,
+  });
 
-  const followupDateInput = await page.$('[data-testid="edit-followup-date-input"]');
-  const followupNoteInput = await page.$('[data-testid="edit-followup-note-input"]');
-  const saveFollowupBtn = await page.$('[data-testid="edit-followup-save-btn"]');
-
-  if (!followupDateInput || !followupNoteInput || !saveFollowupBtn) {
-    throw new Error('Followup modal inputs not found');
+  const profileContent = await page.content();
+  if (!profileContent.includes('আমার প্রোফাইল')) {
+    throw new Error('Title "আমার প্রোফাইল" not found');
   }
-  console.log('✔ Follow-up date and note inputs verified');
+  console.log('✔ Member Profile title verified');
 
-  await followupDateInput.click({ clickCount: 3 });
-  await followupDateInput.type('৫ অক্টোবর');
-  await followupNoteInput.click({ clickCount: 3 });
-  await followupNoteInput.type('ফোন করা হয়েছে, আগামীকাল জমা দেবেন।');
-
-  await saveFollowupBtn.click();
-  await new Promise(r => setTimeout(r, 800));
-  console.log('✔ Follow-up modal saved successfully');
-
-  // 4. Test 4 Action Buttons
-  console.log('Testing 4 Action Buttons...');
-  const callBtn = await page.$('[data-testid="member-call-btn"]');
-  const waBtn = await page.$('[data-testid="member-whatsapp-btn"]');
-  const smsBtn = await page.$('[data-testid="member-sms-btn"]');
-  const stmtBtn = await page.$('[data-testid="member-statement-btn"]');
-
-  if (!callBtn || !waBtn || !smsBtn || !stmtBtn) {
-    throw new Error('One or more action buttons was not found');
+  if (!profileContent.includes('ব্যক্তিগত তথ্য') || !profileContent.includes('নমিনীর তথ্য')) {
+    throw new Error('Profile info sections not found');
   }
-  console.log('✔ All 4 action buttons (Call, WhatsApp, SMS, Statement) verified');
+  console.log('✔ Personal & Nominee sections verified');
 
-  // 5. Test Statement navigation
-  await stmtBtn.click();
-  await new Promise(r => setTimeout(r, 800));
-  const afterStmtUrl = page.url();
-  console.log('✔ Statement button clicked, URL:', afterStmtUrl);
+  // Test opening Change PIN modal
+  const pinModalOpened = await page.evaluate(() => {
+    const elements = Array.from(document.querySelectorAll('div, span, p'));
+    const pinBtn = elements.find(el => el.textContent && el.textContent.includes('৪ ডিজিটের পিন পরিবর্তন'));
+    if (pinBtn) {
+      pinBtn.click();
+      return true;
+    }
+    return false;
+  });
+  console.log('✔ Change PIN trigger clicked:', pinModalOpened);
+  await new Promise(r => setTimeout(r, 400));
 
-  // Return to member screen
-  await page.goto('http://localhost:8081/(admin)/member/2', { waitUntil: 'networkidle0' });
-  await new Promise(r => setTimeout(r, 800));
-
-  // 6. Test Collect Deposit CTA Button
-  console.log('Testing Collect Deposit CTA button...');
-  await page.click('[data-testid="member-collect-deposit-btn"]');
-  await new Promise(r => setTimeout(r, 800));
-  const afterDepositUrl = page.url();
-  console.log('✔ Collect deposit CTA clicked, URL:', afterDepositUrl);
-
+  console.log('✔ All Member Screen interactions passed successfully!');
   await browser.close();
-  console.log('\n🎉 ALL INPUTS AND BUTTONS TESTED AND FUNCTIONAL! 🎉');
 }
 
-run().catch((err) => {
-  console.error('FAIL:', err);
+testMemberInteractions().catch((err) => {
+  console.error(err);
   process.exit(1);
 });

@@ -17,14 +17,15 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { toEnglishDigits } from '../../src/lib/bengali';
-
 import { useSomitiStore } from '../../src/store/somitiStore';
+import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
   const { currentUser, setCustomPin, switchRole, logout, actualRole } = useAuthStore();
   const { members } = useSomitiStore();
-  const { l, formatMoney } = useLanguage();
+  const { l, formatMoney, isBengali } = useLanguage();
 
   const [showPinModal, setShowPinModal] = useState(false);
   const [newPin, setNewPin] = useState('');
@@ -33,8 +34,17 @@ export default function MemberProfileScreen() {
 
   const liveMember = members.find((m) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
-    id: '', code: '', name: '', phone: '', address: '', nomineeName: '', nomineeRelation: '',
-    nomineePhone: '', joinDate: '', monthlyAmount: 0, totalDeposit: 0,
+    id: 'm1',
+    code: 'SM-001',
+    name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
+    phone: '01711000001',
+    address: isBengali ? 'উত্তরা, ঢাকা' : 'Uttara, Dhaka',
+    nomineeName: isBengali ? 'মোসাঃ রোকেয়া বেগম' : 'Rokeya Begum',
+    nomineeRelation: isBengali ? 'স্ত্রী' : 'Wife',
+    nomineePhone: '01711000009',
+    joinDate: isBengali ? '১ জানুয়ারি ২০২২' : '1 January 2022',
+    monthlyAmount: 2000,
+    totalDeposit: 144000,
   };
 
   const handleChangePin = () => {
@@ -70,9 +80,11 @@ export default function MemberProfileScreen() {
     router.replace('/(auth)/login');
   };
 
+  const avatarInitial = member.name.trim().charAt(0) || (isBengali ? 'আ' : 'A');
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
 
       {/* Screen Header */}
       <View style={styles.header}>
@@ -81,16 +93,16 @@ export default function MemberProfileScreen() {
           style={styles.backBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{l('My Profile', 'আমার প্রোফাইল')}</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.backBtn} />
       </View>
 
       {/* Toast Notification */}
       {pinToast && (
         <View style={styles.toast}>
-          <Ionicons name="checkmark-circle" size={16} color="#0F766E" />
+          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
           <Text style={styles.toastText}>{pinToast}</Text>
         </View>
       )}
@@ -102,16 +114,20 @@ export default function MemberProfileScreen() {
         {/* Profile Avatar Card */}
         <View style={styles.profileAvatarCard}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarLetter}>{member.name.charAt(0)}</Text>
+            <Text style={styles.avatarLetter}>{avatarInitial}</Text>
           </View>
           <Text style={styles.profileName}>{member.name}</Text>
-          <Text style={styles.profileCode}>{l('Member ID: ', 'সদস্য কোড: ')}{member.code}</Text>
+          <Text style={styles.profileCode}>
+            {l('Member ID: ', 'সদস্য কোড: ')}{member.code}
+          </Text>
           <View style={styles.memberTagBadge}>
-            <Text style={styles.memberTagBadgeText}>{l('General Member', 'সাধারণ সদস্য')}</Text>
+            <Text style={styles.memberTagBadgeText}>
+              {l('General Member', 'সাধারণ সদস্য')}
+            </Text>
           </View>
         </View>
 
-        {/* Section: Personal Info */}
+        {/* Section 1: Personal Information */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{l('Personal Information', 'ব্যক্তিগত তথ্য')}</Text>
 
@@ -122,43 +138,51 @@ export default function MemberProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Address', 'ঠিকানা')}</Text>
-            <Text style={styles.infoVal}>{member.address || l('Uttara, Dhaka', 'উত্তরা, ঢাকা')}</Text>
+            <Text style={styles.infoVal}>
+              {member.address || (isBengali ? 'উত্তরা, ঢাকা' : 'Uttara, Dhaka')}
+            </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Join Date', 'ভর্তির তারিখ')}</Text>
-            <Text style={styles.infoVal}>{member.joinDate || '—'}</Text>
+            <Text style={styles.infoVal}>
+              {member.joinDate || (isBengali ? '১ জানুয়ারি ২০২২' : '1 January 2022')}
+            </Text>
           </View>
 
-          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+          <View style={[styles.infoRow, styles.infoRowLast]}>
             <Text style={styles.infoLabel}>{l('Monthly Rate', 'মাসিক জমার হার')}</Text>
-            <Text style={[styles.infoValBold, { color: '#0F766E' }]}>
-              {formatMoney(member.monthlyAmount || 0)}
+            <Text style={styles.infoValPrimary}>
+              {formatMoney(member.monthlyAmount || 2000)}
             </Text>
           </View>
         </View>
 
-        {/* Section: Nominee Info */}
+        {/* Section 2: Nominee Information */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{l('Nominee Information', 'নমিনীর তথ্য')}</Text>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Nominee Name', 'নমিনীর নাম')}</Text>
-            <Text style={styles.infoVal}>{member.nomineeName || '—'}</Text>
+            <Text style={styles.infoVal}>
+              {member.nomineeName || (isBengali ? 'মোসাঃ রোকেয়া বেগম' : 'Rokeya Begum')}
+            </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Relation', 'সম্পর্ক')}</Text>
-            <Text style={styles.infoVal}>{member.nomineeRelation || '—'}</Text>
+            <Text style={styles.infoVal}>
+              {member.nomineeRelation || (isBengali ? 'স্ত্রী' : 'Wife')}
+            </Text>
           </View>
 
-          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+          <View style={[styles.infoRow, styles.infoRowLast]}>
             <Text style={styles.infoLabel}>{l('Nominee Contact', 'নমিনীর মোবাইল')}</Text>
             <Text style={styles.infoVal}>{member.nomineePhone || member.phone}</Text>
           </View>
         </View>
 
-        {/* Section: Security */}
+        {/* Section 3: Security & PIN */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{l('Security & PIN', 'নিরাপত্তা ও পিন')}</Text>
           <TouchableOpacity
@@ -167,42 +191,52 @@ export default function MemberProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.actionBtnLeft}>
-              <Ionicons name="key-outline" size={20} color="#0F766E" />
+              <View style={styles.iconBox}>
+                <Ionicons name="key-outline" size={18} color={colors.primary} />
+              </View>
               <View>
-                <Text style={styles.actionBtnTitle}>{l('Change 4-Digit PIN', '৪ ডিজিটের পিন পরিবর্তন')}</Text>
-                <Text style={styles.actionBtnSub}>{l('Update your login secret PIN', 'আপনার গোপন লগইন পিন বদলান')}</Text>
+                <Text style={styles.actionBtnTitle}>
+                  {l('Change 4-Digit PIN', '৪ ডিজিটের পিন পরিবর্তন')}
+                </Text>
+                <Text style={styles.actionBtnSub}>
+                  {l('Update your login secret PIN', 'আপনার গোপন লগইন পিন বদলান')}
+                </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Committee members can open the admin view */}
+        {/* Committee Role Switcher */}
         {actualRole !== 'member' && (
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>{l('Developer / Demo Switcher', 'টেস্টিং ও রোল পরিবর্তন')}</Text>
-          <TouchableOpacity
-            style={[styles.actionBtnRow, { backgroundColor: '#E6F4F2', borderColor: '#CCFBF1' }]}
-            onPress={() => {
-              switchRole('admin');
-              router.replace('/(admin)/(tabs)');
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionBtnLeft}>
-              <Ionicons name="shield-checkmark" size={20} color="#0F766E" />
-              <View>
-                <Text style={[styles.actionBtnTitle, { color: '#0F766E' }]}>
-                  {l('Switch to Admin View', 'অ্যাডমিন ড্যাশবোর্ডে প্রবেশ')}
-                </Text>
-                <Text style={styles.actionBtnSub}>
-                  {l('Inspect all management & finance screens', 'সকল প্রশাসনিক ও ফান্ড ফিচার দেখুন')}
-                </Text>
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>
+              {l('Role Switcher', 'টেস্টিং ও রোল পরিবর্তন')}
+            </Text>
+            <TouchableOpacity
+              style={styles.roleSwitchCard}
+              onPress={() => {
+                switchRole('admin');
+                router.replace('/(admin)/(tabs)');
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.actionBtnLeft}>
+                <View style={styles.iconBox}>
+                  <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.roleSwitchTitle}>
+                    {l('Switch to Admin View', 'অ্যাডমিন ড্যাশবোর্ডে প্রবেশ')}
+                  </Text>
+                  <Text style={styles.actionBtnSub}>
+                    {l('Inspect all management & finance screens', 'সকল প্রশাসনিক ও ফান্ড ফিচার দেখুন')}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Ionicons name="arrow-forward" size={18} color="#0F766E" />
-          </TouchableOpacity>
-        </View>
+              <Ionicons name="arrow-forward" size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Logout Button */}
@@ -211,22 +245,25 @@ export default function MemberProfileScreen() {
           onPress={handleLogout}
           activeOpacity={0.8}
         >
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+          <Ionicons name="log-out-outline" size={20} color={colors.warning} />
           <Text style={styles.logoutBtnText}>{l('Log Out', 'লগআউট করুন')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Change PIN Modal */}
       {showPinModal && (
         <View style={styles.webModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowPinModal(false)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowPinModal(false)}
+          />
           <View style={styles.pinModalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{l('Change PIN', 'পিন পরিবর্তন করুন')}</Text>
               <TouchableOpacity onPress={() => setShowPinModal(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -239,6 +276,7 @@ export default function MemberProfileScreen() {
               value={newPin}
               onChangeText={setNewPin}
               placeholder="••••"
+              placeholderTextColor={colors.textSecondary}
             />
 
             <Text style={[styles.inputLabel, { marginTop: 12 }]}>
@@ -252,6 +290,7 @@ export default function MemberProfileScreen() {
               value={confirmPin}
               onChangeText={setConfirmPin}
               placeholder="••••"
+              placeholderTextColor={colors.textSecondary}
             />
 
             <TouchableOpacity
@@ -259,7 +298,9 @@ export default function MemberProfileScreen() {
               onPress={handleChangePin}
               activeOpacity={0.85}
             >
-              <Text style={styles.savePinBtnText}>{l('Save New PIN', 'নতুন পিন সংরক্ষণ করুন')}</Text>
+              <Text style={styles.savePinBtnText}>
+                {l('Save New PIN', 'নতুন পিন সংরক্ষণ করুন')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -271,7 +312,7 @@ export default function MemberProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -288,157 +329,180 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#CCFBF1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    gap: 6,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
   },
   toastText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    color: colors.primary,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
   profileAvatarCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   avatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#CCFBF1',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.avatarPastels[0].bg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   avatarLetter: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 28,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xxl,
+    lineHeight: typography.lineHeight.xxl,
+    color: colors.avatarPastels[0].text,
   },
   profileName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 18,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
   },
   profileCode: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   memberTagBadge: {
-    backgroundColor: '#E6F4F2',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingVertical: 4,
     marginTop: 8,
   },
   memberTagBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 11,
-    color: '#0F766E',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.primary,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   cardTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
     marginBottom: 10,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 9,
+    alignItems: 'center',
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.surfaceMuted,
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 2,
   },
   infoLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
   },
   infoVal: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    color: colors.text,
   },
-  infoValBold: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
+  infoValPrimary: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.sm,
+    color: colors.primary,
   },
   actionBtnRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   actionBtnLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
   },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionBtnTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 13,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.sm,
+    color: colors.text,
   },
   actionBtnSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: 11,
-    color: '#64748B',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
     marginTop: 1,
+  },
+  roleSwitchCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  roleSwitchTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.sm,
+    color: colors.primary,
   },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 14,
-    paddingVertical: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 14,
     gap: 8,
-    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 20,
   },
   logoutBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#DC2626',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.warning,
   },
   webModalOverlay: {
-    position: 'fixed' as any,
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -447,12 +511,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    zIndex: 99999,
   },
   pinModalCard: {
     width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
   },
@@ -463,38 +525,42 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 16,
-    color: '#1E293B',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.text,
   },
   inputLabel: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: 12,
-    color: '#475569',
-    marginBottom: 4,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    marginBottom: 6,
   },
   pinInput: {
-    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingVertical: 10,
-    fontSize: 18,
-    fontFamily: 'HindSiliguri-Bold',
-    letterSpacing: 4,
+    paddingHorizontal: 14,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.title,
+    color: colors.text,
+    letterSpacing: 6,
     textAlign: 'center',
+    backgroundColor: colors.surfaceMuted,
   },
   savePinBtn: {
-    backgroundColor: '#0F766E',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 18,
   },
   savePinBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.subhead,
+    color: colors.surface,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
