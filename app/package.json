@@ -13,6 +13,8 @@
     "test:accounting": "node scripts/test-accounting.cjs",
     "test:profile-photo": "node scripts/test-profile-photo.cjs",
     "test:live-auth": "node scripts/test-live-auth.cjs",
+    "test:pin-screen": "node scripts/test-pin-screen.cjs",
+    "test:phone-auth": "node scripts/test-phone-auth.cjs",
     "build:web": "node scripts/build-web.cjs",
     "build:web:demo": "node scripts/build-web.cjs --demo",
     "preview:web": "node scripts/serve-web.cjs",

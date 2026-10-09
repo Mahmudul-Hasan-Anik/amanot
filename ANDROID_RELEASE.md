@@ -1,10 +1,20 @@
 # Amanot Android release — 9 October 2026
 
-## Current development release: 1.0.2 / code 3
+## PIN-screen hotfix: 1.0.3 / code 4
+
+Fixed a regression in 1.0.2: entering four digits on the six-digit live PIN screen incorrectly ran demo verification and reset the input. Demo verification is now restricted to demo mode. Live six-digit and explicitly selected legacy four-digit inputs use backend login only. No credential or database change is required.
+
+Local live preview rebuilt and verified by entering four synthetic digits with no alert. `test:pin-screen` exercises the actual screen handlers: six-digit completion, no premature/demo verification, legacy login, backend errors, required PIN upgrade and demo mode. TypeScript and live-auth regressions pass.
+
+**APK updates on hold at the user's explicit request.** Submitted build `2decffeb-187c-4cc0-9f98-f75a27c0d58d` was canceled. Do not start another APK build until the user asks. Version 1.0.3/code 4 is a local development candidate, not a delivered APK. Version 1.0.2 has the PIN-screen bug; test the rebuilt local preview. APK files now live in `app/releases/` (ignored) so web exports do not remove them.
+
+Additional login fix: missing/invalid phone state now redirects PIN deep links/back navigation to login, malformed phone cannot generate an Auth email, activation status is refreshed before login, and stale login responses cannot unlock after logout. Initial activation requires a six-digit PIN. Auth provider errors are translated into user-facing Bengali instructions; no email entry is required. Phone/API payload, PIN-screen and auth-state regression suites cover these cases. No existing credential or live ledger was changed.
+
+## Previous development release: 1.0.2 / code 3
 
 Signed **live-backend pilot** build `91d090e0-5539-4784-8c14-0478d652cb31` finished using the existing signing key. [Build details](https://expo.dev/accounts/anik13dev/projects/amanot/builds/91d090e0-5539-4784-8c14-0478d652cb31). Status: **FINISHED**, 9 October 2026 at 22:06 Bangladesh time. [Download live APK 1.0.2](https://expo.dev/artifacts/eas/ANsmU4B6urvPRFses_6wtSR8Va5zdZYQPNPjmo4ud4c.apk). Supersedes 1.0.1 because the earlier app lacks the required PIN-upgrade screen.
 
-Verified local copy: `app/dist/releases/amanot-1.0.2-live.apk` (ignored artifact), **96,723,400 bytes** (about 92.2 MiB). SHA-256: `f669cc7e9ccf50cee8eb641e5229cda519e2dadc52460eef33c7243051c64d32`. Archive inspection confirmed Android manifest, four DEX files, app bundle and native SecureStore/Crypto module symbols. This is not an on-device test or an independent cryptographic signature verification. Repeat archive checks with `app/scripts/verify-apk.ps1 -ApkPath <path>`.
+Verified previous local copy: `app/releases/amanot-1.0.2-live.apk` (ignored artifact), **96,723,400 bytes** (about 92.2 MiB). SHA-256: `f669cc7e9ccf50cee8eb641e5229cda519e2dadc52460eef33c7243051c64d32`. Archive inspection confirmed Android manifest, four DEX files, app bundle and native SecureStore/Crypto module symbols. This is not an on-device test or an independent cryptographic signature verification. Repeat archive checks with `app/scripts/verify-apk.ps1 -ApkPath <path>`.
 
 Install/update the new APK, then log in again. Existing plaintext sessions are discarded. Use your existing PIN; select the legacy four-digit option if needed. Before business access, enter the current PIN and choose/confirm a strong six-digit PIN, then log in again. Temporary/recovery PINs are random, expire after 72 hours and require replacement. Unactivated legacy members need a six-digit temporary PIN from an administrator. No real credential was changed during development.
 

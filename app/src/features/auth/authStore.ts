@@ -8,6 +8,8 @@ import { isSupabaseConfigured, normalizePhone } from '../../lib/supabase';
 import * as api from '../../lib/api';
 import { isStrongPin, normalizePin, generateTemporaryPin } from '../../lib/pinPolicy';
 import { sessionStorage } from '../../lib/sessionStorage';
+import { isValidPhone } from '../../lib/phoneAuth';
+import { friendlyAuthError } from '../../lib/authErrors';
 
 const REMOTE = isSupabaseConfigured();
 
@@ -90,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
 
       continueWithPhone: async (rawPhone: string) => {
         const phone = normalizePhone(rawPhone);
+        if (!isValidPhone(phone)) return { found:false, error:'সঠিক মোবাইল নম্বর দিন।' };
         try {
           const r = await api.checkPhone(phone);
           if (!r.exists) return { found: false };
@@ -97,7 +100,7 @@ export const useAuthStore = create<AuthState>()(
           set({ phone, phoneRegistered: r.registered, mustChangePin: false, actualRole:'member', userRole:'member', currentUser: stubMember(phone, r.initial), isAuthenticated: true, isPinVerified: false });
           return { found: true };
         } catch (e: any) {
-          return { found: false, error: e?.message || String(e) };
+          return { found: false, error: friendlyAuthError(e?.message || String(e)) };
         }
       },
 
@@ -117,41 +120,55 @@ export const useAuthStore = create<AuthState>()(
 
       loginWithPin: async (rawPin: string) => {
         const pin = normalizePin(rawPin);
-        const phone = get().phone;
+        const phone = normalizePhone(get().phone);
+        if (!get().isAuthenticated || !isValidPhone(phone)) {
+          get().logout();
+          return { ok:false, error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।' };
+        }
         if (!/^(\d{4}|\d{6})$/.test(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; পুরোনো অ্যাকাউন্টে ৪ সংখ্যার পিন গ্রহণ করা হয়।' };
         set({ isPinVerified:false });
         try {
-          if (get().phoneRegistered) {
+          const registration = await api.checkPhone(phone);
+          if (!registration.exists) throw new Error('নম্বরটি নিবন্ধিত নয়। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
+          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          set({phoneRegistered:registration.registered});
+          if (!registration.registered && !isStrongPin(pin)) return {ok:false,error:'প্রথম লগইনের জন্য অ্যাডমিনের দেওয়া নতুন ৬ সংখ্যার পিন নিন।'};
+          if (registration.registered) {
             await api.signInWithPin(phone, pin);
           } else {
             // first login: activate the account with the PIN the admin gave
             await api.activateWithPin(phone, pin);
-            set({ phoneRegistered: true });
           }
-          const ok = await get().refreshProfile();
-          if (!ok) throw new Error('প্রোফাইল পাওয়া যায়নি');
-          set({ isAuthenticated: true, isPinVerified: true });
+          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          const me = await api.fetchMyProfile();
+          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          if (!me || normalizePhone(me.profile.phone)!==phone) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
+          const role = me.profile.role as ServerRole;
+          set({ isAuthenticated:true, isPinVerified:true, phoneRegistered:true, actualRole:role,
+            userRole:role==='member'?'member':'admin', currentUser:me.member || stubMember(phone,me.profile.full_name),
+            mustChangePin:me.profile.must_change_pin===true });
           if (!get().mustChangePin) somiti().syncFromServer();
           return { ok: true };
         } catch (e: any) {
           const msg = e?.message || String(e);
-          return { ok: false, error: /invalid login/i.test(msg) ? 'পিন সঠিক নয়' : msg };
+          return { ok: false, error: friendlyAuthError(msg) };
         }
       },
 
       registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin) => {
         const phone = normalizePhone(adminPhone);
+        if (!isValidPhone(phone)) return {ok:false,error:'সঠিক মোবাইল নম্বর দিন।'};
         const pin = toEnglishDigits(adminPin).replace(/\D/g, '');
         if (!isStrongPin(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; একই বা ধারাবাহিক সংখ্যা ব্যবহার করবেন না।' };
         try {
           await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin);
           set({ phone, phoneRegistered: true });
-          await get().refreshProfile();
+          if (!await get().refreshProfile()) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
           set({ isAuthenticated: true, isPinVerified: true });
           somiti().syncFromServer();
           return { ok: true };
         } catch (e: any) {
-          return { ok: false, error: e?.message || String(e) };
+          return { ok: false, error: friendlyAuthError(e?.message || String(e)) };
         }
       },
 

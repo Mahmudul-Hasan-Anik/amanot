@@ -3,6 +3,7 @@ node_modules_old/
 .git/
 .expo/
 dist/
+releases/
 dist-demo/
 .env
 .env.backup

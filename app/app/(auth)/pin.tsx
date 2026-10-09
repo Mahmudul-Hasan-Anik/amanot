@@ -7,12 +7,13 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { CustomKeypad } from '../../src/components/CustomKeypad';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { isSupabaseConfigured } from '../../src/lib/supabase';
+import { isValidPhone } from '../../src/lib/phoneAuth';
 
 const REMOTE = isSupabaseConfigured();
 import { useLanguage } from '../../src/i18n/useLanguage';
@@ -31,6 +32,8 @@ export default function PinScreen() {
   };
   const { l } = useLanguage();
   const [pinDigits, setPinDigits] = useState<string[]>([]);
+  const auth = useAuthStore();
+  if (REMOTE && (!auth.isAuthenticated || !isValidPhone(auth.phone))) return <Redirect href="/(auth)/login" />;
 
   const handlePressDigit = (digit: string) => {
     if (checking) return;
@@ -53,7 +56,7 @@ export default function PinScreen() {
         return;
       }
 
-      if (nextPin.length === 4) {
+      if (!REMOTE && nextPin.length === pinLength) {
         setTimeout(() => {
           const success = verifyPin(nextPin.join(''));
           if (success) {

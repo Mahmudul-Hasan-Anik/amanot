@@ -8,6 +8,7 @@ yarn-error.log*
 # Expo
 .expo/
 dist/
+releases/
 web-build/
 
 # Native build artifacts

@@ -4,6 +4,10 @@
 
 ## সর্বশেষ development update
 
+**ব্যবহারকারীর নতুন নির্দেশ: এখন APK build/update নয়; সব issue local-এ ঠিক করার পর ব্যবহারকারী বললে APK বানাতে হবে।** আগের 1.0.3 build বাতিল। ফোন ছাড়া PIN route-এ ঢোকা, invalid internal email, stale activation status ও logout-এর পর late login response-এর guards এবং বাংলা auth error mapping যোগ হয়েছে। Phone/API payload, PIN-screen, live-auth, typecheck/token checks ও local bundle build পাস; browser-এ missing-phone redirect এবং refresh পাস। বাস্তব owner login-এর ফল user যাচাই করবেন; credentials বদলানো হয়নি।
+
+PIN-screen hotfix: 1.0.2-এ ৬-digit live PIN লিখতে গিয়ে ৪ digit-এ demo verification চলছিল। Branch-টি demo mode-এ সীমাবদ্ধ করা হয়েছে, local preview rebuild ও ৪-digit/no-alert browser check পাস; screen-handler regression, typecheck ও live-auth tests পাস। 1.0.3/code 4 local candidate; জমা দেওয়া Android build ব্যবহারকারীর নির্দেশে বাতিল। PIN reset বা database migration লাগে না।
+
 ব্যবহারকারীর নির্দেশে **বাস্তব ফোনের পরীক্ষা এবং original খাতা/opening balance reconciliation এখন skip** করা হয়েছে। এগুলো পাস হয়েছে বলা হচ্ছে না। আগের সময়ের table প্রাথমিক estimate; বর্তমান ফল নিচে।
 
 - **সম্পন্ন ও live deployed:** migrations 009/010; শক্ত ৬-digit PIN, প্রথম login-এ বাধ্যতামূলক verified change, random temporary PIN/৭২ ঘণ্টা expiry, recovery permission ও session revocation। বর্তমান credential বদলানো হয়নি। Provider minimum password 13, secure/current-password change enabled, sign-in/sign-up 10/5 মিনিট/IP। PIN-change lock ৫ ভুলে ১৫ মিনিট; login-এর per-account lock নয়।

@@ -10,6 +10,7 @@ import type { Member, Project, PendingApproval, CashAccount } from '../mocks/moc
 import type { Transaction, ExpenseItem } from '../store/somitiStore';
 import { Platform } from 'react-native';
 import { readProfilePhoto } from './profilePhoto';
+import { friendlyAuthError } from './authErrors';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -307,7 +308,7 @@ export async function somitiInitialized(): Promise<boolean> {
 
 export async function signInWithPin(phone: string, pin: string) {
   const res = await supabase.auth.signInWithPassword({ email: phoneToEmail(phone), password: pinToPassword(pin) });
-  if (res.error) throw new Error(res.error.message);
+  if (res.error) throw new Error(friendlyAuthError(res.error.message));
   return res.data.session;
 }
 
@@ -320,7 +321,7 @@ export async function activateWithPin(phone: string, pin: string) {
   });
   if (res.error) throw new Error(friendlyAuthError(res.error.message));
   if (!res.data.session) {
-    throw new Error('Supabase-এ "Confirm email" বন্ধ করুন (Authentication → Providers → Email)।');
+    throw new Error('অ্যাকাউন্ট চালু করা যায়নি। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
   }
   return res.data.session;
 }
@@ -334,16 +335,9 @@ export async function bootstrapSomiti(somitiName: string, adminName: string, pho
   });
   if (res.error) throw new Error(friendlyAuthError(res.error.message));
   if (!res.data.session) {
-    throw new Error('Supabase-এ "Confirm email" বন্ধ করুন (Authentication → Providers → Email)।');
+    throw new Error('অ্যাকাউন্ট চালু করা যায়নি। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
   }
   return res.data.session;
-}
-
-function friendlyAuthError(msg: string) {
-  // trigger errors surface as "Database error saving new user"
-  if (/database error/i.test(msg)) return 'পিন ভুল অথবা নম্বরটি নিবন্ধিত নয়। অ্যাডমিনের সাথে যোগাযোগ করুন।';
-  if (/already registered/i.test(msg)) return 'এই নম্বরে ইতিমধ্যে অ্যাকাউন্ট আছে।';
-  return msg;
 }
 
 export async function fetchMyProfile() {

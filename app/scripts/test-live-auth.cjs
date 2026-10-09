@@ -5,9 +5,12 @@ const storage = { getItem: async k => memory.get(k) ?? null, setItem: async (k,v
 const member = { id:'member-test', name:'Test', phone:'01700000000', role:'member' };
 let mustChangePin = false;
 let signInFails = false, pinChangeFails = false, profileMissing = false, syncCalls = 0;
+let signIns=0;
+let registered=true,activations=0,signInWait=null;
 const api = {
-  checkPhone: async () => ({exists:true,registered:true,initial:'T'}),
-  signInWithPin: async () => {if(signInFails) throw Error('Invalid login');},
+  checkPhone: async () => ({exists:true,registered,initial:'T'}),
+  signInWithPin: async () => {signIns++;if(signInWait)await signInWait;if(signInFails) throw Error('Invalid login');},
+  activateWithPin:async()=>{activations++},
   fetchMyProfile: async () => profileMissing ? null : {profile:{role:'member',phone:member.phone,must_change_pin:mustChangePin},member},
   changeOwnPin: async () => {if(pinChangeFails) throw Error('offline');},
   resetMemberPin: async () => {throw Error('denied');},
@@ -23,6 +26,8 @@ vm.runInNewContext(code, { exports:result, require: name => {
   if (name==='react-native') return {Alert:{alert:()=>{}}};
   if (name==='../../lib/supabase') return {isSupabaseConfigured:()=>true,normalizePhone:s=>s};
   if (name==='../../lib/api') return api;
+  if (name==='../../lib/phoneAuth') return {isValidPhone:s=>/^01[3-9]\d{8}$/.test(s)};
+  if (name==='../../lib/authErrors') return {friendlyAuthError:s=>s};
   if (name==='../../lib/sessionStorage') return {sessionStorage:storage};
   if (name==='../../lib/pinPolicy') return {normalizePin:s=>s.replace(/[০-৯]/g,c=>'০১২৩৪৫৬৭৮৯'.indexOf(c)).trim(),isStrongPin:s=>/^\d{6}$/.test(s),generateTemporaryPin:()=> '572849'};
   if (name==='../../store/somitiStore') return {useSomitiStore:{getState:()=>({syncFromServer:()=>{syncCalls++},clearLocalData:()=>{}})}};
@@ -34,6 +39,8 @@ async function main() {
   let auth=store.getState(); auth.loginAs(member.id,'admin');
   assert.equal(store.getState().isPinVerified,false);
   assert.equal(auth.verifyPin('1234'),false);
+  assert.equal((await auth.loginWithPin('572849')).ok,false);assert.equal(signIns,0);
+  assert.equal((await auth.continueWithPhone('')).found,false);assert.equal(signIns,0);
   await auth.continueWithPhone(member.phone);
   signInFails=true;
   assert.equal((await auth.loginWithPin('1234')).ok,false);
@@ -41,6 +48,7 @@ async function main() {
   signInFails=false; profileMissing=true;
   assert.equal((await auth.loginWithPin('1234')).ok,false);
   profileMissing=false;
+  store.setState({phoneRegistered:false}); // stale cache must not trigger signup
   assert.equal((await auth.loginWithPin('১২৩৪')).ok,true);
   auth=store.getState(); assert.equal(auth.actualRole,'member'); assert.equal(syncCalls,1);
   auth.switchRole('admin'); assert.equal(store.getState().userRole,'member');
@@ -54,6 +62,14 @@ async function main() {
   auth.lockApp(); assert.equal(store.getState().isPinVerified,false);
   const cached=JSON.parse(memory.get('amanot-auth-live')).state;
   for(const key of ['pin','customPins','lastGeneratedOtp','isPinVerified','currentUser','actualRole','mustChangePin']) assert.equal(key in cached,false);
+  auth.logout();const before=signIns;assert.equal((await auth.loginWithPin('572849')).ok,false);assert.equal(signIns,before);
+  registered=false;await auth.continueWithPhone(member.phone);
+  assert.equal((await auth.loginWithPin('1234')).ok,false);assert.equal(activations,0);
+  assert.equal((await auth.loginWithPin('572849')).ok,true);assert.equal(activations,1);
+  registered=true;await auth.continueWithPhone(member.phone);
+  let release;signInWait=new Promise(resolve=>release=resolve);
+  const pending=auth.loginWithPin('572849');await Promise.resolve();await Promise.resolve();auth.logout();release();
+  assert.equal((await pending).ok,false);assert.equal(store.getState().isAuthenticated,false);assert.equal(store.getState().isPinVerified,false);
   console.log('PASS live auth regression: demo bypass denied, wrong PIN/profile denied, Bengali PIN, member role, failed changes, app lock, cache redaction');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
