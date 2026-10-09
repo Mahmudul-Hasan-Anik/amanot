@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,11 +22,19 @@ import * as api from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { exportAndShareReceipt } from '../../src/utils/pdfExport';
+import { Button, Card } from '../../src/components';
+import { calculateProfitAllocation } from '../../src/lib/profitAllocation';
+import { useAuthStore } from '../../src/features/auth/authStore';
 
 export default function ProfitDistributionScreen() {
   const router = useRouter();
   const { l, formatMoney, formatNum, isBengali } = useLanguage();
   const { members, projects, somitiInfo } = useSomitiStore();
+  const actualRole = useAuthStore(s => s.actualRole);
+  const canManage = actualRole === 'admin' || actualRole === 'super_admin';
+  const [reserveInput, setReserveInput] = useState(String((somitiInfo as any).profitReservePct ?? 0));
+  const [managementInput, setManagementInput] = useState(String((somitiInfo as any).profitManagementPct ?? 0));
+  const [savingRules, setSavingRules] = useState(false);
 
   const [currentStep, setCurrentStep] = useState<number>(2); // 1: হিসাব, 2: পর্যালোচনা, 3: অনুমোদন, 4: বিতরণ
   const [isApproved, setIsApproved] = useState(false);
@@ -54,11 +63,22 @@ export default function ProfitDistributionScreen() {
   const otherIncome = 0;
   const operatingExpense = preview ? Number(preview.expenses) : Number(somitiInfo.monthlyExpense || 0);
   const netProfit = preview ? Number(preview.netProfit) : totalProjectProfit - operatingExpense;
-  const reservePercent = Number(preview?.reservePct ?? 10);
-  const directorPercent = Number(preview?.managementPct ?? 10);
-  const reserveFund = Math.round(netProfit * reservePercent) / 100;
-  const directorFund = Math.round(netProfit * directorPercent) / 100;
-  const distributableProfit = Number(preview?.distributed ?? Math.max(0, netProfit-reserveFund-directorFund));
+  const locked = isApproved || !!preview?.alreadyDistributed;
+  const allocation = calculateProfitAllocation(netProfit, locked ? preview?.reservePct ?? 0 : reserveInput, locked ? preview?.managementPct ?? 0 : managementInput);
+  const reservePercent = allocation?.reservePct ?? 0;
+  const directorPercent = allocation?.managementPct ?? 0;
+  const reserveFund = allocation?.reserveFund ?? 0;
+  const directorFund = allocation?.managementFund ?? 0;
+  const distributableProfit = Number(locked ? preview?.distributed ?? 0 : allocation?.distributed ?? 0);
+  const saveRules = async () => {
+    if (!canManage || locked || !allocation || savingRules || saving) return;
+    setSavingRules(true);
+    try {
+      await useSomitiStore.getState().updateSomitiInfo({ profitReservePct: reservePercent, profitManagementPct: directorPercent } as any);
+      Alert.alert(l('Saved', 'সংরক্ষিত'), l('These percentages will be used as your somiti defaults.', 'পরেরবার এই সমিতির জন্য এই হারগুলো ব্যবহার হবে।'));
+    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e?.message || String(e)); }
+    finally { setSavingRules(false); }
+  };
   const eligibleMembers = members.filter(m => m.status !== 'inactive' && m.totalDeposit > 0);
   const totalMembersDeposit = Number(preview?.totalDeposit ?? eligibleMembers.reduce((sum,m)=>sum+m.totalDeposit,0));
   const totalMemberCount = preview?.shares?.length ?? eligibleMembers.length;
@@ -69,12 +89,13 @@ export default function ProfitDistributionScreen() {
   }));
 
   const handleApprove = () => {
-    if (saving || isApproved || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || previewError))) return;
+    if (!canManage || !allocation || savingRules || saving || locked || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || previewError))) return;
     const executeApproval = async () => {
       setSaving(true);
       if (REMOTE) {
         try {
-          await api.distributeProfit(year, reservePercent, directorPercent);
+          const result = await api.distributeProfit(year, reservePercent, directorPercent);
+          setPreview({ ...preview, alreadyDistributed: true, reservePct: reservePercent, managementPct: directorPercent, distributed: Number(result.distributed) });
           await useSomitiStore.getState().syncFromServer();
           loadPreview();
         } catch (e: any) {
@@ -112,7 +133,7 @@ export default function ProfitDistributionScreen() {
 
     Alert.alert(
       l('Profit Distribution Approval', 'বার্ষিক লাভ বণ্টন অনুমোদন'),
-      `${l('Confirm instant approval of total', `${isBengali ? bnYear : year} সালের মোট`)} ${formatMoney(distributableProfit)} ${l('distributable profit?', 'বণ্টন নিশ্চিত করতে চান? এটি সাথে সাথে কার্যকর হবে।')}`,
+      `${l('Confirm instant approval of total', `${isBengali ? bnYear : year} সালের মোট`)} ${formatMoney(distributableProfit)} ${l('distributable profit?', 'বণ্টন নিশ্চিত করতে চান? এটি সাথে সাথে কার্যকর হবে।')}\n${l('Reserve', 'রিজার্ভ')}: ${formatNum(reservePercent)}% · ${l('Director share', 'পরিচালক অংশ')}: ${formatNum(directorPercent)}%`,
       [
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
@@ -235,6 +256,25 @@ export default function ProfitDistributionScreen() {
           </View>
         </View>
 
+        <Card variant="surface">
+          <Text style={styles.calcCardTitle}>{l('Distribution rules', 'বণ্টনের নিয়ম')}</Text>
+          <Text style={styles.rulesHint}>{locked
+            ? l('This distribution is approved. Its saved percentages cannot be changed.', 'এই বণ্টন অনুমোদিত। এর সংরক্ষিত হার পরিবর্তন করা যাবে না।')
+            : l('Set each share according to your somiti rules. Use 0 if it does not apply. The remainder goes to members.', 'সমিতির নিয়ম অনুযায়ী হার দিন। কোনো অংশ না থাকলে ০ দিন। বাকি লাভ সদস্যদের মধ্যে বণ্টিত হবে।')}</Text>
+          {([
+            ['reserve', l('Reserve fund (%)', 'রিজার্ভ ফান্ড (%)'), locked ? String(reservePercent) : reserveInput, setReserveInput],
+            ['management', l('Director share (%)', 'পরিচালক অংশ (%)'), locked ? String(directorPercent) : managementInput, setManagementInput],
+          ] as const).map(([key, label, value, onChange]) => (
+            <View key={key} style={styles.ruleField}>
+              <Text style={styles.ruleLabel}>{label}</Text>
+              <TextInput accessibilityLabel={label} style={styles.ruleInput} value={isBengali ? toBengaliDigits(value) : value}
+                onChangeText={text => onChange(toEnglishDigits(text))} keyboardType="decimal-pad" editable={canManage && !locked && !saving && !savingRules} />
+            </View>
+          ))}
+          {!allocation && <Text accessibilityRole="alert" style={styles.ruleError}>{l('Enter percentages from 0 to 100, with up to two decimal places. Their total cannot exceed 100%.', '০ থেকে ১০০-এর মধ্যে সর্বোচ্চ দুই দশমিকের হার দিন। দুই অংশের যোগফল ১০০%-এর বেশি হবে না।')}</Text>}
+          {canManage && !locked && <Button title={l('Save somiti rules', 'সমিতির নিয়ম সংরক্ষণ')} variant="outline" onPress={saveRules} disabled={!allocation || saving} loading={savingRules} />}
+        </Card>
+
         {/* Calculation Draft Card */}
         <View style={styles.calcCard}>
           <Text style={styles.calcCardTitle}>
@@ -273,14 +313,14 @@ export default function ProfitDistributionScreen() {
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>
-              {l('Reserve Fund (10%)', 'রিজার্ভ ফান্ড (১০%)')}
+              {l(`Reserve Fund (${formatNum(reservePercent)}%)`, `রিজার্ভ ফান্ড (${formatNum(reservePercent)}%)`)}
             </Text>
             <Text style={styles.calcValueBold}>−{formatMoney(reserveFund)}</Text>
           </View>
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>
-              {l('Director Share (10%)', 'পরিচালক অংশ (১০%)')}
+              {l(`Director Share (${formatNum(directorPercent)}%)`, `পরিচালক অংশ (${formatNum(directorPercent)}%)`)}
             </Text>
             <Text style={styles.calcValueBold}>−{formatMoney(directorFund)}</Text>
           </View>
@@ -307,7 +347,7 @@ export default function ProfitDistributionScreen() {
           <Text style={styles.infoText}>
             {l(
               'Shares are calculated from the member savings balances at the time of approval.',
-              'রিজার্ভ ও পরিচালক শতাংশ পরিচালনা কমিটি নির্ধারণ করেছে এবং জানুয়ারি ২০২৬ থেকে লক করা।'
+              'অনুমোদনের সময় সদস্যদের সঞ্চয়ের স্থিতি অনুযায়ী লাভের অংশ হিসাব হবে।'
             )}
           </Text>
         </View>
@@ -378,7 +418,7 @@ export default function ProfitDistributionScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.draftPdfBtn}
-          onPress={handleDownloadDraft}
+          onPress={handleDownloadDraft} disabled={!allocation || (REMOTE && (!preview || !!previewError))}
           activeOpacity={0.8}
         >
           <Ionicons name="download-outline" size={16} color={colors.text} />
@@ -387,7 +427,7 @@ export default function ProfitDistributionScreen() {
 
         <TouchableOpacity
           style={[styles.approveBtn, isApproved && styles.approveBtnDone]}
-          onPress={handleApprove} disabled={saving || isApproved || distributableProfit <= 0 || (REMOTE && !preview)}
+          onPress={handleApprove} disabled={!canManage || !allocation || savingRules || saving || locked || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || !!previewError))}
           activeOpacity={0.85}
         >
           <Ionicons
@@ -407,6 +447,11 @@ export default function ProfitDistributionScreen() {
 }
 
 const styles = StyleSheet.create({
+  rulesHint: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.textSecondary, marginBottom: 12 },
+  ruleField: { marginBottom: 12 },
+  ruleLabel: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.text, marginBottom: 6 },
+  ruleInput: { width: '100%', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, fontFamily: typography.fontFamily.semiBold, fontSize: typography.size.md, lineHeight: typography.lineHeight.md, color: colors.text },
+  ruleError: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.danger, marginBottom: 12 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -513,18 +558,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   calcLabel: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,
     color: colors.textSecondary,
   },
   calcLabelTitle: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.md,
     lineHeight: typography.lineHeight.md,
     color: colors.text,
   },
   calcValueBold: {
+    flexShrink: 0,
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,
@@ -552,6 +604,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   distributableLabel: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.base,
     lineHeight: typography.lineHeight.base,

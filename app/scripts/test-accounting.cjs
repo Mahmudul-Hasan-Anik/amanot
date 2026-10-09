@@ -110,11 +110,21 @@ async function main(){
       await denied('update storage.objects set name=$1 where id=$2',[member+'/nid.jpg','00000000-0000-4000-8000-000000000032']);
       await db.exec('reset role');
     });
-    await pass('profit is credited, rounded totals reconcile, repeated distribution rejected',async()=>{
-      await sql('select distribute_profit($1,10,10)',[today.year]);
+    await pass('somiti profit rules persist and invalid percentages are rejected',async()=>{
+      await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({profitReservePct:12.5,profitManagementPct:7.25})]);
+      const settings=(await one('select info from somiti_settings where id=1')).info;
+      assert.equal(settings.profitReservePct,12.5);assert.equal(settings.profitManagementPct,7.25);
+      await denied('select distribute_profit($1,-1,10)',[today.year]);
+      await denied('select distribute_profit($1,60,41)',[today.year]);
+    });
+    await pass('custom profit percentages credit shares, rounded totals reconcile, approved rates stay frozen',async()=>{
+      await sql('select distribute_profit($1,12.5,7.25)',[today.year]);
       const x=await one('select d.distributed,(select sum(share) from profit_shares s where s.year=d.year) allocated from profit_distributions d where year=$1',[today.year]);
       assert.equal(Number(x.distributed),Number(x.allocated));
-      assert.equal(Number((await one('select profit_balance from members where id=$1',[member])).profit_balance),800);
+      assert.equal(Number((await one('select profit_balance from members where id=$1',[member])).profit_balance),802.5);
+      await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({profitReservePct:0,profitManagementPct:0})]);
+      const snapshot=(await one('select profit_preview($1) v',[today.year])).v;
+      assert.equal(Number(snapshot.reservePct),12.5);assert.equal(Number(snapshot.managementPct),7.25);
       await denied('select distribute_profit($1,10,10)',[today.year]);
     });
     await pass('transaction ledger is immutable',()=>denied('update transactions set amount=1 where id=$1',[depositId]));

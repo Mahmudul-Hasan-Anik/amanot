@@ -90,7 +90,7 @@ export default function RecordDepositScreen() {
   const { count: monthsCount, fee: lateFee, base: baseAmount, total: calculatedTotal } = calcBreakdown(selectedMonths, rate);
 
   // Editable custom amount
-  const [customAmount, setCustomAmount] = useState<string>(String(calculatedTotal || 4100));
+  const [customAmount, setCustomAmount] = useState<string>(String(calculatedTotal));
 
   // Sync custom amount when month selection or rate changes
   useEffect(() => {
@@ -271,12 +271,14 @@ export default function RecordDepositScreen() {
         {/* 2. Amount Card with Green Underline & Breakdown */}
         <View style={styles.amountCard}>
           <Text style={styles.amountSectionLabel}>{l('Deposit Amount', 'পরিমাণ')}</Text>
+          <Text style={styles.amountHint}>{l('Enter a full, partial or advance amount', 'পূর্ণ, আংশিক বা অগ্রিম জমার পরিমাণ লিখুন')}</Text>
 
           {/* Large Amount Input Container */}
           <View style={styles.largeAmountContainer}>
             <Text style={styles.largeCurrencySymbol}>৳</Text>
             <TextInput
               style={styles.largeAmountInput}
+              accessibilityLabel={l('Deposit Amount', 'পরিমাণ')}
               value={isBengali ? toBengaliDigits(customAmount) : customAmount}
               onChangeText={(t) => setCustomAmount(toEnglishDigits(t))}
               keyboardType="numeric"
@@ -591,10 +593,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 4,
   },
+  amountHint: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
   largeAmountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    minWidth: 0,
+    minHeight: 56,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 12,
   },
   largeCurrencySymbol: {
     fontFamily: typography.fontFamily.bold,
@@ -605,6 +620,7 @@ const styles = StyleSheet.create({
   },
   largeAmountInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.hero,
     lineHeight: typography.lineHeight.hero,
@@ -624,12 +640,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   amountLabel: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,
     color: colors.textSecondary,
   },
   amountVal: {
+    flexShrink: 0,
+    marginLeft: 12,
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,

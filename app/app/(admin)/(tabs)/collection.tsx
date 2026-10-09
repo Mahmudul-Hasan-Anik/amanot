@@ -24,6 +24,7 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { Member, mockMembers } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { recentMonths } from '../../../src/lib/months';
+import { SelectModal } from '../../../src/components/SelectModal';
 
 type FilterType = 'all' | 'paid' | 'due';
 
@@ -41,6 +42,7 @@ export default function CollectionScreen() {
 
   // Month calculations
   const [selectedMonth, setSelectedMonth] = useState(recentMonths(12)[0].key);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const _now = new Date(`${selectedMonth}-01T00:00:00`);
   const curMonth = _now.getMonth();
   const monthLabelEn = _now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -104,16 +106,7 @@ export default function CollectionScreen() {
     return `${formatMoney(item.monthlyAmount)} · ${l('Due', 'বকেয়া')}`;
   };
 
-  const handleMonthPress = () => {
-    Alert.alert(
-      l('Select Month', 'মাস নির্বাচন করুন'),
-      l('Choose month to view collection details', 'আদায়ের বিবরণ দেখতে মাস নির্বাচন করুন'),
-      [
-        ...recentMonths(6).map(month=>({text:l(month.en,month.bn),onPress:()=>setSelectedMonth(month.key)})),
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-      ]
-    );
-  };
+  const handleMonthPress = () => setShowMonthPicker(true);
 
   const handleMorePress = () => {
     Alert.alert(
@@ -183,7 +176,7 @@ export default function CollectionScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Month Selector Pill */}
-        <TouchableOpacity style={styles.monthPill} onPress={handleMonthPress} activeOpacity={0.75}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={l('Select Month', 'মাস নির্বাচন করুন')} accessibilityState={{ expanded: showMonthPicker }} style={styles.monthPill} onPress={handleMonthPress} activeOpacity={0.75}>
           <Ionicons name="calendar-outline" size={16} color={colors.text} />
           <Text style={styles.monthPillText}>{l(monthLabelEn, monthLabelBn)}</Text>
           <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
@@ -306,6 +299,14 @@ export default function CollectionScreen() {
 
       {/* Floating Action Button (FAB) */}
       <FAB label={l('Deposit', 'জমা নিন')} onPress={() => router.push('/(admin)/deposit/new')} />
+      <SelectModal
+        visible={showMonthPicker}
+        title={l('Select Month', 'মাস নির্বাচন করুন')}
+        value={selectedMonth}
+        options={recentMonths(12).map(month => ({ value: month.key, label: l(month.en, month.bn) }))}
+        onSelect={setSelectedMonth}
+        onClose={() => setShowMonthPicker(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -52,6 +52,9 @@ export default function SettingsScreen() {
 
   // In live (Supabase) mode these settings belong to the somiti and are saved on the server
   const info: any = somitiInfo;
+  const reservePercent = Number(info.profitReservePct ?? 0);
+  const directorPercent = Number(info.profitManagementPct ?? 0);
+  const memberPercent = Math.max(0, 100 - reservePercent - directorPercent);
   const pick = (key: string, local: number) =>
     REMOTE && info?.[key] !== undefined && info?.[key] !== ''
       ? Number(info[key])
@@ -302,59 +305,33 @@ export default function SettingsScreen() {
 
           <View style={styles.divider} />
 
-          {/* Row 3: Reserve Fund */}
+          {([
+            ['reserve', l('Reserve Fund', 'রিজার্ভ ফান্ড'), reservePercent],
+            ['management', l('Director Share', 'পরিচালক অংশ'), directorPercent],
+          ] as const).map(([key, label, percent]) => (
+            <React.Fragment key={key}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.row} onPress={() => router.push('/(admin)/distribution')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowTitle}>{label}</Text>
+                  <Text style={styles.rowSub}>{l('Edit on the annual distribution page', 'বার্ষিক বণ্টনের পৃষ্ঠায় পরিবর্তন করুন')}</Text>
+                </View>
+                <View style={styles.rowRight}>
+                  <Text style={styles.valText}>{formatNum(percent)}%</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </React.Fragment>
+          ))}
           <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>{l('Reserve Fund', 'রিজার্ভ ফান্ড')}</Text>
-              <Text style={styles.rowSub}>
-                {l('Committee set · Locked at year start', 'কমিটি নির্ধারিত · বছর শুরুতে লক')}
-              </Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{formatNum('10')}%</Text>
-              <Ionicons name="lock-closed" size={14} color={colors.textSecondary} />
-            </View>
+            <Text style={styles.rowTitle}>{l('Members share', 'সদস্যদের অংশ')}</Text>
+            <Text style={styles.valText}>{formatNum(memberPercent)}%</Text>
           </View>
-
           <View style={styles.divider} />
-
-          {/* Row 4: Director Share */}
           <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>{l('Director Share', 'পরিচালক অংশ')}</Text>
-              <Text style={styles.rowSub}>
-                {l('Committee set · Locked at year start', 'কমিটি নির্ধারিত · বছর শুরুতে লক')}
-              </Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{formatNum('10')}%</Text>
-              <Ionicons name="lock-closed" size={14} color={colors.textSecondary} />
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Row 5: Director Max Cap */}
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>
-              {l('Director Max Limit', 'পরিচালক অংশের সর্বোচ্চ সীমা')}
-            </Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{formatNum('20')}%</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Row 6: In Case of Loss */}
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
             <Text style={styles.rowTitle}>{l('In Case of Loss', 'ক্ষতি হলে')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{l('From members deposit', 'সদস্যদের জমা থেকে')}</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
+            <Text style={styles.valText}>{l('No profit distribution', 'লাভ বণ্টন হবে না')}</Text>
+          </View>
         </View>
 
         {/* Notice Info Box */}
@@ -367,8 +344,8 @@ export default function SettingsScreen() {
           />
           <Text style={styles.noticeText}>
             {l(
-              'Changing percentages mid-year requires approval from the President and another committee member.',
-              'বছরের মাঝে শতাংশ পরিবর্তন করতে সভাপতি ও আরও একজন কমিটি সদস্যের অনুমোদন লাগবে।'
+              'Use 0% for a share that does not apply. Changing defaults does not change an approved distribution.',
+              'কোনো অংশ না থাকলে ০% রাখুন। নিয়ম বদলালে আগের অনুমোদিত বণ্টন পরিবর্তন হবে না।'
             )}
           </Text>
         </View>

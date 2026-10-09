@@ -88,4 +88,5 @@ export const colors = {
   whatsapp: '#25D366',
 
   shadowColor: '#000000',
+  overlay: 'rgba(0, 0, 0, 0.55)',
 };

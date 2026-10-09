@@ -14,6 +14,8 @@
     "test:profile-photo": "node scripts/test-profile-photo.cjs",
     "test:live-auth": "node scripts/test-live-auth.cjs",
     "test:pin-screen": "node scripts/test-pin-screen.cjs",
+    "test:session-guard": "node scripts/test-session-guard.cjs",
+    "test:profit-rules": "node scripts/test-profit-rules.cjs",
     "test:phone-auth": "node scripts/test-phone-auth.cjs",
     "build:web": "node scripts/build-web.cjs",
     "build:web:demo": "node scripts/build-web.cjs --demo",

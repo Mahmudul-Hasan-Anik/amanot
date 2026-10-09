@@ -16,3 +16,4 @@ export * from './Avatar';
 export * from './IconTile';
 export * from './ActionButton';
 export * from './SectionHeader';
+export * from './SelectModal';
