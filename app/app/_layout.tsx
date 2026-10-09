@@ -85,6 +85,8 @@ function useBackendSession() {
           auth.lockApp();
           auth.refreshProfile().catch(() => {});
         }
+      } catch {
+        useAuthStore.getState().logout();
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -103,21 +105,36 @@ function useBackendSession() {
   return ready;
 }
 
-/** Backend mode: refresh data after login, when the app returns to foreground, and every 2 minutes. */
+/** Poll a small revision token while active; refetch snapshots only on change. */
 function useAutoSync() {
   const isPinVerified = useAuthStore((s) => s.isPinVerified);
+  const mustChangePin = useAuthStore((s) => s.mustChangePin);
   useEffect(() => {
-    if (!isSupabaseConfigured() || !isPinVerified) return;
+    if (!isSupabaseConfigured() || !isPinVerified || mustChangePin) return;
     const { useSomitiStore } = require('../src/store/somitiStore');
-    const sync = () => useSomitiStore.getState().syncFromServer();
+    const sync = async () => {
+      if (AppState.currentState !== 'active') return;
+      const auth = useAuthStore.getState();
+      try {
+        if (!await auth.refreshProfile()) { auth.logout(); return; }
+        await useSomitiStore.getState().syncFromServer(false);
+      } catch { await useSomitiStore.getState().syncFromServer(false); }
+    };
     sync();
-    const sub = AppState.addEventListener('change', (st) => st === 'active' && sync());
-    const timer = setInterval(sync, 120000);
+    let backgroundAt = 0;
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'background') backgroundAt = Date.now();
+      if (st === 'active') {
+        if (backgroundAt && Date.now()-backgroundAt>=60000) useAuthStore.getState().lockApp();
+        else sync();
+      }
+    });
+    const timer = setInterval(sync, 300000);
     return () => {
       sub.remove();
       clearInterval(timer);
     };
-  }, [isPinVerified]);
+  }, [isPinVerified, mustChangePin]);
 }
 
 const queryClient = new QueryClient();

@@ -19,6 +19,8 @@ import { safeBack } from '../../src/utils/navigation';
 import { toEnglishDigits } from '../../src/lib/bengali';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { colors } from '../../src/theme/colors';
+import { isSupabaseConfigured } from '../../src/lib/supabase';
+import { isStrongPin } from '../../src/lib/pinPolicy';
 import { typography } from '../../src/theme/typography';
 
 export default function MemberProfileScreen() {
@@ -28,6 +30,8 @@ export default function MemberProfileScreen() {
   const { l, formatMoney, isBengali } = useLanguage();
 
   const [showPinModal, setShowPinModal] = useState(false);
+  const REMOTE = isSupabaseConfigured();
+  const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [pinToast, setPinToast] = useState<string | null>(null);
@@ -53,10 +57,10 @@ export default function MemberProfileScreen() {
     const cleanNew = toEnglishDigits(newPin).replace(/\D/g, '');
     const cleanConfirm = toEnglishDigits(confirmPin).replace(/\D/g, '');
 
-    if (cleanNew.length !== 4) {
+    if (REMOTE ? !isStrongPin(cleanNew) : cleanNew.length !== 4) {
       Alert.alert(
         l('Invalid PIN', 'ভুল পিন'),
-        l('PIN must be exactly 4 digits.', 'পিন অবশ্যই ৪ সংখ্যার হতে হবে।')
+        l('Choose a 6-digit PIN without repeated or sequential digits.', '৬ সংখ্যার পিন দিন; একই বা ধারাবাহিক সংখ্যা নয়।')
       );
       return;
     }
@@ -71,7 +75,9 @@ export default function MemberProfileScreen() {
 
     setSavingPin(true);
     try {
-    await setCustomPin(cleanNew);
+    await setCustomPin(cleanNew, currentPin);
+    setCurrentPin('');
+    if (REMOTE) { Alert.alert(l('PIN changed','পিন পরিবর্তিত হয়েছে'),l('Log in with your new PIN.','নতুন পিন দিয়ে লগইন করুন।')); router.replace('/(auth)/login'); return; }
     setShowPinModal(false);
     setNewPin('');
     setConfirmPin('');
@@ -189,6 +195,7 @@ export default function MemberProfileScreen() {
           </View>
         </View>
 
+        <TouchableOpacity accessibilityRole="link" onPress={()=>router.push('/privacy')}><Text style={styles.cardTitle}>{l('Privacy and support','গোপনীয়তা ও সহায়তা')}</Text></TouchableOpacity>
         {/* Section 3: Security & PIN */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{l('Security & PIN', 'নিরাপত্তা ও পিন')}</Text>
@@ -203,7 +210,7 @@ export default function MemberProfileScreen() {
               </View>
               <View>
                 <Text style={styles.actionBtnTitle}>
-                  {l('Change 4-Digit PIN', '৪ ডিজিটের পিন পরিবর্তন')}
+                  {l('Change login PIN', 'লগইন পিন পরিবর্তন')}
                 </Text>
                 <Text style={styles.actionBtnSub}>
                   {l('Update your login secret PIN', 'আপনার গোপন লগইন পিন বদলান')}
@@ -274,11 +281,12 @@ export default function MemberProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>{l('New 4-Digit PIN', 'নতুন ৪ সংখ্যার পিন')}</Text>
+            {REMOTE && <><Text style={styles.inputLabel}>{l('Current PIN','বর্তমান পিন')}</Text><TextInput style={styles.pinInput} keyboardType="numeric" maxLength={6} secureTextEntry value={currentPin} onChangeText={setCurrentPin} autoComplete="off" /></>}
+            <Text style={styles.inputLabel}>{REMOTE ? l('New 6-Digit PIN','নতুন ৬ সংখ্যার পিন') : l('New 4-Digit PIN', 'নতুন ৪ সংখ্যার পিন')}</Text>
             <TextInput
               style={styles.pinInput}
               keyboardType="numeric"
-              maxLength={4}
+              maxLength={REMOTE?6:4}
               secureTextEntry
               value={newPin}
               onChangeText={setNewPin}
@@ -292,7 +300,7 @@ export default function MemberProfileScreen() {
             <TextInput
               style={styles.pinInput}
               keyboardType="numeric"
-              maxLength={4}
+              maxLength={REMOTE?6:4}
               secureTextEntry
               value={confirmPin}
               onChangeText={setConfirmPin}

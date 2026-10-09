@@ -1,5 +1,7 @@
 # Amanot audit — 9 October 2026
 
+Latest development update: migrations 009/010 deployed, mandatory six-digit PIN upgrade and expiring random temporary PINs, server-verified changes/session revocation, SecureStore sessions, no persisted live ledger/NID cache, revision-based refresh, confirmed non-financial writes, privacy page and encrypted backup/restore tools. TypeScript/tokens and SQL/auth/storage/sync/backup/photo suites pass. See `../SECURITY_REVIEW.md` for test scope, the 22 remaining dependency advisories and owner-dependent gates. New live APK is 1.0.2/code 3; earlier version/build notes below are historical. Real-device tests and original ledger reconciliation are explicitly deferred by the user.
+
 Amanot manages association members, savings collections, dues, expenses, projects, balances and annual profit distribution. The app uses Expo/React Native for web and Android, with Supabase authentication, SQL functions and private storage.
 
 ## Addressed

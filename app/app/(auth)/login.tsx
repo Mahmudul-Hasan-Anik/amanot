@@ -54,7 +54,7 @@ export default function LoginScreen() {
   const [regSomitiName, setRegSomitiName] = useState('');
   const [regAdminName, setRegAdminName] = useState('');
   const [regAdminPhone, setRegAdminPhone] = useState('');
-  const [regAdminPin, setRegAdminPin] = useState('1234');
+  const [regAdminPin, setRegAdminPin] = useState(REMOTE ? '' : '1234');
 
   // Format phone display with South Asian phone space (e.g. "১৭১২ ৩৪৫৬৭৮" or "1712 345678")
   const formatPhoneDisplay = (digits: string): string => {
@@ -168,7 +168,7 @@ export default function LoginScreen() {
       );
       return;
     }
-    const cleanPin = regAdminPin.trim() || '1234';
+    const cleanPin = toEnglishDigits(regAdminPin).trim() || (REMOTE ? '' : '1234');
     if (REMOTE) {
       setBusy(true);
       registerSomitiRemote(regSomitiName, regAdminName, regAdminPhone, cleanPin).then((res) => {
@@ -188,7 +188,8 @@ export default function LoginScreen() {
   };
 
   const handleCallHelpline = () => {
-    const num = somitiInfo.phone || '01712345678';
+    const num = somitiInfo.phone;
+    if (!num) { Alert.alert(l('Support', 'সহায়তা'), l('Ask your somiti administrator for support.', 'সহায়তার জন্য সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।')); return; }
     Linking.openURL(`tel:${num}`);
   };
 
@@ -218,6 +219,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <TouchableOpacity accessibilityRole="link" onPress={()=>router.push('/privacy')}><Text style={styles.demoHintText}>{l('Privacy and support','গোপনীয়তা ও সহায়তা')}</Text></TouchableOpacity>
         {!REMOTE && <View style={styles.demoHintBox}><Text style={styles.demoHintText}>{l('Demo · No SMS is sent. Admin: 01711223344 · OTP: 482700 · PIN: 1234', 'ডেমো · এসএমএস পাঠানো হয় না। অ্যাডমিন: ০১৭১১২২৩৩৪৪ · ওটিপি: ৪৮২৭০০ · পিন: ১২৩৪')}</Text></View>}
         {/* Top Language Switcher (Dev-only) */}
         {__DEV__ && (
@@ -510,13 +512,13 @@ export default function LoginScreen() {
             placeholderTextColor={colors.textSecondary}
           />
 
-          <Text style={styles.modalInputLabel}>{l('4-Digit PIN *', '৪ সংখ্যার পিন *')}</Text>
+          <Text style={styles.modalInputLabel}>{REMOTE ? l('6-Digit PIN *', '৬ সংখ্যার পিন *') : l('4-Digit PIN *', '৪ সংখ্যার পিন *')}</Text>
           <TextInput
             style={styles.modalInput}
             value={regAdminPin}
-            onChangeText={(t) => setRegAdminPin(toEnglishDigits(t).slice(0, 4))}
+            onChangeText={(t) => setRegAdminPin(toEnglishDigits(t).replace(/\D/g,'').slice(0, REMOTE?6:4))}
             keyboardType="number-pad"
-            maxLength={4}
+            maxLength={REMOTE?6:4}
             secureTextEntry
             placeholder="1234"
             placeholderTextColor={colors.textSecondary}

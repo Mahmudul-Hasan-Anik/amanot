@@ -67,7 +67,7 @@ export default function RolesScreen() {
       `${m.name}: ${roleLabel(roleOf(m))} → ${l(r.en, r.bn)}`,
       [
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        { text: l('Yes, change', 'হ্যাঁ, পরিবর্তন করুন'), onPress: () => setMemberRole(m.id, roleKey, r.title) },
+        { text: l('Yes, change', 'হ্যাঁ, পরিবর্তন করুন'), onPress: async () => {try {await setMemberRole(m.id, roleKey, r.title);}catch(e:any){Alert.alert(l('Change failed','পরিবর্তন ব্যর্থ'),e.message);}} },
       ]
     );
   };

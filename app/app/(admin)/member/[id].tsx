@@ -68,13 +68,13 @@ export default function MemberProfileScreen() {
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editName.trim() || !editPhone.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Name and phone are required', 'নাম ও মোবাইল নম্বর আবশ্যক'));
       return;
     }
 
-    updateMember(member.id, {
+    try { await updateMember(member.id, {
       name: editName.trim(),
       phone: editPhone.trim(),
       address: editAddress.trim() || '[ঠিকানা]',
@@ -85,15 +85,16 @@ export default function MemberProfileScreen() {
 
     setShowEditModal(false);
     Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
-  const handleSaveFollowup = () => {
+  const handleSaveFollowup = async () => {
     if (!followupDate.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Follow-up date is required', 'ফলো-আপ তারিখ আবশ্যক'));
       return;
     }
 
-    updateMember(member.id, {
+    try { await updateMember(member.id, {
       nextFollowup: {
         date: followupDate.trim(),
         note: followupNote.trim(),
@@ -102,14 +103,15 @@ export default function MemberProfileScreen() {
 
     setShowFollowupModal(false);
     Alert.alert(l('Success', 'সফল'), l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   const handleResetPin = () => {
     Alert.alert(
-      l('Reset PIN to 1234?', 'পিন ১২৩৪ এ রিসেট করবেন?'),
+      l('Identity verified?', 'সদস্যের পরিচয় যাচাই করেছেন?'),
       l(
-        `Are you sure you want to reset PIN for ${member.name}? The new default PIN will be 1234.`,
-        `আপনি কি নিশ্চিত যে ${member.name}-এর পিন ১২৩৪ এ রিসেট করতে চান? সদস্য ১২৩৪ দিয়ে লগইন করতে পারবেন।`
+        `Are you sure you want to reset PIN for ${member.name}? Confirm the member’s identity before issuing a temporary PIN.`,
+        `আপনি কি নিশ্চিত যে ${member.name}-এর পরিচয় যাচাই করে temporary PIN দিতে চান?`
       ),
       [
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
@@ -117,12 +119,12 @@ export default function MemberProfileScreen() {
           text: l('Yes, Reset', 'হ্যাঁ, রিসেট করুন'),
           onPress: async () => {
             try {
-            await resetMemberPin(member.id);
+            const temporaryPin = await resetMemberPin(member.id);
             Alert.alert(
               l('PIN Reset Done', 'পিন রিসেট সফল'),
               l(
-                `PIN reset to 1234 for ${member.name}. Member can now log in with this PIN.`,
-                `${member.name}-এর পিন ১২৩৪ এ সফলভাবে রিসেট করা হয়েছে। সদস্য এখন ১২৩৪ দিয়ে লগইন করতে পারবেন।`
+                `Temporary PIN for ${member.name}: ${temporaryPin}. Share privately after identity verification. Expires in 72 hours; the member must change it at login.`,
+                `${member.name}-এর temporary PIN: ${temporaryPin}। পরিচয় যাচাই করে ব্যক্তিগতভাবে দিন। মেয়াদ ৭২ ঘণ্টা; login-এর পর বদলাতে হবে।`
               )
             );
             } catch (e: any) { Alert.alert(l('Reset failed', 'রিসেট ব্যর্থ'), e.message); }
@@ -188,7 +190,7 @@ export default function MemberProfileScreen() {
           onPress: handleSendWhatsAppLoginInfo,
         },
         {
-          text: l('Reset PIN (1234)', 'পিন রিসেট (১২৩৪)'),
+          text: l('Issue temporary PIN', 'Temporary PIN দিন'),
           onPress: handleResetPin,
         },
         {
@@ -203,7 +205,7 @@ export default function MemberProfileScreen() {
           ? [
               {
                 text: member.status === 'inactive' ? l('Reactivate member', 'সদস্য সক্রিয় করুন') : l('Mark inactive', 'নিষ্ক্রিয় করুন'),
-                onPress: () => updateMember(member.id, { status: member.status === 'inactive' ? 'paid' : 'inactive' }),
+                onPress: async () => {try {await updateMember(member.id, { status: member.status === 'inactive' ? 'paid' : 'inactive' });}catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}},
               },
               {
                 text: l('Remove member', 'সদস্য বাদ দিন'),
@@ -220,9 +222,9 @@ export default function MemberProfileScreen() {
                       {
                         text: l('Remove', 'বাদ দিন'),
                         style: 'destructive',
-                        onPress: () => {
-                          deleteMember(member.id);
-                          router.replace('/(admin)/(tabs)/members');
+                        onPress: async () => {
+                          try {await deleteMember(member.id);router.replace('/(admin)/(tabs)/members');}
+                          catch(e:any){Alert.alert(l('Remove failed','বাদ দিতে ব্যর্থ'),e.message);}
                         },
                       },
                     ]

@@ -25,6 +25,9 @@ web-build/
 .env
 .env.local
 .env*.local
+.env.backup
+*.amanotbak
+*.dump
 
 # OS
 .DS_Store

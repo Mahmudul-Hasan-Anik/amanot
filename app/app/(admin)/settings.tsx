@@ -61,16 +61,17 @@ export default function SettingsScreen() {
   const defaultMonthlyDeposit = pick('defaultMonthly', localDefaultDeposit);
   const lateFeeAmount = pick('lateFee', localLateFee);
   const expenseApprovalLimit = pick('expenseApprovalLimit', localLimit);
-  const saveSetting = (key: string, value: number) => {
-    if (REMOTE) updateSomitiInfo({ [key]: value } as any);
+  const saveSetting = async (key: string, value: number) => {
+    try { if (REMOTE) await updateSomitiInfo({ [key]: value } as any); }
+    catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   // Auto-approve toggle state (defaults to true per user directive)
   const [autoApprove, setAutoApprove] = useState((somitiInfo as any).autoApproveEnabled !== false);
 
-  const handleToggleAutoApprove = (val: boolean) => {
-    setAutoApprove(val);
-    updateSomitiInfo({ autoApproveEnabled: val, autoApproveThreshold: expenseApprovalLimit } as any);
+  const handleToggleAutoApprove = async (val: boolean) => {
+    try {await updateSomitiInfo({ autoApproveEnabled: val, autoApproveThreshold: expenseApprovalLimit } as any);setAutoApprove(val);}
+    catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
@@ -78,9 +79,10 @@ export default function SettingsScreen() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
     if (REMOTE) {
-      resetAllData(); // live mode: reload from server, never deletes anything
+      await useSomitiStore.getState().syncFromServer();
+      if(useSomitiStore.getState().syncError){Alert.alert(l('Refresh failed','আপডেট ব্যর্থ'),l('Check your connection and try again.','ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।'));return;}
       Alert.alert(
         l('Done', 'সম্পন্ন'),
         l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।')

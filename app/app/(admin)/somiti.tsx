@@ -31,45 +31,45 @@ export default function SomitiProfileScreen() {
 
   // Edit form state
   const [editForm, setEditForm] = useState({
-    name: somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]'),
-    regNo: somitiInfo.regNo || '[নম্বর]',
-    establishedYear: somitiInfo.establishedYear || (isBengali ? '[সাল]' : '[Year]'),
-    address: somitiInfo.address || '[অফিসের ঠিকানা]',
-    phone: somitiInfo.phone || '[ফোন নম্বর]',
-    email: somitiInfo.email || '[ইমেইল]',
-    authority: somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]',
-    committeeTenure: somitiInfo.committeeTenure || (isBengali ? '[শুরু] – [শেষ]' : '[Start] – [End]'),
-    bankName: somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]',
-    bankAccountNo: somitiInfo.bankAccountNo || '[হিসাব নম্বর]',
-    bkashNo: somitiInfo.bkashNo || '[বিকাশ নম্বর]',
-    nagadNo: somitiInfo.nagadNo || '[নগদ নম্বর]',
+    name: somitiInfo.name || '',
+    regNo: somitiInfo.regNo || '',
+    establishedYear: somitiInfo.establishedYear || '',
+    address: somitiInfo.address || '',
+    phone: somitiInfo.phone || '',
+    email: somitiInfo.email || '',
+    authority: somitiInfo.authority || '',
+    committeeTenure: somitiInfo.committeeTenure || '',
+    bankName: somitiInfo.bankName || '',
+    bankAccountNo: somitiInfo.bankAccountNo || '',
+    bkashNo: somitiInfo.bkashNo || '',
+    nagadNo: somitiInfo.nagadNo || '',
   });
 
   const handleOpenEdit = () => {
     setEditForm({
-      name: somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]'),
-      regNo: somitiInfo.regNo || '[নম্বর]',
-      establishedYear: somitiInfo.establishedYear || (isBengali ? '[সাল]' : '[Year]'),
-      address: somitiInfo.address || '[অফিসের ঠিকানা]',
-      phone: somitiInfo.phone || '[ফোন নম্বর]',
-      email: somitiInfo.email || '[ইমেইল]',
-      authority: somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]',
-      committeeTenure: somitiInfo.committeeTenure || (isBengali ? '[শুরু] – [শেষ]' : '[Start] – [End]'),
-      bankName: somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]',
-      bankAccountNo: somitiInfo.bankAccountNo || '[হিসাব নম্বর]',
-      bkashNo: somitiInfo.bkashNo || '[বিকাশ নম্বর]',
-      nagadNo: somitiInfo.nagadNo || '[নগদ নম্বর]',
+      name: somitiInfo.name || '',
+      regNo: somitiInfo.regNo || '',
+      establishedYear: somitiInfo.establishedYear || '',
+      address: somitiInfo.address || '',
+      phone: somitiInfo.phone || '',
+      email: somitiInfo.email || '',
+      authority: somitiInfo.authority || '',
+      committeeTenure: somitiInfo.committeeTenure || '',
+      bankName: somitiInfo.bankName || '',
+      bankAccountNo: somitiInfo.bankAccountNo || '',
+      bkashNo: somitiInfo.bkashNo || '',
+      nagadNo: somitiInfo.nagadNo || '',
     });
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    updateSomitiInfo(editForm);
+  const handleSaveEdit = async () => {
+    try { await updateSomitiInfo(editForm);
     setIsEditModalOpen(false);
     Alert.alert(
       l('Success', 'সফল'),
       l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।')
-    );
+    );} catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   const handleCall = (phoneNumber: string) => {
@@ -125,10 +125,10 @@ export default function SomitiProfileScreen() {
     },
   ];
 
-  const somitiDisplayName = somitiInfo.name || (isBengali ? '[সমিতির নাম]' : '[Society Name]');
+  const somitiDisplayName = somitiInfo.name || '';
   const somitiInitial = somitiDisplayName.trim().charAt(0) || (isBengali ? 'স' : 'S');
-  const regNoText = somitiInfo.regNo || '[নম্বর]';
-  const estYearText = somitiInfo.establishedYear || '[সাল]';
+  const regNoText = somitiInfo.regNo || '';
+  const estYearText = somitiInfo.establishedYear || '';
 
   const memberCountDisplay = members.length > 0 ? members.length : 100;
   const projectCountDisplay = projects.length > 0 ? projects.length : 4;
@@ -204,7 +204,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Address', 'ঠিকানা')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.address || '[অফিসের ঠিকানা]'}
+              {somitiInfo.address || ''}
             </Text>
           </View>
 
@@ -213,7 +213,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Phone', 'ফোন')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.phone || '[ফোন নম্বর]'}
+              {somitiInfo.phone || ''}
             </Text>
           </View>
 
@@ -222,7 +222,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Email', 'ইমেইল')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.email || '[ইমেইল]'}
+              {somitiInfo.email || ''}
             </Text>
           </View>
 
@@ -233,7 +233,7 @@ export default function SomitiProfileScreen() {
               {l('Registration Authority', 'নিবন্ধন কর্তৃপক্ষ')}
             </Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.authority || '[যেমন সমবায় অধিদপ্তর]'}
+              {somitiInfo.authority || ''}
             </Text>
           </View>
         </View>
@@ -250,8 +250,8 @@ export default function SomitiProfileScreen() {
         </View>
         <Text style={styles.tenureSub}>
           {l(
-            `Tenure: ${somitiInfo.committeeTenure || '[শুরু] – [শেষ]'}`,
-            `মেয়াদ: ${somitiInfo.committeeTenure || '[শুরু] – [শেষ]'}`
+            `Tenure: ${somitiInfo.committeeTenure || ''}`,
+            `মেয়াদ: ${somitiInfo.committeeTenure || ''}`
           )}
         </Text>
 
@@ -294,7 +294,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Bank', 'ব্যাংক')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.bankName || '[ব্যাংকের নাম], [শাখা]'}
+              {somitiInfo.bankName || ''}
             </Text>
           </View>
 
@@ -303,7 +303,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Account No.', 'হিসাব নম্বর')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.bankAccountNo || '[হিসাব নম্বর]'}
+              {somitiInfo.bankAccountNo || ''}
             </Text>
           </View>
 
@@ -312,7 +312,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('bKash', 'বিকাশ')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.bkashNo || '[বিকাশ নম্বর]'}
+              {somitiInfo.bkashNo || ''}
             </Text>
           </View>
 
@@ -321,7 +321,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Nagad', 'নগদ')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.nagadNo || '[নগদ নম্বর]'}
+              {somitiInfo.nagadNo || ''}
             </Text>
           </View>
 

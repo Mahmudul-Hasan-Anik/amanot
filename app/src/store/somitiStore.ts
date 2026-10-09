@@ -22,6 +22,8 @@ import { smsGateway } from '../services/smsGateway';
 
 /** true = real Supabase backend, false = local demo data */
 export const REMOTE = isSupabaseConfigured();
+let syncPromise: Promise<void> | null = null;
+let syncAgain = false;
 
 const emptySomitiInfo: typeof mockSomitiInfo = {
   ...mockSomitiInfo,
@@ -99,9 +101,9 @@ export interface AuditLog {
 export interface SomitiState {
   notices: Notice[];
   auditLogs: AuditLog[];
-  addNotice: (title: string, body: string) => void;
-  deleteNotice: (id: string) => void;
-  setMemberRole: (memberId: string, role: string, title?: string) => void;
+  addNotice: (title: string, body: string) => Promise<void>;
+  deleteNotice: (id: string) => Promise<void>;
+  setMemberRole: (memberId: string, role: string, title?: string) => Promise<void>;
   addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => Promise<void>;
 
   // Master data
@@ -131,8 +133,8 @@ export interface SomitiState {
     joinDate?: string; // YYYY-MM-DD
     whatsapp?: string;
   }) => Promise<Member>;
-  updateMember: (id: string, data: Partial<Member>) => void;
-  deleteMember: (id: string) => void;
+  updateMember: (id: string, data: Partial<Member>) => Promise<void>;
+  deleteMember: (id: string) => Promise<void>;
   getMemberById: (id: string) => Member | undefined;
 
   // Deposit & Collection Actions
@@ -181,7 +183,7 @@ export interface SomitiState {
   getTransactionById: (id: string) => Transaction | undefined;
 
   // Somiti Info Action
-  updateSomitiInfo: (data: Partial<typeof mockSomitiInfo>) => void;
+  updateSomitiInfo: (data: Partial<typeof mockSomitiInfo>) => Promise<void>;
 
   // Reset helper
   resetAllData: () => void;
@@ -189,8 +191,9 @@ export interface SomitiState {
   // Backend sync
   isSyncing: boolean;
   lastSyncedAt: number | null;
+  syncRevision: string | null;
   syncError: string | null;
-  syncFromServer: () => Promise<void>;
+  syncFromServer: (force?: boolean) => Promise<void>;
   clearLocalData: () => void;
 }
 
@@ -199,21 +202,25 @@ export const useSomitiStore = create<SomitiState>()(
     (set, get) => ({
       isSyncing: false,
       lastSyncedAt: null,
+      syncRevision: null,
       notices: [],
       auditLogs: [],
 
-      addNotice: (title, body) => {
+      addNotice: async (title, body) => {
+        if (REMOTE) { await api.addNotice(title,body); await get().syncFromServer(); return; }
         const n = { id: api.uuid(), title, body, createdBy: '', createdAt: new Date().toISOString() };
         set({ notices: [n, ...get().notices] });
         remote('নোটিশ', () => api.addNotice(title, body));
       },
 
-      deleteNotice: (id) => {
+      deleteNotice: async (id) => {
+        if (REMOTE) { await api.deleteNotice(id); await get().syncFromServer(); return; }
         set({ notices: get().notices.filter((n) => n.id !== id) });
         remote('নোটিশ মুছুন', () => api.deleteNotice(id));
       },
 
-      setMemberRole: (memberId, role, title) => {
+      setMemberRole: async (memberId, role, title) => {
+        if (REMOTE) { await api.setMemberRole(memberId,role,title); await get().syncFromServer(); return; }
         set({
           members: get().members.map((m) =>
             m.id === memberId ? ({ ...m, role: title || m.role, appRole: role } as any) : m
@@ -457,14 +464,16 @@ export const useSomitiStore = create<SomitiState>()(
         return newMember;
       },
 
-      updateMember: (id, updatedFields) => {
+      updateMember: async (id, updatedFields) => {
+        if (REMOTE) { await api.updateMember(id,updatedFields as any); await get().syncFromServer(); return; }
         set({
           members: get().members.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
         });
         remote('সদস্য হালনাগাদ', () => api.updateMember(id, updatedFields as any));
       },
 
-      deleteMember: (id) => {
+      deleteMember: async (id) => {
+        if (REMOTE) { await api.deleteMember(id); await get().syncFromServer(); return; }
         set({
           members: get().members.filter((m) => m.id !== id),
           somitiInfo: {
@@ -920,7 +929,8 @@ export const useSomitiStore = create<SomitiState>()(
         return get().transactions.find((t) => t.id === id || t.receiptNo === id || t.receiptNo === `#${id}`);
       },
 
-      updateSomitiInfo: (data) => {
+      updateSomitiInfo: async (data) => {
+        if (REMOTE) { await api.updateSomitiInfo(data as any); await get().syncFromServer(); return; }
         set({
           somitiInfo: {
             ...get().somitiInfo,
@@ -949,27 +959,38 @@ export const useSomitiStore = create<SomitiState>()(
         });
       },
 
-      syncFromServer: async () => {
+      syncFromServer: async (force = true) => {
         if (!REMOTE) return;
-        set({ isSyncing: true });
-        try {
+        if (syncPromise) { if (force) syncAgain = true; return syncPromise; }
+        syncPromise = (async () => { do {
+          syncAgain = false;
+          set({ isSyncing: true });
+          try {
           const { useAuthStore } = require('../features/auth/authStore');
           const session = useAuthStore.getState();
-          if (!session.isPinVerified) { set({isSyncing:false}); return; }
+          if (!session.isPinVerified || session.mustChangePin) { set({isSyncing:false}); return; }
+          const revision = await api.fetchSyncRevision();
+          if (!force && !syncAgain && revision === get().syncRevision && get().lastSyncedAt && Date.now()-get().lastSyncedAt! < 45*60*1000) {
+            set({isSyncing:false,syncError:null}); return;
+          }
           const isStaff = session.actualRole !== 'member';
           const data = await api.fetchAll(isStaff);
           const current = useAuthStore.getState();
-          if (!current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); return; }
+          if (!current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
           set({
             ...data,
             somitiInfo: { ...emptySomitiInfo, ...data.somitiInfo },
             isSyncing: false,
             lastSyncedAt: Date.now(),
+            syncRevision: revision,
             syncError: null,
           });
         } catch (e: any) {
           set({ isSyncing: false, syncError: e?.message || String(e) });
         }
+          force = true;
+        } while (syncAgain); })();
+        try { await syncPromise; } finally { syncPromise = null; }
       },
 
       clearLocalData: () => {
@@ -984,6 +1005,7 @@ export const useSomitiStore = create<SomitiState>()(
           cashAccounts: [],
           transactions: [],
           expenses: [],
+          notices: [], auditLogs: [], syncError: null, syncRevision: null,
           lastSyncedAt: null,
         });
       },
@@ -991,12 +1013,14 @@ export const useSomitiStore = create<SomitiState>()(
     {
       name: REMOTE ? 'amanot-somiti-cache' : 'amanot-somiti-storage',
       partialize: (state) => {
+        if (REMOTE) return {}; // Financial/NID records stay in memory, not plaintext disk cache.
         const { isSyncing, syncError, ...rest } = state as any;
         return rest;
       },
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {
+        if (REMOTE) return {};
         if (!persistedState) return persistedState;
         if (version < 5 && !REMOTE && persistedState.cashAccounts && !persistedState.cashAccounts.some((a:any)=>a.id==='ca5')) persistedState.cashAccounts.push({id:'ca5',type:'nagad',name:'নগদ মোবাইল হিসাব',amount:0});
         if (version < 4 || persistedState?.somitiInfo?.name?.includes('উত্তরা') || !persistedState?.somitiInfo?.name) {

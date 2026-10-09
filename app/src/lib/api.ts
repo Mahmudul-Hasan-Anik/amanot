@@ -289,6 +289,10 @@ export async function fetchAll(isStaff: boolean) {
   };
 }
 
+export async function fetchSyncRevision(): Promise<string> {
+  return unwrap(await supabase.rpc('get_sync_revision')) as string;
+}
+
 // ---------------------------------------------------------------------------
 // auth
 // ---------------------------------------------------------------------------
@@ -346,18 +350,20 @@ export async function fetchMyProfile() {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return null;
   const profile = unwrap(
-    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active').eq('id', u.user.id).maybeSingle()
+    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin').eq('id', u.user.id).maybeSingle()
   ) as any;
   if (!profile || !profile.is_active) return null;
+  if (!profile.must_change_pin && unwrap(await supabase.rpc('session_ready')) !== true) return null;
   const memberRow = profile.member_id
     ? (unwrap(await supabase.from('members').select(MEMBER_COLUMNS).eq('id', profile.member_id).maybeSingle()) as any)
     : null;
   return { profile, member: memberRow ? mapMember(memberRow) : null };
 }
 
-export async function changeOwnPin(newPin: string) {
-  const res = await supabase.auth.updateUser({ password: pinToPassword(newPin) });
-  if (res.error) throw new Error(res.error.message);
+export async function changeOwnPin(newPin: string, currentPin: string) {
+  const result = unwrap(await supabase.rpc('change_own_pin', { p_current_pin:currentPin, p_new_pin:newPin })) as { ok:boolean; error?:string };
+  if (!result.ok) throw new Error(result.error || 'PIN change failed');
+  await supabase.auth.signOut({ scope:'local' });
 }
 
 export async function signOut() {
@@ -373,7 +379,7 @@ const rpc = async (fn: string, args: Record<string, any> = {}) => unwrap(await s
 export const addMember = (p: Record<string, any>) => rpc('add_member', { p });
 export const updateMember = (id: string, p: Record<string, any>) => rpc('update_member', { p_id: id, p });
 export const deleteMember = (id: string) => rpc('delete_member', { p_id: id });
-export const resetMemberPin = (memberId: string, pin = '1234') =>
+export const resetMemberPin = (memberId: string, pin: string) =>
   rpc('admin_reset_member_pin', { p_member_id: memberId, p_new_pin: pin });
 
 export const recordDeposit = (d: {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "আমানত - সমিতি হিসাব ও ম্যানেজমেন্ট",
     "slug": "amanot",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "primaryColor": "#0F5E4A",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.amanot.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#0F5E4A"
       },
@@ -28,6 +28,7 @@
       "expo-router",
       "expo-sharing",
       "expo-font",
+      "expo-secure-store",
       [
         "expo-image-picker",
         {

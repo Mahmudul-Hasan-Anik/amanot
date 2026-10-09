@@ -11,6 +11,7 @@ export function SessionGuard({ children, staff = false }: { children: React.Reac
   if (!hydrated) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>;
   if (!auth.isAuthenticated) return <Redirect href="/(auth)/login" />;
   if (!auth.isPinVerified) return <Redirect href="/(auth)/pin" />;
+  if (auth.mustChangePin) return <Redirect href="/(auth)/change-pin" />;
   if (staff && auth.actualRole === 'member') return <Redirect href="/(member)" />;
   return <>{children}</>;
 }

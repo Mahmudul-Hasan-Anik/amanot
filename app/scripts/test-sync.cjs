@@ -1,0 +1,38 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const memory=new Map(),storage={getItem:async k=>memory.get(k)||null,setItem:async(k,v)=>memory.set(k,v),removeItem:async k=>memory.delete(k)};
+let auth={isPinVerified:true,mustChangePin:false,currentUser:{id:'fixture-member'},actualRole:'member'};
+let revision='2026-10-09:1',calls=0,release=null;
+const data={somitiInfo:{name:'Fixture'},members:[{id:'fixture-member',nid:'fixture-private'}],projects:[],cashAccounts:[],transactions:[],expenses:[],approvals:[],approvedApprovals:[],rejectedApprovals:[],notices:[{id:'notice'}],auditLogs:[{id:'audit'}]};
+const rejectedWrite=async()=>{throw Error('fixture server denied write')};
+const api={fetchSyncRevision:async()=>revision,fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
+const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+const exported={};vm.runInNewContext(code,{exports:exported,Date,Promise,require:n=>{
+  if(n==='zustand'||n==='zustand/middleware')return require(n);
+  if(n==='@react-native-async-storage/async-storage')return {__esModule:true,default:storage};
+  if(n==='../mocks/mockData')return {mockSomitiInfo:{dueBreakdown:{}},mockMembers:[],mockProjects:[],mockPendingApprovals:[],mockApprovedApprovals:[],mockRejectedApprovals:[],mockCashAccounts:[]};
+  if(n==='../lib/bengali')return {toBengaliDigits:s=>s};
+  if(n==='react-native')return {Alert:{alert:()=>{}}};
+  if(n==='../lib/supabase')return {isSupabaseConfigured:()=>true};
+  if(n==='../lib/api')return api;
+  if(n==='../services/smsGateway')return {smsGateway:{}};
+  if(n==='../features/auth/authStore')return {useAuthStore:{getState:()=>auth}};
+  throw Error('Unexpected dependency '+n);
+}});
+async function main(){
+  const store=exported.useSomitiStore;await store.persist.rehydrate();
+  await store.getState().syncFromServer(false);assert.equal(calls,1);
+  await store.getState().syncFromServer(false);assert.equal(calls,1);
+  revision='2026-10-09:2';await store.getState().syncFromServer(false);assert.equal(calls,2);
+  await store.getState().syncFromServer();assert.equal(calls,3);
+  assert.deepEqual(JSON.parse(memory.get('amanot-somiti-cache')).state,{});
+  const before=store.getState();
+  for(const action of [()=>store.getState().addNotice('Title','Body'),()=>store.getState().deleteNotice('notice'),()=>store.getState().updateMember('fixture-member',{name:'Wrong'}),()=>store.getState().deleteMember('fixture-member'),()=>store.getState().setMemberRole('fixture-member','admin'),()=>store.getState().updateSomitiInfo({name:'Wrong'})]) await assert.rejects(action,/server denied/);
+  assert.equal(store.getState().members,before.members);assert.equal(store.getState().notices,before.notices);assert.equal(store.getState().somitiInfo,before.somitiInfo);
+  let finish;release=new Promise(resolve=>finish=resolve);
+  const request=store.getState().syncFromServer();await Promise.resolve();await Promise.resolve();
+  auth={...auth,isPinVerified:false};store.getState().clearLocalData();finish();await request;release=null;
+  assert.equal(store.getState().members.length,0);assert.equal(store.getState().notices.length,0);assert.equal(store.getState().auditLogs.length,0);
+  auth={...auth,isPinVerified:true,mustChangePin:true};await store.getState().syncFromServer();assert.equal(store.getState().members.length,0);
+  console.log('PASS sync: unchanged revision skips snapshots, changes/force refetch, no persisted financial data, late response discarded after logout, notices/audit cleared, PIN gate enforced.');
+}
+main().catch(e=>{console.error(e.message);process.exitCode=1});

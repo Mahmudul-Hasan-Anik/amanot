@@ -5,6 +5,11 @@ node_modules_old/
 dist/
 dist-demo/
 .env
+.env.backup
+*.amanotbak
+*.dump
+private-backups/
+.backup-rehearsal/
 .env.*.local
 eas-build-info.json
 npm-audit.json

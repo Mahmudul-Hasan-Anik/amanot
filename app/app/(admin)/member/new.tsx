@@ -1,3 +1,4 @@
+import { generateTemporaryPin } from '../../../src/lib/pinPolicy';
 import React, { useState } from 'react';
 import {
   View,
@@ -137,6 +138,7 @@ export default function NewMemberScreen() {
 
   // Success modal
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [temporaryPin,setTemporaryPin] = useState('');
   const [createdMember, setCreatedMember] = useState<any>(null);
 
   const handlePickPhoto = async () => {
@@ -197,11 +199,12 @@ export default function NewMemberScreen() {
 
     setSaving(true);
     try {
+    const initialPin = REMOTE ? generateTemporaryPin() : '1234';
     const newMember = await addMember({
       name: name.trim(),
       phone: formattedPhone,
       code: autoMemberCode,
-      initialPin: '1234',
+      initialPin,
       joinDate: joinISO,
       whatsapp: waDigits,
       nid: nid.trim(),
@@ -217,6 +220,7 @@ export default function NewMemberScreen() {
       try { await api.uploadMemberProfilePhoto(newMember.id,photoUri);await useSomitiStore.getState().syncFromServer(); }
       catch(e:any) { Alert.alert(l('Member saved; photo upload failed','সদস্য সংরক্ষিত; ছবি আপলোড হয়নি'),e.message); }
     } else if(photoUri) { useSomitiStore.getState().updateMember(newMember.id,{photoUri}); }
+    setTemporaryPin(initialPin);
     setCreatedMember(newMember);
     setShowSuccessModal(true);
     } catch(e:any) { Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message); } finally {setSaving(false);}
@@ -655,6 +659,7 @@ export default function NewMemberScreen() {
           </Text>
           <Text style={styles.successModalSub}>
             {createdMember?.name} ({createdMember?.code})
+            {temporaryPin ? `\nTemporary PIN: ${temporaryPin}\nপ্রথম login-এ পিন বদলাতে হবে।` : ''}
           </Text>
         </View>
 
@@ -665,7 +670,7 @@ export default function NewMemberScreen() {
             if (createdMember) {
               const cleanPhone = createdMember.phone.replace(/[^0-9]/g, '');
               const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-              const text = `আসসালামু আলাইকুম ${createdMember.name}।\nআমানত সমিতিতে আপনাকে স্বাগতম।\n\nআপনার সদস্য আইডি: ${createdMember.code}\nমোবাইল নম্বর: ${createdMember.phone}\nলগইন পিন: ১২৩৪\n\nআপনার অ্যাপে লগইন করে নিজের সঞ্চয় ও রসিদ দেখতে পারবেন।`;
+              const text = `আসসালামু আলাইকুম ${createdMember.name}।\nআমানত সমিতিতে আপনাকে স্বাগতম।\n\nআপনার সদস্য আইডি: ${createdMember.code}\nমোবাইল নম্বর: ${createdMember.phone}\nTemporary PIN: ${temporaryPin}\n৭২ ঘণ্টার মধ্যে লগইন করে পিন পরিবর্তন করুন।\n\nআপনার অ্যাপে লগইন করে নিজের সঞ্চয় ও রসিদ দেখতে পারবেন।`;
               Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
             }
           }}

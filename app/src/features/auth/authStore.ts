@@ -6,6 +6,8 @@ import { toEnglishDigits } from '../../lib/bengali';
 import { Alert } from 'react-native';
 import { isSupabaseConfigured, normalizePhone } from '../../lib/supabase';
 import * as api from '../../lib/api';
+import { isStrongPin, normalizePin, generateTemporaryPin } from '../../lib/pinPolicy';
+import { sessionStorage } from '../../lib/sessionStorage';
 
 const REMOTE = isSupabaseConfigured();
 
@@ -35,6 +37,7 @@ interface AuthState {
   // Supabase backend
   actualRole: ServerRole;          // role stored on the server
   phoneRegistered: boolean;        // account already activated?
+  mustChangePin: boolean;
   continueWithPhone: (rawPhone: string) => Promise<{ found: boolean; error?: string }>;
   loginWithPin: (pin: string) => Promise<{ ok: boolean; error?: string }>;
   registerSomitiRemote: (somitiName: string, adminName: string, adminPhone: string, adminPin: string) => Promise<{ ok: boolean; error?: string }>;
@@ -46,9 +49,9 @@ interface AuthState {
   requestOtp: (phone: string) => string;
   verifyOtp: (otp: string) => boolean;
   verifyPin: (pin: string) => boolean;
-  setCustomPin: (newPin: string) => Promise<void>;
+  setCustomPin: (newPin: string, currentPin?: string) => Promise<void>;
   setMemberPin: (memberId: string, newPin: string) => void;
-  resetMemberPin: (memberId: string) => Promise<void>;
+  resetMemberPin: (memberId: string) => Promise<string>;
   loginAs: (memberId: string, role?: UserRole) => void;
   switchRole: (role: UserRole) => void;
   checkPhoneRegistration: (rawPhone: string, membersPool?: Member[]) => {
@@ -69,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false, // Default unauthenticated for real login flow
-      currentUser: mockMembers[0], // Anwar Hossain (President / Super Admin)
+      currentUser: REMOTE ? null : mockMembers[0],
       userRole: 'admin',
       phone: '',
       pin: '1234', // Default Super Admin PIN
@@ -81,15 +84,17 @@ export const useAuthStore = create<AuthState>()(
         '3': '1234', // Selim Reza (Member)
       },
 
-      actualRole: 'super_admin',
+      actualRole: REMOTE ? 'member' : 'super_admin',
       phoneRegistered: false,
+      mustChangePin: false,
 
       continueWithPhone: async (rawPhone: string) => {
         const phone = normalizePhone(rawPhone);
         try {
           const r = await api.checkPhone(phone);
           if (!r.exists) return { found: false };
-          set({ phone, phoneRegistered: r.registered, currentUser: stubMember(phone, r.initial), isAuthenticated: true, isPinVerified: false });
+          somiti().clearLocalData();
+          set({ phone, phoneRegistered: r.registered, mustChangePin: false, actualRole:'member', userRole:'member', currentUser: stubMember(phone, r.initial), isAuthenticated: true, isPinVerified: false });
           return { found: true };
         } catch (e: any) {
           return { found: false, error: e?.message || String(e) };
@@ -105,14 +110,16 @@ export const useAuthStore = create<AuthState>()(
           userRole: role === 'member' ? 'member' : 'admin',
           currentUser: me.member || stubMember(me.profile.phone, me.profile.full_name),
           phone: me.profile.phone,
+          mustChangePin: me.profile.must_change_pin === true,
         });
         return true;
       },
 
       loginWithPin: async (rawPin: string) => {
-        const pin = toEnglishDigits(rawPin).replace(/\D/g, '');
+        const pin = normalizePin(rawPin);
         const phone = get().phone;
-        if (pin.length !== 4) return { ok: false, error: 'পিন ৪ সংখ্যার হতে হবে' };
+        if (!/^(\d{4}|\d{6})$/.test(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; পুরোনো অ্যাকাউন্টে ৪ সংখ্যার পিন গ্রহণ করা হয়।' };
+        set({ isPinVerified:false });
         try {
           if (get().phoneRegistered) {
             await api.signInWithPin(phone, pin);
@@ -124,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
           const ok = await get().refreshProfile();
           if (!ok) throw new Error('প্রোফাইল পাওয়া যায়নি');
           set({ isAuthenticated: true, isPinVerified: true });
-          somiti().syncFromServer();
+          if (!get().mustChangePin) somiti().syncFromServer();
           return { ok: true };
         } catch (e: any) {
           const msg = e?.message || String(e);
@@ -135,7 +142,7 @@ export const useAuthStore = create<AuthState>()(
       registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin) => {
         const phone = normalizePhone(adminPhone);
         const pin = toEnglishDigits(adminPin).replace(/\D/g, '');
-        if (pin.length !== 4) return { ok: false, error: 'পিন ৪ সংখ্যার হতে হবে' };
+        if (!isStrongPin(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; একই বা ধারাবাহিক সংখ্যা ব্যবহার করবেন না।' };
         try {
           await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin);
           set({ phone, phoneRegistered: true });
@@ -162,6 +169,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       verifyOtp: (rawOtp: string) => {
+        if (REMOTE) return false;
         const cleanOtp = toEnglishDigits(rawOtp).replace(/\D/g, '');
         if (cleanOtp === get().lastGeneratedOtp) {
           set({ isAuthenticated: true });
@@ -184,10 +192,12 @@ export const useAuthStore = create<AuthState>()(
         return false;
       },
 
-      setCustomPin: async (newPin: string) => {
+      setCustomPin: async (newPin: string, currentPin = '') => {
         const cleanPin = toEnglishDigits(newPin).replace(/\D/g, '');
         if (REMOTE) {
-          await api.changeOwnPin(cleanPin);
+          if (!isStrongPin(cleanPin)) throw new Error('নিরাপদ ৬ সংখ্যার পিন দিন।');
+          await api.changeOwnPin(cleanPin, normalizePin(currentPin));
+          get().logout();
           return;
         }
         const curr = get().currentUser;
@@ -210,12 +220,14 @@ export const useAuthStore = create<AuthState>()(
 
       resetMemberPin: async (memberId: string) => {
         if (REMOTE) {
-          await api.resetMemberPin(memberId, '1234');
-          return;
+          const temporaryPin = generateTemporaryPin();
+          await api.resetMemberPin(memberId, temporaryPin);
+          return temporaryPin;
         }
         set((state) => ({
           customPins: { ...state.customPins, [memberId]: '1234' },
         }));
+        return '1234';
       },
 
       loginAs: (memberId: string, role?: UserRole) => {
@@ -292,6 +304,7 @@ export const useAuthStore = create<AuthState>()(
         adminPhone: string,
         adminPin: string
       ) => {
+        if (REMOTE) return;
         const cleanPhone = toEnglishDigits(adminPhone).replace(/\D/g, '');
         const cleanPin = toEnglishDigits(adminPin).replace(/\D/g, '');
         const newAdmin: Member = {
@@ -332,13 +345,14 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isPinVerified: false,
           phone: '',
+          mustChangePin:false,
         });
       },
     }),
     {
       name: REMOTE ? 'amanot-auth-live' : 'amanot-auth-storage',
-      partialize: ({ isPinVerified, pin, customPins, lastGeneratedOtp, ...state }) => REMOTE ? state : { ...state, isPinVerified, pin, customPins, lastGeneratedOtp },
-      storage: createJSONStorage(() => AsyncStorage),
+      partialize: ({ isPinVerified, pin, customPins, lastGeneratedOtp, ...state }) => REMOTE ? { phone:state.phone, isAuthenticated:state.isAuthenticated, phoneRegistered:state.phoneRegistered } : { ...state, isPinVerified, pin, customPins, lastGeneratedOtp },
+      storage: createJSONStorage(() => REMOTE ? sessionStorage : AsyncStorage),
     }
   )
 );

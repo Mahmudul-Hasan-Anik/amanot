@@ -27,23 +27,26 @@ export default function NoticesScreen() {
   const { actualRole } = useAuthStore();
   const canPost = actualRole === 'super_admin' || actualRole === 'admin';
 
+  const [saving,setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
 
-  const handlePost = () => {
+  const handlePost = async () => {
+    if(saving)return;
     if (!title.trim()) {
       Alert.alert(l('Title needed', 'শিরোনাম দিন'), l('Please write a notice title.', 'নোটিশের শিরোনাম লিখুন।'));
       return;
     }
-    addNotice(title.trim(), body.trim());
-    setTitle('');
-    setBody('');
+    setSaving(true);
+    try { await addNotice(title.trim(), body.trim()); setTitle('');setBody(''); }
+    catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    finally {setSaving(false);}
   };
 
   const handleDelete = (id: string, t: string) => {
     Alert.alert(l('Delete notice?', 'নোটিশ মুছবেন?'), t, [
       { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-      { text: l('Delete', 'মুছুন'), style: 'destructive', onPress: () => deleteNotice(id) },
+      { text: l('Delete', 'মুছুন'), style: 'destructive', onPress: async () => {try {await deleteNotice(id);}catch(e:any){Alert.alert(l('Delete failed','মুছতে ব্যর্থ'),e.message);}} },
     ]);
   };
 

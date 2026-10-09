@@ -1,9 +1,4 @@
-node_modules/
-node_modules_old/
-.expo/
-dist/
-web-build/
-.env
-.env*.local
-.DS_Store
-Thumbs.db
+/private-backups/
+/.backup-rehearsal/
+*.amanotbak
+*.dump

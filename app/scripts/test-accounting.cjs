@@ -14,13 +14,18 @@ async function main(){
     // PGlite has no pgcrypto: test-only stubs allow loading auth triggers.
     // Password hashing/provider behavior is deliberately outside this test.
     await db.exec(`create role anon;create role authenticated;create schema auth;create schema extensions;
+      create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('iat',coalesce(nullif(current_setting('request.jwt.iat',true),''),'9999999999')::bigint,'session_id',nullif(current_setting('request.jwt.claim.sub',true),'')) $$;
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
       create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb,encrypted_password text,updated_at timestamptz);
+      create table auth.sessions(id uuid primary key,user_id uuid,created_at timestamptz default clock_timestamp());
+      create function auth.test_create_session() returns trigger language plpgsql as $$ begin insert into auth.sessions(id,user_id) values(new.id,new.id); return new; end; $$;
+      create trigger test_session after insert on auth.users for each row execute function auth.test_create_session();
       create schema storage;
       create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
       create table storage.objects(id uuid primary key,name text,bucket_id text);
       alter table storage.objects enable row level security;
       create function storage.foldername(text) returns text[] language sql as $$ select string_to_array($1,'/') $$;
+      create function extensions.gen_salt(text,int) returns text language sql as $$ select 'test-salt'::text $$;
       create function extensions.gen_salt(text) returns text language sql as $$ select 'test-salt'::text $$;
       create function extensions.crypt(text,text) returns text language sql as $$ select md5($1) $$;
       grant usage on schema auth to anon,authenticated; grant execute on function auth.uid() to anon,authenticated;
@@ -31,10 +36,10 @@ async function main(){
       await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',f),'utf8'));console.log('Loaded',f);
     }
     await pass('migration 005 can be applied twice',()=>db.exec(fs.readFileSync(path.join(root,'supabase/migrations/005_accounting_integrity.sql'),'utf8')));
-    await sql(`insert into auth.users(id,email,raw_user_meta_data) values($1,'admin@member.amanot.app','{"phone":"01711000001","pin":"1234","name":"Admin","bootstrap":true}')`,[admin]);
+    await sql(`insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values($1,'01711000001@member.amanot.app','{"phone":"01711000001","pin":"983725","name":"Admin","bootstrap":true}',md5('amanot:983725'))`,[admin]);
     await sql(`select set_config('request.jwt.claim.sub',$1,false)`,[admin]);
     const today=await one(`select extract(year from current_date)::int as "year",to_char(current_date,'YYYY-MM') as "month",to_char(date_trunc('year',current_date),'YYYY-MM-DD') as joined`);
-    const member=(await one(`select * from public.add_member($1::jsonb)`,[JSON.stringify({name:'Test member',phone:'01799000002',monthlyAmount:1000,joinDate:today.joined})])).id;
+    const member=(await one(`select * from public.add_member($1::jsonb)`,[JSON.stringify({name:'Test member',initialPin:'948275',phone:'01799000002',monthlyAmount:1000,joinDate:today.joined})])).id;
     const depositId='00000000-0000-4000-8000-000000000011';
     await pass('deposit posts once and excludes late fees from savings',async()=>{
       const args=[member,[today.month],1000,100,1100,'cash',depositId];

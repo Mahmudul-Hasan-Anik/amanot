@@ -1,6 +1,22 @@
 # Amanot Android release — 9 October 2026
 
-## Delivery
+## Current development release: 1.0.2 / code 3
+
+Signed **live-backend pilot** build `91d090e0-5539-4784-8c14-0478d652cb31` finished using the existing signing key. [Build details](https://expo.dev/accounts/anik13dev/projects/amanot/builds/91d090e0-5539-4784-8c14-0478d652cb31). Status: **FINISHED**, 9 October 2026 at 22:06 Bangladesh time. [Download live APK 1.0.2](https://expo.dev/artifacts/eas/ANsmU4B6urvPRFses_6wtSR8Va5zdZYQPNPjmo4ud4c.apk). Supersedes 1.0.1 because the earlier app lacks the required PIN-upgrade screen.
+
+Verified local copy: `app/dist/releases/amanot-1.0.2-live.apk` (ignored artifact), **96,723,400 bytes** (about 92.2 MiB). SHA-256: `f669cc7e9ccf50cee8eb641e5229cda519e2dadc52460eef33c7243051c64d32`. Archive inspection confirmed Android manifest, four DEX files, app bundle and native SecureStore/Crypto module symbols. This is not an on-device test or an independent cryptographic signature verification. Repeat archive checks with `app/scripts/verify-apk.ps1 -ApkPath <path>`.
+
+Install/update the new APK, then log in again. Existing plaintext sessions are discarded. Use your existing PIN; select the legacy four-digit option if needed. Before business access, enter the current PIN and choose/confirm a strong six-digit PIN, then log in again. Temporary/recovery PINs are random, expire after 72 hours and require replacement. Unactivated legacy members need a six-digit temporary PIN from an administrator. No real credential was changed during development.
+
+Migrations 009/010 are deployed. Hosted checks passed: real bcrypt, migration records, preserved existing profiles and ledger, private rollback snapshot, denied anonymous PIN change, restricted sync-clock access and private 120 KB photos. Android SecureStore, no persisted live NID/ledger cache, background lock, revision refresh, server-confirmed saves and privacy/support page are included. TypeScript/tokens, 18 accounting, 11 security, six image checks and auth/storage/sync/save-failure/backup suites passed. Local hashing/session/keystore scaffolding is mocked; actual device/GoTrue tests are not claimed.
+
+Supabase minimum password length 13, secure/current-password change enabled; sign-up/sign-in limit 10 per five minutes/IP. Five wrong current-PIN attempts lock PIN changes for 15 minutes. This is not a per-account failed-login lockout.
+
+Encrypted backup/restore tooling is ready, but a real independent backup and restore still require owner environment/credentials: [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md). User explicitly deferred real-device tests and original opening-balance/dues reconciliation. Final support contact/retention, realistic load/quota observation and approved pilot remain owner gates. Broad rollout is not certified production-ready. Final production dependency audit: **8 moderate, 14 high, 0 critical**; scope and remaining roots in [SECURITY_REVIEW.md](SECURITY_REVIEW.md).
+
+GitHub workflow has only the first successful manual run at the latest observation; actual scheduled execution remains pending. Next run is 23:17 Bangladesh time, subject to GitHub scheduling delay.
+
+## Historical delivery: 1.0.1 (superseded)
 
 Version **1.0.1**, Android version code **2**, package `com.amanot.app`.
 This is a signed **live-backend pilot APK**, not the earlier demo APK. Broad member rollout is pending the checks below.
@@ -8,7 +24,7 @@ This is a signed **live-backend pilot APK**, not the earlier demo APK. Broad mem
 EAS build ID: `028162a8-c0c1-44d8-8ea2-ef5593d10854`.
 Build status: **FINISHED**. [Download signed live APK](https://expo.dev/artifacts/eas/fC6FXqCluEM0IZ_e3zRVI1kLcb0-JxxvhhiAAPKDlIU.apk).
 
-Local copy: `app/dist/releases/amanot-1.0.1-live.apk` (ignored build artifact).
+Earlier local copy: `app/dist/releases/amanot-1.0.1-live.apk` (superseded artifact; later preview exports replaced the dist folder). Use the verified 1.0.2 copy above.
 Downloaded size: 96,481,684 bytes (about 92 MiB). Archive header and Android manifest, DEX and JavaScript bundle entries verified; on-device installation/runtime testing remains pending.
 SHA-256: `410914a07b19bcfbb6475c8417b319a1940f8229e8b2902fe15e25cf1d0c0e97`.
 

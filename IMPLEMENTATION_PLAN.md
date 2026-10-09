@@ -2,6 +2,18 @@
 
 তারিখ: ৯ অক্টোবর ২০২৬
 
+## সর্বশেষ development update
+
+ব্যবহারকারীর নির্দেশে **বাস্তব ফোনের পরীক্ষা এবং original খাতা/opening balance reconciliation এখন skip** করা হয়েছে। এগুলো পাস হয়েছে বলা হচ্ছে না। আগের সময়ের table প্রাথমিক estimate; বর্তমান ফল নিচে।
+
+- **সম্পন্ন ও live deployed:** migrations 009/010; শক্ত ৬-digit PIN, প্রথম login-এ বাধ্যতামূলক verified change, random temporary PIN/৭২ ঘণ্টা expiry, recovery permission ও session revocation। বর্তমান credential বদলানো হয়নি। Provider minimum password 13, secure/current-password change enabled, sign-in/sign-up 10/5 মিনিট/IP। PIN-change lock ৫ ভুলে ১৫ মিনিট; login-এর per-account lock নয়।
+- **সম্পন্ন code:** Android protected session storage; plaintext live financial/NID cache বন্ধ; background lock; revision-ভিত্তিক sync, unchanged snapshot বাদ, ৫ মিনিট active polling; save/role/notice/member/settings action server-confirmed; privacy/support page।
+- **সম্পন্ন tooling:** encrypted database+photo backup, integrity validation ও disposable local restore command; [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)। Owner destination/secret/PostgreSQL tools ছাড়া আসল export/restore করা হয়নি।
+- **Checks পাস:** TypeScript/token, ১৮ accounting, ১১ security, ৬ image-validator এবং auth/session/sync/save-failure/backup regression suites। SQL tests disposable; hashing/GoTrue sessions fixture। Hosted ledger unchanged, private rollback ও ১২০ KB photo policy যাচাই হয়েছে।
+- **নতুন Android build সম্পন্ন:** 1.0.2/code 3, signed live release APK download ও SHA-256/archive/native-module checks পাস; [ANDROID_RELEASE.md](ANDROID_RELEASE.md)-এ link ও checksum। পুরোনো APK-তে বাধ্যতামূলক PIN-change screen নেই।
+- **সীমাবদ্ধতা:** ৫০০ concurrent user load পরীক্ষা হয়নি; staff report এখনো পূর্ণ history fetch করে; global revision change member snapshot-ও invalidate করে। Production dependency audit clean নয়: ৮ moderate/১৪ high/০ critical; [SECURITY_REVIEW.md](SECURITY_REVIEW.md)।
+- **Owner-dependent pending:** deferred phone/ledger checks, independent backup/restore, support phone/email ও retention সিদ্ধান্ত, pilot feedback/rollout approval। Public Web, paid SMS, store submission ও iOS আগের মতো deferred।
+
 ## সিদ্ধান্ত ও লক্ষ্য
 
 প্রথম release শুধু Android app। পরে iOS। Public Web launch বা hosting এখন scope-এ নেই; Web preview কেবল development/testing-এর জন্য। এখন কোনো বাজেট নেই, তাই Supabase Free backend রাখব। VPS বা backend migration এখন করব না।

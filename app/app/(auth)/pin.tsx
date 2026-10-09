@@ -22,8 +22,10 @@ export default function PinScreen() {
   const router = useRouter();
   const { verifyPin, currentUser, loginWithPin, phoneRegistered } = useAuthStore();
   const [checking, setChecking] = useState(false);
+  const [pinLength, setPinLength] = useState(REMOTE ? 6 : 4);
 
   const goHome = () => {
+    if (useAuthStore.getState().mustChangePin) { router.replace('/(auth)/change-pin'); return; }
     const role = useAuthStore.getState().userRole;
     router.replace(role === 'member' ? '/(member)' : '/(admin)/(tabs)');
   };
@@ -31,11 +33,12 @@ export default function PinScreen() {
   const [pinDigits, setPinDigits] = useState<string[]>([]);
 
   const handlePressDigit = (digit: string) => {
-    if (pinDigits.length < 4) {
+    if (checking) return;
+    if (pinDigits.length < pinLength) {
       const nextPin = [...pinDigits, digit];
       setPinDigits(nextPin);
 
-      if (nextPin.length === 4 && REMOTE) {
+      if (nextPin.length === pinLength && REMOTE) {
         if (checking) return;
         setChecking(true);
         loginWithPin(nextPin.join('')).then((res) => {
@@ -73,6 +76,7 @@ export default function PinScreen() {
   };
 
   const handlePressBackspace = () => {
+    if (checking) return;
     if (pinDigits.length > 0) {
       setPinDigits(pinDigits.slice(0, -1));
     }
@@ -145,11 +149,11 @@ export default function PinScreen() {
         </Text>
 
         {/* PIN Title */}
-        <Text style={styles.pinPromptText}>{l('Enter 4-Digit PIN', '৪ সংখ্যার পিন দিন')}</Text>
+        <Text style={styles.pinPromptText}>{pinLength === 6 ? l('Enter 6-Digit PIN', '৬ সংখ্যার পিন দিন') : l('Enter old 4-Digit PIN', 'পুরোনো ৪ সংখ্যার পিন দিন')}</Text>
 
         {/* 4 PIN Dots Indicator */}
         <View style={styles.dotsRow}>
-          {[0, 1, 2, 3].map((index) => {
+          {Array.from({length:pinLength}, (_,index)=>index).map((index) => {
             const isFilled = index < pinDigits.length;
             return (
               <View
@@ -162,6 +166,7 @@ export default function PinScreen() {
             );
           })}
         </View>
+        {REMOTE && <TouchableOpacity disabled={checking} onPress={()=>{setPinLength(pinLength===6?4:6);setPinDigits([]);}}><Text style={styles.roleText}>{pinLength===6 ? l('I still have an old 4-digit PIN', 'আমার পুরোনো ৪ সংখ্যার পিন আছে') : l('Use a 6-digit PIN', '৬ সংখ্যার পিন ব্যবহার করুন')}</Text></TouchableOpacity>}
 
         {/* Hint (Dev-only, demo mode) */}
         {__DEV__ && !REMOTE && (
