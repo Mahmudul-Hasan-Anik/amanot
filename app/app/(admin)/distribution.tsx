@@ -31,12 +31,14 @@ export default function ProfitDistributionScreen() {
   const [isApproved, setIsApproved] = useState(false);
 
   // Financial calculations
-  const year = 2026;
+  const year = new Date().getFullYear();
+  const [saving, setSaving] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const bnYear = toBengaliDigits(year);
   const [preview, setPreview] = useState<any>(null);
 
   const loadPreview = () => {
-    if (REMOTE) api.profitPreview(year).then(setPreview).catch(() => {});
+    if (REMOTE) api.profitPreview(year).then(v => { setPreview(v); setPreviewError(null); }).catch(e => setPreviewError(e.message));
   };
 
   useEffect(loadPreview, []);
@@ -48,67 +50,28 @@ export default function ProfitDistributionScreen() {
     }
   }, [preview?.alreadyDistributed]);
 
-  // Page 20 Baseline figures matching somiti design draft:
-  // মোট প্রজেক্ট লাভ +৳৩,৭৫,০০০ | অন্যান্য আয় +৳২৮,০০০ | পরিচালনা ব্যয় -৳১,০৩,০০০ | নিট লাভ ৳৩,০০,০০০
-  // রিজার্ভ ফান্ড (১০%) -৳৩০,০০০ | পরিচালক অংশ (১০%) -৳৩০,০০০ | বণ্টনযোগ্য লাভ ৳২,৪০,০০০
-  const totalProjectProfit = preview ? Number(preview.projectProfit) || 375000 : 375000;
-  const otherIncome = 28000;
-  const operatingExpense = preview ? Number(preview.expenses) || 103000 : 103000;
-  const netProfit = totalProjectProfit + otherIncome - operatingExpense; // 300,000
-
-  const reservePercent = 10;
-  const directorPercent = 10;
-  const reserveFund = Math.round((netProfit * reservePercent) / 100); // 30,000
-  const directorFund = Math.round((netProfit * directorPercent) / 100); // 30,000
-  const distributableProfit = Math.max(0, netProfit - reserveFund - directorFund); // 240,000
-
-  // Total deposits across all 100 members: ৳44,80,000
-  const totalMembersDeposit = 4480000;
-  const totalMemberCount = members.length > 0 ? members.length : 100;
-
-  // 4 Top Members sample representation matching Page 20
-  const sampleMembers = [
-    {
-      id: 'm1',
-      name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
-      initial: isBengali ? 'আ' : 'A',
-      totalDeposit: 144000,
-      profitShare: 7714,
-      avatarBg: colors.avatarPastels[1].bg,
-      avatarColor: colors.avatarPastels[1].text,
-    },
-    {
-      id: 'm2',
-      name: isBengali ? 'করিম উদ্দিন' : 'Karim Uddin',
-      initial: isBengali ? 'ক' : 'K',
-      totalDeposit: 108000,
-      profitShare: 5786,
-      avatarBg: colors.avatarPastels[0].bg,
-      avatarColor: colors.avatarPastels[0].text,
-    },
-    {
-      id: 'm3',
-      name: isBengali ? 'রফিকুল ইসলাম' : 'Rafiqul Islam',
-      initial: isBengali ? 'র' : 'R',
-      totalDeposit: 96000,
-      profitShare: 5143,
-      avatarBg: colors.avatarPastels[2].bg,
-      avatarColor: colors.avatarPastels[2].text,
-    },
-    {
-      id: 'm4',
-      name: isBengali ? 'নাসরিন আক্তার' : 'Nasrin Akhter',
-      initial: isBengali ? 'ন' : 'N',
-      totalDeposit: 72000,
-      profitShare: 3857,
-      avatarBg: colors.avatarPastels[0].bg,
-      avatarColor: colors.avatarPastels[0].text,
-    },
-  ];
+  const totalProjectProfit = preview ? Number(preview.projectProfit) : projects.reduce((sum,p) => sum + p.netProfit,0);
+  const otherIncome = 0;
+  const operatingExpense = preview ? Number(preview.expenses) : Number(somitiInfo.monthlyExpense || 0);
+  const netProfit = preview ? Number(preview.netProfit) : totalProjectProfit - operatingExpense;
+  const reservePercent = Number(preview?.reservePct ?? 10);
+  const directorPercent = Number(preview?.managementPct ?? 10);
+  const reserveFund = Math.round(netProfit * reservePercent) / 100;
+  const directorFund = Math.round(netProfit * directorPercent) / 100;
+  const distributableProfit = Number(preview?.distributed ?? Math.max(0, netProfit-reserveFund-directorFund));
+  const eligibleMembers = members.filter(m => m.status !== 'inactive' && m.totalDeposit > 0);
+  const totalMembersDeposit = Number(preview?.totalDeposit ?? eligibleMembers.reduce((sum,m)=>sum+m.totalDeposit,0));
+  const totalMemberCount = preview?.shares?.length ?? eligibleMembers.length;
+  const sampleMembers = (preview?.shares ?? eligibleMembers.map(m=>({memberId:m.id,name:m.name,baseDeposit:m.totalDeposit}))).map((m:any,index:number)=>({
+    id:m.memberId,name:m.name,initial:m.name.slice(0,1),totalDeposit:Number(m.baseDeposit),
+    profitShare: Number(m.share ?? (totalMembersDeposit>0 ? Math.round(Number(m.baseDeposit)/totalMembersDeposit*distributableProfit*100)/100 : 0)),
+    avatarBg:colors.avatarPastels[index%colors.avatarPastels.length].bg,avatarColor:colors.avatarPastels[index%colors.avatarPastels.length].text,
+  }));
 
   const handleApprove = () => {
-    // Instant / auto approve per user directive
+    if (saving || isApproved || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || previewError))) return;
     const executeApproval = async () => {
+      setSaving(true);
       if (REMOTE) {
         try {
           await api.distributeProfit(year, reservePercent, directorPercent);
@@ -116,9 +79,11 @@ export default function ProfitDistributionScreen() {
           loadPreview();
         } catch (e: any) {
           Alert.alert(l('Failed', 'ব্যর্থ'), e?.message || String(e));
+          setSaving(false);
           return;
         }
       }
+      setSaving(false);
       setIsApproved(true);
       setCurrentStep(4);
       Alert.alert(
@@ -185,6 +150,8 @@ export default function ProfitDistributionScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {previewError && <TouchableOpacity onPress={loadPreview}><Text style={{color: colors.danger, marginBottom:12}}>{previewError} · {l('Retry','আবার চেষ্টা')}</Text></TouchableOpacity>}
+        {REMOTE && !preview && !previewError && <Text>{l('Loading annual accounts…','বার্ষিক হিসাব লোড হচ্ছে…')}</Text>}
         {/* 4-Step Stepper Card */}
         <View style={styles.stepperCard}>
           {/* Step 1: হিসাব */}
@@ -324,7 +291,7 @@ export default function ProfitDistributionScreen() {
           />
           <Text style={styles.infoText}>
             {l(
-              'Reserve and director percentages were set by the management committee and are locked from January 2026.',
+              'Shares are calculated from the member savings balances at the time of approval.',
               'রিজার্ভ ও পরিচালক শতাংশ পরিচালনা কমিটি নির্ধারণ করেছে এবং জানুয়ারি ২০২৬ থেকে লক করা।'
             )}
           </Text>
@@ -363,7 +330,7 @@ export default function ProfitDistributionScreen() {
 
         {/* Member List Card */}
         <View style={styles.membersCard}>
-          {sampleMembers.map((item, index) => (
+          {sampleMembers.map((item: any, index: number) => (
             <View
               key={item.id}
               style={[
@@ -405,7 +372,7 @@ export default function ProfitDistributionScreen() {
 
         <TouchableOpacity
           style={[styles.approveBtn, isApproved && styles.approveBtnDone]}
-          onPress={handleApprove}
+          onPress={handleApprove} disabled={saving || isApproved || distributableProfit <= 0 || (REMOTE && !preview)}
           activeOpacity={0.85}
         >
           <Ionicons

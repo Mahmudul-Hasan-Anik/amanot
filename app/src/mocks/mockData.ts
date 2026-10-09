@@ -21,6 +21,12 @@ export interface Member {
   profit2025?: number;
   estimatedProfit2026?: number;
   monthsStatus?: Record<number, 'paid' | 'due' | 'upcoming'>;
+  paymentMonths?: Record<string, 'paid' | 'due' | 'upcoming'>;
+  joinDateISO?: string;
+  duesStartMonth?: string;
+  partialCredit?: number;
+  profitBalance?: number;
+  lastProfitYear?: number;
   recentTxns?: Array<{ date: string; title: string; amount: number; receiptNo?: string; type: string }>;
   nextFollowup?: { date: string; note: string };
 }

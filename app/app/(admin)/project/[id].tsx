@@ -27,7 +27,7 @@ export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { projects, recordProjectReturn } = useSomitiStore();
 
-  const allProjects = projects.length > 0 ? projects : mockProjects;
+  const allProjects = projects;
   const project = allProjects.find(
     (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
   ) || allProjects[0];

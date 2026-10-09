@@ -31,7 +31,7 @@ export default function ProjectsScreen() {
   const setField = (k: keyof typeof np) => (v: string) => setNp((x) => ({ ...x, [k]: v }));
 
   const displayProjects = useMemo(() => {
-    return projects.length > 0 ? projects : mockProjects;
+    return projects;
   }, [projects]);
 
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'delayed' | 'completed'>('all');

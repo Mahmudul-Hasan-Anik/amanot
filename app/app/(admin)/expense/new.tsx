@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { todayDMY } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { colors } from '../../../src/theme/colors';
@@ -44,10 +45,10 @@ export default function NewExpenseScreen() {
   const { addExpense, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney } = useLanguage();
 
-  const [rawAmount, setRawAmount] = useState('12500');
+  const [rawAmount, setRawAmount] = useState('');
   const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
   const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const [date, setDate] = useState('30/09/2026');
+  const [date, setDate] = useState(todayDMY());
   const [selectedSpender, setSelectedSpender] = useState(AVAILABLE_SPENDERS[0]);
   const [showSpenderModal, setShowSpenderModal] = useState(false);
   const [reason, setReason] = useState(
@@ -58,7 +59,7 @@ export default function NewExpenseScreen() {
   const [hasReceipt, setHasReceipt] = useState(false);
 
   const expenseLimit = Number(somitiInfo?.expenseApprovalLimit) || 10000;
-  const numericAmount = Number(toEnglishDigits(rawAmount.replace(/[^\d]/g, ''))) || 0;
+  const numericAmount = Number(toEnglishDigits(rawAmount).replace(/[^0-9.]/g, '')) || 0;
   const isOverLimit = numericAmount > expenseLimit;
 
   const handleAmountChange = (val: string) => {
@@ -77,7 +78,9 @@ export default function NewExpenseScreen() {
     );
   };
 
-  const handleSubmit = () => {
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async () => {
+    if (saving) return;
     if (numericAmount <= 0) {
       Alert.alert(
         l('Error', 'ত্রুটি'),
@@ -106,7 +109,9 @@ export default function NewExpenseScreen() {
     const status: 'approved' | 'pending' = isOverLimit ? 'pending' : 'approved';
     const spenderName = isBengali ? selectedSpender.nameBn : selectedSpender.nameEn;
 
-    addExpense({
+    setSaving(true);
+    try {
+    const saved = await addExpense({
       title: reason,
       category: catName,
       amount: numericAmount,
@@ -116,7 +121,7 @@ export default function NewExpenseScreen() {
       status,
     });
 
-    if (status === 'pending') {
+    if (saved.status === 'pending') {
       Alert.alert(
         l('Sent for Approval', 'অনুমোদনের জন্য পাঠানো হয়েছে'),
         l(
@@ -144,6 +149,7 @@ export default function NewExpenseScreen() {
         [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/finance') }]
       );
     }
+    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
   };
 
   const formattedAmountDisplay = numericAmount
@@ -351,7 +357,7 @@ export default function NewExpenseScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.ctaButton}
-          onPress={handleSubmit}
+          onPress={handleSubmit} disabled={saving}
           activeOpacity={0.85}
         >
           <Ionicons

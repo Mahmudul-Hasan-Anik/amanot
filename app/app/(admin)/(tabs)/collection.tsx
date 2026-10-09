@@ -34,7 +34,7 @@ export default function CollectionScreen() {
   const [showSearch, setShowSearch] = useState(false);
 
   // Use store members, fallback to mock members if store is empty
-  const displayMembers = useMemo(() => (members.length > 0 ? members : mockMembers), [members]);
+  const displayMembers = useMemo(() => (members), [members]);
 
   // Month calculations
   const _now = new Date();

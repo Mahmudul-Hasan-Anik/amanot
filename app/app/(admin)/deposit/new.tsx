@@ -34,7 +34,7 @@ export default function RecordDepositScreen() {
   const { members, recordDeposit, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
-  const displayMembers = useMemo(() => (members.length > 0 ? members : mockMembers), [members]);
+  const displayMembers = useMemo(() => (members), [members]);
 
   // Find selected member, default to Karim Uddin (id: '2') or first due member
   const initialMemberId = (params.memberId as string) ||
@@ -46,11 +46,11 @@ export default function RecordDepositScreen() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
-  const currentMember: Member = useMemo(() => {
+  const currentMember: Member | undefined = useMemo(() => {
     return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
   }, [displayMembers, selectedMemberId]);
 
-  const lateFeePerMonth = Number((somitiInfo as any).lateFee ?? 100) || 100;
+  const lateFeePerMonth = Number((somitiInfo as any).lateFee ?? 0);
 
   // Months this member can pay for
   const monthOptions: MonthOption[] = useMemo(() => {
@@ -62,7 +62,8 @@ export default function RecordDepositScreen() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('bkash');
-  const [trxId, setTrxId] = useState('BK7X29QM4L');
+  const [trxId, setTrxId] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Format date: DD/MM/YYYY
   const now = new Date();
@@ -123,8 +124,8 @@ export default function RecordDepositScreen() {
   ];
 
   // Numeric total amount for calculation
-  const numericAmount = parseInt(toEnglishDigits(customAmount).replace(/\D/g, ''), 10) || calculatedTotal || 4100;
-  const newTotalDeposit = (currentMember?.totalDeposit || 108000) + numericAmount - lateFee;
+  const numericAmount = Number(toEnglishDigits(customAmount).replace(/[^0-9.]/g, ''));
+  const newTotalDeposit = (currentMember?.totalDeposit || 0) + numericAmount - lateFee;
 
   // Bengali months label for info card
   const selectedMonthLabels = useMemo(() => {
@@ -139,7 +140,8 @@ export default function RecordDepositScreen() {
 
   const methodNameText = paymentMethodsList.find((p) => p.id === paymentMethod)?.label || l('bKash', 'বিকাশ');
 
-  const handleConfirmDeposit = () => {
+  const handleConfirmDeposit = async () => {
+    if (saving || !currentMember) return;
     if (numericAmount <= 0) {
       Alert.alert(
         l('Invalid Amount', 'ভুল টাকার পরিমাণ'),
@@ -158,9 +160,11 @@ export default function RecordDepositScreen() {
 
     const monthNames = monthOptions
       .filter((o) => selectedMonths.includes(o.index))
-      .map((o) => o.bn);
+      .map((o) => o.key);
 
-    const newTxn = recordDeposit({
+    setSaving(true);
+    try {
+    const newTxn = await recordDeposit({
       memberId: currentMember.id,
       months: monthNames,
       baseAmount: Math.max(0, numericAmount - Math.min(lateFee, numericAmount)),
@@ -174,6 +178,7 @@ export default function RecordDepositScreen() {
     });
 
     router.replace(`/(admin)/receipt/${newTxn.id}`);
+    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
   };
 
   const filteredMembersForModal = useMemo(() => {
@@ -184,6 +189,7 @@ export default function RecordDepositScreen() {
     );
   }, [displayMembers, memberSearchQuery]);
 
+  if (!currentMember) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -478,7 +484,7 @@ export default function RecordDepositScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.confirmBtn}
-          onPress={handleConfirmDeposit}
+          onPress={handleConfirmDeposit} disabled={saving}
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark" size={20} color={colors.surface} />

@@ -8,6 +8,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { toBengaliDigits, formatSouthAsianNumber } from '../lib/money';
 
+export const escapeHtml = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]!));
+
 export interface DepositReceiptData {
   receiptNo: string;
   memberName: string;
@@ -52,8 +54,9 @@ export interface FinancialStatementData {
  * HTML Template for Official Money Receipt / Deposit Voucher
  */
 export function buildDepositReceiptHtml(data: DepositReceiptData): string {
+  data = Object.fromEntries(Object.entries(data).map(([key,value]) => [key, typeof value === 'string' ? escapeHtml(value) : Array.isArray(value) ? value.map(escapeHtml) : value])) as unknown as DepositReceiptData;
   const somiti = data.somitiName || 'আমানত সঞ্চয় ও ঋণদান সমবায় সমিতি';
-  const reg = data.somitiReg ? `রেজিঃ নং ${data.somitiReg}` : 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার অনুমোদিত';
+  const reg = data.somitiReg ? `রেজিঃ নং ${data.somitiReg}` : 'ডিজিটাল হিসাব ও রসিদ';
   const bnAmount = toBengaliDigits(data.amount);
   const bnLateFee = data.lateFee ? toBengaliDigits(data.lateFee) : '০';
   const bnDue = data.dueAmount !== undefined ? toBengaliDigits(data.dueAmount) : '০';
@@ -218,7 +221,7 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
     </div>
 
     <div class="watermark">
-      আমানত অ্যাপ দ্বারা প্রস্তুতকৃত ডিজিটাল ভাউচার • এটি একটি বৈধ কম্পিউটারাইজড রসিদ
+      আমানত অ্যাপ দ্বারা প্রস্তুতকৃত ডিজিটাল ভাউচার
     </div>
   </div>
 </body>

@@ -27,14 +27,14 @@ export default function ReceiptScreen() {
 
   const displayMembers = members;
 
-  const txn = getTransactionById(id as string) || transactions[0];
+  const txn = getTransactionById(id as string);
   const member = txn
     ? getMemberById(txn.memberId) || displayMembers.find((m) => m.id === txn.memberId)
     : displayMembers.find((m) => m.id === '2') || displayMembers[0];
 
   const defaultNum = isBengali ? '১০৮৮' : '1088';
   const receiptNo = txn?.receiptNo || ('#' + defaultNum);
-  const amount = txn?.amount || 4100;
+  const amount = txn?.amount ?? 0;
   const memberName = l(member?.nameEn || txn?.memberName || member?.name || 'করিম উদ্দিন', txn?.memberName || member?.name || 'করিম উদ্দিন');
   const memberCode = txn?.memberCode || member?.code || 'SM-042';
 
@@ -44,7 +44,7 @@ export default function ReceiptScreen() {
     ? txn.months.join(', ')
     : l(defaultMonthsEn, defaultMonthsBn);
 
-  const lateFee = txn?.lateFee !== undefined ? txn.lateFee : 100;
+  const lateFee = txn?.lateFee ?? 0;
   const baseDeposit = amount - lateFee;
 
   // Date and Time formatting
@@ -61,7 +61,7 @@ export default function ReceiptScreen() {
   const defaultDateEn = `${day} ${monthEn} ${year}, ${timeFormatted}`;
   const dateStr = txn?.date ? txn.date : l(defaultDateEn, defaultDateBn);
 
-  const trxIdStr = txn?.trxId || 'BK7X29QM4L';
+  const trxIdStr = txn?.trxId || '—';
   const methodStr =
     txn?.paymentMethod === 'bkash'
       ? `${l('bKash', 'বিকাশ')} · ${trxIdStr}`
@@ -74,7 +74,7 @@ export default function ReceiptScreen() {
       : `${l('bKash', 'বিকাশ')} · ${trxIdStr}`;
 
   const somitiTitle = l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি');
-  const totalDepositNow = (member?.totalDeposit || 108000) + baseDeposit;
+  const totalDepositNow = member?.totalDeposit ?? 0;
 
   const receiptPayload = {
     receiptNo: receiptNo.replace('#', ''),
@@ -114,6 +114,7 @@ export default function ReceiptScreen() {
     } catch (e) {}
   };
 
+  if (!txn) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Receipt not found. Refresh accounts and try again.','রসিদ পাওয়া যায়নি। হিসাব আপডেট করে আবার চেষ্টা করুন।')}</Text><TouchableOpacity onPress={()=>router.replace('/(admin)/(tabs)/collection')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to collections','আদায়ের তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -133,7 +134,7 @@ export default function ReceiptScreen() {
 
           <View style={styles.whatsappNoticePill}>
             <Text style={styles.whatsappNoticeText}>
-              {l('Receipt sent via WhatsApp ✓', 'হোয়াটসঅ্যাপে রসিদ পাঠানো হয়েছে ✓')}
+              {l('Receipt ready to share', 'রসিদ শেয়ার করার জন্য প্রস্তুত')}
             </Text>
           </View>
         </View>

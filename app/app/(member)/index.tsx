@@ -37,7 +37,7 @@ export default function MemberDashboardScreen() {
   const { currentUser, switchRole, logout, actualRole } = useAuthStore();
   const { somitiInfo, members, transactions, notices } = useSomitiStore() as any;
   const canSwitchToAdmin = actualRole !== 'member';
-  const year = 2026;
+  const year = new Date().getFullYear();
   const { l, formatMoney, formatNum, language, isBengali } = useLanguage();
 
   const [selectedVoucherMonth, setSelectedVoucherMonth] = useState<number | null>(null);
@@ -62,7 +62,7 @@ export default function MemberDashboardScreen() {
       (t: any) =>
         t.memberId === member.id &&
         t.type === 'deposit' &&
-        (t.months || []).includes(BENGALI_MONTHS_FULL[mNum - 1])
+        (t.months || []).some((month:string) => month === `${year}-${String(mNum).padStart(2,'0')}` || month === BENGALI_MONTHS_FULL[mNum - 1])
     );
 
   const isDue = (member.dueAmount || 0) > 0;
@@ -185,7 +185,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.heroMetricCol}>
               <Text style={styles.metricSub}>{l('Estimated Profit', 'অর্জিত মুনাফা')}</Text>
               <Text style={[styles.metricVal, { color: colors.surface }]}>
-                {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 7714)}
+                {formatMoney((member as any).profitBalance ?? (member as any).profit2025 ?? 0)}
               </Text>
             </View>
           </View>

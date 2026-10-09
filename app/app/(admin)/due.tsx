@@ -27,7 +27,7 @@ export default function DueMembersScreen() {
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { members, somitiInfo } = useSomitiStore();
 
-  const displayMembers = useMemo(() => (members.length > 0 ? members : mockMembers), [members]);
+  const displayMembers = useMemo(() => (members), [members]);
 
   const [activeFilter, setActiveFilter] = useState<FilterChipType>('all');
 

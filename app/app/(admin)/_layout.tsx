@@ -1,10 +1,13 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { colors } from '../../src/theme/colors';
+import { View } from 'react-native';
+import { SessionGuard } from '../../src/components/SessionGuard';
+import { SyncStatus } from '../../src/components/SyncStatus';
 
 export default function AdminLayout() {
   return (
-    <Stack
+    <SessionGuard staff><View style={{flex:1}}><SyncStatus /><Stack
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
@@ -31,6 +34,6 @@ export default function AdminLayout() {
       <Stack.Screen name="audit" options={{ headerShown: false }} />
       <Stack.Screen name="notices" options={{ headerShown: false }} />
       <Stack.Screen name="roles" options={{ headerShown: false }} />
-    </Stack>
+    </Stack></View></SessionGuard>
   );
 }

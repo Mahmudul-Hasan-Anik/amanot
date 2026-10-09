@@ -204,7 +204,9 @@ export default function NewMemberScreen() {
     setWhatsappPhone(eng);
   };
 
-  const handleSubmit = () => {
+  const [saving,setSaving] = useState(false);
+  const handleSubmit = async () => {
+    if (saving) return;
     if (!name.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member full name', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন'));
       return;
@@ -232,7 +234,9 @@ export default function NewMemberScreen() {
     }
     const waDigits = !sameAsPhone && whatsappPhone ? `0${whatsappPhone.replace(/^0/, '')}` : formattedPhone;
 
-    const newMember = addMember({
+    setSaving(true);
+    try {
+    const newMember = await addMember({
       name: name.trim(),
       phone: formattedPhone,
       code: autoMemberCode,
@@ -250,6 +254,7 @@ export default function NewMemberScreen() {
 
     setCreatedMember(newMember);
     setShowSuccessModal(true);
+    } catch(e:any) { Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message); } finally {setSaving(false);}
   };
 
   return (
@@ -548,7 +553,7 @@ export default function NewMemberScreen() {
         <TouchableOpacity
           testID="submit-new-member-btn"
           style={styles.submitBtn}
-          onPress={handleSubmit}
+          onPress={handleSubmit} disabled={saving}
           activeOpacity={0.85}
         >
           <Ionicons name="checkmark" size={20} color={colors.textWhite} />

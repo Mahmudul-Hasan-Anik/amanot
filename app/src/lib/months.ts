@@ -7,6 +7,7 @@ export const ENGLISH_MONTHS = [
 ];
 
 export type MonthOption = {
+  key: string;
   index: number;            // 0 = January
   bn: string;               // full Bengali name, sent to the server
   en: string;
@@ -20,6 +21,22 @@ export type MonthOption = {
  */
 export function getDepositMonthOptions(member: Member | undefined, today = new Date()): MonthOption[] {
   if (!member) return [];
+  if (member.paymentMonths) {
+    const start = new Date(`${(member.duesStartMonth || member.joinDateISO || todayISO(today)).slice(0, 7)}-01T00:00:00`);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const opts: MonthOption[] = [];
+    for (let date = start; date <= end; date = new Date(date.getFullYear(), date.getMonth() + 1, 1)) {
+      const year = date.getFullYear(), month = date.getMonth();
+      const key = `${year}-${String(month + 1).padStart(2,'0')}`;
+      if (member.paymentMonths[key] === 'paid') continue;
+      const current = year === today.getFullYear() && month === today.getMonth();
+      const advance = date > today;
+      const due = member.paymentMonths[key] === 'due';
+      if (!current && !advance && !due) continue;
+      opts.push({ key, index: year * 12 + month, bn: `${BENGALI_MONTHS_FULL[month]} ${year}`, en: `${ENGLISH_MONTHS[month]} ${year}`, kind:current?'current':advance?'advance':'due', overdue:due && !current });
+    }
+    return opts;
+  }
   const cur = today.getMonth();
   const status = member.monthsStatus || {};
   const joinISO: string | undefined = (member as any).joinDateISO;
@@ -34,6 +51,7 @@ export function getDepositMonthOptions(member: Member | undefined, today = new D
     const isDue = status[i] === 'due';
     if (i < cur && !isDue) continue; // not owed (e.g. before join)
     opts.push({
+      key: `${today.getFullYear()}-${String(i+1).padStart(2,'0')}`,
       index: i,
       bn: BENGALI_MONTHS_FULL[i],
       en: ENGLISH_MONTHS[i],

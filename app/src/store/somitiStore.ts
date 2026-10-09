@@ -129,7 +129,7 @@ export interface SomitiState {
     initialPin?: string;
     joinDate?: string; // YYYY-MM-DD
     whatsapp?: string;
-  }) => Member;
+  }) => Promise<Member>;
   updateMember: (id: string, data: Partial<Member>) => void;
   deleteMember: (id: string) => void;
   getMemberById: (id: string) => Member | undefined;
@@ -173,7 +173,7 @@ export interface SomitiState {
   }) => void;
 
   // Cash Transfer Action
-  transferCash: (fromId: string, toId: string, amount: number, note?: string) => boolean;
+  transferCash: (fromId: string, toId: string, amount: number, note?: string) => Promise<boolean>;
 
   // Transaction Lookup
   getTransactionById: (id: string) => Transaction | undefined;
@@ -373,7 +373,12 @@ export const useSomitiStore = create<SomitiState>()(
         return get().members.find((m) => m.id === id);
       },
 
-      addMember: (data) => {
+      addMember: async (data) => {
+        if (REMOTE) {
+          const member = api.mapMember(await api.addMember({ ...data, id: api.uuid() }));
+          await get().syncFromServer();
+          return member;
+        }
         const currentMembers = get().members;
         const nextCodeNum = currentMembers.length + 1;
         const codeNumStr = nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`;
@@ -841,7 +846,8 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Transfer cash
-      transferCash: (fromId, toId, amount, note) => {
+      transferCash: async (fromId, toId, amount, note) => {
+        if (REMOTE) { await api.transferCash(fromId,toId,amount,note); await get().syncFromServer(); return true; }
         const fromAcc = get().cashAccounts.find((a) => a.id === fromId);
         const toAcc = get().cashAccounts.find((a) => a.id === toId);
         if (!fromAcc || !toAcc || fromAcc.amount < amount) return false;

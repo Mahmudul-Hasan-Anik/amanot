@@ -77,7 +77,7 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 const MEMBER_COLUMNS =
   'id,user_id,code,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
-  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit';
+  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year';
 
 export function mapTransaction(r: any): Transaction {
   return {
@@ -103,7 +103,8 @@ export function mapMember(r: any, txns: any[] = []): Member {
   // server keeps this up to date (refresh_member_dues): 'paid' | 'due', anything else = not due yet
   const monthsStatus: Record<number, 'paid' | 'due' | 'upcoming'> = {};
   for (let i = 0; i < 12; i++) {
-    const v = r.months_status?.[String(i)];
+    const key = `${new Date().getFullYear()}-${String(i + 1).padStart(2, '0')}`;
+    const v = r.months_status?.[key] ?? r.months_status?.[String(i)];
     monthsStatus[i] = v === 'paid' || v === 'due' ? v : 'upcoming';
   }
   return {
@@ -129,6 +130,10 @@ export function mapMember(r: any, txns: any[] = []): Member {
     profit2025: num(r.profit_2025),
     estimatedProfit2026: num(r.estimated_profit_2026),
     monthsStatus,
+    paymentMonths: r.months_status || {},
+    duesStartMonth: r.dues_start_month,
+    profitBalance: num(r.profit_balance),
+    lastProfitYear: r.last_profit_year,
     recentTxns: own.map((t) => ({
       date: bnDate(t.date, false),
       title: t.months?.length ? `${t.months.join(', ')} জমা` : t.note || 'জমা',

@@ -66,7 +66,7 @@ export default function FinanceScreen() {
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const displayCashAccounts = useMemo(() => {
-    return cashAccounts.length > 0 ? cashAccounts : mockCashAccounts;
+    return cashAccounts;
   }, [cashAccounts]);
 
   // Selected Month State
@@ -116,58 +116,19 @@ export default function FinanceScreen() {
   }, [displayCashAccounts]);
 
   // Approved expenses of the selected month, grouped by category
-  const expenseCategories = useMemo(() => {
-    return [
-      { id: 'c1', nameBn: 'সভা ও আপ্যায়ন', nameEn: 'Meeting & Hospitality', amount: 5200, pct: 40 },
-      { id: 'c2', nameBn: 'যাতায়াত', nameEn: 'Transport', amount: 3100, pct: 24 },
-      { id: 'c3', nameBn: 'অন্যান্য', nameEn: 'Others', amount: 1800, pct: 14 },
-      { id: 'c4', nameBn: 'এসএমএস ও অ্যাপ', nameEn: 'SMS & App', amount: 1500, pct: 12 },
-      { id: 'c5', nameBn: 'স্টেশনারি', nameEn: 'Stationery', amount: 1200, pct: 10 },
-    ];
-  }, []);
-
-  const totalExpense = useMemo(() => {
-    return somitiInfo.monthlyExpense || 12800;
-  }, [somitiInfo.monthlyExpense]);
-
-  const totalIncome = useMemo(() => {
-    return somitiInfo.monthlyIncome || 182400;
-  }, [somitiInfo.monthlyIncome]);
-
-  const netAmount = totalIncome - totalExpense;
+  const periodTransactions = transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey));
+  const periodExpenses = expenses.filter(e=>e.status==='approved' && inMonth((e as any).dateISO,selectedMonthKey));
+  const totalExpense = periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
+  const totalIncome = periodTransactions.filter(t=>t.type==='deposit'||t.type==='profit').reduce((sum,t)=>sum+t.amount,0);
+  const groups = periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
+  const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:name,nameEn:name,amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
+  const netAmount = totalIncome-totalExpense;
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = useMemo(() => [
-    {
-      id: 'rt1',
-      titleBn: 'খরচ: এসএমএস প্যাকেজ',
-      titleEn: 'Expense: SMS Package',
-      metaBn: '২৮ সেপ্টে · বিকাশ',
-      metaEn: '28 Sep · bKash',
-      amount: -1500,
-      isIncome: false,
-    },
-    {
-      id: 'rt2',
-      titleBn: 'আয়: পোল্ট্রি খামার',
-      titleEn: 'Income: Poultry Farm',
-      metaBn: '২৫ সেপ্টে · ব্যাংক',
-      metaEn: '25 Sep · Bank',
-      amount: 18400,
-      isIncome: true,
-    },
-    {
-      id: 'rt3',
-      titleBn: 'খরচ: সভার যাতায়াত',
-      titleEn: 'Expense: Meeting Travel',
-      metaBn: '২০ সেপ্টে · হাতে নগদ',
-      metaEn: '20 Sep · Cash',
-      amount: -1200,
-      isIncome: false,
-    },
-  ], []);
+  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date+' · '+t.paymentMethod,metaEn:t.date+' · '+t.paymentMethod,amount:t.type==='expense'?-t.amount:t.amount,isIncome:t.type!=='expense'}));
 
-  const handleTransferSubmit = () => {
+  const handleTransferSubmit = async () => {
+    try {
     const amt = parseFloat(transferAmount.replace(/[^0-9.]/g, ''));
     if (!amt || isNaN(amt) || amt <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount', 'সঠিক টাকার পরিমাণ লিখুন'));
@@ -189,7 +150,7 @@ export default function FinanceScreen() {
     }
 
     const note = transferNote.trim() || l('Internal Cash Transfer', 'অভ্যন্তরীণ তহবিল স্থানান্তর');
-    transferCash(fromAccount, toAccount, amt, note);
+    if (!await transferCash(fromAccount, toAccount, amt, note)) return;
 
     setShowTransferModal(false);
     setTransferAmount('');
@@ -199,6 +160,7 @@ export default function FinanceScreen() {
     triggerToast(
       `${senderAcc.name} → ${targetAcc?.name}: ${formatMoney(amt)} ${l('transferred successfully', 'সফলভাবে স্থানান্তর হয়েছে')}`
     );
+    } catch(e:any) { Alert.alert(l('Transfer failed','স্থানান্তর ব্যর্থ'),e.message); }
   };
 
   const getAccountIcon = (account: CashAccount) => {
