@@ -1,0 +1,35 @@
+name: Amanot database health
+
+on:
+  schedule:
+    - cron: '17 1,9,17 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: amanot-database-health
+  cancel-in-progress: false
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Query configured database without reading member data
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL" || { echo 'Missing repository variable SUPABASE_URL'; exit 1; }
+          test -n "$SUPABASE_ANON_KEY" || { echo 'Missing repository secret SUPABASE_ANON_KEY'; exit 1; }
+          response=$(curl --fail --silent --show-error --max-time 20 \
+            --retry 2 --retry-all-errors --retry-delay 5 \
+            --request POST "${SUPABASE_URL%/}/rest/v1/rpc/somiti_initialized" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --header 'Content-Type: application/json' --data '{}')
+          test "$response" = 'true' || { echo 'Database unavailable or association not initialized'; exit 1; }
+          echo 'Database query succeeded.'

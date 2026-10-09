@@ -115,8 +115,9 @@ export default function MemberProfileScreen() {
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
         {
           text: l('Yes, Reset', 'হ্যাঁ, রিসেট করুন'),
-          onPress: () => {
-            resetMemberPin(member.id);
+          onPress: async () => {
+            try {
+            await resetMemberPin(member.id);
             Alert.alert(
               l('PIN Reset Done', 'পিন রিসেট সফল'),
               l(
@@ -124,6 +125,7 @@ export default function MemberProfileScreen() {
                 `${member.name}-এর পিন ১২৩৪ এ সফলভাবে রিসেট করা হয়েছে। সদস্য এখন ১২৩৪ দিয়ে লগইন করতে পারবেন।`
               )
             );
+            } catch (e: any) { Alert.alert(l('Reset failed', 'রিসেট ব্যর্থ'), e.message); }
           },
         },
       ]

@@ -92,6 +92,19 @@ async function main(){
       await sql('select set_member_documents($1,$2,null)',[member,member+'/avatar.jpg']);
       assert.equal((await one('select avatar_path from members where id=$1',[member])).avatar_path,member+'/avatar.jpg');
     });
+    await pass('profile-only policy rejects NID attachments and caps storage at 120 KB',async()=>{
+      assert.equal(Number((await one("select file_size_limit from storage.buckets where id='member-documents'")).file_size_limit),122880);
+      await denied('select set_member_documents($1,null,$2)',[member,member+'/nid.jpg']);
+      await denied('select set_member_documents($1,$2,null)',[member,member+'/nid.jpg']);
+      await db.exec('grant usage on schema storage to authenticated; grant select,insert,update on storage.objects to authenticated; set role authenticated');
+      assert.equal((await one('select is_staff() ok')).ok,true);
+      assert.equal((await one('select is_member_avatar_path($1) ok',[member+'/avatar.jpg'])).ok,true);
+      assert.equal(Number((await one('select count(*) n from members where id=$1 and deleted_at is null',[member])).n),1);
+      await denied('insert into storage.objects(id,name,bucket_id) values($1,$2,\'member-documents\')',['00000000-0000-4000-8000-000000000031',member+'/nid.jpg']);
+      await sql('insert into storage.objects(id,name,bucket_id) values($1,$2,\'member-documents\')',['00000000-0000-4000-8000-000000000032',member+'/avatar.jpg']);
+      await denied('update storage.objects set name=$1 where id=$2',[member+'/nid.jpg','00000000-0000-4000-8000-000000000032']);
+      await db.exec('reset role');
+    });
     await pass('profit is credited, rounded totals reconcile, repeated distribution rejected',async()=>{
       await sql('select distribute_profit($1,10,10)',[today.year]);
       const x=await one('select d.distributed,(select sum(share) from profit_shares s where s.year=d.year) allocated from profit_distributions d where year=$1',[today.year]);

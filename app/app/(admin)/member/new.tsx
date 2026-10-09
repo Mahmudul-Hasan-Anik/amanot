@@ -18,6 +18,7 @@ import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../src/lib/api';
+import { readProfilePhoto } from '../../../src/lib/profilePhoto';
 import { REMOTE } from '../../../src/store/somitiStore';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
@@ -43,7 +44,6 @@ export default function NewMemberScreen() {
   const [name, setName] = useState('');
   const [memberCode] = useState(autoMemberCode);
   const [nid, setNid] = useState('');
-  const [nidAttached, setNidAttached] = useState(false);
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
   const [sameAsPhone, setSameAsPhone] = useState(true);
@@ -139,15 +139,15 @@ export default function NewMemberScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdMember, setCreatedMember] = useState<any>(null);
 
-  const [nidUri,setNidUri] = useState<string|null>(null);
-  const chooseImage = async (nid=false) => {
+  const handlePickPhoto = async () => {
     try {
-      const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:!nid,quality:0.8});
-      if(!result.canceled) { if(nid){setNidUri(result.assets[0].uri);setNidAttached(true);}else setPhotoUri(result.assets[0].uri); }
+      const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:false,quality:1});
+      if(!result.canceled) {
+        await readProfilePhoto(result.assets[0].uri);
+        setPhotoUri(result.assets[0].uri);
+      }
     } catch(e:any){Alert.alert(l('Photo unavailable','ছবি নির্বাচন করা যায়নি'),e.message);}
   };
-  const handlePickPhoto = ()=>chooseImage(false);
-  const handlePickNid = ()=>chooseImage(true);
 
   const handlePhoneChange = (t: string) => {
     let eng = toEnglishDigits(t).replace(/[^\d]/g, '');
@@ -213,8 +213,8 @@ export default function NewMemberScreen() {
       admissionFee: cleanFee,
     });
 
-    if(REMOTE && (photoUri||nidUri)) {
-      try { await api.uploadMemberDocuments(newMember.id,photoUri,nidUri);await useSomitiStore.getState().syncFromServer(); }
+    if(REMOTE && photoUri) {
+      try { await api.uploadMemberProfilePhoto(newMember.id,photoUri);await useSomitiStore.getState().syncFromServer(); }
       catch(e:any) { Alert.alert(l('Member saved; photo upload failed','সদস্য সংরক্ষিত; ছবি আপলোড হয়নি'),e.message); }
     } else if(photoUri) { useSomitiStore.getState().updateMember(newMember.id,{photoUri}); }
     setCreatedMember(newMember);
@@ -259,7 +259,7 @@ export default function NewMemberScreen() {
           <View style={styles.photoTextContainer}>
             <Text style={styles.photoTitle}>{l('Member Photo', 'সদস্যের ছবি')}</Text>
             <Text style={styles.photoSub}>
-              {l('From camera or gallery (optional)', 'ক্যামেরা বা গ্যালারি থেকে (ঐচ্ছিক)')}
+              {l('Gallery · JPEG, PNG or WebP · Max 120 KB (optional)', 'গ্যালারি · JPEG, PNG বা WebP · সর্বোচ্চ ১২০ KB (ঐচ্ছিক)')}
             </Text>
           </View>
         </View>
@@ -292,29 +292,13 @@ export default function NewMemberScreen() {
           <TextInput
             style={styles.input}
             value={nid}
-            onChangeText={(t) => setNid(toEnglishDigits(t))}
+            onChangeText={(t) => setNid(toEnglishDigits(t).replace(/\D/g, ''))}
             placeholder={l('10 or 17 digits', '১০ বা ১৭ সংখ্যা')}
             placeholderTextColor={colors.textSecondary}
             keyboardType="numeric"
           />
 
-          {/* Dashed NID Upload Container */}
-          <TouchableOpacity
-            style={[styles.uploadNidBtn, nidAttached && styles.uploadNidBtnAttached]}
-            onPress={handlePickNid}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={nidAttached ? 'checkmark-circle' : 'arrow-up'}
-              size={18}
-              color={nidAttached ? colors.primary : colors.text}
-            />
-            <Text style={[styles.uploadNidText, nidAttached && styles.uploadNidTextAttached]}>
-              {nidAttached
-                ? l('National ID photo attached ✓', 'জাতীয় পরিচয়পত্রের ছবি সংযুক্ত ✓')
-                : l('Add National ID Photo', 'জাতীয় পরিচয়পত্রের ছবি যোগ করুন')}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.helperHint}>{l('Number only; NID photos are not collected.', 'শুধু নম্বর; NID-এর ছবি নেওয়া হয় না।')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
@@ -825,32 +809,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.caption,
     color: colors.textSecondary,
     marginTop: 4,
-  },
-  uploadNidBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 8,
-    marginTop: 10,
-  },
-  uploadNidBtnAttached: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-    borderStyle: 'solid',
-  },
-  uploadNidText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.subhead,
-    color: colors.text,
-  },
-  uploadNidTextAttached: {
-    color: colors.primary,
   },
   inputWithIcon: {
     flexDirection: 'row',

@@ -17,7 +17,15 @@
         "EXPO_PUBLIC_DEMO_MODE": "true"
       }
     },
+    "release": {
+      "distribution": "internal",
+      "environment": "production",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_DEMO_MODE": "false" }
+    },
     "production": {
+      "environment": "production",
+      "env": { "EXPO_PUBLIC_DEMO_MODE": "false" },
       "android": {
         "buildType": "app-bundle"
       },

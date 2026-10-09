@@ -29,7 +29,6 @@ export interface Member {
   lastProfitYear?: number;
   photoUri?: string;
   avatarPath?: string;
-  nidPath?: string;
   recentTxns?: Array<{ date: string; title: string; amount: number; receiptNo?: string; type: string }>;
   nextFollowup?: { date: string; note: string };
 }

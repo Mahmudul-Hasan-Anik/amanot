@@ -9,7 +9,7 @@ import { toBengaliDigits } from './money';
 import type { Member, Project, PendingApproval, CashAccount } from '../mocks/mockData';
 import type { Transaction, ExpenseItem } from '../store/somitiStore';
 import { Platform } from 'react-native';
-import { File } from 'expo-file-system';
+import { readProfilePhoto } from './profilePhoto';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -79,7 +79,7 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 const MEMBER_COLUMNS =
   'id,user_id,code,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
-  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path,nid_path';
+  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path';
 
 export function mapTransaction(r: any): Transaction {
   return {
@@ -137,7 +137,6 @@ export function mapMember(r: any, txns: any[] = []): Member {
     profitBalance: num(r.profit_balance),
     lastProfitYear: r.last_profit_year,
     avatarPath: r.avatar_path,
-    nidPath: r.nid_path,
     photoUri: r.photo_uri,
     recentTxns: own.map((t) => ({
       date: bnDate(t.date, false),
@@ -347,9 +346,9 @@ export async function fetchMyProfile() {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return null;
   const profile = unwrap(
-    await supabase.from('profiles').select('id,member_id,phone,full_name,role').eq('id', u.user.id).maybeSingle()
+    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active').eq('id', u.user.id).maybeSingle()
   ) as any;
-  if (!profile) return null;
+  if (!profile || !profile.is_active) return null;
   const memberRow = profile.member_id
     ? (unwrap(await supabase.from('members').select(MEMBER_COLUMNS).eq('id', profile.member_id).maybeSingle()) as any)
     : null;
@@ -446,18 +445,11 @@ export const distributeProfit = (year: number, reservePct: number, managementPct
 
 export const autoApproveEligible = () => rpc('auto_approve_eligible');
 
-export async function uploadMemberDocuments(memberId:string, photoUri?:string|null, nidUri?:string|null) {
-  const upload = async (uri:string,kind:string) => {
-    const extension = /\.png(?:\?|$)/i.test(uri)?'png':'jpg';
-    const path=`${memberId}/${kind}-${uuid()}.${extension}`;
-    const bytes=Platform.OS==='web'?new Uint8Array(await (await fetch(uri)).arrayBuffer()):await new File(uri).bytes();
-    if(bytes.byteLength>5*1024*1024) throw new Error('ছবির আকার ৫ MB-এর বেশি নয়');
-    unwrap(await supabase.storage.from('member-documents').upload(path,bytes,{contentType:extension==='png'?'image/png':'image/jpeg'}));
-    return path;
-  };
-  const avatar=photoUri?await upload(photoUri,'avatar'):null;
-  const nid=nidUri?await upload(nidUri,'nid'):null;
-  await rpc('set_member_documents',{p_member_id:memberId,p_avatar_path:avatar,p_nid_path:nid});
+export async function uploadMemberProfilePhoto(memberId: string, photoUri: string) {
+  const { bytes, extension, contentType } = await readProfilePhoto(photoUri);
+  const path = `${memberId}/avatar-${uuid()}.${extension}`;
+  unwrap(await supabase.storage.from('member-documents').upload(path, bytes, { contentType }));
+  await rpc('set_member_documents', { p_member_id: memberId, p_avatar_path: path, p_nid_path: null });
 }
 
 export const logSms = (d: {

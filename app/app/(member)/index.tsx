@@ -10,6 +10,8 @@ import {
   StatusBar,
   Linking,
   Platform,
+  Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,12 +47,12 @@ export default function MemberDashboardScreen() {
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
-    id: 'm1',
-    code: 'SM-001',
-    name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
-    phone: '01711000001',
-    totalDeposit: 144000,
-    monthlyAmount: 2000,
+    id: '',
+    code: '',
+    name: '',
+    phone: '',
+    totalDeposit: 0,
+    monthlyAmount: 0,
     dueAmount: 0,
     dueMonths: 0,
     status: 'paid',
@@ -67,18 +69,21 @@ export default function MemberDashboardScreen() {
 
   const isDue = (member.dueAmount || 0) > 0;
 
-  const handleCopy = (text: string, label: string) => {
-    setCopyFeedback(`${label} ${l('copied!', 'কপি হয়েছে!')}`);
-    setTimeout(() => setCopyFeedback(null), 2500);
+  const handleCopy = async (text: string, label: string) => {
+    if (!text) return;
+    try { await Share.share({ message: `${label}: ${text}` }); }
+    catch (e: any) { Alert.alert(l('Sharing failed', 'শেয়ার ব্যর্থ'), e.message); }
   };
 
   const handleCallHelpline = () => {
-    const num = (somitiInfo as any).helpline || somitiInfo.phone || '01711000000';
+    const num = (somitiInfo as any).helpline || somitiInfo.phone;
+    if (!num) { Alert.alert(l('Contact unavailable', 'যোগাযোগ নম্বর দেওয়া নেই')); return; }
     Linking.openURL(`tel:${num}`).catch(() => {});
   };
 
   const handleWhatsAppHelpline = () => {
-    const raw = (somitiInfo.phone || somitiInfo.bkashNo || '01711000000')
+    if (!somitiInfo.phone) { Alert.alert(l('Contact unavailable', 'যোগাযোগ নম্বর দেওয়া নেই')); return; }
+    const raw = somitiInfo.phone
       .replace(/[০-৯]/g, (c: string) => String('০১২৩৪৫৬৭৮৯'.indexOf(c)))
       .replace(/\D/g, '');
     const num = raw.startsWith('88') ? raw : `88${raw}`;
@@ -209,34 +214,36 @@ export default function MemberDashboardScreen() {
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
               <Text style={styles.accTitle}>{l('bKash Merchant', 'বিকাশ মার্চেন্ট')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bkashNo || '০১৭০০-১১২২৩৩'}</Text>
+              <Text style={styles.accNumber}>{somitiInfo.bkashNo || l('Not configured', 'নম্বর দেওয়া নেই')}</Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bkashNo || '০১৭০০-১১২২৩৩', 'বিকাশ নম্বর')}
+              disabled={!somitiInfo.bkashNo}
+              onPress={() => handleCopy(somitiInfo.bkashNo, 'বিকাশ নম্বর')}
               activeOpacity={0.7}
             >
               <Ionicons name="copy-outline" size={15} color={colors.primary} />
-              <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
+              <Text style={styles.copyBtnText}>{l('Share', 'শেয়ার')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.accountRow}>
             <View style={styles.accLeft}>
               <Text style={styles.accTitle}>
-                {somitiInfo.bankName || (isBengali ? 'ইসলামী ব্যাংক বাংলাদেশ' : 'Islami Bank Bangladesh')}
+                {somitiInfo.bankName || l('Bank account', 'ব্যাংক হিসাব')}
               </Text>
               <Text style={styles.accNumber}>
-                {somitiInfo.bankAccountNo || '২০৫০১২৩৪৫৬৭৮৯'}
+                {somitiInfo.bankAccountNo || l('Not configured', 'হিসাব নম্বর দেওয়া নেই')}
               </Text>
             </View>
             <TouchableOpacity
               style={styles.copyBtn}
-              onPress={() => handleCopy(somitiInfo.bankAccountNo || '২০৫০১২৩৪৫৬৭৮৯', 'ব্যাংক হিসাব')}
+              disabled={!somitiInfo.bankAccountNo}
+              onPress={() => handleCopy(somitiInfo.bankAccountNo, 'ব্যাংক হিসাব')}
               activeOpacity={0.7}
             >
               <Ionicons name="copy-outline" size={15} color={colors.primary} />
-              <Text style={styles.copyBtnText}>{l('Copy', 'কপি')}</Text>
+              <Text style={styles.copyBtnText}>{l('Share', 'শেয়ার')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -255,8 +262,10 @@ export default function MemberDashboardScreen() {
 
           <View style={styles.monthsGrid}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((mNum) => {
-              const isPaid = mNum <= 9; // Jan-Sep paid in sample
-              const isDueMonth = mNum === 10 && isDue;
+              const monthKey = `${year}-${String(mNum).padStart(2, '0')}`;
+              const status = member.paymentMonths?.[monthKey] ?? member.monthsStatus?.[mNum - 1];
+              const isPaid = status === 'paid';
+              const isDueMonth = status === 'due';
               const isUpcoming = !isPaid && !isDueMonth;
 
               return (
@@ -269,7 +278,8 @@ export default function MemberDashboardScreen() {
                     isUpcoming && styles.monthBoxUpcoming,
                   ]}
                   onPress={() => {
-                    if (isPaid) setSelectedVoucherMonth(mNum);
+                    if (isPaid && txnForMonth(mNum)) setSelectedVoucherMonth(mNum);
+                    else if (isPaid) Alert.alert(l('Receipt unavailable', 'এই মাসের রসিদ পাওয়া যায়নি'));
                   }}
                   activeOpacity={isPaid ? 0.75 : 1}
                 >
@@ -316,16 +326,16 @@ export default function MemberDashboardScreen() {
               <View style={styles.noticeDot} />
               <View style={styles.noticeContent}>
                 <Text style={styles.noticeTitle}>
-                  {l('Annual General Meeting 2026', 'বার্ষিক সাধারণ সভা ২০২৬')}
+                  {l('No notices yet', 'এখনো কোনো নোটিশ নেই')}
                 </Text>
                 <Text style={styles.noticeBody}>
                   {l(
-                    'All members are requested to attend the upcoming AGM on October 25th.',
-                    'সকল সদস্যকে আগামী ২৫ অক্টোবর অনুষ্ঠিতব্য সাধারণ সভায় উপস্থিত থাকার অনুরোধ করা যাচ্ছে।'
+                    'New notices from the committee will appear here.',
+                    'কমিটির নতুন নোটিশ এখানে দেখা যাবে।'
                   )}
                 </Text>
                 <Text style={styles.noticeTime}>
-                  {l('10 Oct 2026 • Secretary', '১০ অক্টোবর ২০২৬ • সাধারণ সম্পাদক')}
+                  {''}
                 </Text>
               </View>
             </View>
@@ -388,7 +398,7 @@ export default function MemberDashboardScreen() {
       </ScrollView>
 
       {/* Voucher Modal */}
-      {selectedVoucherMonth !== null && (
+      {selectedVoucherMonth !== null && txnForMonth(selectedVoucherMonth) && (
         <View style={styles.webModalOverlay}>
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -416,7 +426,7 @@ export default function MemberDashboardScreen() {
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Voucher No:', 'ভাউচার নং:')}</Text>
                 <Text style={styles.voucherValBold}>
-                  {txnForMonth(selectedVoucherMonth)?.receiptNo || `VR-2026-${String(selectedVoucherMonth).padStart(2, '0')}`}
+                  {txnForMonth(selectedVoucherMonth)?.receiptNo || '—'}
                 </Text>
               </View>
               <View style={styles.voucherRow}>
@@ -432,7 +442,7 @@ export default function MemberDashboardScreen() {
               <View style={styles.voucherRow}>
                 <Text style={styles.voucherLabel}>{l('Amount Paid:', 'জমার পরিমাণ:')}</Text>
                 <Text style={[styles.voucherValBold, { color: colors.primary }]}>
-                  {formatMoney(member.monthlyAmount || 2000)}
+                  {formatMoney(txnForMonth(selectedVoucherMonth)?.amount || 0)}
                 </Text>
               </View>
               <View style={styles.voucherRow}>

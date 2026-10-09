@@ -175,7 +175,7 @@ export default function PinScreen() {
           onPressDigit={handlePressDigit}
           onPressBackspace={handlePressBackspace}
           onPressBiometric={handleBiometricAuth}
-          showBiometric={true}
+          showBiometric={!REMOTE}
         />
 
         {/* Forgot PIN Link */}

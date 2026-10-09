@@ -31,6 +31,7 @@ export default function MemberProfileScreen() {
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [pinToast, setPinToast] = useState<string | null>(null);
+  const [savingPin, setSavingPin] = useState(false);
 
   const liveMember = members.find((m) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
@@ -47,9 +48,10 @@ export default function MemberProfileScreen() {
     totalDeposit: 144000,
   };
 
-  const handleChangePin = () => {
-    const cleanNew = toEnglishDigits(newPin.replace(/\D/g, ''));
-    const cleanConfirm = toEnglishDigits(confirmPin.replace(/\D/g, ''));
+  const handleChangePin = async () => {
+    if (savingPin) return;
+    const cleanNew = toEnglishDigits(newPin).replace(/\D/g, '');
+    const cleanConfirm = toEnglishDigits(confirmPin).replace(/\D/g, '');
 
     if (cleanNew.length !== 4) {
       Alert.alert(
@@ -67,12 +69,17 @@ export default function MemberProfileScreen() {
       return;
     }
 
-    setCustomPin(cleanNew);
+    setSavingPin(true);
+    try {
+    await setCustomPin(cleanNew);
     setShowPinModal(false);
     setNewPin('');
     setConfirmPin('');
     setPinToast(l('PIN changed successfully!', 'পিন সফলভাবে পরিবর্তিত হয়েছে!'));
     setTimeout(() => setPinToast(null), 3000);
+    } catch (e: any) {
+      Alert.alert(l('PIN change failed', 'পিন পরিবর্তন ব্যর্থ'), e.message);
+    } finally { setSavingPin(false); }
   };
 
   const handleLogout = () => {

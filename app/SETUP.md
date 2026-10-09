@@ -1,5 +1,7 @@
 # Amanot — web, Android and backend setup
 
+Current launch scope: Android app first, iOS later, Supabase Free, no public Web launch. Web exports are development/testing tools. The current launch plan is `../IMPLEMENTATION_PLAN.md`.
+
 The preview APK uses **demo mode**: data stays on the device; OTP is 482700; SMS is simulated. Production uses Supabase. Building the app does not deploy its database or SMS function.
 
 ## Run and verify
@@ -30,10 +32,15 @@ For a **new empty Supabase project**, run `supabase/schema.sql` once, then these
 4. `005_accounting_integrity.sql`
 5. `006_member_documents.sql`
 6. `007_asset_balances_roles.sql`
+7. `008_profile_photo_only.sql`
 
 For an existing project, take a database backup and apply only migrations that have not already been applied. Do not rerun the base schema over a migrated database. Migration 005 converts legacy month indexes to the migration's current year and starts tracked dues no earlier than that year's January. Reconcile old balances and prior-year dues with the original ledger before using real money; the legacy data has no reliable year metadata.
 
 Migration 006 creates a private `member-documents` image bucket with a 5 MB limit. Staff can upload, and members can read their own files. Migration 007 adds the Nagad account and protects the last super administrator. The app requires all migrations for its current RPCs.
+
+Migration 008 replaces the old document-upload policy: only profile photos may be uploaded, at most 120 KB (122,880 bytes), as JPEG/PNG/WebP. NID numbers remain in member records; NID images are no longer collected. Existing stored files are not automatically deleted. The app checks actual image bytes at selection and again before upload. Apply 008 after the historical 004–007 bundle, never before rerunning that older bundle.
+
+Migration 008 was applied to the live project on 9 October 2026; SQL verification returned `file_size_limit=122880` and `public_access=false`. Run `npm run test:profile-photo` for the actual client validator's boundary/format checks. Rebuild the Android APK to receive the new form and client checks.
 
 Copy `.env.example` to `.env` and set the project URL and public anon key. Never put a service-role key or an SMS provider key in `EXPO_PUBLIC_*` variables. Restart Expo after changing environment variables.
 
@@ -53,10 +60,10 @@ For actual Greenweb SMS, configure the function's server secrets `SMS_PROVIDER=g
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-`preview` creates an installable demo APK. `production` creates a live Play Store AAB; set the two public Supabase environment variables in the production EAS environment first. For an installable live APK, create a separate build profile with `buildType: apk` and the production environment, without the demo flag. Android signing credentials are managed by EAS. Test the downloaded APK on a device before distributing it to members.
+`preview` creates an installable demo APK. Use `npx eas-cli@latest build --platform android --profile release` for an installable live APK. `release` uses the production EAS environment and explicitly disables demo mode; its public backend variables are configured. `app.config.js` rejects missing backend configuration and demo-enabled release builds. `production` creates a live Play Store AAB. Android signing credentials are managed by EAS. Test the downloaded APK on a device before distributing it to members. See `../ANDROID_RELEASE.md` for the current build and rollout gates.
 
 ## Delivery status
 
 On 9 October 2026, migrations 004–007 were applied atomically to Supabase project `yhkidajopoqjqushcpwq`. A restricted backup of the business tables and function definitions is retained in `amanot_backup_20261009`. Post-deployment checks confirmed member retention, unchanged existing ledger rows, private backup access, private document storage and the new accounting fields. The `send-sms` Edge Function is deployed with JWT verification enabled and the default simulated provider.
 
-Web exports and the preview APK are demo testing deliverables; the live web export uses the configured Supabase project. Public HTTPS hosting, real SMS credentials, hosted login integration and an Android device check remain to be completed before member rollout. No live ledger entry or real member SMS was created during verification. The dependency audit still reports inherited toolchain/transitive advisories; major forced downgrades were avoided.
+The preview APK is a demo testing deliverable; the live web export uses the configured Supabase project for testing. The signed live Android APK build finished successfully (1.0.1, code 2); download details are in `../ANDROID_RELEASE.md`. Hosted login integration, account reconciliation, independent backup recovery and Android device checks remain before member rollout. GitHub database health checks are configured three times daily; the first manual run passed. Public Web hosting is outside the launch scope, and real SMS is deferred until budget is available. No live ledger entry or real member SMS was created during verification. The dependency audit still reports inherited toolchain/transitive advisories; major forced downgrades were avoided.

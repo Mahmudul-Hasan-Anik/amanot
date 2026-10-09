@@ -46,9 +46,9 @@ interface AuthState {
   requestOtp: (phone: string) => string;
   verifyOtp: (otp: string) => boolean;
   verifyPin: (pin: string) => boolean;
-  setCustomPin: (newPin: string) => void;
+  setCustomPin: (newPin: string) => Promise<void>;
   setMemberPin: (memberId: string, newPin: string) => void;
-  resetMemberPin: (memberId: string) => void;
+  resetMemberPin: (memberId: string) => Promise<void>;
   loginAs: (memberId: string, role?: UserRole) => void;
   switchRole: (role: UserRole) => void;
   checkPhoneRegistration: (rawPhone: string, membersPool?: Member[]) => {
@@ -112,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
       loginWithPin: async (rawPin: string) => {
         const pin = toEnglishDigits(rawPin).replace(/\D/g, '');
         const phone = get().phone;
+        if (pin.length !== 4) return { ok: false, error: 'পিন ৪ সংখ্যার হতে হবে' };
         try {
           if (get().phoneRegistered) {
             await api.signInWithPin(phone, pin);
@@ -183,10 +184,10 @@ export const useAuthStore = create<AuthState>()(
         return false;
       },
 
-      setCustomPin: (newPin: string) => {
+      setCustomPin: async (newPin: string) => {
         const cleanPin = toEnglishDigits(newPin).replace(/\D/g, '');
         if (REMOTE) {
-          api.changeOwnPin(cleanPin).catch((e: any) => Alert.alert('পিন পরিবর্তন ব্যর্থ', e?.message || String(e)));
+          await api.changeOwnPin(cleanPin);
           return;
         }
         const curr = get().currentUser;
@@ -207,9 +208,9 @@ export const useAuthStore = create<AuthState>()(
         }));
       },
 
-      resetMemberPin: (memberId: string) => {
+      resetMemberPin: async (memberId: string) => {
         if (REMOTE) {
-          api.resetMemberPin(memberId, '1234').catch((e: any) => Alert.alert('পিন রিসেট ব্যর্থ', e?.message || String(e)));
+          await api.resetMemberPin(memberId, '1234');
           return;
         }
         set((state) => ({
@@ -218,6 +219,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginAs: (memberId: string, role?: UserRole) => {
+        if (REMOTE) return; // Demo shortcuts cannot authenticate a live account.
         const member = mockMembers.find((m) => m.id === memberId) || mockMembers[0];
         const determinedRole =
           role ||
