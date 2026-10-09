@@ -74,10 +74,13 @@ function useBackendSession() {
     let cancelled = false;
     (async () => {
       try {
+        if (!useAuthStore.persist.hasHydrated()) await new Promise<void>(resolve => {
+          const unsub = useAuthStore.persist.onFinishHydration(() => { unsub(); resolve(); });
+        });
         const { data } = await supabase.auth.getSession();
         const auth = useAuthStore.getState();
         if (!data.session) {
-          if (auth.isAuthenticated && auth.isPinVerified) auth.logout();
+          if (auth.isAuthenticated) auth.logout();
         } else {
           auth.lockApp();
           auth.refreshProfile().catch(() => {});

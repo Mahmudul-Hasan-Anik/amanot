@@ -16,6 +16,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
+import * as ImagePicker from 'expo-image-picker';
+import * as api from '../../../src/lib/api';
+import { REMOTE } from '../../../src/store/somitiStore';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
@@ -136,57 +139,15 @@ export default function NewMemberScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdMember, setCreatedMember] = useState<any>(null);
 
-  const handlePickPhoto = () => {
-    Alert.alert(
-      l('Member Photo', 'সদস্যের ছবি'),
-      l('Choose photo source', 'ছবির উৎস নির্বাচন করুন'),
-      [
-        {
-          text: l('Camera', 'ক্যামেরা'),
-          onPress: () => {
-            setPhotoUri('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
-          },
-        },
-        {
-          text: l('Gallery', 'গ্যালারি'),
-          onPress: () => {
-            setPhotoUri('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
-          },
-        },
-        photoUri
-          ? {
-              text: l('Remove', 'মুছে ফেলুন'),
-              style: 'destructive',
-              onPress: () => setPhotoUri(null),
-            }
-          : null,
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-      ].filter(Boolean) as any
-    );
+  const [nidUri,setNidUri] = useState<string|null>(null);
+  const chooseImage = async (nid=false) => {
+    try {
+      const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:!nid,quality:0.8});
+      if(!result.canceled) { if(nid){setNidUri(result.assets[0].uri);setNidAttached(true);}else setPhotoUri(result.assets[0].uri); }
+    } catch(e:any){Alert.alert(l('Photo unavailable','ছবি নির্বাচন করা যায়নি'),e.message);}
   };
-
-  const handlePickNid = () => {
-    Alert.alert(
-      l('National ID Photo', 'জাতীয় পরিচয়পত্রের ছবি'),
-      nidAttached
-        ? l('National ID photo is currently attached', 'জাতীয় পরিচয়পত্রের ছবি সংযুক্ত আছে')
-        : l('Upload front side of National ID', 'জাতীয় পরিচয়পত্রের সামনের ছবি আপলোড করুন'),
-      [
-        {
-          text: nidAttached ? l('Change Photo', 'পরিবর্তন করুন') : l('Upload Photo', 'ছবি যোগ করুন'),
-          onPress: () => setNidAttached(true),
-        },
-        nidAttached
-          ? {
-              text: l('Remove', 'মুছে ফেলুন'),
-              style: 'destructive',
-              onPress: () => setNidAttached(false),
-            }
-          : null,
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-      ].filter(Boolean) as any
-    );
-  };
+  const handlePickPhoto = ()=>chooseImage(false);
+  const handlePickNid = ()=>chooseImage(true);
 
   const handlePhoneChange = (t: string) => {
     let eng = toEnglishDigits(t).replace(/[^\d]/g, '');
@@ -252,6 +213,10 @@ export default function NewMemberScreen() {
       admissionFee: cleanFee,
     });
 
+    if(REMOTE && (photoUri||nidUri)) {
+      try { await api.uploadMemberDocuments(newMember.id,photoUri,nidUri);await useSomitiStore.getState().syncFromServer(); }
+      catch(e:any) { Alert.alert(l('Member saved; photo upload failed','সদস্য সংরক্ষিত; ছবি আপলোড হয়নি'),e.message); }
+    } else if(photoUri) { useSomitiStore.getState().updateMember(newMember.id,{photoUri}); }
     setCreatedMember(newMember);
     setShowSuccessModal(true);
     } catch(e:any) { Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message); } finally {setSaving(false);}

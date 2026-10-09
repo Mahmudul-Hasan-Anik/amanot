@@ -7,7 +7,7 @@ import { SyncStatus } from '../../src/components/SyncStatus';
 
 export default function AdminLayout() {
   return (
-    <SessionGuard staff><View style={{flex:1}}><SyncStatus /><Stack
+    <SessionGuard staff><View style={{flex:1, width:'100%', maxWidth:1100, alignSelf:'center'}}><SyncStatus /><Stack
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },

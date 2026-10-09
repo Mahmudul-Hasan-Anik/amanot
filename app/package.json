@@ -8,7 +8,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "check:tokens": "node scripts/check-tokens.js"
+    "check:tokens": "node scripts/check-tokens.js",
+    "typecheck": "tsc --noEmit",
+    "test:accounting": "node scripts/test-accounting.cjs",
+    "build:web": "expo export --platform web",
+    "preview:web": "node scripts/serve-web.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",
@@ -20,7 +24,10 @@
     "dayjs": "^1.11.13",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
+    "expo-dev-client": "~57.0.19",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
+    "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.11",
     "expo-print": "~57.0.2",
     "expo-router": "~57.0.24",

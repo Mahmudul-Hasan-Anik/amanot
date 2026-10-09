@@ -35,7 +35,7 @@ export default function ProfitDistributionScreen() {
   const [saving, setSaving] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const bnYear = toBengaliDigits(year);
-  const [preview, setPreview] = useState<any>(null);
+  const [preview, setPreview] = useState<any>(!REMOTE ? (somitiInfo as any).demoProfitDistributions?.[year] || null : null);
 
   const loadPreview = () => {
     if (REMOTE) api.profitPreview(year).then(v => { setPreview(v); setPreviewError(null); }).catch(e => setPreviewError(e.message));
@@ -82,6 +82,21 @@ export default function ProfitDistributionScreen() {
           setSaving(false);
           return;
         }
+      } else {
+        const state = useSomitiStore.getState();
+        if ((state.somitiInfo as any).demoProfitDistributions?.[year]) { setSaving(false); return; }
+        let allocated = 0;
+        const shares: Array<{memberId:string;name:string;baseDeposit:number;share:number}> = sampleMembers.map((m:any,i:number) => {
+          const share = i === sampleMembers.length-1 ? Math.round((distributableProfit-allocated)*100)/100 : m.profitShare;
+          allocated += share;
+          return {memberId:m.id,name:m.name,baseDeposit:m.totalDeposit,share};
+        });
+        const snapshot = {alreadyDistributed:true,projectProfit:totalProjectProfit,expenses:operatingExpense,netProfit,
+          reservePct:reservePercent,managementPct:directorPercent,distributed:distributableProfit,totalDeposit:totalMembersDeposit,shares};
+        useSomitiStore.setState({members:state.members.map(m=>{const share=shares.find(s=>s.memberId===m.id)?.share||0;
+          return share ? {...m,totalDeposit:m.totalDeposit+share,profitBalance:(m.profitBalance||0)+share,lastProfitYear:year} : m;}),
+          somitiInfo:{...state.somitiInfo,demoProfitDistributions:{...(state.somitiInfo as any).demoProfitDistributions,[year]:snapshot}} as any});
+        setPreview(snapshot);
       }
       setSaving(false);
       setIsApproved(true);

@@ -61,7 +61,8 @@ export default function ProjectsScreen() {
     });
   }, [displayProjects, filter, searchQuery]);
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
+    try {
     const amt = Number(toEnglishDigits(np.amount).replace(/[^\d]/g, '')) || 0;
     if (!np.name.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter project name', 'প্রজেক্টের নাম লিখুন'));
@@ -73,7 +74,7 @@ export default function ProjectsScreen() {
       Alert.alert(l('Insufficient balance', 'পর্যাপ্ত ব্যালেন্স নেই'), `${acc.name}: ${formatMoney(acc.amount)}`);
       return;
     }
-    addProject({
+    await addProject({
       name: np.name.trim(),
       type: np.type.trim(),
       location: np.location.trim(),
@@ -85,15 +86,13 @@ export default function ProjectsScreen() {
     });
     setShowNew(false);
     setNp({ name: '', type: '', location: '', manager: '', amount: '', startDate: '', expectedEnd: '' });
+    } catch(e:any) { Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message); }
   };
 
   const allocSegments = [
-    { key: 'siteA', labelBn: 'সাইট এ', labelEn: 'Site A', flex: 150, color: colors.chart.segment1 },
-    { key: 'shop', labelBn: 'দোকান', labelEn: 'Shop', flex: 102, color: colors.chart.segment2 },
-    { key: 'poultry', labelBn: 'পোল্ট্রি', labelEn: 'Poultry', flex: 80, color: colors.chart.segment3 },
-    { key: 'siteB', labelBn: 'সাইট বি', labelEn: 'Site B', flex: 60, color: colors.chart.segment4 },
-    { key: 'idle', labelBn: 'অলস টাকা', labelEn: 'Idle Cash', flex: 93, color: colors.chart.idle },
-  ];
+    ...projects.map((p,i)=>({key:p.id,labelBn:p.name,labelEn:p.name,flex:Math.max(0,p.remainingAmount),color:[colors.chart.segment1,colors.chart.segment2,colors.chart.segment3,colors.chart.segment4][i%4]})),
+    {key:'idle',labelBn:'নগদ ও ব্যাংক',labelEn:'Cash & bank',flex:cashAccounts.reduce((sum,a)=>sum+a.amount,0),color:colors.chart.idle},
+  ].filter(s=>s.flex>0);
 
   return (
     <SafeAreaView style={styles.container}>

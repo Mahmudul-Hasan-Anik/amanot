@@ -1,0 +1,11 @@
+node_modules/
+node_modules_old/
+.git/
+.expo/
+dist/
+dist-demo/
+.env
+.env.*.local
+eas-build-info.json
+scripts/improve-*.cjs
+scripts/generate-summary-migration.cjs

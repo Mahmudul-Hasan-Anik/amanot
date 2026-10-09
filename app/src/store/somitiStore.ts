@@ -68,6 +68,7 @@ export interface Transaction {
 }
 
 export interface ExpenseItem {
+  dateISO?: string;
   id: string;
   title: string;
   category: string;
@@ -101,7 +102,7 @@ export interface SomitiState {
   addNotice: (title: string, body: string) => void;
   deleteNotice: (id: string) => void;
   setMemberRole: (memberId: string, role: string, title?: string) => void;
-  addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => void;
+  addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => Promise<void>;
 
   // Master data
   somitiInfo: typeof mockSomitiInfo;
@@ -136,6 +137,7 @@ export interface SomitiState {
 
   // Deposit & Collection Actions
   recordDeposit: (data: {
+    id?: string;
     memberId: string;
     months: string[];
     baseAmount: number;
@@ -170,7 +172,7 @@ export interface SomitiState {
     amount: number;
     paymentSource: string;
     note?: string;
-  }) => void;
+  }) => Promise<void>;
 
   // Cash Transfer Action
   transferCash: (fromId: string, toId: string, amount: number, note?: string) => Promise<boolean>;
@@ -220,7 +222,9 @@ export const useSomitiStore = create<SomitiState>()(
         remote('রোল পরিবর্তন', () => api.setMemberRole(memberId, role, title));
       },
 
-      addProject: (data) => {
+      addProject: async (data) => {
+        if (!data.name.trim() || !Number.isFinite(data.investedAmount) || data.investedAmount<0) throw new Error('প্রজেক্টের তথ্য সঠিক নয়');
+        if (REMOTE) { await api.upsertProject({...data,id:api.uuid()}); await get().syncFromServer(); return; }
         const p: Project = {
           id: api.uuid(),
           name: data.name,
@@ -237,7 +241,13 @@ export const useSomitiStore = create<SomitiState>()(
           recoveryPct: 0,
           remainingAmount: data.investedAmount,
         };
-        set({ projects: [...get().projects, p] });
+        const sourceType = data.paymentSource === 'bank' ? 'bank' : data.paymentSource === 'bkash' ? 'bkash' : 'cashier';
+        const source = get().cashAccounts.find(a=>a.type===sourceType);
+        if (!source || source.amount < data.investedAmount) throw new Error('নির্বাচিত হিসাবে পর্যাপ্ত টাকা নেই');
+        const cashAccounts = get().cashAccounts.map(a=>a.id===source.id ? {...a,amount:a.amount-data.investedAmount}:a);
+        const cashAndBank = cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({ projects: [...get().projects, p], cashAccounts,
+          somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:cashAndBank+get().projects.reduce((s,p)=>s+p.remainingAmount,0)+p.remainingAmount} });
         remote('প্রজেক্ট', () => api.upsertProject({ ...data, id: p.id }));
       },
       syncError: null,
@@ -396,7 +406,10 @@ export const useSomitiStore = create<SomitiState>()(
           nomineeName: data.nomineeName,
           nomineeRelation: data.nomineeRelation,
           nomineePhone: data.nomineePhone || '',
-          joinDate: '১ অক্টোবর ২০২৬',
+          joinDate: api.bnDate(data.joinDate || new Date().toISOString()),
+          joinDateISO: data.joinDate || new Date().toISOString().slice(0,10),
+          duesStartMonth: (data.joinDate || new Date().toISOString()).slice(0,7),
+          paymentMonths: {},
           monthlyAmount: data.monthlyAmount,
           totalDeposit: data.admissionFee || 0,
           dueAmount: 0,
@@ -426,7 +439,8 @@ export const useSomitiStore = create<SomitiState>()(
           cashAndBank: get().somitiInfo.cashAndBank + (data.admissionFee || 0),
         };
 
-        set({ members: updatedMembers, somitiInfo: updatedSomiti });
+        set({ members: updatedMembers, somitiInfo: updatedSomiti,
+          cashAccounts:get().cashAccounts.map(a=>a.type==='cashier'?{...a,amount:a.amount+(data.admissionFee||0)}:a) });
 
         if (REMOTE) {
           remote('সদস্য যোগ', () => api.addMember({ ...data, id: newId, code: data.code?.trim() || undefined }));
@@ -465,7 +479,7 @@ export const useSomitiStore = create<SomitiState>()(
       recordDeposit: async (data) => {
         if (!Number.isFinite(data.totalAmount) || data.totalAmount <= 0) throw new Error('জমার পরিমাণ সঠিক নয়');
         if (REMOTE) {
-          const saved = api.mapTransaction(await api.recordDeposit({ ...data, id: api.uuid() }));
+          const saved = api.mapTransaction(await api.recordDeposit({ ...data, id: data.id || api.uuid() }));
           await get().syncFromServer();
           if (data.sendSMS) {
             const member = get().members.find(m => m.id === data.memberId);
@@ -478,8 +492,12 @@ export const useSomitiStore = create<SomitiState>()(
         const { memberId, totalAmount, paymentMethod, trxId, note, months, lateFee } = data;
         const currentMembers = get().members;
         const member = currentMembers.find((m) => m.id === memberId);
+        if (!member || member.status === 'inactive') throw new Error('সক্রিয় সদস্য নির্বাচন করুন');
+        if (Math.abs(data.baseAmount + lateFee - totalAmount) > 0.01 || lateFee < 0 || data.baseAmount < 0) throw new Error('জমার হিসাব সঠিক নয়');
+        if (new Set(months).size !== months.length || months.some(key => member.paymentMonths?.[key] === 'paid' || (!member.paymentMonths && Number(key.slice(0,4)) === new Date().getFullYear() && member.monthsStatus?.[Number(key.slice(5))-1] === 'paid'))) throw new Error('এই মাসের জমা ইতিমধ্যে হয়েছে');
+        if (data.id) { const existing = get().transactions.find(t => t.id === data.id); if (existing) return existing; }
         const receiptNumber = `#${toBengaliDigits(1043 + get().transactions.length)}`;
-        const txnId = REMOTE ? api.uuid() : `tx-${Date.now()}`;
+        const txnId = data.id || api.uuid();
 
         const newTxn: Transaction = {
           id: txnId,
@@ -503,8 +521,16 @@ export const useSomitiStore = create<SomitiState>()(
           if (m.id === memberId) {
             const newTotalDeposit = m.totalDeposit + Math.max(0, totalAmount - lateFee);
             const newDueAmount = Math.max(0, m.dueAmount - totalAmount);
-            const newDueMonths = Math.max(0, m.dueMonths - months.length);
+            let credit = Number(m.partialCredit || 0) + data.baseAmount;
+            const payableMonths = months.filter(() => { if (credit < m.monthlyAmount) return false; credit -= m.monthlyAmount; return true; });
+            const newDueMonths = Math.max(0, m.dueMonths - payableMonths.length);
             const newStatus: 'paid' | 'due' | 'partial' | 'inactive' = newDueAmount === 0 ? 'paid' : 'due';
+            const monthsStatus = {...m.monthsStatus};
+            const paymentMonths = m.paymentMonths ? {...m.paymentMonths} : undefined;
+            for (const key of payableMonths) {
+              if (paymentMonths) paymentMonths[key] = 'paid';
+              if (Number(key.slice(0,4)) === new Date().getFullYear()) monthsStatus[Number(key.slice(5))-1] = 'paid';
+            }
             const updatedTxns = [
               {
                 date: api.bnDate(new Date().toISOString(), false),
@@ -521,6 +547,9 @@ export const useSomitiStore = create<SomitiState>()(
               totalDeposit: newTotalDeposit,
               dueAmount: newDueAmount,
               dueMonths: newDueMonths,
+              monthsStatus,
+              paymentMonths,
+              partialCredit: credit,
               status: newStatus,
               recentTxns: updatedTxns,
             };
@@ -530,6 +559,7 @@ export const useSomitiStore = create<SomitiState>()(
 
         // Update Cash Accounts
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
+          if (paymentMethod === 'nagad' && acc.type === 'nagad') return {...acc,amount:acc.amount+totalAmount};
           if (paymentMethod === 'bkash' && (acc.type === 'bkash' || acc.id === 'ca3' || acc.id === 'bkash')) {
             return { ...acc, amount: acc.amount + totalAmount };
           }
@@ -543,7 +573,7 @@ export const useSomitiStore = create<SomitiState>()(
         });
 
         const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
-        const projectInvested = get().projects.reduce((sum, p) => sum + (p.investedAmount || 0), 0) || get().somitiInfo.projectInvested;
+        const projectInvested = get().projects.reduce((sum, p) => sum + (p.remainingAmount ?? p.investedAmount ?? 0), 0) || get().somitiInfo.projectInvested;
 
         // Update Somiti Totals
         const updatedSomiti = {
@@ -601,7 +631,8 @@ export const useSomitiStore = create<SomitiState>()(
           title: data.title,
           category: data.category,
           amount: data.amount,
-          date: '২ অক্টোবর ২০২৬',
+          date: api.bnDate(new Date().toISOString()),
+          dateISO: new Date().toISOString().slice(0,10),
           paymentSource: data.paymentSource,
           voucherNo: data.voucherNo,
           note: data.note,
@@ -635,7 +666,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId: 'org',
           memberName: 'সমিতি খরচ',
           memberCode: 'EXP',
-          date: '২ অক্টোবর ২০২৬',
+          date: api.bnDate(new Date().toISOString()),
+          dateISO: new Date().toISOString().slice(0,10),
           amount: data.amount,
           type: 'expense',
           paymentMethod: data.paymentSource?.toLowerCase().includes('ব্যাংক') ? 'bank' : data.paymentSource?.toLowerCase().includes('বিকাশ') ? 'bkash' : 'cash',
@@ -643,11 +675,11 @@ export const useSomitiStore = create<SomitiState>()(
         };
 
         const sourceStr = (data.paymentSource || '').toLowerCase();
+        const sourceType = /ব্যাংক|bank/.test(sourceStr) ? 'bank' : /বিকাশ|bkash/.test(sourceStr) ? 'bkash' : /nagad|নগদ মোবাইল/.test(sourceStr) ? 'nagad' : 'cashier';
+        const sourceAccount = get().cashAccounts.find(a=>a.type===sourceType);
+        if (!sourceAccount || sourceAccount.amount < data.amount) throw new Error('নির্বাচিত হিসাবে পর্যাপ্ত টাকা নেই');
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
-          const isMatch =
-            (sourceStr.includes('ব্যাংক') || sourceStr.includes('bank')) ? (acc.type === 'bank' || acc.id === 'ca1') :
-            (sourceStr.includes('বিকাশ') || sourceStr.includes('bkash')) ? (acc.type === 'bkash' || acc.id === 'ca3') :
-            (acc.type === 'cashier' || acc.id === 'ca2');
+          const isMatch = acc.id === sourceAccount.id;
           if (isMatch) {
             return { ...acc, amount: Math.max(0, acc.amount - data.amount) };
           }
@@ -655,7 +687,7 @@ export const useSomitiStore = create<SomitiState>()(
         });
 
         const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
-        const projectInvested = get().projects.reduce((sum, p) => sum + (p.investedAmount || 0), 0) || get().somitiInfo.projectInvested;
+        const projectInvested = get().projects.reduce((sum, p) => sum + (p.remainingAmount ?? p.investedAmount ?? 0), 0) || get().somitiInfo.projectInvested;
 
         set({
           expenses: [newExpense, ...get().expenses],
@@ -718,7 +750,8 @@ export const useSomitiStore = create<SomitiState>()(
         const somiti = get().somitiInfo;
         const autoLimit = (somiti as any).autoApproveThreshold ?? 5000;
         const currentApprovals = get().approvals;
-        const eligible = currentApprovals.filter((a) => a.amount <= autoLimit);
+        if ((somiti as any).autoApproveEnabled === false) throw new Error('স্বয়ংক্রিয় অনুমোদন বন্ধ আছে');
+        const eligible = currentApprovals.filter((a) => a.type === 'expense' && a.amount <= autoLimit);
         if (eligible.length === 0) return { approvedCount: 0, totalAmount: 0 };
 
         let totalAmount = 0;
@@ -745,7 +778,7 @@ export const useSomitiStore = create<SomitiState>()(
           });
         }
 
-        const remainingPending = currentApprovals.filter((a) => a.amount > autoLimit);
+        const remainingPending = currentApprovals.filter((a) => !eligible.some(e=>e.id===a.id));
         set({
           approvals: remainingPending,
           approvedApprovals: [...newlyApproved, ...(get().approvedApprovals || [])],
@@ -780,14 +813,16 @@ export const useSomitiStore = create<SomitiState>()(
         }
       },
 
-      recordProjectReturn: (data) => {
+      recordProjectReturn: async (data) => {
+        if (REMOTE) { await api.recordProjectReturn(data); await get().syncFromServer(); return; }
+        if (!Number.isFinite(data.amount) || data.amount<=0) throw new Error('পরিমাণ সঠিক নয়');
         const target = get().projects.find((p) => p.id === data.projectId);
         if (!target) return;
 
         const newReturned = target.returnedAmount + data.amount;
         const newRemaining = Math.max(0, target.investedAmount - newReturned);
         const newRecoveryPct = Math.min(100, Math.round((newReturned / target.investedAmount) * 100));
-        const newNetProfit = newReturned - target.investedAmount;
+        const newNetProfit = target.status === 'completed' ? newReturned - target.investedAmount : Math.max(0, newReturned - target.investedAmount);
         const newRoi = target.investedAmount > 0 ? Math.round((newNetProfit / target.investedAmount) * 100) : 0;
 
         const updatedProjects = get().projects.map((p) => {
@@ -810,7 +845,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId: target.id,
           memberName: target.name,
           memberCode: 'PRJ',
-          date: '২ অক্টোবর ২০২৬',
+          date: api.bnDate(new Date().toISOString()),
+          dateISO: new Date().toISOString().slice(0,10),
           amount: data.amount,
           type: 'profit',
           paymentMethod: data.paymentSource.toLowerCase().includes('ব্যাংক') ? 'bank' : 'cash',
@@ -829,7 +865,7 @@ export const useSomitiStore = create<SomitiState>()(
         });
 
         const newCashAndBank = updatedCashAccounts.reduce((sum, a) => sum + a.amount, 0);
-        const projectInvested = updatedProjects.reduce((sum, p) => sum + (p.investedAmount || 0), 0);
+        const projectInvested = updatedProjects.reduce((sum, p) => sum + (p.remainingAmount ?? p.investedAmount ?? 0), 0);
 
         set({
           projects: updatedProjects,
@@ -839,7 +875,7 @@ export const useSomitiStore = create<SomitiState>()(
             ...get().somitiInfo,
             cashAndBank: newCashAndBank,
             totalFund: projectInvested + newCashAndBank,
-            yearlyProjectProfit: (get().somitiInfo.yearlyProjectProfit || 0) + data.amount,
+            yearlyProjectProfit: (get().somitiInfo.yearlyProjectProfit || 0) + newNetProfit - Math.max(0,target.returnedAmount-target.investedAmount),
           },
         });
         remote('প্রজেক্ট আয়', () => api.recordProjectReturn(data));
@@ -850,7 +886,7 @@ export const useSomitiStore = create<SomitiState>()(
         if (REMOTE) { await api.transferCash(fromId,toId,amount,note); await get().syncFromServer(); return true; }
         const fromAcc = get().cashAccounts.find((a) => a.id === fromId);
         const toAcc = get().cashAccounts.find((a) => a.id === toId);
-        if (!fromAcc || !toAcc || fromAcc.amount < amount) return false;
+        if (!Number.isFinite(amount) || amount <= 0 || fromId===toId || !fromAcc || !toAcc || fromAcc.amount < amount) return false;
 
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
           if (acc.id === fromId) return { ...acc, amount: Math.max(0, acc.amount - amount) };
@@ -864,7 +900,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId: 'internal',
           memberName: 'হিসাব স্থানান্তর',
           memberCode: 'TRF',
-          date: '২ অক্টোবর ২০২৬',
+          date: api.bnDate(new Date().toISOString()),
+          dateISO: new Date().toISOString().slice(0,10),
           amount: amount,
           type: 'transfer',
           paymentMethod: 'cash',
@@ -917,8 +954,12 @@ export const useSomitiStore = create<SomitiState>()(
         set({ isSyncing: true });
         try {
           const { useAuthStore } = require('../features/auth/authStore');
-          const isStaff = useAuthStore.getState().actualRole !== 'member';
+          const session = useAuthStore.getState();
+          if (!session.isPinVerified) { set({isSyncing:false}); return; }
+          const isStaff = session.actualRole !== 'member';
           const data = await api.fetchAll(isStaff);
+          const current = useAuthStore.getState();
+          if (!current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); return; }
           set({
             ...data,
             somitiInfo: { ...emptySomitiInfo, ...data.somitiInfo },
@@ -953,10 +994,11 @@ export const useSomitiStore = create<SomitiState>()(
         const { isSyncing, syncError, ...rest } = state as any;
         return rest;
       },
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {
         if (!persistedState) return persistedState;
+        if (version < 5 && !REMOTE && persistedState.cashAccounts && !persistedState.cashAccounts.some((a:any)=>a.id==='ca5')) persistedState.cashAccounts.push({id:'ca5',type:'nagad',name:'নগদ মোবাইল হিসাব',amount:0});
         if (version < 4 || persistedState?.somitiInfo?.name?.includes('উত্তরা') || !persistedState?.somitiInfo?.name) {
           persistedState.somitiInfo = {
             ...persistedState.somitiInfo,

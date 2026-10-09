@@ -33,15 +33,15 @@ export default function DueMembersScreen() {
 
   // Filter due/partial members
   const allDueMembers: Member[] = useMemo(() => {
-    return displayMembers.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0);
+    return displayMembers.filter((m) => m.status !== 'inactive' && (m.status === 'due' || m.status === 'partial' || m.dueAmount > 0));
   }, [displayMembers]);
 
   // Design-fidelity metrics matching PDF Page 10
-  const count1Month = somitiInfo.dueBreakdown?.month1 || allDueMembers.filter((m) => m.dueMonths === 1).length || 12;
-  const count2Month = somitiInfo.dueBreakdown?.month2 || allDueMembers.filter((m) => m.dueMonths === 2).length || 7;
-  const count3Plus = somitiInfo.dueBreakdown?.month3Plus || allDueMembers.filter((m) => m.dueMonths >= 3).length || 3;
-  const totalDueCount = somitiInfo.dueCount || (count1Month + count2Month + count3Plus) || 22;
-  const totalDueAmount = somitiInfo.totalDueAmount || allDueMembers.reduce((acc, m) => acc + (m.dueAmount || 0), 0) || 53500;
+  const count1Month = allDueMembers.filter((m) => m.dueMonths === 1).length;
+  const count2Month = allDueMembers.filter((m) => m.dueMonths === 2).length;
+  const count3Plus = allDueMembers.filter((m) => m.dueMonths >= 3).length;
+  const totalDueCount = allDueMembers.length;
+  const totalDueAmount = allDueMembers.reduce((acc, m) => acc + (m.dueAmount || 0), 0);
 
   // Initial selected IDs: first 5 members (Rafiqul, Karim, Tanvir, Nasrin, Faruk) to match PDF Page 10 (৫ জন নির্বাচিত)
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -306,7 +306,7 @@ export default function DueMembersScreen() {
             {formatNum(selectedIds.length)} {l('Selected', 'জন নির্বাচিত')}
           </Text>
           <Text style={styles.selectedAmountText}>
-            {formatMoney(selectedTotalAmount || 25900)}
+            {formatMoney(selectedTotalAmount)}
           </Text>
         </View>
 

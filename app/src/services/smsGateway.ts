@@ -3,7 +3,7 @@
  * Supports Greenweb, Elitbuzz, SSL Wireless, and offline/demo logger.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { normalizePhone } from '../lib/supabase';
+import { normalizePhone, supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toBengaliDigits } from '../lib/money';
 
 export type SmsProviderName = 'greenweb' | 'elitbuzz' | 'sslwireless' | 'mock';
@@ -25,14 +25,12 @@ const SMS_STORAGE_KEY = 'amanot_sms_history_logs';
 
 export interface SmsConfig {
   provider: SmsProviderName;
-  apiKey: string;
   senderId: string;
   clientId?: string; // for SSL Wireless
 }
 
 const DEFAULT_CONFIG: SmsConfig = {
   provider: (process.env.EXPO_PUBLIC_SMS_PROVIDER as SmsProviderName) || 'mock',
-  apiKey: process.env.EXPO_PUBLIC_SMS_API_KEY || '',
   senderId: process.env.EXPO_PUBLIC_SMS_SENDER_ID || 'Amanot',
   clientId: process.env.EXPO_PUBLIC_SMS_CLIENT_ID || '',
 };
@@ -132,39 +130,14 @@ class SmsGatewayService {
     };
 
     try {
-      if (this.config.provider === 'greenweb' && this.config.apiKey) {
-        // Greenweb SMS API endpoint
-        const formData = new URLSearchParams();
-        formData.append('token', this.config.apiKey);
-        formData.append('to', normPhone.startsWith('88') ? normPhone : `88${normPhone}`);
-        formData.append('message', params.message);
-        formData.append('json', 'true');
-
-        const res = await fetch('http://api.greenweb.com.bd/api.php', {
-          method: 'POST',
-          body: formData,
-        });
-        const json = await res.json();
-        logItem.apiResponse = json;
-        logItem.status = 'sent';
-      } else if (this.config.provider === 'elitbuzz' && this.config.apiKey) {
-        // Elitbuzz SMS API
-        const url = new URL('https://msg.elitbuzz-bd.com/smsapi');
-        url.searchParams.set('api_key', this.config.apiKey);
-        url.searchParams.set('type', 'unicode');
-        url.searchParams.set('contacts', normPhone.startsWith('88') ? normPhone : `88${normPhone}`);
-        url.searchParams.set('senderid', this.config.senderId);
-        url.searchParams.set('msg', params.message);
-
-        const res = await fetch(url.toString(), { method: 'GET' });
-        const text = await res.text();
-        logItem.apiResponse = text;
-        logItem.status = 'sent';
+      if (isSupabaseConfigured()) {
+        const {data,error} = await supabase.functions.invoke('send-sms',{body:params});
+        if(error || !data?.success) throw new Error(data?.error || error?.message || 'SMS service unavailable');
+        logItem.provider=data.provider;logItem.status=data.simulated?'queued':'sent';
+        logItem.apiResponse={simulated:data.simulated};
       } else {
-        // Mock / Development / Default mode
-        // Simulates instant 100% successful delivery and persists in local history
-        logItem.status = 'sent';
-        logItem.apiResponse = { mock: true, simulatedDelivery: true, timestamp };
+        logItem.provider='mock';logItem.status='queued';
+        logItem.apiResponse={simulated:true};
       }
 
       await this.saveLog(logItem);

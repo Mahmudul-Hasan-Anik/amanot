@@ -31,3 +31,6 @@ web-build/
 Thumbs.db
 *.swp
 *.swo
+eas-build-info.json
+npm-audit.json
+dist-demo/

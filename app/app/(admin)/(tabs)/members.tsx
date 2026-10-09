@@ -31,10 +31,10 @@ export default function MembersScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   // Aggregated totals matching Somiti level counts
-  const totalCount = members.length || somitiInfo.totalMembersCount || 0;
+  const totalCount = members.length;
   const activeCount = members.filter((m) => m.status !== 'inactive').length;
   const dueCount = members.filter((m) => m.dueAmount > 0).length;
-  const inactiveCount = somitiInfo.inactiveMembersCount || members.filter((m) => m.status === 'inactive').length || 4;
+  const inactiveCount = members.filter((m) => m.status === 'inactive').length;
 
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
@@ -80,7 +80,7 @@ export default function MembersScreen() {
       >
         <Card style={styles.memberCard}>
           <View style={styles.memberLeft}>
-            <Avatar name={item.name} size="md" index={index} />
+            <Avatar photoUri={item.photoUri} name={item.name} size="md" index={index} />
 
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{item.name}</Text>

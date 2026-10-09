@@ -38,7 +38,8 @@ export async function exportReport(report: Report, somiti: string, period: strin
     if (format==='PDF') {
       const win=window.open('','_blank');
       if (!win) throw new Error('ব্রাউজারে popup অনুমতি দিন');
-      win.document.write(reportHtml(report,somiti,period));win.document.close();win.onload=()=>win.print();setTimeout(()=>win.print(),500);
+      win.onload=()=>{ win.document.fonts.ready.then(()=>win.print()); };
+      win.document.write(reportHtml(report,somiti,period));win.document.close();
     } else {
       const url=URL.createObjectURL(new Blob([reportCsv(report)],{type:'text/csv;charset=utf-8'}));
       const a=document.createElement('a');a.href=url;a.download=filename+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);

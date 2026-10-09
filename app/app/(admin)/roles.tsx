@@ -18,6 +18,7 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { AppModal } from '../../src/components/AppModal';
 import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 const ROLES: { key: string; en: string; bn: string; descEn: string; descBn: string; title: string }[] = [
   { key: 'super_admin', en: 'Super Admin', bn: 'সুপার অ্যাডমিন', descEn: 'Everything, incl. roles', descBn: 'সব কিছু, রোল পরিবর্তনসহ', title: 'সভাপতি · সুপার অ্যাডমিন' },
@@ -112,7 +113,7 @@ export default function RolesScreen() {
                 activeOpacity={isSuper ? 0.7 : 1}
               >
                 <View style={[styles.avatar, isStaff && { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.avatarText, isStaff && { color: '#FFFFFF' }]}>{m.name.charAt(0)}</Text>
+                  <Text style={[styles.avatarText, isStaff && { color: colors.textWhite }]}>{m.name.charAt(0)}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{m.name}</Text>
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: 18, color: colors.text },
+  headerTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.title, color: colors.text },
   scroll: { paddingHorizontal: 16, paddingBottom: 24 },
   infoBox: {
     flexDirection: 'row',
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  infoText: { flex: 1, fontFamily: 'HindSiliguri-Regular', fontSize: 13, color: colors.text },
+  infoText: { flex: 1, fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.sm, color: colors.text },
   search: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 15,
+    fontSize: typography.size.md,
     color: colors.text,
     marginBottom: 12,
   },
@@ -200,15 +201,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'HindSiliguri-Bold', fontSize: 16, color: colors.text },
-  name: { fontFamily: 'HindSiliguri-SemiBold', fontSize: 15, color: colors.text },
-  sub: { fontFamily: 'HindSiliguri-Regular', fontSize: 12, color: colors.textSecondary },
+  avatarText: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.base, color: colors.text },
+  name: { fontFamily: 'HindSiliguri-SemiBold', fontSize: typography.size.md, color: colors.text },
+  sub: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.caption, color: colors.textSecondary },
   badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: colors.surfaceMuted },
   badgeStaff: { backgroundColor: colors.primarySoft },
-  badgeText: { fontFamily: 'HindSiliguri-Medium', fontSize: 12, color: colors.textSecondary },
+  badgeText: { fontFamily: 'HindSiliguri-Medium', fontSize: typography.size.caption, color: colors.textSecondary },
   badgeTextStaff: { color: colors.primary },
-  modalTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: 18, color: colors.text },
-  modalSub: { fontFamily: 'HindSiliguri-Regular', fontSize: 13, color: colors.textSecondary, marginBottom: 12 },
+  modalTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.title, color: colors.text },
+  modalSub: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.sm, color: colors.textSecondary, marginBottom: 12 },
   roleOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -219,6 +220,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   roleOptionActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  roleOptionTitle: { fontFamily: 'HindSiliguri-SemiBold', fontSize: 15, color: colors.text },
-  roleOptionDesc: { fontFamily: 'HindSiliguri-Regular', fontSize: 12, color: colors.textSecondary },
+  roleOptionTitle: { fontFamily: 'HindSiliguri-SemiBold', fontSize: typography.size.md, color: colors.text },
+  roleOptionDesc: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.caption, color: colors.textSecondary },
 });

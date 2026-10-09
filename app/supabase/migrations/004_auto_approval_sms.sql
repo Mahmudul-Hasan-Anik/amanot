@@ -127,9 +127,6 @@ begin
   return v_e;
 end; $$;
 
-revoke execute on function public.log_sms(text,text,text,text,uuid,text,text,jsonb), public.auto_approve_eligible() from public, anon;
-grant execute on function public.log_sms(text,text,text,text,uuid,text,text,jsonb), public.auto_approve_eligible() to authenticated;
-
 -- ------------------------------------------------------------------------------
 -- 3. Batch Auto-Approve RPC for Admin
 -- ------------------------------------------------------------------------------
@@ -174,3 +171,6 @@ begin
 
   return jsonb_build_object('approved_count', v_count, 'total_amount', v_total);
 end; $$;
+
+revoke execute on function public.log_sms(text,text,text,text,uuid,text,text,jsonb), public.auto_approve_eligible() from public, anon;
+grant execute on function public.log_sms(text,text,text,text,uuid,text,text,jsonb), public.auto_approve_eligible() to authenticated;

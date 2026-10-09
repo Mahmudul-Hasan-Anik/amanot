@@ -21,12 +21,13 @@ import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { Member, mockMembers } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { recentMonths } from '../../../src/lib/months';
 
 type FilterType = 'all' | 'paid' | 'due';
 
 export default function CollectionScreen() {
   const router = useRouter();
-  const { members, somitiInfo } = useSomitiStore();
+  const { members, transactions } = useSomitiStore();
   const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<FilterType>('all');
@@ -37,28 +38,29 @@ export default function CollectionScreen() {
   const displayMembers = useMemo(() => (members), [members]);
 
   // Month calculations
-  const _now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(recentMonths(12)[0].key);
+  const _now = new Date(`${selectedMonth}-01T00:00:00`);
   const curMonth = _now.getMonth();
   const monthLabelEn = _now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const monthLabelBn = `${BENGALI_MONTHS_FULL[curMonth]} ${toBengaliDigits(_now.getFullYear())}`;
 
   // Member classification
   const activeMembers = useMemo(() => displayMembers.filter((m) => m.status !== 'inactive'), [displayMembers]);
-  const isPaidThisMonth = (m: Member) => m.status === 'paid' || m.monthsStatus?.[curMonth] === 'paid';
+  const isPaidThisMonth = (m: Member) => m.paymentMonths ? m.paymentMonths[selectedMonth] === 'paid' : (_now.getFullYear()===new Date().getFullYear() && m.monthsStatus?.[curMonth] === 'paid');
 
-  const paidMembers = useMemo(() => activeMembers.filter(isPaidThisMonth), [activeMembers]);
-  const dueMembers = useMemo(() => activeMembers.filter((m) => !isPaidThisMonth(m)), [activeMembers]);
+  const paidMembers = activeMembers.filter(isPaidThisMonth);
+  const dueMembers = activeMembers.filter((m) => !isPaidThisMonth(m));
   const partialMembers = useMemo(() => activeMembers.filter((m) => m.status === 'partial'), [activeMembers]);
 
   // Design-fidelity metrics matching PDF Page 7
-  const target = somitiInfo.monthlyTarget || 210000;
-  const collected = somitiInfo.monthlyCollected || 164000;
-  const percent = somitiInfo.monthlyCollectedPct || Math.min(100, Math.round((collected / (target || 1)) * 100));
+  const target = activeMembers.reduce((s,m)=>s+m.monthlyAmount,0);
+  const collected = transactions.filter(t=>t.type==='deposit' && t.dateISO?.slice(0,7)===selectedMonth).reduce((s,t)=>s+t.amount,0);
+  const percent = target>0 ? Math.min(100, Math.round(collected/target*100)) : 0;
 
-  const paidCount = somitiInfo.paidCount || (members.length > 0 ? paidMembers.length : 78);
-  const partialCount = somitiInfo.partialCount || (members.length > 0 ? partialMembers.length : 4);
-  const unpaidCount = somitiInfo.unpaidCount || (members.length > 0 ? dueMembers.length - partialMembers.length : 18);
-  const dueCount = somitiInfo.dueCount || (members.length > 0 ? dueMembers.length : 22);
+  const paidCount = paidMembers.length;
+  const partialCount = dueMembers.filter(m=>Number(m.partialCredit||0)>0 || m.status==='partial').length;
+  const unpaidCount = dueMembers.length - partialCount;
+  const dueCount = dueMembers.length;
 
   // Segmented control tabs
   const tabOptions = useMemo(() => [
@@ -83,19 +85,11 @@ export default function CollectionScreen() {
       }
       return true;
     });
-  }, [activeMembers, filter, searchQuery]);
+  }, [activeMembers, filter, searchQuery, selectedMonth]);
 
   // Subtitle builder for member rows
   const getMemberSubtitle = (item: Member) => {
-    if (item.id === '1') return l('৳3,000 · 5 Sep · Bank', '৳৩,০০০ · ৫ সেপ্টে · ব্যাংক');
-    if (item.id === '2') return l('৳2,000 + Aug Due', '৳২,০০০ + আগস্ট বকেয়া');
-    if (item.id === '3') return l('৳2,500 · 3 Sep · bKash', '৳২,৫০০ · ৩ সেপ্টে · বিকাশ');
-    if (item.id === '4') return l('৳500 Paid · ৳1,000 Due', '৳৫০০ জমা · ৳১,০০০ বাকি');
-    if (item.id === '5') return l('৳2,000 · 2 Sep · Cash', '৳২,০০০ · ২ সেপ্টে · হাতে নগদ');
-    if (item.id === '6') return l('Due since July', 'জুলাই থেকে বকেয়া');
-    if (item.id === '7') return l('৳4,000 · 9 Sep · Cash', '৳৪,০০০ · ৯ সেপ্টে · নগদ');
-
-    if (item.status === 'paid' || isPaidThisMonth(item)) {
+    if (isPaidThisMonth(item)) {
       return `${formatMoney(item.monthlyAmount)} · ${l('Paid', 'জমা')}`;
     }
     if (item.status === 'partial') {
@@ -113,9 +107,7 @@ export default function CollectionScreen() {
       l('Select Month', 'মাস নির্বাচন করুন'),
       l('Choose month to view collection details', 'আদায়ের বিবরণ দেখতে মাস নির্বাচন করুন'),
       [
-        { text: l('September 2026 (Current)', 'সেপ্টেম্বর ২০২৬ (চলতি মাস)') },
-        { text: l('August 2026', 'আগস্ট ২০২৬') },
-        { text: l('July 2026', 'জুলাই ২০২৬') },
+        ...recentMonths(6).map(month=>({text:l(month.en,month.bn),onPress:()=>setSelectedMonth(month.key)})),
         { text: l('Cancel', 'বাতিল'), style: 'cancel' },
       ]
     );
@@ -209,7 +201,7 @@ export default function CollectionScreen() {
             <View style={styles.summaryRight}>
               <Text style={styles.summarySubLabel}>{l('Collected', 'আদায় হয়েছে')}</Text>
               <Text style={styles.summaryAmount}>{formatMoney(collected)}</Text>
-              <Text style={styles.summaryTarget}>{l('Target', 'লক্ষ্য')} {formatMoney(target)}</Text>
+              <Text style={styles.summaryTarget}>{l('Target at current member rates', 'বর্তমান সদস্য হারে লক্ষ্য')} {formatMoney(target)}</Text>
             </View>
           </View>
 

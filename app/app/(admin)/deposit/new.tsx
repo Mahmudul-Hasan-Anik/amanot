@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { getDepositMonthOptions, defaultSelectedMonths, MonthOption } from '../../../src/lib/months';
+import { uuid } from '../../../src/lib/api';
 
 type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'bank';
 
@@ -64,6 +65,7 @@ export default function RecordDepositScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('bkash');
   const [trxId, setTrxId] = useState('');
   const [saving, setSaving] = useState(false);
+  const requestId = useRef(uuid());
 
   // Format date: DD/MM/YYYY
   const now = new Date();
@@ -71,9 +73,7 @@ export default function RecordDepositScreen() {
   const displayDate = isBengali ? toBengaliDigits(rawDateStr) : rawDateStr;
 
   // Notification delivery methods
-  const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [sendSMS, setSendSMS] = useState(false);
-  const [sendPush, setSendPush] = useState(true);
 
   const rate = currentMember?.monthlyAmount || 2000;
   const partialCredit = Number((currentMember as any)?.partialCredit || 0);
@@ -165,6 +165,7 @@ export default function RecordDepositScreen() {
     setSaving(true);
     try {
     const newTxn = await recordDeposit({
+      id: requestId.current,
       memberId: currentMember.id,
       months: monthNames,
       baseAmount: Math.max(0, numericAmount - Math.min(lateFee, numericAmount)),
@@ -173,7 +174,6 @@ export default function RecordDepositScreen() {
       paymentMethod,
       trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
       note: monthNames.length ? `${monthNames.join(', ')} কিস্তি` : 'নিয়মিত জমা',
-      sendWhatsApp,
       sendSMS,
     });
 
@@ -360,20 +360,6 @@ export default function RecordDepositScreen() {
         <View style={styles.deliveryCard}>
           <TouchableOpacity
             style={styles.deliveryRow}
-            onPress={() => setSendWhatsApp(!sendWhatsApp)}
-            activeOpacity={0.7}
-          >
-            <Checkbox
-              checked={sendWhatsApp}
-              onPress={() => setSendWhatsApp(!sendWhatsApp)}
-            />
-            <Text style={styles.deliveryLabel}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.deliveryDivider} />
-
-          <TouchableOpacity
-            style={styles.deliveryRow}
             onPress={() => setSendSMS(!sendSMS)}
             activeOpacity={0.7}
           >
@@ -386,17 +372,7 @@ export default function RecordDepositScreen() {
 
           <View style={styles.deliveryDivider} />
 
-          <TouchableOpacity
-            style={styles.deliveryRow}
-            onPress={() => setSendPush(!sendPush)}
-            activeOpacity={0.7}
-          >
-            <Checkbox
-              checked={sendPush}
-              onPress={() => setSendPush(!sendPush)}
-            />
-            <Text style={styles.deliveryLabel}>{l('Push Notification', 'পুশ নোটিফিকেশন')}</Text>
-          </TouchableOpacity>
+          <Text style={[styles.deliveryLabel,{padding:16}]}>{l('Share via WhatsApp from the saved receipt. Push is not connected.', 'সংরক্ষিত রসিদ থেকে হোয়াটসঅ্যাপে শেয়ার করুন। পুশ সংযুক্ত নেই।')}</Text>
         </View>
 
         {/* 6. Info Notice Box */}

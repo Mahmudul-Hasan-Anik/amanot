@@ -58,16 +58,10 @@ export default function ReminderScreen() {
         });
       }
     }
-    // Default to overdue cohort matching Page 11 design: Rafiqul, Karim, Tanvir, Nasrin, Faruk
-    const matched = preferredIds
-      .map((id) => allMembers.find((m) => m.id === id))
-      .filter((m): m is (typeof allMembers)[0] => !!m);
-
-    if (matched.length > 0) return matched;
-    return allMembers.filter((m) => m.status === 'due' || m.status === 'partial' || m.dueAmount > 0).slice(0, 5);
+    return allMembers.filter(m=>m.status!=='inactive' && m.dueAmount>0);
   }, [allMembers, paramIds, preferredIds]);
 
-  const [pushSelected, setPushSelected] = useState(true);
+  const [pushSelected, setPushSelected] = useState(false);
   const [whatsappSelected, setWhatsappSelected] = useState(true);
   const [smsSelected, setSmsSelected] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -116,16 +110,7 @@ export default function ReminderScreen() {
   const renderFor = (m: (typeof allMembers)[0]) => {
     if (!m) return '';
 
-    let monthsText = '';
-    if (m.name === 'রফিকুল ইসলাম' || m.nameEn === 'Rafiqul Islam' || m.id === '6') {
-      monthsText = isBengali ? 'জুলাই–সেপ্টেম্বর' : 'July–September';
-    } else if (m.name === 'করিম উদ্দিন' || m.nameEn === 'Karim Uddin' || m.id === '2') {
-      monthsText = isBengali ? 'আগস্ট–সেপ্টেম্বর' : 'August–September';
-    } else if (m.id === '10' || m.nameEn === 'Tanvir Ahmed') {
-      monthsText = isBengali ? 'জুলাই–সেপ্টেম্বর' : 'July–September';
-    } else {
-      monthsText = `${formatNum(m.dueMonths || 1)} ${isBengali ? 'মাস' : 'months'}`;
-    }
+    const monthsText = `${formatNum(m.dueMonths)} ${l('months','মাস')}`;
 
     const nameVal = isBengali ? m.name : (m.nameEn || m.name);
     const dueAmountVal = formatMoney(m.dueAmount || 0);
@@ -153,35 +138,23 @@ export default function ReminderScreen() {
     return recipients.map((r) => isBengali ? r.name.split(' ')[0] : (r.nameEn || r.name).split(' ')[0]).join(', ');
   }, [recipients, isBengali]);
 
-  const handleSend = () => {
-    if (recipients.length === 0) {
-      Alert.alert(l('No Recipients', 'কোনো প্রাপক নেই'), l('Please select at least one recipient.', 'অনুগ্রহ করে অন্তত একজন প্রাপক নির্বাচন করুন।'));
-      return;
-    }
-
-    if (whatsappSelected && firstRecipient) {
-      const cleanPhone = (firstRecipient.whatsapp || firstRecipient.phone || '').replace(/[^0-9]/g, '');
-      const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-      const renderedMsg = renderFor(firstRecipient);
-      Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`).catch(() => {});
-    }
-
-    if (smsSelected) {
-      const smsPayloads = recipients.map((r) => ({
-        phone: r.phone,
-        message: renderFor(r),
-        templateType: 'overdue_reminder',
-        recipientName: r.name,
-        memberId: r.id,
-      }));
-      smsGateway.sendBulkSms(smsPayloads).catch(() => {});
-    }
-
-    Alert.alert(
-      l('Success', 'সফল'),
-      `${formatNum(recipients.length)} ${l('recipients received the reminder message successfully!', 'জনকে রিমাইন্ডার বার্তা সফলভাবে পাঠানো হয়েছে!')}`,
-      [{ text: l('OK', 'ঠিক আছে'), onPress: () => safeBack(router, '/(admin)/due') }]
-    );
+  const [sending,setSending] = useState(false);
+  const handleSend = async () => {
+    if (sending || !recipients.length) return;
+    if (pushSelected) { Alert.alert(l('Push unavailable','পুশ এখনো সংযুক্ত নয়'),l('Choose SMS or prepare a WhatsApp message.','SMS বা WhatsApp বেছে নিন।')); return; }
+    if (!smsSelected && !whatsappSelected) { Alert.alert(l('Choose a channel','মাধ্যম নির্বাচন করুন')); return; }
+    setSending(true);
+    try {
+      if (whatsappSelected && firstRecipient) {
+        const phone=(firstRecipient.whatsapp||firstRecipient.phone).replace(/[^0-9]/g,'');
+        await Linking.openURL('https://wa.me/'+(phone.startsWith('88')?phone:'88'+phone)+'?text='+encodeURIComponent(renderFor(firstRecipient)));
+      }
+      if (smsSelected) {
+        const result=await smsGateway.sendBulkSms(recipients.map(r=>({phone:r.phone,message:renderFor(r),templateType:'overdue_reminder',recipientName:r.name,memberId:r.id})));
+        const simulated=result.logs.filter(log=>log.provider==='mock').length;
+        Alert.alert(l('SMS result','SMS-এর ফলাফল'),simulated?l(simulated+' messages simulated; no SMS was delivered.',formatNum(simulated)+'টি ডেমো বার্তা তৈরি হয়েছে; SMS পাঠানো হয়নি।'):l(result.sentCount+' accepted, '+result.failedCount+' failed.',formatNum(result.sentCount)+'টি গৃহীত, '+formatNum(result.failedCount)+'টি ব্যর্থ।'));
+      }
+    } catch(e:any) {Alert.alert(l('Failed','ব্যর্থ'),e.message);} finally {setSending(false);}
   };
 
   const variableTags = isBengali
@@ -240,7 +213,7 @@ export default function ReminderScreen() {
             <Ionicons name="notifications-outline" size={20} color={colors.primary} style={styles.channelIcon} />
             <View style={styles.channelTextCol}>
               <Text style={styles.channelTitle}>{l('Push Notification', 'পুশ নোটিফিকেশন')}</Text>
-              <Text style={styles.channelSub}>{l('App installed: 4 · Free', 'অ্যাপ আছে ৪ জনের · বিনামূল্যে')}</Text>
+              <Text style={styles.channelSub}>{l('Requires a notification service', 'নোটিফিকেশন সার্ভিস সংযোগ প্রয়োজন')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -339,7 +312,7 @@ export default function ReminderScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.sendBtn}
-          onPress={handleSend}
+          onPress={handleSend} disabled={sending}
           activeOpacity={0.85}
         >
           <Ionicons name="paper-plane" size={18} color={colors.surface} />

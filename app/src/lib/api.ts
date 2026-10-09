@@ -8,6 +8,8 @@ import { BENGALI_MONTHS_FULL } from './bengali';
 import { toBengaliDigits } from './money';
 import type { Member, Project, PendingApproval, CashAccount } from '../mocks/mockData';
 import type { Transaction, ExpenseItem } from '../store/somitiStore';
+import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -77,7 +79,7 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 const MEMBER_COLUMNS =
   'id,user_id,code,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
-  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year';
+  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path,nid_path';
 
 export function mapTransaction(r: any): Transaction {
   return {
@@ -134,6 +136,9 @@ export function mapMember(r: any, txns: any[] = []): Member {
     duesStartMonth: r.dues_start_month,
     profitBalance: num(r.profit_balance),
     lastProfitYear: r.last_profit_year,
+    avatarPath: r.avatar_path,
+    nidPath: r.nid_path,
+    photoUri: r.photo_uri,
     recentTxns: own.map((t) => ({
       date: bnDate(t.date, false),
       title: t.months?.length ? `${t.months.join(', ')} জমা` : t.note || 'জমা',
@@ -152,7 +157,7 @@ export function mapMember(r: any, txns: any[] = []): Member {
   };
 }
 
-function mapProject(r: any): Project {
+export function mapProject(r: any): Project {
   return {
     id: r.id,
     name: r.name,
@@ -225,15 +230,24 @@ export async function fetchAll(isStaff: boolean) {
     await supabase.rpc('refresh_dues').then(() => {}, () => {});
   }
 
+  const allRows = async (table:string, columns='*', order='created_at') => {
+    const rows:any[]=[];
+    for(let offset=0;;offset+=1000) {
+      let query = supabase.from(table).select(columns).order(order,{ascending:false}).order('id').range(offset,offset+999);
+      if (table === 'members') query = query.is('deleted_at', null);
+      const page:any[] = unwrap(await query);
+      rows.push(...page); if(page.length<1000) return rows;
+    }
+  };
   const [settings, summary, members, projects, cash, txns, expenses, approvals, notices, audit] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
-    q(supabase.from('members').select(MEMBER_COLUMNS).is('deleted_at', null).order('code')),
-    q(supabase.from('projects').select('*').order('created_at')),
+    allRows('members',MEMBER_COLUMNS,'code'),
+    allRows('projects'),
     isStaff ? q(supabase.from('cash_accounts').select('*').order('sort')) : empty,
-    q(supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(1000)),
-    isStaff ? q(supabase.from('expenses').select('*').order('created_at', { ascending: false }).limit(500)) : empty,
-    isStaff ? q(supabase.from('approvals').select('*').order('created_at', { ascending: false }).limit(300)) : empty,
+    allRows('transactions'),
+    isStaff ? allRows('expenses') : empty,
+    isStaff ? allRows('approvals') : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
     isStaff
       ? Promise.resolve(q(supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300))).catch(() => [])
@@ -241,10 +255,17 @@ export async function fetchAll(isStaff: boolean) {
   ]);
 
   const txRows = (txns as any[]) || [];
+  const memberRows = (members as any[]) || [];
+  const paths = memberRows.map(m=>m.avatar_path).filter(Boolean);
+  if (paths.length) {
+    const {data} = await supabase.storage.from('member-documents').createSignedUrls(paths,3600);
+    const signed = new Map((data||[]).map(item=>[item.path,item.signedUrl]));
+    memberRows.forEach(m=>{m.photo_uri=signed.get(m.avatar_path);});
+  }
   const apRows = (approvals as any[]) || [];
   return {
     somitiInfo: { ...((settings as any)?.info || {}), ...((summary as any) || {}) },
-    members: ((members as any[]) || []).map((m) => mapMember(m, txRows)),
+    members: memberRows.map((m) => mapMember(m, txRows)),
     projects: ((projects as any[]) || []).map(mapProject),
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: txRows.map(mapTransaction),
@@ -424,6 +445,20 @@ export const distributeProfit = (year: number, reservePct: number, managementPct
   rpc('distribute_profit', { p_year: year, p_reserve_pct: reservePct, p_management_pct: managementPct });
 
 export const autoApproveEligible = () => rpc('auto_approve_eligible');
+
+export async function uploadMemberDocuments(memberId:string, photoUri?:string|null, nidUri?:string|null) {
+  const upload = async (uri:string,kind:string) => {
+    const extension = /\.png(?:\?|$)/i.test(uri)?'png':'jpg';
+    const path=`${memberId}/${kind}-${uuid()}.${extension}`;
+    const bytes=Platform.OS==='web'?new Uint8Array(await (await fetch(uri)).arrayBuffer()):await new File(uri).bytes();
+    if(bytes.byteLength>5*1024*1024) throw new Error('ছবির আকার ৫ MB-এর বেশি নয়');
+    unwrap(await supabase.storage.from('member-documents').upload(path,bytes,{contentType:extension==='png'?'image/png':'image/jpeg'}));
+    return path;
+  };
+  const avatar=photoUri?await upload(photoUri,'avatar'):null;
+  const nid=nidUri?await upload(nidUri,'nid'):null;
+  await rpc('set_member_documents',{p_member_id:memberId,p_avatar_path:avatar,p_nid_path:nid});
+}
 
 export const logSms = (d: {
   phone: string;

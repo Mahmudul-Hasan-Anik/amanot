@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, Text, Image, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 interface AvatarProps {
   name: string;
+  photoUri?: string;
   variant?: 'circle' | 'tile' | 'logo';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   index?: number; // for rotating through avatarPastels
@@ -15,6 +16,7 @@ interface AvatarProps {
 
 export const Avatar: React.FC<AvatarProps> = ({
   name,
+  photoUri,
   variant = 'circle',
   size = 'md',
   index = 0,
@@ -40,7 +42,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         style,
       ]}
     >
-      <Text
+      {photoUri ? <Image source={{uri:photoUri}} style={[StyleSheet.absoluteFill,{borderRadius:9999}]} accessibilityLabel={name} /> : <Text
         style={[
           styles.text,
           styles[`textSize_${size}`],
@@ -48,7 +50,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         ]}
       >
         {initial}
-      </Text>
+      </Text>}
     </View>
   );
 };

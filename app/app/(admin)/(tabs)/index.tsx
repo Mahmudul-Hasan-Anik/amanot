@@ -44,7 +44,7 @@ export default function HomeDashboardScreen() {
 
   // Dynamic financial totals
   const projectInvested = useMemo(() => {
-    return projects.length ? projects.reduce((acc, p) => acc + (p.investedAmount || 0), 0) : somitiInfo.projectInvested || 0;
+    return projects.length ? projects.reduce((acc, p) => acc + (p.remainingAmount ?? p.investedAmount ?? 0), 0) : somitiInfo.projectInvested || 0;
   }, [projects, somitiInfo.projectInvested]);
 
   const cashAndBank = useMemo(() => {
@@ -346,7 +346,7 @@ export default function HomeDashboardScreen() {
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
               <Text style={styles.cardSubtitle}>
-                {l(`Due Date ${dueDateDay} September`, `শেষ তারিখ ${formatNum(dueDateDay)} সেপ্টেম্বর`)}
+                {l(`Due Date ${dueDateDay} ${new Date().toLocaleDateString('en-GB', {month:'long'})}`, `শেষ তারিখ ${formatNum(dueDateDay)} ${BENGALI_MONTHS_FULL[new Date().getMonth()]}`)}
               </Text>
             </View>
 

@@ -22,7 +22,8 @@
         "backgroundColor": "#0F5E4A"
       },
       "permissions": [
-        "NOTIFICATIONS"
+        "android.permission.NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "scheme": "amanot",
@@ -30,7 +31,24 @@
       "expo-router",
       "expo-sharing",
       "expo-font",
-      "expo-print"
-    ]
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "সদস্যের ছবি ও নথি নির্বাচন করতে অনুমতি দিন।",
+          "cameraPermission": "সদস্যের ছবি তুলতে ক্যামেরার অনুমতি দিন।"
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "owner": "anik13dev",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9c005cec-297a-4c2d-b7bd-487445515c11"
+      }
+    }
   }
 }

@@ -27,6 +27,9 @@ export interface Member {
   partialCredit?: number;
   profitBalance?: number;
   lastProfitYear?: number;
+  photoUri?: string;
+  avatarPath?: string;
+  nidPath?: string;
   recentTxns?: Array<{ date: string; title: string; amount: number; receiptNo?: string; type: string }>;
   nextFollowup?: { date: string; note: string };
 }
@@ -70,7 +73,7 @@ export interface PendingApproval {
 
 export interface CashAccount {
   id: string;
-  type?: 'bank' | 'cashier' | 'bkash' | 'field';
+  type?: 'bank' | 'cashier' | 'bkash' | 'nagad' | 'field';
   name: string;
   holder?: string;
   amount: number;
@@ -427,6 +430,7 @@ export const mockProjects: Project[] = [
 ];
 
 export const mockCashAccounts: CashAccount[] = [
+  { id: 'ca5', type: 'nagad', name: 'নগদ মোবাইল হিসাব', amount: 0 },
   { id: 'ca1', type: 'bank', name: 'ব্যাংক হিসাব', holder: 'ইসলামী ব্যাংক বাংলাদেশ (মিরপুর শাখা)', amount: 760000 },
   { id: 'ca2', type: 'cashier', name: 'কোষাধ্যক্ষের হাতে', holder: 'মাহমুদা খাতুন', amount: 120000 },
   { id: 'ca3', type: 'bkash', name: 'বিকাশ', holder: '০১৭১১-২২৩৩৪৪', amount: 38000 },

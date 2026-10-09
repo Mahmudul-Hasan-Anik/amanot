@@ -25,12 +25,12 @@ export default function ProjectDetailScreen() {
   const router = useRouter();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { projects, recordProjectReturn } = useSomitiStore();
+  const { projects, transactions, recordProjectReturn, addExpense } = useSomitiStore();
 
   const allProjects = projects;
   const project = allProjects.find(
     (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
-  ) || allProjects[0];
+  );
 
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -48,15 +48,16 @@ export default function ProjectDetailScreen() {
     Alert.alert(l('Document Viewer', 'ডকুমেন্ট ভিউয়ার'), `${project?.name} - ${name} ${l('is loading...', 'লোড হচ্ছে...')}`);
   };
 
-  const handleRecordReturn = () => {
-    const cleanAmount = Number(toEnglishDigits(returnAmount.replace(/[^\d]/g, ''))) || 0;
+  const handleRecordReturn = async () => {
+    try {
+    const cleanAmount = Number(toEnglishDigits(returnAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক পরিমাণ লিখুন।'));
       return;
     }
     if (!project) return;
 
-    recordProjectReturn({
+    await recordProjectReturn({
       projectId: project.id,
       amount: cleanAmount,
       paymentSource: returnSource === 'bank' ? 'ব্যাংক হিসাব' : 'হাতে নগদ',
@@ -71,16 +72,19 @@ export default function ProjectDetailScreen() {
       l('Success', 'সফল'),
       `${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`
     );
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
-  const handleRecordExpense = () => {
-    const cleanAmount = Number(toEnglishDigits(expenseAmount.replace(/[^\d]/g, ''))) || 0;
+  const handleRecordExpense = async () => {
+    try {
+    const cleanAmount = Number(toEnglishDigits(expenseAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount.', 'অনুগ্রহ করে সঠিক পরিমাণ লিখুন।'));
       return;
     }
     if (!project) return;
 
+    await addExpense({title:project.name+': '+(expenseNote.trim()||l('Project expense','প্রজেক্ট খরচ')),category:l('Project expense','প্রজেক্ট খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
     setShowExpenseModal(false);
     setExpenseAmount('');
     setExpenseNote('');
@@ -89,48 +93,13 @@ export default function ProjectDetailScreen() {
       l('Success', 'সফল'),
       `${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`
     );
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
-  // Sample transactions matching Page 13
-  const sampleTransactions = [
-    {
-      id: 't1',
-      titleBn: 'বিনিয়োগ প্রদান',
-      titleEn: 'Investment Disbursed',
-      metaBn: '১০ মার্চ ২০২৫ · ব্যাংক',
-      metaEn: '10 March 2025 · Bank',
-      amount: -500000,
-      isIncome: false,
-    },
-    {
-      id: 't2',
-      titleBn: 'বিনিয়োগ প্রদান (২য় কিস্তি)',
-      titleEn: 'Investment Disbursed (2nd Installment)',
-      metaBn: '১৫ জুন ২০২৫ · ব্যাংক',
-      metaEn: '15 June 2025 · Bank',
-      amount: -1000000,
-      isIncome: false,
-    },
-    {
-      id: 't3',
-      titleBn: 'আয়: প্লট বিক্রয় (আংশিক)',
-      titleEn: 'Income: Plot Sale (Partial)',
-      metaBn: '২০ জানুয়ারি ২০২৬',
-      metaEn: '20 January 2026',
-      amount: 240000,
-      isIncome: true,
-    },
-    {
-      id: 't4',
-      titleBn: 'আয়: প্লট বিক্রয়',
-      titleEn: 'Income: Plot Sale',
-      metaBn: '১২ আগস্ট ২০২৬',
-      metaEn: '12 August 2026',
-      amount: 180000,
-      isIncome: true,
-    },
-  ];
+  // Project ledger
+  const sampleTransactions = transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':'))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
 
+  if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Project not found','প্রজেক্ট পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to projects','প্রজেক্ট তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   const projectTitle = isBengali
     ? project.name
     : project.id === 'p1'

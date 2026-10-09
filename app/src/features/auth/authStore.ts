@@ -228,6 +228,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           currentUser: member,
           userRole: determinedRole,
+          actualRole: determinedRole === 'member' ? 'member' : 'super_admin',
           isAuthenticated: true,
           isPinVerified: true,
         });

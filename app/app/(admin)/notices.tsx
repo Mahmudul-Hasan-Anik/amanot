@@ -18,6 +18,7 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { bnDate } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 
 export default function NoticesScreen() {
   const router = useRouter();
@@ -80,7 +81,7 @@ export default function NoticesScreen() {
               multiline
             />
             <TouchableOpacity style={styles.postBtn} onPress={handlePost} activeOpacity={0.85}>
-              <Ionicons name="megaphone-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="megaphone-outline" size={18} color={colors.textWhite} />
               <Text style={styles.postBtnText}>{l('Publish Notice', 'নোটিশ প্রকাশ করুন')}</Text>
             </TouchableOpacity>
           </View>
@@ -123,11 +124,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: 18, color: colors.text },
+  headerTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.title, color: colors.text },
   scroll: { paddingHorizontal: 16, paddingBottom: 24 },
   card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 20 },
-  cardTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: 16, color: colors.text },
-  cardSub: { fontFamily: 'HindSiliguri-Regular', fontSize: 13, color: colors.textSecondary, marginBottom: 12 },
+  cardTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.base, color: colors.text },
+  cardSub: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.sm, color: colors.textSecondary, marginBottom: 12 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: 'HindSiliguri-Regular',
-    fontSize: 15,
+    fontSize: typography.size.md,
     color: colors.text,
     marginBottom: 10,
     backgroundColor: colors.surface,
@@ -150,9 +151,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 12,
   },
-  postBtnText: { fontFamily: 'HindSiliguri-SemiBold', fontSize: 15, color: '#FFFFFF' },
-  sectionTitle: { fontFamily: 'HindSiliguri-SemiBold', fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
-  empty: { fontFamily: 'HindSiliguri-Regular', fontSize: 14, color: colors.textSecondary, paddingVertical: 12 },
+  postBtnText: { fontFamily: 'HindSiliguri-SemiBold', fontSize: typography.size.md, color: colors.textWhite },
+  sectionTitle: { fontFamily: 'HindSiliguri-SemiBold', fontSize: typography.size.subhead, color: colors.textSecondary, marginBottom: 8 },
+  empty: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.subhead, color: colors.textSecondary, paddingVertical: 12 },
   noticeCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
@@ -160,8 +161,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-  noticeTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: 15, color: colors.text },
-  noticeBody: { fontFamily: 'HindSiliguri-Regular', fontSize: 14, color: colors.text, marginTop: 4 },
-  noticeMeta: { fontFamily: 'HindSiliguri-Regular', fontSize: 12, color: colors.textSecondary, marginTop: 6 },
+  noticeTitle: { fontFamily: 'HindSiliguri-Bold', fontSize: typography.size.md, color: colors.text },
+  noticeBody: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.subhead, color: colors.text, marginTop: 4 },
+  noticeMeta: { fontFamily: 'HindSiliguri-Regular', fontSize: typography.size.caption, color: colors.textSecondary, marginTop: 6 },
   deleteBtn: { padding: 6, marginLeft: 8 },
 });
