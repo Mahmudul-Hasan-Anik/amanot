@@ -7,5 +7,6 @@ dist-demo/
 .env
 .env.*.local
 eas-build-info.json
+npm-audit.json
 scripts/improve-*.cjs
 scripts/generate-summary-migration.cjs

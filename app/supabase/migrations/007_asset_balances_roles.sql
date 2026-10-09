@@ -81,7 +81,7 @@ begin
   v_proj_profit := public.project_profit_between(y_start, (current_date + 1));
 
   -- fund at start of month ≈ current fund − net flow this month
-  v_prev_fund := (v_cash + v_proj) - (v_income - v_expense);
+  v_prev_fund := (v_cash + v_proj) - (v_collected + public.project_profit_between(m_start,current_date+1) - v_expense);
 
   r := jsonb_build_object(
     'totalMembersCount', v_total_members,

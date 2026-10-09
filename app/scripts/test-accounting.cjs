@@ -107,6 +107,12 @@ async function main(){
     await pass('anonymous users cannot invoke SMS or automatic approval',async()=>{
       await db.exec('set role anon');await denied('select auto_approve_eligible()');await denied("select log_sms('01711000002','hello')");await db.exec('reset role');
     });
+    if (fs.existsSync(path.join(root,'supabase/deploy_004_007.sql'))) await pass('atomic upgrade keeps private data and function backups',async()=>{
+      await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_004_007.sql'),'utf8'));
+      assert.equal(Number((await one('select count(*) n from amanot_backup_20261009.transactions')).n),Number((await one('select count(*) n from public.transactions')).n));
+      assert.equal(Number((await one('select count(*) n from public.amanot_schema_versions')).n),4);
+      await db.exec('set role authenticated');await denied('select * from amanot_backup_20261009.members');await db.exec('reset role');
+    });
     console.log(`\n${checks} accounting checks passed.`);
   } finally {await db.close();}
 }

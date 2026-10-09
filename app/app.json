@@ -21,10 +21,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#0F5E4A"
       },
-      "permissions": [
-        "android.permission.NOTIFICATIONS",
-        "android.permission.RECORD_AUDIO"
-      ]
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
     "scheme": "amanot",
     "plugins": [
@@ -35,7 +32,8 @@
         "expo-image-picker",
         {
           "photosPermission": "সদস্যের ছবি ও নথি নির্বাচন করতে অনুমতি দিন।",
-          "cameraPermission": "সদস্যের ছবি তুলতে ক্যামেরার অনুমতি দিন।"
+          "cameraPermission": "সদস্যের ছবি তুলতে ক্যামেরার অনুমতি দিন।",
+          "microphonePermission": false
         }
       ]
     ],
