@@ -40,7 +40,7 @@ export default function LoginScreen() {
   const { l, isBengali, useBengaliDigits, formatNum } = useLanguage();
 
   // Internal English 10-digit number (e.g. '1712345678')
-  const [phoneDigits, setPhoneDigits] = useState('1712345678');
+  const [phoneDigits, setPhoneDigits] = useState(REMOTE ? '' : '1712345678');
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [timerSeconds, setTimerSeconds] = useState(42);
@@ -218,6 +218,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {!REMOTE && <View style={styles.demoHintBox}><Text style={styles.demoHintText}>{l('Demo · No SMS is sent. Admin: 01711223344 · OTP: 482700 · PIN: 1234', 'ডেমো · এসএমএস পাঠানো হয় না। অ্যাডমিন: ০১৭১১২২৩৩৪৪ · ওটিপি: ৪৮২৭০০ · পিন: ১২৩৪')}</Text></View>}
         {/* Top Language Switcher (Dev-only) */}
         {__DEV__ && (
           <View style={styles.topBar}>
@@ -339,13 +340,13 @@ export default function LoginScreen() {
               </Text>
             )}
 
-            {/* Demo Hint (Dev-only) */}
-            {__DEV__ && (
+            {/* Demo OTP is never shown in live mode. */}
+            {!REMOTE && (
               <View style={styles.demoHintBox}>
                 <Text style={styles.demoHintText}>
                   {l(
-                    '💡 Demo OTP: 482700 (or any 6 digits)',
-                    '💡 ডেমো ওটিপি কোড: ৪৮২৭০০ (বা যেকোনো ৬ ডিজিট)'
+                    'Demo OTP: 482700',
+                    'ডেমো ওটিপি কোড: ৪৮২৭০০'
                   )}
                 </Text>
               </View>

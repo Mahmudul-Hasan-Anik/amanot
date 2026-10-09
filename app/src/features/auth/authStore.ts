@@ -264,7 +264,7 @@ export const useAuthStore = create<AuthState>()(
         const pool = membersPool && membersPool.length > 0 ? membersPool : mockMembers;
 
         const foundMember = pool.find((m) => {
-          const mPhone = toEnglishDigits(m.phone.replace(/\D/g, ''));
+          const mPhone = toEnglishDigits(m.phone).replace(/\D/g, '');
           return mPhone.endsWith(clean.slice(-10)) || clean.endsWith(mPhone.slice(-10));
         });
 
@@ -277,7 +277,7 @@ export const useAuthStore = create<AuthState>()(
             foundMember.id === '1';
 
           const role: UserRole = isAdmin ? 'admin' : 'member';
-          set({ currentUser: foundMember, userRole: role });
+          set({ currentUser: foundMember, userRole: role, actualRole: isAdmin ? (foundMember.id==='1' ? 'super_admin' : 'admin') : 'member' });
           return { found: true, member: foundMember, role };
         }
 

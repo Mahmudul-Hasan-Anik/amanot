@@ -11,7 +11,8 @@
     "check:tokens": "node scripts/check-tokens.js",
     "typecheck": "tsc --noEmit",
     "test:accounting": "node scripts/test-accounting.cjs",
-    "build:web": "expo export --platform web",
+    "build:web": "node scripts/build-web.cjs",
+    "build:web:demo": "node scripts/build-web.cjs --demo",
     "preview:web": "node scripts/serve-web.cjs"
   },
   "dependencies": {
