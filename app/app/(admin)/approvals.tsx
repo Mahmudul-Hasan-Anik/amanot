@@ -43,6 +43,7 @@ export default function ApprovalsScreen() {
     rejectedApprovals = [],
     approveRequest,
     rejectRequest,
+    autoApproveAllPending,
   } = useSomitiStore();
 
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
@@ -57,9 +58,9 @@ export default function ApprovalsScreen() {
   const [customReason, setCustomReason] = useState('');
 
   // Fallback to mock data if store list is empty so screen displays the exact design data
-  const approvals = storeApprovals && storeApprovals.length > 0 ? storeApprovals : mockPendingApprovals;
-  const approvedList = approvedApprovals && approvedApprovals.length > 0 ? approvedApprovals : mockApprovedApprovals;
-  const rejectedList = rejectedApprovals && rejectedApprovals.length > 0 ? rejectedApprovals : mockRejectedApprovals;
+  const approvals = storeApprovals;
+  const approvedList = approvedApprovals;
+  const rejectedList = rejectedApprovals;
 
   const cleanTitle = (rawTitle: string) => {
     return rawTitle.replace(
@@ -74,9 +75,10 @@ export default function ApprovalsScreen() {
     return l('Correction', 'সংশোধন');
   };
 
-  const handleApprove = (item: PendingApproval) => {
+  const handleApprove = async (item: PendingApproval) => {
+    try {
     const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
-    approveRequest(item.id, approverName);
+    await approveRequest(item.id, approverName);
     Alert.alert(
       l('Approved', 'অনুমোদিত'),
       l(
@@ -84,9 +86,11 @@ export default function ApprovalsScreen() {
         `"${cleanTitle(item.title)}" সফলভাবে অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।`
       )
     );
+    } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
+    try {
     if (!rejectingItem) return;
     const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
     const finalReason =
@@ -96,7 +100,7 @@ export default function ApprovalsScreen() {
         ? REJECTION_REASONS[selectedReasonIdx].bn
         : REJECTION_REASONS[selectedReasonIdx].en;
 
-    rejectRequest(rejectingItem.id, finalReason, approverName);
+    await rejectRequest(rejectingItem.id, finalReason, approverName);
     const itemTitle = cleanTitle(rejectingItem.title);
     setRejectingItem(null);
     setCustomReason('');
@@ -104,6 +108,30 @@ export default function ApprovalsScreen() {
       l('Rejected', 'প্রত্যাখ্যাত'),
       l(`"${itemTitle}" has been rejected.`, `"${itemTitle}" বাতিল করা হয়েছে।`)
     );
+    } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
+  };
+
+  const handleAutoApproveAll = async () => {
+    try {
+    const result = await autoApproveAllPending();
+    if (result.approvedCount > 0) {
+      Alert.alert(
+        l('Auto-Approved', 'স্বয়ংক্রিয় অনুমোদন সম্পন্ন'),
+        l(
+          `${result.approvedCount} eligible requests totaling ${formatMoney(result.totalAmount)} have been auto-approved!`,
+          `${formatNum(result.approvedCount)}টি উপযুক্ত অনুরোধ (মোট ${formatMoney(result.totalAmount)}) স্বয়ংক্রিয়ভাবে অনুমোদিত হয়েছে!`
+        )
+      );
+    } else {
+      Alert.alert(
+        l('Notice', 'নোটিশ'),
+        l(
+          'No pending vouchers eligible for auto-approval threshold.',
+          'স্বয়ংক্রিয় অনুমোদনের সীমার মধ্যে কোনো অপেক্ষমাণ ভাউচার নেই।'
+        )
+      );
+    }
+    } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
   const currentList =
@@ -181,6 +209,34 @@ export default function ApprovalsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Auto Approve Quick Action Banner */}
+        {activeTab === 'pending' && approvals.length > 0 && (
+          <View style={styles.autoApproveBanner}>
+            <View style={styles.autoApproveLeft}>
+              <View style={styles.autoApproveIconBox}>
+                <Ionicons name="flash" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.autoApproveTextCol}>
+                <Text style={styles.autoApproveTitle}>
+                  {l('Smart Auto-Approval', 'স্বয়ংক্রিয় অনুমোদন')}
+                </Text>
+                <Text style={styles.autoApproveSub}>
+                  {l('One-tap approve all vouchers under limit', 'সীমার নিচের ভাউচার এক ক্লিকে অনুমোদন')}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.autoApproveBtn}
+              onPress={handleAutoApproveAll}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.autoApproveBtnText}>
+                {l('⚡ Auto-Approve', '⚡ সব অনুমোদন')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Approvals Cards List */}
         {currentList.length === 0 ? (
@@ -787,6 +843,56 @@ const styles = StyleSheet.create({
   modalConfirmRejectBtnText: {
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.caption,
+    color: colors.surface,
+  },
+  autoApproveBanner: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  autoApproveLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  autoApproveIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  autoApproveTextCol: {
+    flex: 1,
+  },
+  autoApproveTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.caption,
+    color: colors.primary,
+  },
+  autoApproveSub: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  autoApproveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  autoApproveBtnText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
     color: colors.surface,
   },
 });

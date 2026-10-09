@@ -66,7 +66,12 @@ export default function SettingsScreen() {
   };
 
   // Auto-approve toggle state (defaults to true per user directive)
-  const [autoApprove, setAutoApprove] = useState(true);
+  const [autoApprove, setAutoApprove] = useState((somitiInfo as any).autoApproveEnabled !== false);
+
+  const handleToggleAutoApprove = (val: boolean) => {
+    setAutoApprove(val);
+    updateSomitiInfo({ autoApproveEnabled: val, autoApproveThreshold: expenseApprovalLimit } as any);
+  };
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
@@ -409,7 +414,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={autoApprove}
-              onValueChange={setAutoApprove}
+              onValueChange={handleToggleAutoApprove}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.surface}
             />

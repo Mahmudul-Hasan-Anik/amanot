@@ -184,7 +184,7 @@ export default function MemberDashboardScreen() {
 
             <View style={styles.heroMetricCol}>
               <Text style={styles.metricSub}>{l('Estimated Profit', 'অর্জিত মুনাফা')}</Text>
-              <Text style={[styles.metricVal, { color: colors.accentYellow }]}>
+              <Text style={[styles.metricVal, { color: colors.surface }]}>
                 {formatMoney((member as any).estimatedProfit2026 || (member as any).profit2025 || 7714)}
               </Text>
             </View>

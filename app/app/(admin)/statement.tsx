@@ -16,10 +16,29 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { useSomitiStore } from '../../src/store/somitiStore';
+import { exportAndShareReceipt } from '../../src/utils/pdfExport';
 
 export default function StatementScreen() {
   const router = useRouter();
   const { l, isBengali } = useLanguage();
+  const { somitiInfo } = useSomitiStore();
+
+  const handleDownloadStatementPdf = () => {
+    exportAndShareReceipt({
+      receiptNo: 'STM-2026',
+      memberName: 'করিম উদ্দিন',
+      memberCode: 'SM-042',
+      memberPhone: '01712-345678',
+      amount: 18000,
+      date: '৩০ সেপ্টেম্বর ২০২৬',
+      paymentMethod: 'bank',
+      months: ['জানুয়ারি - সেপ্টেম্বর'],
+      dueAmount: 4100,
+      somitiName: somitiInfo.name,
+      somitiReg: somitiInfo.regNo,
+    });
+  };
 
   const [target, setTarget] = useState<'all' | 'due' | 'single' | 'custom'>('all');
   const [whatsapp, setWhatsapp] = useState(true);
@@ -224,12 +243,20 @@ export default function StatementScreen() {
               </View>
               <View style={styles.previewHeaderInfo}>
                 <Text style={styles.previewSomitiName}>
-                  {l('[Somiti Name]', '[সমিতির নাম]')}
+                  {l(somitiInfo.nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি')}
                 </Text>
                 <Text style={styles.previewDocType}>
                   {l('Member Statement · Jan-Sep 2026', 'সদস্য স্টেটমেন্ট · জানু-সেপ্টে ২০২৬')}
                 </Text>
               </View>
+              <TouchableOpacity
+                style={styles.previewDownloadBtn}
+                onPress={handleDownloadStatementPdf}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="download-outline" size={14} color={colors.primary} />
+                <Text style={styles.previewDownloadText}>{l('PDF', 'পিডিএফ')}</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Green divider line */}
@@ -543,6 +570,20 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.size.xs,
     color: colors.textSecondary,
+  },
+  previewDownloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  previewDownloadText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.xs,
+    color: colors.primary,
   },
   previewGreenRule: {
     height: 2,

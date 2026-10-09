@@ -17,6 +17,7 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
+import { exportAndShareReceipt, shareReceiptViaWhatsApp } from '../../../src/utils/pdfExport';
 
 export default function ReceiptScreen() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function ReceiptScreen() {
   const { getTransactionById, getMemberById, transactions, members, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
-  const displayMembers = members.length > 0 ? members : mockMembers;
+  const displayMembers = members;
 
   const txn = getTransactionById(id as string) || transactions[0];
   const member = txn
@@ -74,6 +75,36 @@ export default function ReceiptScreen() {
 
   const somitiTitle = l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি');
   const totalDepositNow = (member?.totalDeposit || 108000) + baseDeposit;
+
+  const receiptPayload = {
+    receiptNo: receiptNo.replace('#', ''),
+    memberName,
+    memberCode,
+    memberPhone: member?.phone,
+    amount,
+    date: dateStr,
+    paymentMethod: txn?.paymentMethod || 'bkash',
+    months: txn?.months,
+    lateFee,
+    dueAmount: member?.dueAmount,
+    trxId: txn?.trxId,
+    somitiName: somitiInfo.name,
+    somitiReg: somitiInfo.regNo,
+    somitiPhone: somitiInfo.phone,
+  };
+
+  const handleExportPdf = () => {
+    exportAndShareReceipt(receiptPayload);
+  };
+
+  const handleWhatsAppDirect = () => {
+    const phone = member?.whatsapp || member?.phone || '';
+    if (phone) {
+      shareReceiptViaWhatsApp(phone, receiptPayload);
+    } else {
+      handleShare();
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -163,14 +194,24 @@ export default function ReceiptScreen() {
 
         {/* Action Buttons */}
         <View style={styles.buttonsGroup}>
+          {/* PDF Download Button (prominent mint card) */}
+          <TouchableOpacity
+            style={styles.pdfBtn}
+            onPress={handleExportPdf}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+            <Text style={styles.pdfBtnText}>{l('Download / Print PDF', 'পিডিএফ ডাউনলোড ও প্রিন্ট')}</Text>
+          </TouchableOpacity>
+
           {/* Share Button (outlined stadium pill) */}
           <TouchableOpacity
             style={styles.shareBtn}
-            onPress={handleShare}
+            onPress={handleWhatsAppDirect}
             activeOpacity={0.8}
           >
-            <Ionicons name="paper-plane-outline" size={18} color={colors.text} />
-            <Text style={styles.shareBtnText}>{l('Share Receipt', 'রসিদ শেয়ার করুন')}</Text>
+            <Ionicons name="logo-whatsapp" size={18} color={colors.primary} />
+            <Text style={styles.shareBtnText}>{l('Share via WhatsApp', 'WhatsApp-এ রসিদ পাঠান')}</Text>
           </TouchableOpacity>
 
           {/* Another Deposit Button (deep green solid pill) */}
@@ -327,6 +368,21 @@ const styles = StyleSheet.create({
   },
   buttonsGroup: {
     gap: 12,
+  },
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 9999,
+    paddingVertical: 14,
+  },
+  pdfBtnText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    color: colors.primary,
   },
   shareBtn: {
     flexDirection: 'row',

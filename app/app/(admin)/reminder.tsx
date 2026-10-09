@@ -20,6 +20,7 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { smsGateway } from '../../src/services/smsGateway';
 
 interface TemplateItem {
   id: string;
@@ -36,7 +37,7 @@ export default function ReminderScreen() {
   const { members, somitiInfo } = useSomitiStore();
 
   const allMembers = useMemo(() => {
-    return members.length > 0 ? members : mockMembers;
+    return members;
   }, [members]);
 
   const paramIds = useMemo(() => {
@@ -163,6 +164,17 @@ export default function ReminderScreen() {
       const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
       const renderedMsg = renderFor(firstRecipient);
       Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(renderedMsg)}`).catch(() => {});
+    }
+
+    if (smsSelected) {
+      const smsPayloads = recipients.map((r) => ({
+        phone: r.phone,
+        message: renderFor(r),
+        templateType: 'overdue_reminder',
+        recipientName: r.name,
+        memberId: r.id,
+      }));
+      smsGateway.sendBulkSms(smsPayloads).catch(() => {});
     }
 
     Alert.alert(

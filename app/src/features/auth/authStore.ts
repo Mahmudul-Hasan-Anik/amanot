@@ -110,7 +110,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginWithPin: async (rawPin: string) => {
-        const pin = toEnglishDigits(rawPin.replace(/\D/g, ''));
+        const pin = toEnglishDigits(rawPin).replace(/\D/g, '');
         const phone = get().phone;
         try {
           if (get().phoneRegistered) {
@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
 
       registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin) => {
         const phone = normalizePhone(adminPhone);
-        const pin = toEnglishDigits(adminPin.replace(/\D/g, ''));
+        const pin = toEnglishDigits(adminPin).replace(/\D/g, '');
         if (pin.length !== 4) return { ok: false, error: 'পিন ৪ সংখ্যার হতে হবে' };
         try {
           await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin);
@@ -154,15 +154,15 @@ export const useAuthStore = create<AuthState>()(
       setPhone: (phone: string) => set({ phone }),
 
       requestOtp: (rawPhone: string) => {
-        const cleanPhone = toEnglishDigits(rawPhone.replace(/\D/g, ''));
+        const cleanPhone = toEnglishDigits(rawPhone).replace(/\D/g, '');
         const otp = '482700';
         set({ phone: cleanPhone, lastGeneratedOtp: otp });
         return otp;
       },
 
       verifyOtp: (rawOtp: string) => {
-        const cleanOtp = toEnglishDigits(rawOtp.replace(/\D/g, ''));
-        if (cleanOtp === get().lastGeneratedOtp || cleanOtp.length === 6) {
+        const cleanOtp = toEnglishDigits(rawOtp).replace(/\D/g, '');
+        if (cleanOtp === get().lastGeneratedOtp) {
           set({ isAuthenticated: true });
           return true;
         }
@@ -171,12 +171,12 @@ export const useAuthStore = create<AuthState>()(
 
       verifyPin: (rawPin: string) => {
         if (REMOTE) return false; // use loginWithPin() with the backend
-        const cleanPin = toEnglishDigits(rawPin.replace(/\D/g, ''));
+        const cleanPin = toEnglishDigits(rawPin).replace(/\D/g, '');
         const curr = get().currentUser;
         const memberPin = curr?.id ? get().customPins[curr.id] : undefined;
         const storedPin = toEnglishDigits(memberPin || get().pin || '1234');
 
-        if (cleanPin === storedPin || cleanPin === '1234' || cleanPin.length === 4) {
+        if (cleanPin === storedPin) {
           set({ isPinVerified: true });
           return true;
         }
@@ -184,7 +184,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setCustomPin: (newPin: string) => {
-        const cleanPin = toEnglishDigits(newPin.replace(/\D/g, ''));
+        const cleanPin = toEnglishDigits(newPin).replace(/\D/g, '');
         if (REMOTE) {
           api.changeOwnPin(cleanPin).catch((e: any) => Alert.alert('পিন পরিবর্তন ব্যর্থ', e?.message || String(e)));
           return;
@@ -201,7 +201,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setMemberPin: (memberId: string, newPin: string) => {
-        const cleanPin = toEnglishDigits(newPin.replace(/\D/g, ''));
+        const cleanPin = toEnglishDigits(newPin).replace(/\D/g, '');
         set((state) => ({
           customPins: { ...state.customPins, [memberId]: cleanPin },
         }));
@@ -259,7 +259,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkPhoneRegistration: (rawPhone: string, membersPool?: Member[]) => {
-        const clean = toEnglishDigits(rawPhone.replace(/\D/g, ''));
+        const clean = toEnglishDigits(rawPhone).replace(/\D/g, '');
         const pool = membersPool && membersPool.length > 0 ? membersPool : mockMembers;
 
         const foundMember = pool.find((m) => {
@@ -289,8 +289,8 @@ export const useAuthStore = create<AuthState>()(
         adminPhone: string,
         adminPin: string
       ) => {
-        const cleanPhone = toEnglishDigits(adminPhone.replace(/\D/g, ''));
-        const cleanPin = toEnglishDigits(adminPin.replace(/\D/g, ''));
+        const cleanPhone = toEnglishDigits(adminPhone).replace(/\D/g, '');
+        const cleanPin = toEnglishDigits(adminPin).replace(/\D/g, '');
         const newAdmin: Member = {
           id: 'admin_1',
           code: 'SM-001',
@@ -333,7 +333,8 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'amanot-auth-storage',
+      name: REMOTE ? 'amanot-auth-live' : 'amanot-auth-storage',
+      partialize: ({ isPinVerified, pin, customPins, lastGeneratedOtp, ...state }) => REMOTE ? state : { ...state, isPinVerified, pin, customPins, lastGeneratedOtp },
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

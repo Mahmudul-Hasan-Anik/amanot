@@ -170,7 +170,7 @@ function mapCash(r: any): CashAccount {
   return { id: r.id, type: r.type, name: r.name, holder: r.holder || '', amount: num(r.amount), note: r.note || undefined };
 }
 
-function mapExpense(r: any): ExpenseItem {
+export function mapExpense(r: any): ExpenseItem {
   return {
     id: r.id,
     title: r.title,
@@ -343,7 +343,7 @@ export async function signOut() {
 // writes (all go through SECURITY DEFINER RPCs)
 // ---------------------------------------------------------------------------
 
-const rpc = async (fn: string, args: Record<string, any>) => unwrap(await supabase.rpc(fn, args));
+const rpc = async (fn: string, args: Record<string, any> = {}) => unwrap(await supabase.rpc(fn, args));
 
 export const addMember = (p: Record<string, any>) => rpc('add_member', { p });
 export const updateMember = (id: string, p: Record<string, any>) => rpc('update_member', { p_id: id, p });
@@ -417,3 +417,26 @@ export const upsertProject = (p: Record<string, any>) => rpc('upsert_project', {
 export const profitPreview = (year: number) => rpc('profit_preview', { p_year: year });
 export const distributeProfit = (year: number, reservePct: number, managementPct: number) =>
   rpc('distribute_profit', { p_year: year, p_reserve_pct: reservePct, p_management_pct: managementPct });
+
+export const autoApproveEligible = () => rpc('auto_approve_eligible');
+
+export const logSms = (d: {
+  phone: string;
+  message: string;
+  template?: string;
+  recipientName?: string;
+  memberId?: string;
+  provider?: string;
+  status?: string;
+  response?: any;
+}) =>
+  rpc('log_sms', {
+    p_phone: d.phone,
+    p_message: d.message,
+    p_template: d.template ?? 'custom',
+    p_recipient_name: d.recipientName ?? null,
+    p_member_id: d.memberId ?? null,
+    p_provider: d.provider ?? 'mock',
+    p_status: d.status ?? 'sent',
+    p_response: d.response ?? {},
+  });

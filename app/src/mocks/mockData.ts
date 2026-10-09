@@ -115,6 +115,8 @@ export const mockSomitiInfo = {
   monthlyNet: 169600,
   yearlyProjectProfit: 312000,
   expenseApprovalLimit: 10000,
+  autoApproveEnabled: true,
+  autoApproveLimit: 5000,
 };
 
 export const mockMembers: Member[] = [

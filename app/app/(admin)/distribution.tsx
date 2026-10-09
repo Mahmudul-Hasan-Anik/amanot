@@ -20,6 +20,7 @@ import { REMOTE } from '../../src/store/somitiStore';
 import * as api from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { exportAndShareReceipt } from '../../src/utils/pdfExport';
 
 export default function ProfitDistributionScreen() {
   const router = useRouter();
@@ -143,13 +144,17 @@ export default function ProfitDistributionScreen() {
   };
 
   const handleDownloadDraft = () => {
-    Alert.alert(
-      l('Draft PDF Export', 'খসড়া PDF এক্সপোর্ট'),
-      l(
-        'Downloading calculation draft PDF for accounting year 2026...',
-        'হিসাব বছর ২০২৬ এর খসড়া লাভ বণ্টন স্টেটমেন্ট PDF ডাউনলোড হচ্ছে...'
-      )
-    );
+    exportAndShareReceipt({
+      receiptNo: `DIST-${year}`,
+      memberName: l('All Somiti Members', 'সকল সমিতি সদস্য'),
+      memberCode: `${totalMemberCount} জন`,
+      amount: distributableProfit,
+      date: `হিসাব বছর ${isBengali ? bnYear : year}`,
+      paymentMethod: 'ব্যাংক ও সমবায় ফান্ড',
+      dueAmount: 0,
+      somitiName: somitiInfo.name,
+      somitiReg: somitiInfo.regNo,
+    });
   };
 
   return (

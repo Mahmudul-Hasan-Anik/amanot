@@ -18,6 +18,7 @@ import { toBengaliDigits } from '../lib/bengali';
 import { Alert } from 'react-native';
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as api from '../lib/api';
+import { smsGateway } from '../services/smsGateway';
 
 /** true = real Supabase backend, false = local demo data */
 export const REMOTE = isSupabaseConfigured();
@@ -62,6 +63,8 @@ export interface Transaction {
   note?: string;
   months?: string[];
   lateFee?: number;
+  dateISO?: string;
+  createdAt?: string;
 }
 
 export interface ExpenseItem {
@@ -143,7 +146,7 @@ export interface SomitiState {
     note?: string;
     sendWhatsApp?: boolean;
     sendSMS?: boolean;
-  }) => Transaction;
+  }) => Promise<Transaction>;
 
   // Expense Actions
   addExpense: (data: {
@@ -154,11 +157,12 @@ export interface SomitiState {
     voucherNo: string;
     note?: string;
     status?: 'approved' | 'pending';
-  }) => void;
+  }) => Promise<ExpenseItem>;
 
   // Approvals Actions
-  approveRequest: (id: string, actor?: string) => void;
-  rejectRequest: (id: string, reason?: string, actor?: string) => void;
+  approveRequest: (id: string, actor?: string) => Promise<void>;
+  rejectRequest: (id: string, reason?: string, actor?: string) => Promise<void>;
+  autoApproveAllPending: () => Promise<{ approvedCount: number; totalAmount: number }>;
 
   // Project Actions
   recordProjectReturn: (data: {
@@ -453,7 +457,19 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Deposit
-      recordDeposit: (data) => {
+      recordDeposit: async (data) => {
+        if (!Number.isFinite(data.totalAmount) || data.totalAmount <= 0) throw new Error('জমার পরিমাণ সঠিক নয়');
+        if (REMOTE) {
+          const saved = api.mapTransaction(await api.recordDeposit({ ...data, id: api.uuid() }));
+          await get().syncFromServer();
+          if (data.sendSMS) {
+            const member = get().members.find(m => m.id === data.memberId);
+            if (member) await smsGateway.sendSms({ phone: member.phone, memberId: member.id, recipientName: member.name,
+              templateType: 'deposit_receipt', message: smsGateway.templates.depositReceipt({ name: member.name,
+                amount: saved.amount, receiptNo: saved.receiptNo, dueAmount: member.dueAmount, somitiName: get().somitiInfo.name }) });
+          }
+          return saved;
+        }
         const { memberId, totalAmount, paymentMethod, trxId, note, months, lateFee } = data;
         const currentMembers = get().members;
         const member = currentMembers.find((m) => m.id === memberId);
@@ -466,7 +482,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId,
           memberName: member?.name || 'সদস্য',
           memberCode: member?.code || 'SM-000',
-          date: '২ অক্টোবর ২০২৬',
+          date: api.bnDate(new Date().toISOString()),
+          dateISO: new Date().toISOString().slice(0, 10),
           amount: totalAmount,
           type: 'deposit',
           paymentMethod,
@@ -479,13 +496,13 @@ export const useSomitiStore = create<SomitiState>()(
         // Update Member
         const updatedMembers = currentMembers.map((m) => {
           if (m.id === memberId) {
-            const newTotalDeposit = m.totalDeposit + totalAmount;
+            const newTotalDeposit = m.totalDeposit + Math.max(0, totalAmount - lateFee);
             const newDueAmount = Math.max(0, m.dueAmount - totalAmount);
             const newDueMonths = Math.max(0, m.dueMonths - months.length);
             const newStatus: 'paid' | 'due' | 'partial' | 'inactive' = newDueAmount === 0 ? 'paid' : 'due';
             const updatedTxns = [
               {
-                date: '২ অক্টোবর',
+                date: api.bnDate(new Date().toISOString(), false),
                 title: `${months.join(', ')} জমা`,
                 amount: totalAmount,
                 receiptNo: receiptNumber,
@@ -540,27 +557,40 @@ export const useSomitiStore = create<SomitiState>()(
           cashAccounts: updatedCashAccounts,
         });
 
-        remote('জমা', () =>
-          api.recordDeposit({
-            id: txnId,
-            memberId,
-            months,
-            baseAmount: data.baseAmount,
-            lateFee,
-            totalAmount,
-            paymentMethod,
-            trxId,
-            note,
-          })
-        );
+
+        if (data.sendSMS && member?.phone) {
+          const newDue = Math.max(0, member.dueAmount - totalAmount);
+          smsGateway.sendSms({
+            phone: member.phone,
+            recipientName: member.name,
+            memberId: member.id,
+            templateType: 'deposit_receipt',
+            message: smsGateway.templates.depositReceipt({
+              name: member.name,
+              amount: totalAmount,
+              receiptNo: receiptNumber,
+              dueAmount: newDue,
+              somitiName: get().somitiInfo.name,
+            }),
+          }).catch(() => {});
+        }
 
         return newTxn;
       },
 
       // Expense
-      addExpense: (data) => {
-        remote('খরচ', () => api.addExpense(data));
-        const isPending = data.status === 'pending';
+      addExpense: async (data) => {
+        if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('খরচের পরিমাণ সঠিক নয়');
+        if (REMOTE) {
+          const saved = api.mapExpense(await api.addExpense(data));
+          await get().syncFromServer();
+          return saved;
+        }
+        const somiti = get().somitiInfo;
+        const autoLimit = (somiti as any).autoApproveThreshold ?? 5000;
+        const autoEnabled = (somiti as any).autoApproveEnabled !== false;
+        const shouldAutoApprove = autoEnabled && data.amount <= autoLimit;
+        const isPending = !shouldAutoApprove && data.status === 'pending';
         const newExpense: ExpenseItem = {
           id: `exp-${Date.now()}`,
           title: data.title,
@@ -591,7 +621,7 @@ export const useSomitiStore = create<SomitiState>()(
             expenses: [newExpense, ...get().expenses],
             approvals: [newApproval, ...get().approvals],
           });
-          return;
+          return newExpense;
         }
 
         const newTxn: Transaction = {
@@ -634,30 +664,29 @@ export const useSomitiStore = create<SomitiState>()(
             monthlyNet: get().somitiInfo.monthlyNet - data.amount,
           }
         });
+        return newExpense;
       },
 
       // Approvals
-      approveRequest: (id, actor) => {
+      approveRequest: async (id, actor) => {
         const currentApprovals = get().approvals;
         const item = currentApprovals.find((a) => a.id === id);
-        if (item && REMOTE) {
-          set({
-            approvals: currentApprovals.filter((a) => a.id !== id),
-            approvedApprovals: [{ ...item, status: 'approved', approvedBy: actor }, ...(get().approvedApprovals || [])],
-          });
-          remote('অনুমোদন', () => api.approveRequest(id));
+        if (REMOTE) {
+          await api.approveRequest(id);
+          await get().syncFromServer();
           return;
         }
         if (item) {
           if (item.type === 'expense' || item.type === 'investment') {
             // Add to expense
-            get().addExpense({
+            await get().addExpense({
               title: item.title,
               category: item.type === 'investment' ? 'প্রজেক্ট বিনিয়োগ' : 'সাধারণ ব্যয়',
               amount: item.amount,
               paymentSource: item.type === 'investment' ? 'ব্যাংক' : 'হাতে নগদ',
               voucherNo: `V-${toBengaliDigits(Math.floor(1000 + Math.random() * 9000))}`,
               note: item.detail,
+              status: 'approved',
             });
           }
 
@@ -675,7 +704,58 @@ export const useSomitiStore = create<SomitiState>()(
         }
       },
 
-      rejectRequest: (id, reason, actor) => {
+      autoApproveAllPending: async () => {
+        if (REMOTE) {
+          const result: any = await api.autoApproveEligible();
+          await get().syncFromServer();
+          return { approvedCount: Number(result.approved_count), totalAmount: Number(result.total_amount) };
+        }
+        const somiti = get().somitiInfo;
+        const autoLimit = (somiti as any).autoApproveThreshold ?? 5000;
+        const currentApprovals = get().approvals;
+        const eligible = currentApprovals.filter((a) => a.amount <= autoLimit);
+        if (eligible.length === 0) return { approvedCount: 0, totalAmount: 0 };
+
+        let totalAmount = 0;
+        const newlyApproved: PendingApproval[] = [];
+
+        for (const item of eligible) {
+          totalAmount += item.amount;
+          if (item.type === 'expense' || item.type === 'investment') {
+            await get().addExpense({
+              title: item.title,
+              category: item.type === 'investment' ? 'প্রজেক্ট বিনিয়োগ' : 'সাধারণ ব্যয়',
+              amount: item.amount,
+              paymentSource: item.type === 'investment' ? 'ব্যাংক' : 'হাতে নগদ',
+              voucherNo: `V-${toBengaliDigits(Math.floor(1000 + Math.random() * 9000))}`,
+              note: item.detail,
+              status: 'approved',
+            });
+          }
+          newlyApproved.push({
+            ...item,
+            status: 'approved',
+            approvedAt: 'আজ স্বয়ংক্রিয়',
+            approvedBy: 'সিস্টেম (স্বয়ংক্রিয় অনুমোদন)',
+          });
+        }
+
+        const remainingPending = currentApprovals.filter((a) => a.amount > autoLimit);
+        set({
+          approvals: remainingPending,
+          approvedApprovals: [...newlyApproved, ...(get().approvedApprovals || [])],
+        });
+
+
+        return { approvedCount: eligible.length, totalAmount };
+      },
+
+      rejectRequest: async (id, reason, actor) => {
+        if (REMOTE) {
+          await api.rejectRequest(id, reason);
+          await get().syncFromServer();
+          return;
+        }
         const currentApprovals = get().approvals;
         const item = currentApprovals.find((a) => a.id === id);
         if (item) {
