@@ -14,7 +14,9 @@ $env:EXPO_PUBLIC_DEMO_MODE='true'
 npm run web
 ```
 
-For a production web export, unset `EXPO_PUBLIC_DEMO_MODE`, configure `.env`, and run `npm run build:web`. Publish `dist/` to an HTTPS static host with SPA fallback to `index.html`. For a demo export keep the flag enabled. `.npmrc` keeps local and EAS installs consistent with the dependency lock.
+For a live web export, configure `.env` and run `npm run build:web`. Publish `dist/` to an HTTPS static host with SPA fallback to `index.html`. Run `npm run build:web:demo` for `dist-demo/`. Both commands explicitly set the mode and clear Metro's cache so an earlier export cannot leak its mode into the next build. `.npmrc` keeps local and EAS installs consistent with the dependency lock.
+
+For the demo, use admin phone `01711223344`, OTP `482700`, PIN `1234`. Preview with `node scripts/serve-web.cjs dist-demo 8082`.
 
 Accounting tests load the SQL schema and every migration into a disposable PostgreSQL/PGlite database. They verify posting, duplicate protection, balances, dues, distribution and permissions. Hosted authentication, password hashing, storage delivery, SMS providers and Android device behavior need integration testing; the test uses auth/storage scaffolding and test-only hashing stubs.
 
@@ -55,4 +57,6 @@ npx eas-cli@latest build --platform android --profile preview
 
 ## Delivery status
 
-Frontend, database migration and Edge Function source are in this repository. Live database migrations, the Edge Function, hosting, real SMS credentials and a real Android device check are separate deployment steps. No live ledger or real member SMS was altered during local verification.
+On 9 October 2026, migrations 004–007 were applied atomically to Supabase project `yhkidajopoqjqushcpwq`. A restricted backup of the business tables and function definitions is retained in `amanot_backup_20261009`. Post-deployment checks confirmed member retention, unchanged existing ledger rows, private backup access, private document storage and the new accounting fields. The `send-sms` Edge Function is deployed with JWT verification enabled and the default simulated provider.
+
+Web exports and the preview APK are demo testing deliverables; the live web export uses the configured Supabase project. Public HTTPS hosting, real SMS credentials, hosted login integration and an Android device check remain to be completed before member rollout. No live ledger entry or real member SMS was created during verification. The dependency audit still reports inherited toolchain/transitive advisories; major forced downgrades were avoided.
