@@ -1,3 +1,5 @@
+import { Card } from '../../../src/components/Card';
+import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -188,7 +190,7 @@ export default function CollectionScreen() {
         </TouchableOpacity>
 
         {/* Collection Summary Card */}
-        <View style={styles.summaryCard}>
+        <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryTop}>
             <ProgressRing
               progress={percent}
@@ -220,7 +222,7 @@ export default function CollectionScreen() {
               <Text style={styles.statValWarning}>{formatNum(unpaidCount)} {l('members', 'জন')}</Text>
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* Segmented Filter Control */}
         <View style={styles.filterWrapper}>
@@ -303,19 +305,13 @@ export default function CollectionScreen() {
       </ScrollView>
 
       {/* Floating Action Button (FAB) */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(admin)/deposit/new')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={20} color={colors.surface} />
-        <Text style={styles.fabText}>{l('Deposit', 'জমা নিন')}</Text>
-      </TouchableOpacity>
+      <FAB label={l('Deposit', 'জমা নিন')} onPress={() => router.push('/(admin)/deposit/new')} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  summaryCard: { borderRadius: 20, padding: 20, marginBottom: 16, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -391,17 +387,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     lineHeight: typography.lineHeight.sm,
     color: colors.text,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   summaryTop: {
     flexDirection: 'row',
@@ -563,28 +548,5 @@ const styles = StyleSheet.create({
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,
     color: colors.text,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 9999,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    gap: 6,
-  },
-  fabText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.surface,
   },
 });

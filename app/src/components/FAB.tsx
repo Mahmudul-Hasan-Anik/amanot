@@ -1,11 +1,13 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from './Button';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 interface FABProps {
   label?: string;
+  accessibilityLabel?: string;
   iconName?: keyof typeof Ionicons.glyphMap;
   iconSize?: number;
   onPress: () => void;
@@ -15,43 +17,35 @@ interface FABProps {
 
 export const FAB: React.FC<FABProps> = ({
   label,
+  accessibilityLabel,
   iconName = 'add',
   iconSize = 20,
   onPress,
   style,
   position = 'bottom-right',
-}) => {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
-      style={[
-        styles.base,
-        position === 'bottom-right' ? styles.bottomRight : styles.bottomCenter,
-        style,
-      ]}
-    >
-      <Ionicons name={iconName} size={iconSize} color={colors.surface} />
-      {label ? <Text style={styles.label}>{label}</Text> : null}
-    </TouchableOpacity>
-  );
-};
+}) => (
+  <Button
+    title={label ?? ''}
+    accessibilityLabel={accessibilityLabel ?? label ?? iconName}
+    onPress={onPress}
+    variant="floating"
+    icon={<Ionicons name={iconName} size={iconSize} color={colors.surface} style={styles.icon} />}
+    textStyle={styles.label}
+    style={[
+      styles.base,
+      position === 'bottom-right' ? styles.bottomRight : styles.bottomCenter,
+      style,
+    ]}
+  />
+);
 
 const styles = StyleSheet.create({
   base: {
     position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 9999,
-    paddingVertical: 13,
+    maxWidth: '90%',
+    minHeight: 48,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 6,
     zIndex: 99,
   },
   bottomRight: {
@@ -62,12 +56,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     bottom: 24,
   },
+  icon: {
+    flexShrink: 0,
+  },
   label: {
-    fontFamily: 'HindSiliguri-Bold',
+    fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    fontWeight: '700',
-    color: colors.surface,
-    marginLeft: 6,
+    lineHeight: typography.lineHeight.base,
   },
 });

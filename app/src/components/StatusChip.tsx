@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 export type StatusType =
   | 'paid'        // জমা ✓
@@ -66,7 +67,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    fontSize: 12,
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: '600',
   },
 });

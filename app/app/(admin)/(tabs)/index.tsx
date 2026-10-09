@@ -1,3 +1,4 @@
+import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
@@ -558,14 +559,7 @@ export default function HomeDashboardScreen() {
       </ScrollView>
 
       {/* Floating Action Button: + জমা নিন */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(admin)/deposit/new')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={20} color={colors.surface} />
-        <Text style={styles.fabText}>{l('Deposit', 'জমা নিন')}</Text>
-      </TouchableOpacity>
+      <FAB label={l('Deposit', 'জমা নিন')} onPress={() => router.push('/(admin)/deposit/new')} />
     </SafeAreaView>
   );
 }
@@ -992,29 +986,6 @@ const styles = StyleSheet.create({
     fontFamily: 'HindSiliguri-Bold',
     fontSize: typography.size.xs,
     lineHeight: typography.lineHeight.xs,
-    color: colors.surface,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 9999,
-    elevation: 6,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    gap: 6,
-  },
-  fabText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
     color: colors.surface,
   },
 });

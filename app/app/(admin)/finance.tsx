@@ -1,3 +1,5 @@
+import { Card } from '../../src/components/Card';
+import { FAB } from '../../src/components/FAB';
 import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
@@ -227,7 +229,7 @@ export default function FinanceScreen() {
         </TouchableOpacity>
 
         {/* 3-Column Summary Card */}
-        <View style={styles.summaryCard}>
+        <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
             <Text style={styles.summaryValue}>{formatMoney(totalIncome)}</Text>
@@ -244,7 +246,7 @@ export default function FinanceScreen() {
               {formatMoney(netAmount)}
             </Text>
           </View>
-        </View>
+        </Card>
 
         {/* Section: হিসাবসমূহ (Accounts) */}
         <View style={styles.sectionHeaderRow}>
@@ -371,14 +373,7 @@ export default function FinanceScreen() {
       </ScrollView>
 
       {/* Floating Action Button (+ খরচ লিখুন) */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(admin)/expense/new')}
-        activeOpacity={0.88}
-      >
-        <Ionicons name="add" size={20} color={colors.surface} />
-        <Text style={styles.fabText}>{l('+ Record Expense', '+ খরচ লিখুন')}</Text>
-      </TouchableOpacity>
+      <FAB label={l('Record Expense', 'খরচ লিখুন')} onPress={() => router.push('/(admin)/expense/new')} />
 
       {/* Month Selector Modal */}
       <AppModal
@@ -541,6 +536,7 @@ export default function FinanceScreen() {
 }
 
 const styles = StyleSheet.create({
+  summaryCard: { flexDirection: 'row', marginBottom: 16 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -613,18 +609,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.caption,
     lineHeight: typography.lineHeight.caption,
     color: colors.text,
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
   },
   summaryCol: {
     flex: 1,
@@ -843,29 +827,6 @@ const styles = StyleSheet.create({
   },
   scrollSpacer: {
     height: 100,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 28,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    gap: 6,
-  },
-  fabText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.surface,
   },
   webModalOverlay: {
     position: 'absolute',

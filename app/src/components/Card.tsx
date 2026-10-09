@@ -5,7 +5,7 @@ import { colors } from '../theme/colors';
 interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  variant?: 'default' | 'outlined' | 'primary' | 'muted' | 'warning';
+  variant?: 'default' | 'surface' | 'outlined' | 'primary' | 'muted' | 'warning';
 }
 
 export const Card: React.FC<CardProps> = ({ children, style, variant = 'default' }) => {
@@ -31,6 +31,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
+  },
+  surface: {
+    backgroundColor: colors.surface,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   outlined: {
     backgroundColor: colors.surface,

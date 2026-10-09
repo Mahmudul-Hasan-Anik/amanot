@@ -24,6 +24,8 @@ export const FilterChip: React.FC<FilterChipProps> = ({
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
       style={[
         styles.chip,
         selected ? styles.chipSelected : styles.chipUnselected,

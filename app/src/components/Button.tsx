@@ -23,6 +23,7 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   testID?: string;
+  accessibilityLabel?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -37,6 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   testID,
+  accessibilityLabel,
 }) => {
   const normalizedSize = size === 'large' ? 'lg' : size;
   const isMint = variant === 'mint' || variant === 'secondary';
@@ -44,6 +46,9 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <TouchableOpacity
       testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       activeOpacity={0.8}
       onPress={onPress}
       disabled={disabled || loading}
@@ -64,7 +69,7 @@ export const Button: React.FC<ButtonProps> = ({
       ) : (
         <>
           {icon && <>{icon}</>}
-          <Text
+          {title ? <Text
             style={[
               styles.text,
               styles[`text_${variant}`],
@@ -74,7 +79,7 @@ export const Button: React.FC<ButtonProps> = ({
             ]}
           >
             {title}
-          </Text>
+          </Text> : null}
         </>
       )}
     </TouchableOpacity>
@@ -142,6 +147,7 @@ const styles = StyleSheet.create({
 
   // Text
   text: {
+    flexShrink: 1,
     fontFamily: 'HindSiliguri-SemiBold',
     fontWeight: '600',
     textAlign: 'center',

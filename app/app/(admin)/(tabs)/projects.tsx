@@ -1,3 +1,5 @@
+import { Button, Card, FilterChip, StatusChip } from '../../../src/components';
+import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -13,7 +15,6 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { mockProjects } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { AppModal } from '../../../src/components/AppModal';
 import { toEnglishDigits } from '../../../src/lib/bengali';
@@ -141,7 +142,7 @@ export default function ProjectsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Top Summary Card */}
-        <View style={styles.summaryCard}>
+        <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.topStatsRow}>
             <View>
               <Text style={styles.statLabel}>{l('Total Investment', 'মোট বিনিয়োগ')}</Text>
@@ -181,53 +182,25 @@ export default function ProjectsScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </Card>
 
         {/* Filter Chips */}
         <View style={styles.filterRow}>
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
-            onPress={() => setFilter('all')}
-            activeOpacity={0.8}
-          >
-            {filter === 'all' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
-            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              {l('All', 'সব')} {formatNum(displayProjects.length)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'ongoing' && styles.filterChipActive]}
-            onPress={() => setFilter('ongoing')}
-            activeOpacity={0.8}
-          >
-            {filter === 'ongoing' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
-            <Text style={[styles.filterText, filter === 'ongoing' && styles.filterTextActive]}>
-              {l('Ongoing', 'চলমান')} {formatNum(ongoingCount)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'delayed' && styles.filterChipActive]}
-            onPress={() => setFilter('delayed')}
-            activeOpacity={0.8}
-          >
-            {filter === 'delayed' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
-            <Text style={[styles.filterText, filter === 'delayed' && styles.filterTextActive]}>
-              {l('Delayed', 'বিলম্বিত')} {formatNum(delayedCount)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, filter === 'completed' && styles.filterChipActive]}
-            onPress={() => setFilter('completed')}
-            activeOpacity={0.8}
-          >
-            {filter === 'completed' && <Ionicons name="checkmark" size={14} color={colors.primary} style={styles.filterCheck} />}
-            <Text style={[styles.filterText, filter === 'completed' && styles.filterTextActive]}>
-              {l('Completed', 'সমাপ্ত')} {formatNum(completedCount)}
-            </Text>
-          </TouchableOpacity>
+          {([
+            ['all', l('All', 'সব'), displayProjects.length],
+            ['ongoing', l('Ongoing', 'চলমান'), ongoingCount],
+            ['delayed', l('Delayed', 'বিলম্বিত'), delayedCount],
+            ['completed', l('Completed', 'সমাপ্ত'), completedCount],
+          ] as const).map(([value, label, count]) => (
+            <FilterChip
+              key={value}
+              label={label}
+              count={formatNum(count)}
+              selected={filter === value}
+              onPress={() => setFilter(value)}
+              style={styles.filterChip}
+            />
+          ))}
         </View>
 
         {/* Projects List */}
@@ -278,19 +251,10 @@ export default function ProjectsScreen() {
                     </Text>
                   </View>
 
-                  {project.status === 'ongoing' ? (
-                    <View style={styles.ongoingBadge}>
-                      <Text style={styles.ongoingBadgeText}>{l('Ongoing', 'চলমান')}</Text>
-                    </View>
-                  ) : project.status === 'delayed' ? (
-                    <View style={styles.delayedBadge}>
-                      <Text style={styles.delayedBadgeText}>{l('Delayed', 'বিলম্বিত')}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.completedBadge}>
-                      <Text style={styles.completedBadgeText}>{l('Completed', 'সমাপ্ত')}</Text>
-                    </View>
-                  )}
+                  <StatusChip
+                    type={project.status}
+                    label={project.status === 'ongoing' ? l('Ongoing', 'চলমান') : project.status === 'delayed' ? l('Delayed', 'বিলম্বিত') : l('Completed', 'সমাপ্ত')}
+                  />
                 </View>
 
                 {/* 3 Metrics Columns */}
@@ -335,14 +299,7 @@ export default function ProjectsScreen() {
       </ScrollView>
 
       {/* FAB: + নতুন প্রজেক্ট */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowNew(true)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={20} color={colors.surface} />
-        <Text style={styles.fabText}>{l('+ New Project', '+ নতুন প্রজেক্ট')}</Text>
-      </TouchableOpacity>
+      <FAB label={l('New Project', 'নতুন প্রজেক্ট')} onPress={() => setShowNew(true)} />
 
       {/* Create Project Modal */}
       <AppModal visible={showNew} onClose={() => setShowNew(false)}>
@@ -390,12 +347,7 @@ export default function ProjectsScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity
-            onPress={handleCreateProject}
-            style={styles.createProjectBtn}
-          >
-            <Text style={styles.createProjectBtnText}>{l('Create Project', 'প্রজেক্ট তৈরি করুন')}</Text>
-          </TouchableOpacity>
+          <Button title={l('Create Project', 'প্রজেক্ট তৈরি করুন')} onPress={handleCreateProject} />
         </ScrollView>
       </AppModal>
     </SafeAreaView>
@@ -403,6 +355,9 @@ export default function ProjectsScreen() {
 }
 
 const styles = StyleSheet.create({
+  summaryCard: { borderRadius: 20, marginBottom: 14 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  filterChip: { marginRight: 0, paddingHorizontal: 12 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -454,17 +409,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
   },
   topStatsRow: {
     flexDirection: 'row',
@@ -533,39 +477,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.text,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primarySoft,
-  },
-  filterCheck: {
-    marginRight: -2,
-  },
-  filterText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-  },
-  filterTextActive: {
-    fontFamily: typography.fontFamily.bold,
-    color: colors.primary,
-  },
   projectsList: {
     gap: 10,
   },
@@ -601,42 +512,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  ongoingBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  ongoingBadgeText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.primary,
-  },
-  delayedBadge: {
-    backgroundColor: colors.warningSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  delayedBadgeText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.warning,
-  },
-  completedBadge: {
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  completedBadgeText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -681,29 +556,6 @@ const styles = StyleSheet.create({
   },
   scrollSpacer: {
     height: 100,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 28,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    gap: 6,
-  },
-  fabText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.surface,
   },
   modalScroll: {
     maxHeight: 520,
@@ -758,17 +610,5 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     lineHeight: typography.lineHeight.sm,
     color: colors.text,
-  },
-  createProjectBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 28,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  createProjectBtnText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.surface,
   },
 });

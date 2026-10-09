@@ -1,3 +1,4 @@
+import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -180,14 +181,7 @@ export default function MembersScreen() {
       </View>
 
       {/* Floating Action Button: + নতুন সদস্য */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(admin)/member/new')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={20} color={colors.surface} />
-        <Text style={styles.fabText}>{l('New Member', 'নতুন সদস্য')}</Text>
-      </TouchableOpacity>
+      <FAB label={l('New Member', 'নতুন সদস্য')} onPress={() => router.push('/(admin)/member/new')} />
     </SafeAreaView>
   );
 }
@@ -308,28 +302,5 @@ const styles = StyleSheet.create({
     fontSize: typography.size.caption,
     lineHeight: typography.lineHeight.caption,
     fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 9999,
-    elevation: 6,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    gap: 6,
-  },
-  fabText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.surface,
   },
 });
