@@ -425,17 +425,22 @@ export async function deleteMyAccount(pin:string,closeSociety:boolean,confirmati
   return data as {ok:true;cleanupPending:boolean};
 }
 
-export async function fetchMyProfile() {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+export async function fetchMyProfile(freshSignInUserId?: string) {
+  // The optional ID comes only from the just-completed Auth sign-in response.
+  // Ordinary refreshes continue to validate the user with the Auth server.
+  const userId = freshSignInUserId || (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return null;
   const profile = unwrap(
-    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin').eq('id', u.user.id).maybeSingle()
+    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin').eq('id', userId).maybeSingle()
   ) as any;
   if (!profile || !profile.is_active) return null;
-  if (!profile.must_change_pin && unwrap(await supabase.rpc('session_ready')) !== true) return null;
-  const memberRow = profile.member_id
-    ? (unwrap(await supabase.from('members').select(MEMBER_COLUMNS).eq('id', profile.member_id).maybeSingle()) as any)
-    : null;
+  const [ready, memberRow] = await Promise.all([
+    profile.must_change_pin ? Promise.resolve(true) : supabase.rpc('session_ready').then(unwrap),
+    profile.member_id
+      ? supabase.from('members').select(MEMBER_COLUMNS).eq('id', profile.member_id).maybeSingle().then(unwrap)
+      : Promise.resolve(null),
+  ]);
+  if (ready !== true) return null;
   return { profile, member: memberRow ? mapMember(memberRow) : null };
 }
 

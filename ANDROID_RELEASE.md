@@ -1,5 +1,28 @@
 # Amanot Android release — 9 October 2026
 
+## Phone UI and icon rebuild — 1.0.4 / code 5
+
+User explicitly authorized an Expo source upload and APK rebuild on 10 October
+2026. Build `61374448-b6e6-45a7-8a75-88f5b6fbf900` FINISHED using the live
+release profile and existing remote keystore. Changes: Android safe area support,
+navigation-inset-aware tab bar, removal of tab press ripple, and Amanot Bengali
+lettermark launcher/adaptive/themed icons. TypeScript, release configuration,
+design tokens and 36 accounting/isolation checks passed. Two societies named N11
+remain isolated by UUID. Environment files, backup archives and local signing
+keys are excluded from the source upload.
+
+[Download APK 1.0.4](https://expo.dev/artifacts/eas/_n-_ZEdYP9inv2PfGdl4vkjkdJQ19gd0yAFs8gjD3-I.apk).
+Local copy: `app/releases/amanot-1.0.4-live.apk`. Size: 24,694,608 bytes /
+23.55 MiB. SHA-256:
+`536f13aef413d0ad6a3a4c6a4723dc524ddc71190afcb57928dc15c65c16f5c0`.
+Archive CRC, manifest version string, JS bundle, three DEX files and compressed
+ARM/ARM64 native libraries verified. Ten packaged resources match the Amanot
+green/white icon; largest packaged launcher image was visually inspected.
+This does not independently verify the APK signature or device behavior.
+
+Device installation, cutout/navigation-bar layout and tap effects remain to be
+verified on Android after delivery. This section supersedes older build holds.
+
 ## New build authorized — 10 October 2026
 
 Owner requested the APK again, superseding the earlier build hold. Version 1.0.3/code 4 uses the live `release` profile, existing remote signing keystore and production public backend configuration. ARM/ARM64 libraries, R8/resource shrinking and compressed native APK packaging are enabled. TypeScript, release config, design tokens, accounting/isolation (34), security (11), readiness (9), ledger SQL (7), auth/PIN/session, profit, photo and report regressions passed before submission.

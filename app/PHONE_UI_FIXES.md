@@ -14,4 +14,5 @@
 
 Validation: TypeScript and 36 accounting checks passed. Physical Android layout
 and tap effects still require verification in an updated APK. These UI changes
-are local source changes; the installed 1.0.3 APK has not been rebuilt here.
+are included in delivered APK 1.0.4 / code 5. The installed 1.0.3 APK needs
+updating. See ../ANDROID_RELEASE.md for download and archive validation.

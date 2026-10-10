@@ -258,6 +258,7 @@ export default function ProfitDistributionScreen() {
 
         <Card variant="surface">
           <Text style={styles.calcCardTitle}>{l('Distribution rules', 'বণ্টনের নিয়ম')}</Text>
+          <Text style={styles.rulesHint}>{l('Each eligible member receives: distributable member profit × their total deposit ÷ total eligible deposits. The preview below shows each share before approval.', 'প্রতি যোগ্য সদস্যের অংশ = সদস্যদের বণ্টনযোগ্য লাভ × ওই সদস্যের মোট জমা ÷ যোগ্য সদস্যদের মোট জমা। অনুমোদনের আগে নিচের খসড়ায় প্রত্যেকের অংশ দেখুন।')}</Text>
           <Text style={styles.rulesHint}>{locked
             ? l('This distribution is approved. Its saved percentages cannot be changed.', 'এই বণ্টন অনুমোদিত। এর সংরক্ষিত হার পরিবর্তন করা যাবে না।')
             : l('Set each share according to your somiti rules. Use 0 if it does not apply. The remainder goes to members.', 'সমিতির নিয়ম অনুযায়ী হার দিন। কোনো অংশ না থাকলে ০ দিন। বাকি লাভ সদস্যদের মধ্যে বণ্টিত হবে।')}</Text>

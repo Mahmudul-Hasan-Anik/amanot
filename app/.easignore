@@ -6,6 +6,13 @@ dist/
 releases/
 dist-demo/
 .env
+.env.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.tools/
 .env.backup
 *.amanotbak
 *.dump

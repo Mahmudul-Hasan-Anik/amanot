@@ -32,8 +32,8 @@ import { todayDMY, parseDMY } from '../../../src/lib/months';
 
 export default function NewMemberScreen() {
   const router = useRouter();
-  const { l, isBengali, formatNum } = useLanguage();
-  const { addMember, members } = useSomitiStore();
+  const { l, isBengali, formatNum, defaultMonthlyDeposit } = useLanguage();
+  const { addMember, members, somitiInfo } = useSomitiStore();
 
   // next code = highest existing number + 1 (server makes the final choice)
   const nextCodeNum =
@@ -54,7 +54,7 @@ export default function NewMemberScreen() {
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
   const [joinDate, setJoinDate] = useState(todayDMY());
-  const [monthlyAmount, setMonthlyAmount] = useState('2000');
+  const [monthlyAmount, setMonthlyAmount] = useState(String(Number((somitiInfo as any).defaultMonthly ?? defaultMonthlyDeposit)));
   const [isMonthlyFocused, setIsMonthlyFocused] = useState(false);
   const [admissionFee, setAdmissionFee] = useState('500');
   const [isFeeFocused, setIsFeeFocused] = useState(false);

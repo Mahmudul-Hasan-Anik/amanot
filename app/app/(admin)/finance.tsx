@@ -1,3 +1,4 @@
+import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import { FAB } from '../../src/components/FAB';
 import React, { useState, useMemo, useRef } from 'react';
@@ -64,6 +65,8 @@ function AppModal({ visible, onClose, children, animationType = 'fade' }: AppMod
 }
 
 const MONTHS_LIST = recentMonths(12);
+const paymentLabel = (method: string, bn: boolean) => ({cash:bn?'নগদ':'Cash',bank:bn?'ব্যাংক':'Bank',bkash:'bKash',nagad:'Nagad'}[method] || financeLabel(method,bn));
+const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'কোষাধ্যক্ষের হাতে':'Cash with Treasurer',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ':'Nagad'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
 
 export default function FinanceScreen() {
   const router = useRouter();
@@ -136,11 +139,11 @@ export default function FinanceScreen() {
   const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
   const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.filter(t=>t.type==='deposit'||t.type==='profit').reduce((sum,t)=>sum+t.amount,0);
   const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
-  const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:name,nameEn:name,amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
+  const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:financeLabel(name,true),nameEn:financeLabel(name,false),amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date+' · '+t.paymentMethod,metaEn:t.date+' · '+t.paymentMethod,amount:t.type==='expense'?-t.amount:t.amount,isIncome:t.type!=='expense'}));
+  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:t.type==='expense'?-t.amount:t.amount,isIncome:t.type!=='expense'}));
 
   const handleTransferSubmit = async () => {
     try {
@@ -285,16 +288,10 @@ export default function FinanceScreen() {
                   </View>
                   <View style={styles.accountDetails}>
                     <Text style={styles.accountName}>
-                      {account.type === 'bank'
-                        ? l('Bank Account', 'ব্যাংক হিসাব')
-                        : account.type === 'cashier'
-                        ? l('Cash with Treasurer', 'কোষাধ্যক্ষের হাতে')
-                        : account.type === 'bkash'
-                        ? l('bKash', 'বিকাশ')
-                        : l('Cash with Field Worker', 'মাঠকর্মীর হাতে')}
+                      {accountLabel(account, isBengali)}
                     </Text>
                     <Text style={styles.accountSub}>
-                      {[account.holder || account.name, account.note].filter(Boolean).join(' · ')}
+                      {[account.holder || account.name, account.note].filter(Boolean).map(text => financeNote(text!,isBengali)).join(' · ')}
                     </Text>
                   </View>
                   <Text style={styles.accountBalance}>
@@ -447,7 +444,7 @@ export default function FinanceScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.accountChipText, isSelected && styles.accountChipTextSelected]}>
-                    {acc.name}
+                    {accountLabel(acc,isBengali)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -466,7 +463,7 @@ export default function FinanceScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.accountChipText, isSelected && styles.accountChipTextSelected]}>
-                    {acc.name}
+                    {accountLabel(acc,isBengali)}
                   </Text>
                 </TouchableOpacity>
               );

@@ -12,6 +12,7 @@ function fixture(remote,{ok=true,mustChangePin=false,phone='01700000000',isAuthe
   vm.runInNewContext(code,{exports:exported,__DEV__:false,setTimeout:fn=>timers.push(fn),require:name=>{
     if(name==='react')return {__esModule:true,default:React,...React};
     if(name==='react-native')return {View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',SafeAreaView:'SafeAreaView',StyleSheet:{create:s=>s},Alert:{alert:(...args)=>alerts.push(args)}};
+    if(name==='react-native-safe-area-context')return {SafeAreaView:'SafeAreaView'};
     if(name==='expo-router')return {Redirect:'Redirect',useRouter:()=>({replace:route=>routes.push(route)})};
     if(name.endsWith('/phoneAuth'))return {isValidPhone:s=>/^01[3-9]\d{8}$/.test(s)};
     if(name.endsWith('/authStore'))return {useAuthStore};

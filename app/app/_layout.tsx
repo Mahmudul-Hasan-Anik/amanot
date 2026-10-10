@@ -115,15 +115,17 @@ function useAutoSync() {
   useEffect(() => {
     if (!isSupabaseConfigured() || !isPinVerified || mustChangePin) return;
     const { useSomitiStore } = require('../src/store/somitiStore');
-    const sync = async () => {
+    const sync = async (refreshProfile = true) => {
       if (AppState.currentState !== 'active') return;
       const auth = useAuthStore.getState();
       try {
-        if (!await auth.refreshProfile()) { auth.logout(); return; }
+        if (refreshProfile && !await auth.refreshProfile()) { auth.logout(); return; }
         await useSomitiStore.getState().syncFromServer(false);
       } catch { await useSomitiStore.getState().syncFromServer(false); }
     };
-    sync();
+    // Login just validated the profile. Join its in-flight sync without doing
+    // another profile fetch; later foreground/timer checks still revalidate.
+    sync(false);
     let backgroundAt = 0;
     const sub = AppState.addEventListener('change', (st) => {
       if (st === 'background') backgroundAt = Date.now();
@@ -132,7 +134,7 @@ function useAutoSync() {
         else sync();
       }
     });
-    const timer = setInterval(sync, 300000);
+    const timer = setInterval(() => sync(), 300000);
     return () => {
       sub.remove();
       clearInterval(timer);

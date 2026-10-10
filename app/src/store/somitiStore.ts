@@ -977,13 +977,20 @@ export const useSomitiStore = create<SomitiState>()(
           const session = useAuthStore.getState();
           const generation = syncGeneration;
           if (!session.isPinVerified || session.mustChangePin) { set({isSyncing:false}); return; }
-          const revision = await api.fetchSyncRevision();
-          if (!force && !syncAgain && revision === get().syncRevision && get().lastFullSyncedAt && Date.now()-get().lastFullSyncedAt! < 45*60*1000) {
-            set({isSyncing:false,syncError:null}); return;
+          let revision: string;
+          const canReuseSnapshot = !force && !!get().lastFullSyncedAt && Date.now()-get().lastFullSyncedAt! < 45*60*1000;
+          if (canReuseSnapshot) {
+            revision = await api.fetchSyncRevision();
+            if (!syncAgain && revision === get().syncRevision) {
+              set({isSyncing:false,syncError:null}); return;
+            }
           }
           const isStaff = session.actualRole !== 'member';
           const fullRefresh = force || !get().lastFullSyncedAt || Date.now()-get().lastFullSyncedAt! >= 45*60*1000;
-          const data = await api.fetchAll(isStaff);
+          const [nextRevision, data] = await Promise.all([
+            canReuseSnapshot ? Promise.resolve(revision!) : api.fetchSyncRevision(),
+            api.fetchAll(isStaff),
+          ]);
           const current = useAuthStore.getState();
           if (generation !== syncGeneration || !current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
           set({
@@ -992,7 +999,7 @@ export const useSomitiStore = create<SomitiState>()(
             isSyncing: false,
             lastSyncedAt: Date.now(),
             lastFullSyncedAt: fullRefresh ? Date.now() : get().lastFullSyncedAt,
-            syncRevision: revision,
+            syncRevision: nextRevision,
             syncError: null,
           });
         } catch (e: any) {

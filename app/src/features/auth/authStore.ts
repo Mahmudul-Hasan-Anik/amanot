@@ -145,14 +145,11 @@ export const useAuthStore = create<AuthState>()(
           if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           set({phoneRegistered:registration.registered});
           if (!registration.registered && !isStrongPin(pin)) return {ok:false,error:'প্রথম লগইনের জন্য অ্যাডমিনের দেওয়া নতুন ৬ সংখ্যার পিন নিন।'};
-          if (registration.registered) {
-            await api.signInWithPin(phone, pin);
-          } else {
-            // first login: activate the account with the PIN the admin gave
-            await api.activateWithPin(phone, pin);
-          }
+          const signedSession = registration.registered
+            ? await api.signInWithPin(phone, pin)
+            : await api.activateWithPin(phone, pin);
           if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
-          const me = await api.fetchMyProfile();
+          const me = await api.fetchMyProfile(signedSession?.user.id);
           if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           if (!me || normalizePhone(me.profile.phone)!==phone) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
           const role = me.profile.role as ServerRole;

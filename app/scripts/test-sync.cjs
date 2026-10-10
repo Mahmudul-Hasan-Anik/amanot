@@ -1,12 +1,12 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
 const memory=new Map(),storage={getItem:async k=>memory.get(k)||null,setItem:async(k,v)=>memory.set(k,v),removeItem:async k=>memory.delete(k)};
 let auth={isPinVerified:true,mustChangePin:false,currentUser:{id:'fixture-member'},actualRole:'member'};
-let revision='2026-10-09:1',calls=0,release=null;
+let revision='2026-10-09:1',calls=0,release=null,revisionGate=null;
 let now=Date.now();
 class TestDate extends Date { static now(){return now;} }
 const data={somitiInfo:{name:'Fixture'},members:[{id:'fixture-member',nid:'fixture-private'}],projects:[],cashAccounts:[],transactions:[],expenses:[],approvals:[],approvedApprovals:[],rejectedApprovals:[],notices:[{id:'notice'}],auditLogs:[{id:'audit'}]};
 const rejectedWrite=async()=>{throw Error('fixture server denied write')};
-const api={fetchSyncRevision:async()=>revision,fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
+const api={fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
   if(n==='zustand'||n==='zustand/middleware')return require(n);
@@ -47,6 +47,13 @@ async function main(){
   store.getState().clearLocalData();finish();await stale;release=null;
   assert.equal(store.getState().members.length,0);
   auth={...auth,isPinVerified:true,mustChangePin:true};await store.getState().syncFromServer();assert.equal(store.getState().members.length,0);
+  auth={...auth,mustChangePin:false};
+  let finishRevision;revisionGate=new Promise(resolve=>finishRevision=resolve);
+  const beforeParallel=calls;const cold=store.getState().syncFromServer();
+  for(let i=0;i<10;i++)await Promise.resolve();
+  assert.equal(calls,beforeParallel+1,'Full snapshot starts while revision is still pending');
+  const joined=store.getState().syncFromServer(false);finishRevision();await Promise.all([cold,joined]);revisionGate=null;
+  assert.equal(calls,beforeParallel+1,'Initial auto-sync joins login without a second full snapshot');
   console.log('PASS sync: unchanged revision reuse, independent 45-minute snapshot refresh, force refetch, no persisted financial data, stale responses discarded even after same-user re-login, PIN gate enforced.');
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1});

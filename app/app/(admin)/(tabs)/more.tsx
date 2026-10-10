@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
-import { toBengaliDigits } from '../../../src/lib/bengali';
+import { useSomitiStore } from '../../../src/store/somitiStore';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 
@@ -21,6 +21,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const { logout, currentUser, actualRole } = useAuthStore();
   const { l, formatNum, isBengali } = useLanguage();
+  const pendingCount = useSomitiStore(s => s.approvals.length);
 
   const defaultName = isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain';
   const defaultRole = isBengali ? 'সভাপতি • সুপার অ্যাডমিন' : 'President • Super Admin';
@@ -104,11 +105,11 @@ export default function MoreScreen() {
               <Ionicons name="checkmark-outline" size={18} color={colors.primary} />
             </View>
             <Text style={styles.menuTitle}>{l('Approvals', 'অনুমোদন')}</Text>
-            <View style={styles.badgeBlack}>
+            {pendingCount > 0 && <View style={styles.badgeBlack}>
               <Text style={styles.badgeBlackText}>
-                {isBengali ? toBengaliDigits(3) : '3'}
+                {formatNum(pendingCount)}
               </Text>
-            </View>
+            </View>}
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 

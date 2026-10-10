@@ -26,6 +26,8 @@
     "test:backup-diagnostics": "node scripts/test-backup-diagnostics.cjs",
     "test:session-storage": "node scripts/test-session-storage.cjs",
     "test:sync": "node scripts/test-sync.cjs",
+    "test:settings-ui": "node scripts/test-settings-ui.cjs",
+    "test:profile-loading": "node scripts/test-profile-loading.cjs",
     "test:readiness": "node scripts/test-readiness.cjs",
     "test:ledger-sync": "node scripts/test-ledger-sync.cjs",
     "test:ledger-queries": "node scripts/test-ledger-queries.cjs",

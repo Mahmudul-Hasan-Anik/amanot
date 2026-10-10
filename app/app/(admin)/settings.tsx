@@ -19,6 +19,7 @@ import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
+import { NumberSettingModal } from '../../src/components/NumberSettingModal';
 import { typography } from '../../src/theme/typography';
 
 export default function SettingsScreen() {
@@ -79,7 +80,7 @@ export default function SettingsScreen() {
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
-  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [numberSetting, setNumberSetting] = useState<null | { key: string; title: string; value: number; min: number; max: number; integer?: boolean; localSave: (n: number) => void }>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   const handleResetData = async () => {
@@ -171,7 +172,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.row}
             activeOpacity={0.7}
-            onPress={() => setShowDepositModal(true)}
+            onPress={() => setNumberSetting({key:'defaultMonthly',title:l('Default Monthly Deposit','ডিফল্ট মাসিক জমা'),value:defaultMonthlyDeposit,min:1,max:100000000,localSave:setDefaultMonthlyDeposit})}
           >
             <View style={styles.rowLeft}>
               <Text style={styles.rowTitle}>
@@ -212,18 +213,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.row}
             activeOpacity={0.7}
-            onPress={() => {
-              const next =
-                gracePeriodDays === 5
-                  ? 7
-                  : gracePeriodDays === 7
-                  ? 10
-                  : gracePeriodDays === 10
-                  ? 3
-                  : 5;
-              setGracePeriodDays(next);
-              saveSetting('graceDays', next);
-            }}
+            onPress={() => setNumberSetting({key:'graceDays',title:l('Grace Period (days)','গ্রেস পিরিয়ড (দিন)'),value:gracePeriodDays,min:0,max:365,integer:true,localSave:setGracePeriodDays})}
           >
             <Text style={styles.rowTitle}>{l('Grace Period', 'গ্রেস পিরিয়ড')}</Text>
             <View style={styles.rowRight}>
@@ -240,18 +230,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.row}
             activeOpacity={0.7}
-            onPress={() => {
-              const next =
-                lateFeeAmount === 100
-                  ? 150
-                  : lateFeeAmount === 150
-                  ? 200
-                  : lateFeeAmount === 200
-                  ? 50
-                  : 100;
-              setLateFeeAmount(next);
-              saveSetting('lateFee', next);
-            }}
+            onPress={() => setNumberSetting({key:'lateFee',title:l('Late Fee (BDT)','বিলম্ব ফি (টাকা)'),value:lateFeeAmount,min:0,max:100000000,localSave:setLateFeeAmount})}
           >
             <Text style={styles.rowTitle}>{l('Late Fee', 'বিলম্ব ফি')}</Text>
             <View style={styles.rowRight}>
@@ -293,8 +272,11 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
 
           {/* Row 2: Distribution Method */}
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>{l('Distribution Method', 'বণ্টন পদ্ধতি')}</Text>
+          <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => router.push('/(admin)/distribution')}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle}>{l('Distribution Method', 'বণ্টন পদ্ধতি')}</Text>
+              <Text style={styles.rowSub}>{l('View the rule and annual preview', 'নিয়ম ও বার্ষিক হিসাব দেখুন')}</Text>
+            </View>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>
                 {l('Proportional to Deposit', 'মোট জমার অনুপাতে')}
@@ -646,49 +628,10 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Default Deposit Modal */}
-      <Modal visible={showDepositModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}
-            </Text>
-            {[1000, 1500, 2000, 2500, 3000, 5000].map((amt) => (
-              <TouchableOpacity
-                key={amt}
-                style={[
-                  styles.modalOption,
-                  defaultMonthlyDeposit === amt && styles.modalOptionActive,
-                ]}
-                onPress={() => {
-                  setDefaultMonthlyDeposit(amt);
-                  saveSetting('defaultMonthly', amt);
-                  setShowDepositModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.modalOptionText,
-                    defaultMonthlyDeposit === amt && styles.modalOptionTextActive,
-                  ]}
-                >
-                  {formatMoney(amt)}
-                </Text>
-                {defaultMonthlyDeposit === amt && (
-                  <Ionicons name="checkmark" size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={styles.modalCancelBtn}
-              onPress={() => setShowDepositModal(false)}
-            >
-              <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {numberSetting && <NumberSettingModal {...numberSetting} onClose={() => setNumberSetting(null)} onSave={async value => {
+        if (REMOTE) await updateSomitiInfo({[numberSetting.key]:value} as any);
+        numberSetting.localSave(value);
+      }} />}
 
       {/* Approval Limit Modal */}
       <Modal visible={showApprovalModal} transparent animationType="fade">
