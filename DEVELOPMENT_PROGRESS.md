@@ -28,7 +28,9 @@ Owner-controlled disposable society দিয়ে real registration → PIN �
 
 [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)-এর encrypted export/restore tooling আছে। Independent destination, private backup secret এবং বাস্তব restore rehearsal দরকার। Current hosted data delete করা হয়নি। Old global reset multi-society schema-এ চলে না; exact tenant inventory ও verified backup-এর পরে reviewed cleanup লাগবে।
 
-Owner external drive নির্বাচন করেছেন; drive/folder path অপেক্ষমাণ। Local preflight-এ `pg_dump`, `pg_restore`, `psql` এবং `docker` PATH-এ পাওয়া যায়নি। Official PostgreSQL client tools ও Supabase-compatible local restore environment প্রস্তুত করতে হবে; কেবল drive নির্বাচন করলে backup সম্পন্ন হয় না।
+Owner এখন [Google Drive folder](https://drive.google.com/drive/folders/1Ad0sggyHrv-p--n9R_ecZK8-J_clZPxQ) নির্বাচন করেছেন; আগের external-drive সিদ্ধান্ত বদলেছে। Login/access verified: Amanot folder Restricted, owner only। Official PostgreSQL 17.11 tools ignored local folder-এ extracted, checksum/version এবং wrapper preflight passed। Wrapper secrets নেওয়ার আগে tools যাচাই করে; create-এর পরে automatic integrity inspection করে। Private database URL/Storage key/passphrase owner terminal-এ দিতে হবে; chat-এ নয়। Actual export, upload, automatic backup এবং Supabase-compatible restore rehearsal এখনও হয়নি।
+
+Backup TLS correction: official Supabase CA local discovery added; `verify-full` retained. Public pooler test with an intentionally invalid dummy password passed TLS and reached authentication rejection. Owner must retry diagnose with the private real URI; no actual export/restore claimed.
 
 ## 5. Optimized APK — owner hold
 

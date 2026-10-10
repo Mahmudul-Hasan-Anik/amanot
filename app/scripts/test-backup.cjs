@@ -15,6 +15,14 @@ assert.throws(()=>pgEnvironment('postgresql://fixture:pass@remote.example/amanot
 assert.throws(()=>pgEnvironment('postgresql://fixture:pass@localhost/production',true));
 assert.equal(pgEnvironment('postgresql://fixture:pass@localhost/amanot_restore_test',true).PGDATABASE,'amanot_restore_test');
 assert.equal(pgEnvironment('postgresql://fixture:pass@db.example/production').PGSSLMODE,'verify-full');
+const previousCa=process.env.PGSSLROOTCERT;
+try {
+  process.env.PGSSLROOTCERT='synthetic-official-ca.crt';
+  const remote=pgEnvironment('postgresql://fixture:pass@db.example/production?sslmode=disable&sslrootcert=untrusted.crt');
+  assert.equal(remote.PGSSLROOTCERT,'synthetic-official-ca.crt');
+  assert.equal(remote.PGSSLMODE,'verify-full');
+  assert.equal(pgEnvironment('postgresql://fixture:pass@localhost/amanot_restore_test',true).PGSSLROOTCERT,'');
+} finally { if(previousCa===undefined)delete process.env.PGSSLROOTCERT;else process.env.PGSSLROOTCERT=previousCa; }
 assert.throws(()=>argumentsFor(['--unexpected']));
 const metrics={members:'500',profiles:'500',transactions:'10000',transactionAmount:'1000000.00',cashAmount:'900000.00'};
 verifyMetrics(metrics,{...metrics});

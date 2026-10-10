@@ -2,3 +2,4 @@
 /.backup-rehearsal/
 *.amanotbak
 *.dump
+/.tools/

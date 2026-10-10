@@ -23,6 +23,7 @@
     "test:security": "node scripts/test-security.cjs",
     "test:sms-scope": "node scripts/test-sms-scope.cjs",
     "test:backup": "node scripts/test-backup.cjs",
+    "test:backup-diagnostics": "node scripts/test-backup-diagnostics.cjs",
     "test:session-storage": "node scripts/test-session-storage.cjs",
     "test:sync": "node scripts/test-sync.cjs",
     "test:readiness": "node scripts/test-readiness.cjs",
