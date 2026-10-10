@@ -1,5 +1,11 @@
 # Security and development verification — 9 October 2026
 
+## Update — 10 October 2026
+
+Migrations 012/013 add private row-locked per-account login counters (five failures/15 minutes), session-bound server PIN grants for newly issued sessions, invited-activation admission and verified account deletion/society closure. Direct Auth login alone cannot unlock business data on a new session. Already-issued pre-migration sessions retain access under the existing revocation rules. SMS ownership verification is intentionally excluded.
+
+Current production audit: **0 moderate, 14 high, 0 critical**. A scoped xcode UUID 11.1.1 override removes the moderate root; compatible CommonJS calls were verified. `braces` 3.0.3 and `node-forge` 1.4.0 remain the latest published versions and still carry the high advisories listed below; no safe released upgrade was available. No forced framework downgrade or local crypto rewrite was applied. See [CLIENT_DEMO_READY.md](CLIENT_DEMO_READY.md) for the deployed behavior, new checks and remaining device/auth/backup gates. Historical counts below describe the previous release.
+
 Release target: Android 1.0.2 (code 3), Supabase Free, app-only pilot.
 
 ## Implemented

@@ -37,4 +37,5 @@ Thumbs.db
 *.swo
 eas-build-info.json
 npm-audit.json
+audit-current.json
 dist-demo/

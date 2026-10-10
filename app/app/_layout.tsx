@@ -2,8 +2,11 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFonts, HindSiliguri_400Regular, HindSiliguri_500Medium, HindSiliguri_600SemiBold, HindSiliguri_700Bold } from '@expo-google-fonts/hind-siliguri';
+import { useFonts } from 'expo-font';
+const HindSiliguri_400Regular=require('@expo-google-fonts/hind-siliguri/HindSiliguri_400Regular.ttf');
+const HindSiliguri_500Medium=require('@expo-google-fonts/hind-siliguri/HindSiliguri_500Medium.ttf');
+const HindSiliguri_600SemiBold=require('@expo-google-fonts/hind-siliguri/HindSiliguri_600SemiBold.ttf');
+const HindSiliguri_700Bold=require('@expo-google-fonts/hind-siliguri/HindSiliguri_700Bold.ttf');
 import { View, ActivityIndicator, AppState, Alert, Platform } from 'react-native';
 
 // react-native-web's Alert.alert does nothing, so errors/confirmations were invisible on web.
@@ -137,7 +140,6 @@ function useAutoSync() {
   }, [isPinVerified, mustChangePin]);
 }
 
-const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -162,7 +164,6 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
         <StatusBar style="dark" />
         {!isReady ? (
           <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
@@ -175,7 +176,6 @@ export default function RootLayout() {
             <Stack.Screen name="(member)" options={{ headerShown: false }} />
           </Stack>
         )}
-      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }

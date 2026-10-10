@@ -1,5 +1,9 @@
 # Amanot Android release — 9 October 2026
 
+## Client demo development — 10 October 2026
+
+Migrations 012/013 and the `delete-account` function are deployed. Account PIN attempt/session gates, account deletion/society closure, incremental ledger sync, dependency/asset cleanup and Android size configuration are implemented. No new APK was built. Current instructions and verification limits: [CLIENT_DEMO_READY.md](CLIENT_DEMO_READY.md). This update supersedes older remaining-development bullets below; device/backup/load gates still apply. Production audit now reports 0 moderate, 14 high and 0 critical, with two unpatched upstream roots.
+
 ## Multiple-society development update — 10 October 2026
 
 Migration 011 is deployed: different phones can register independent societies; one phone belongs to one society in this version. Public registration is now visible in production-mode source, and financial/administrative RPCs and private photos are bound to the caller's society. Validation and remaining owner gates: [MULTI_SOMITI.md](MULTI_SOMITI.md). Existing test records were preserved; the old global reset refuses to run on the new schema. APK builds remain on hold. The delivered 1.0.2 APK does not contain the new public registration UI.

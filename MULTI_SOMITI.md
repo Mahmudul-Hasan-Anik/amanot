@@ -1,5 +1,7 @@
 # Multiple societies — implementation and verification
 
+Update 10 October 2026: follow-on migrations 012/013 and the account lifecycle handler are deployed. New PIN gates, deletion/closure, ledger sync and current verification limits are documented in [CLIENT_DEMO_READY.md](CLIENT_DEMO_READY.md). No APK update or test-data deletion was performed.
+
 Status: 10 October 2026. Migration 011 is deployed to the existing Supabase project. No APK was built or updated. No existing account or financial record was deleted.
 
 ## Agreed behavior

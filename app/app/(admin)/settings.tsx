@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
@@ -409,12 +409,12 @@ export default function SettingsScreen() {
                 {l('Automatic Due Reminder', 'স্বয়ংক্রিয় বকেয়া রিমাইন্ডার')}
               </Text>
               <Text style={styles.rowSub}>
-                {l('3 days before the due date', 'শেষ তারিখের ৩ দিন আগে থেকে')}
+                {l('Not enabled. Send reminders manually from the reminder page.', 'চালু নেই। রিমাইন্ডার পাতা থেকে নিজে বার্তা পাঠান।')}
               </Text>
             </View>
             <Switch
-              value={autoReminder}
-              onValueChange={setAutoReminder}
+              value={false}
+              disabled
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.surface}
             />
@@ -440,7 +440,7 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>{l('SMS Gateway', 'এসএমএস গেটওয়ে')}</Text>
             <View style={styles.rowRight}>
               <Text style={[styles.valText, { color: colors.primary }]}>
-                {l('Connected', 'সংযুক্ত')}
+                {l('Status not verified', 'সংযোগ যাচাই হয়নি')}
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
@@ -489,7 +489,7 @@ export default function SettingsScreen() {
             <Text style={styles.rowTitle}>{l('Backup', 'ব্যাকআপ')}</Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>
-                {l('Daily · Today 2:00', 'প্রতিদিন · আজ ২:০০')}
+                {l('Owner managed', 'পরিচালকের দায়িত্বে')}
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
@@ -521,6 +521,11 @@ export default function SettingsScreen() {
 
           <TouchableOpacity
             style={styles.row}
+            onPress={()=>router.push('/account-deletion')}
+          >
+            <Text style={styles.rowTitle}>{l('Delete account / close society','Account মুছুন / সমিতি বন্ধ করুন')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.row}
             onPress={handleLogout}
             activeOpacity={0.7}
           >

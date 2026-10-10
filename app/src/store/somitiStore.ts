@@ -974,7 +974,8 @@ export const useSomitiStore = create<SomitiState>()(
             set({isSyncing:false,syncError:null}); return;
           }
           const isStaff = session.actualRole !== 'member';
-          const data = await api.fetchAll(isStaff);
+          const fullRefresh = force || !get().lastSyncedAt || Date.now()-get().lastSyncedAt! >= 45*60*1000;
+          const data = await api.fetchAll(isStaff,fullRefresh ? undefined : get().transactions);
           const current = useAuthStore.getState();
           if (!current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
           set({

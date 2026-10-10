@@ -6,7 +6,9 @@ function load(file,dependencies={}){
 const phone=load('phoneAuth.ts'),errors=load('authErrors.ts');
 const calls=[];let sdkError=null;
 const sdk=async payload=>{calls.push(payload);return {data:{session:{fixture:true}},error:sdkError}};
-const api=load('api.ts',{'./supabase':{...phone,supabase:{auth:{signUp:sdk,signInWithPassword:sdk}}},'./authErrors':errors,'./bengali':{BENGALI_MONTHS_FULL:[]},'./money':{},'react-native':{Platform:{OS:'web'}},'./profilePhoto':{}});
+let gateOk=true;
+const gateCalls=[];
+const api=load('api.ts',{'./supabase':{...phone,supabase:{rpc:async(name,args)=>{gateCalls.push({name,args});return {data:{ok:gateOk,error:'বেশি ভুল চেষ্টা হয়েছে।'},error:null};},auth:{signUp:sdk,signInWithPassword:sdk,signOut:async()=>{}}}},'./authErrors':errors,'./bengali':{BENGALI_MONTHS_FULL:[]},'./money':{},'react-native':{Platform:{OS:'web'}},'./profilePhoto':{}});
 async function main(){
   for(const input of ['01700000000','1700000000','+880 1700-000000','008801700000000','০১৭০০০০০০০০']) {
     assert.equal(phone.normalizePhone(input),'01700000000');assert.equal(phone.phoneToEmail(input),'01700000000@member.amanot.app');
@@ -18,6 +20,8 @@ async function main(){
   assert.equal(calls.length,0);
   await api.signInWithPin('+8801700000000','৫৭২৮৪৯');assert.equal(calls[0].email,'01700000000@member.amanot.app');assert.equal(calls[0].password,'amanot:572849');
   await api.activateWithPin('01700000000','572849');assert.equal(calls[1].options.data.phone,'01700000000');
+  assert.equal(gateCalls[0].name,'verify_login_pin');assert.equal(gateCalls[1].name,'confirm_pin_session');
+  gateOk=false;await assert.rejects(()=>api.signInWithPin('01700000000','572849'),/ভুল চেষ্টা/);assert.equal(calls.length,2);gateOk=true;
   sdkError={message:'Unable to validate email address: invalid format'};
   await assert.rejects(()=>api.activateWithPin('01700000000','572849'),error=>!error.message.includes('email')&&error.message.includes('মোবাইল'));
   for(const raw of ['Invalid login credentials','Network request failed','Too many requests / rate limit','Email not confirmed','Password should be at least 13 characters']) assert.equal(/[\u0980-\u09ff]/.test(errors.friendlyAuthError(raw)),true);

@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { REMOTE } from '../../src/store/somitiStore';
 import { bnDate } from '../../src/lib/api';
 import { useSomitiStore } from '../../src/store/somitiStore';

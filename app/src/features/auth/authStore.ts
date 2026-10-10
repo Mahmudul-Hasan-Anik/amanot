@@ -94,8 +94,10 @@ export const useAuthStore = create<AuthState>()(
       continueWithPhone: async (rawPhone: string) => {
         const phone = normalizePhone(rawPhone);
         if (!isValidPhone(phone)) return { found:false, error:'সঠিক মোবাইল নম্বর দিন।' };
+        const revision=++authRevision;
         try {
           const r = await api.checkPhone(phone);
+          if(revision!==authRevision)return {found:false,error:'লগইন বাতিল হয়েছে। আবার শুরু করুন।'};
           if (!r.exists) return { found: false };
           somiti().clearLocalData();
           set({ phone, phoneRegistered: r.registered, mustChangePin: false, actualRole:'member', userRole:'member', currentUser: stubMember(phone, r.initial), isAuthenticated: true, isPinVerified: false });
@@ -135,11 +137,12 @@ export const useAuthStore = create<AuthState>()(
           return { ok:false, error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।' };
         }
         if (!/^(\d{4}|\d{6})$/.test(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; পুরোনো অ্যাকাউন্টে ৪ সংখ্যার পিন গ্রহণ করা হয়।' };
+        const revision=++authRevision;
         set({ isPinVerified:false });
         try {
           const registration = await api.checkPhone(phone);
           if (!registration.exists) throw new Error('নম্বরটি নিবন্ধিত নয়। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
-          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           set({phoneRegistered:registration.registered});
           if (!registration.registered && !isStrongPin(pin)) return {ok:false,error:'প্রথম লগইনের জন্য অ্যাডমিনের দেওয়া নতুন ৬ সংখ্যার পিন নিন।'};
           if (registration.registered) {
@@ -148,9 +151,9 @@ export const useAuthStore = create<AuthState>()(
             // first login: activate the account with the PIN the admin gave
             await api.activateWithPin(phone, pin);
           }
-          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           const me = await api.fetchMyProfile();
-          if (!get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
+          if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           if (!me || normalizePhone(me.profile.phone)!==phone) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
           const role = me.profile.role as ServerRole;
           set({ isAuthenticated:true, isPinVerified:true, phoneRegistered:true, actualRole:role,

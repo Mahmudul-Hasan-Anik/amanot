@@ -9,5 +9,9 @@ module.exports = () => {
       throw new Error('Live release requires EXPO_PUBLIC_DEMO_MODE=false and the production Supabase URL/public key.');
     }
   }
-  return app;
+  const release=['release','production'].includes(process.env.EAS_BUILD_PROFILE);
+  return {...app,plugins:[...(app.plugins||[]),['expo-build-properties',{android:{
+    ...(release?{buildArchs:['arm64-v8a','armeabi-v7a']}:{}),
+    enableMinifyInReleaseBuilds:true,enableShrinkResourcesInReleaseBuilds:true,
+  }}]]};
 };

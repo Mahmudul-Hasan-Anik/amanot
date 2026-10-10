@@ -1,0 +1,4 @@
+[functions.delete-account]
+# The handler validates the user token using Auth /user and caller-bound RPCs.
+# This supports current signing keys as well as legacy JWTs.
+verify_jwt = false

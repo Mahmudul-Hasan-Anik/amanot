@@ -221,7 +221,7 @@ function mapApproval(r: any): PendingApproval {
 // reads
 // ---------------------------------------------------------------------------
 
-export async function fetchAll(isStaff: boolean) {
+export async function fetchAll(isStaff: boolean, previousTransactions?: Transaction[]) {
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
@@ -230,14 +230,31 @@ export async function fetchAll(isStaff: boolean) {
     await supabase.rpc('refresh_dues').then(() => {}, () => {});
   }
 
-  const allRows = async (table:string, columns='*', order='created_at') => {
+  const allRows = async (table:string, columns='*', order='created_at', since?:string) => {
     const rows:any[]=[];
     for(let offset=0;;offset+=1000) {
       let query = supabase.from(table).select(columns).order(order,{ascending:false}).order('id').range(offset,offset+999);
       if (table === 'members') query = query.is('deleted_at', null);
+      if (since) query = query.gte('created_at',since);
       const page:any[] = unwrap(await query);
       rows.push(...page); if(page.length<1000) return rows;
     }
+  };
+  const readLedger = async () => {
+    if (previousTransactions?.length) {
+      const count = Number(unwrap(await supabase.rpc('get_transaction_count')));
+      if (count === previousTransactions.length) return previousTransactions;
+      const latest = previousTransactions.reduce((max,t)=>Math.max(max,Date.parse(t.createdAt || '') || 0),0);
+      if (count > previousTransactions.length && latest) {
+        const delta = (await allRows('transactions','*','created_at',new Date(latest-10*60*1000).toISOString())).map(mapTransaction);
+        const merged = new Map(previousTransactions.map(t=>[t.id,t]));
+        delta.forEach(t=>merged.set(t.id,t));
+        // Count equality is essential: late commits outside the overlap must
+        // trigger a complete read rather than silently omit accounting entries.
+        if (merged.size === count) return [...merged.values()].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'') || a.id.localeCompare(b.id));
+      }
+    }
+    return (await allRows('transactions')).map(mapTransaction);
   };
   const [settings, summary, members, projects, cash, txns, expenses, approvals, notices, audit] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
@@ -245,7 +262,7 @@ export async function fetchAll(isStaff: boolean) {
     allRows('members',MEMBER_COLUMNS,'code'),
     allRows('projects'),
     isStaff ? q(supabase.from('cash_accounts').select('*').order('sort')) : empty,
-    allRows('transactions'),
+    readLedger(),
     isStaff ? allRows('expenses') : empty,
     isStaff ? allRows('approvals') : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
@@ -254,7 +271,14 @@ export async function fetchAll(isStaff: boolean) {
       : empty,
   ]);
 
-  const txRows = (txns as any[]) || [];
+  const ledger = txns as Transaction[];
+  const txRows = ledger.map(t=>({member_id:t.memberId,date:t.dateISO,receipt_no:t.receiptNo,note:t.note,months:t.months,amount:t.amount,payment_method:t.paymentMethod}));
+  const recentByMember=new Map<string,typeof txRows>();
+  for(const transaction of txRows){
+    const recent=recentByMember.get(transaction.member_id)||[];
+    if(recent.length<10)recent.push(transaction);
+    recentByMember.set(transaction.member_id,recent);
+  }
   const memberRows = (members as any[]) || [];
   const paths = memberRows.map(m=>m.avatar_path).filter(Boolean);
   if (paths.length) {
@@ -265,10 +289,10 @@ export async function fetchAll(isStaff: boolean) {
   const apRows = (approvals as any[]) || [];
   return {
     somitiInfo: { ...((settings as any)?.info || {}), ...((summary as any) || {}) },
-    members: memberRows.map((m) => mapMember(m, txRows)),
+    members: memberRows.map((m) => mapMember(m, recentByMember.get(m.id)||[])),
     projects: ((projects as any[]) || []).map(mapProject),
     cashAccounts: ((cash as any[]) || []).map(mapCash),
-    transactions: txRows.map(mapTransaction),
+    transactions: ledger,
     expenses: ((expenses as any[]) || []).filter((e) => e.status !== 'rejected').map(mapExpense),
     approvals: apRows.filter((a) => a.status === 'pending').map(mapApproval),
     approvedApprovals: apRows.filter((a) => a.status === 'approved').map(mapApproval),
@@ -307,22 +331,28 @@ export async function somitiInitialized(): Promise<boolean> {
 }
 
 export async function signInWithPin(phone: string, pin: string) {
-  const res = await supabase.auth.signInWithPassword({ email: phoneToEmail(phone), password: pinToPassword(pin) });
+  const email=phoneToEmail(phone),password=pinToPassword(pin);
+  await verifyLoginPin(phone,pin);
+  const res = await supabase.auth.signInWithPassword({ email, password });
   if (res.error) throw new Error(friendlyAuthError(res.error.message));
+  await confirmPinSession(pin);
   return res.data.session;
 }
 
 /** First login of a member the admin already added (PIN = initial PIN set by admin). */
 export async function activateWithPin(phone: string, pin: string) {
+  const email=phoneToEmail(phone),password=pinToPassword(pin);
+  await verifyLoginPin(phone,pin);
   const res = await supabase.auth.signUp({
-    email: phoneToEmail(phone),
-    password: pinToPassword(pin),
+    email,
+    password,
     options: { data: { phone: normalizePhone(phone), pin } },
   });
   if (res.error) throw new Error(friendlyAuthError(res.error.message));
   if (!res.data.session) {
     throw new Error('অ্যাকাউন্ট চালু করা যায়নি। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
   }
+  await confirmPinSession(pin);
   return res.data.session;
 }
 
@@ -337,7 +367,35 @@ export async function bootstrapSomiti(somitiName: string, adminName: string, pho
   if (!res.data.session) {
     throw new Error('অ্যাকাউন্ট চালু করা যায়নি। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
   }
+  await confirmPinSession(pin);
   return res.data.session;
+}
+
+async function verifyLoginPin(phone:string,pin:string) {
+  const result=unwrap(await supabase.rpc('verify_login_pin',{p_phone:normalizePhone(phone),p_pin:pin})) as {ok:boolean;error?:string};
+  if (!result.ok) throw new Error(result.error || 'পিন যাচাই ব্যর্থ।');
+}
+
+async function confirmPinSession(pin:string) {
+  try {
+    const result=unwrap(await supabase.rpc('confirm_pin_session',{p_pin:pin})) as {ok:boolean;error?:string};
+    if (!result.ok) throw new Error(result.error || 'পিন যাচাই ব্যর্থ।');
+  } catch(error) {
+    await supabase.auth.signOut({scope:'local'});
+    throw error;
+  }
+}
+
+export async function deleteMyAccount(pin:string,closeSociety:boolean,confirmation:string) {
+  const {data,error}=await supabase.functions.invoke('delete-account',{body:{pin,closeSociety,confirmation}});
+  if (error) {
+    const response=error.context;
+    const details=response && typeof response.json==='function' ? await response.json().catch(()=>null) : null;
+    throw new Error(details?.error || 'অনুরোধ সম্পন্ন হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।');
+  }
+  if (!data?.ok) throw new Error(data?.error || 'Account deletion failed');
+  await supabase.auth.signOut({scope:'local'});
+  return data as {ok:true;cleanupPending:boolean};
 }
 
 export async function fetchMyProfile() {

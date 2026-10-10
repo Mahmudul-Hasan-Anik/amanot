@@ -28,7 +28,7 @@ function fixture({remote=false,approved=false,role='super_admin'}={}) {
   const store=()=>state;store.getState=()=>state;store.setState=v=>Object.assign(state,v);
   const screen=load(path.join(__dirname,'../app/(admin)/distribution.tsx'),{
     'react':{__esModule:true,default:React,...React},'react-native':{View:'View',Text:'Text',ScrollView:'Scroll',TouchableOpacity:'Touch',TextInput:'Input',SafeAreaView:'SafeAreaView',StatusBar:'StatusBar',StyleSheet:{create:s=>s},Alert:{alert:(...a)=>alerts.push(a)},Platform:{}},
-    'expo-router':{useRouter:()=>({})},'@expo/vector-icons':{Ionicons:'Icon'},
+    'expo-router':{useRouter:()=>({})},'@expo/vector-icons/Ionicons':{default:'Icon'},
     '../../src/store/somitiStore':{REMOTE:remote,useSomitiStore:store},'../../src/features/auth/authStore':{useAuthStore:f=>f({actualRole:role})},
     '../../src/i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:n=>String(n),formatNum:n=>String(n),isBengali:false})},
     '../../src/utils/navigation':{safeBack:()=>{}},'../../src/lib/api':{profitPreview:()=>approvals.length ? new Promise(()=>{}) : Promise.resolve({alreadyDistributed:false,projectProfit:1000,expenses:0,netProfit:1000,totalDeposit:1000}),distributeProfit:async(...v)=>{approvals.push(v);return {distributed:802.5};}},

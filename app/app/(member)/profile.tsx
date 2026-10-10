@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -253,6 +253,10 @@ export default function MemberProfileScreen() {
           </View>
         )}
 
+        <TouchableOpacity accessibilityRole="link" onPress={()=>router.push('/account-deletion')} style={styles.logoutBtn}>
+          <Ionicons name="trash-outline" size={20} color={colors.warning}/>
+          <Text style={styles.logoutBtnText}>{l('Delete account','Account মুছুন')}</Text>
+        </TouchableOpacity>
         {/* Logout Button */}
         <TouchableOpacity
           style={styles.logoutBtn}

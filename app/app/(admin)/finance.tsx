@@ -16,7 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore, Transaction } from '../../src/store/somitiStore';
 import { mockCashAccounts } from '../../src/mocks/mockData';
 import { useLanguage } from '../../src/i18n/useLanguage';
