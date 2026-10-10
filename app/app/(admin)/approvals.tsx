@@ -1,3 +1,7 @@
+import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
+import { RemoteDataState } from '../../src/components/RemoteDataState';
+import { fetchApprovalHistory } from '../../src/lib/api';
+import { REMOTE } from '../../src/store/somitiStore';
 import React, { useState } from 'react';
 import {
   View,
@@ -47,6 +51,7 @@ export default function ApprovalsScreen() {
   } = useSomitiStore();
 
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const history=useRemoteQuery('approval-history',fetchApprovalHistory,activeTab!=='pending');
   const [selectedAttachment, setSelectedAttachment] = useState<{
     title: string;
     type: 'image' | 'document';
@@ -59,8 +64,8 @@ export default function ApprovalsScreen() {
 
   // Fallback to mock data if store list is empty so screen displays the exact design data
   const approvals = storeApprovals;
-  const approvedList = approvedApprovals;
-  const rejectedList = rejectedApprovals;
+  const approvedList = REMOTE ? history.data?.approved || [] : approvedApprovals;
+  const rejectedList = REMOTE ? history.data?.rejected || [] : rejectedApprovals;
 
   const cleanTitle = (rawTitle: string) => {
     return rawTitle.replace(
@@ -211,6 +216,7 @@ export default function ApprovalsScreen() {
         </View>
 
         {/* Auto Approve Quick Action Banner */}
+        <RemoteDataState query={history} enabled={activeTab!=='pending'}>
         {activeTab === 'pending' && approvals.length > 0 && (
           <View style={styles.autoApproveBanner}>
             <View style={styles.autoApproveLeft}>
@@ -368,6 +374,7 @@ export default function ApprovalsScreen() {
         )}
 
         <View style={styles.bottomSpacer} />
+        </RemoteDataState>
       </ScrollView>
 
       {/* Attachment Preview Modal */}

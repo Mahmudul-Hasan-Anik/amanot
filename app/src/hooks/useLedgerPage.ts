@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchTransactionPage } from '../lib/api';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -6,17 +7,18 @@ import { useSomitiStore } from '../store/somitiStore';
 import { useAuthStore } from '../features/auth/authStore';
 
 export function useLedgerPage(filter:LedgerFilter={},enabled=true) {
+  const focused=useIsFocused();
   const local=useSomitiStore(s=>s.transactions);
-  const revision=useSomitiStore(s=>s.syncRevision);
+  const revision=useSomitiStore(s=>`${s.syncRevision}:${s.dataVersion}`);
   const identity=useAuthStore(s=>`${s.currentUser?.id}:${s.actualRole}:${s.isPinVerified}`);
   const unlocked=useAuthStore(s=>s.isPinVerified&&!s.mustChangePin);
-  const key=JSON.stringify([filter,enabled,revision,identity,unlocked]);
+  const key=JSON.stringify([filter,enabled,revision,identity,unlocked,focused]);
   const latestKey=useRef(key);latestKey.current=key;
   const [state,setState]=useState<{key:string;page:LedgerPage;loading:boolean;error:string|null}>({key:'',page:{rows:[],hasMore:false,cursor:null},loading:false,error:null});
   const inFlight=useRef<string|null>(null);
   const generation=useRef(0);
   const load=useCallback(async(append=false)=>{
-    if(!enabled || !unlocked || !isSupabaseConfigured() || inFlight.current===key)return;
+    if(!focused || !enabled || !unlocked || !isSupabaseConfigured() || inFlight.current===key)return;
     inFlight.current=key;
     const request=++generation.current;
     setState(s=>({key,page:append&&s.key===key?s.page:{rows:[],hasMore:false,cursor:null},loading:true,error:null}));

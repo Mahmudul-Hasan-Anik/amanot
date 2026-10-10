@@ -1,3 +1,7 @@
+import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
+import { RemoteDataState } from '../../src/components/RemoteDataState';
+import { fetchLedgerSummary } from '../../src/lib/api';
+import { emptyLedgerSummary } from '../../src/lib/ledger';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import { FAB } from '../../src/components/FAB';
@@ -70,8 +74,12 @@ const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্�
 
 export default function FinanceScreen() {
   const router = useRouter();
-  const state=useSomitiStore();
-  const { somitiInfo, cashAccounts, expenses, transactions, transferCash, ledgerSummary } = state;
+  const somitiInfo=useSomitiStore(s=>s.somitiInfo);
+  const cashAccounts=useSomitiStore(s=>s.cashAccounts);
+  const expenses=useSomitiStore(s=>s.expenses);
+  const transactions=useSomitiStore(s=>s.transactions);
+  const transferCash=useSomitiStore(s=>s.transferCash);
+  const localSummary=useSomitiStore(s=>s.ledgerSummary);
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const displayCashAccounts = useMemo(() => {
@@ -82,10 +90,12 @@ export default function FinanceScreen() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(MONTHS_LIST[0].key);
   const [showMonthModal, setShowMonthModal] = useState<boolean>(false);
   const ledger=useLedgerPage(monthRange(selectedMonthKey));
+  const summaryQuery=useRemoteQuery('summary:'+selectedMonthKey,()=>{const range=monthRange(selectedMonthKey);return fetchLedgerSummary(range.from,range.to)});
+  const ledgerSummary=REMOTE ? summaryQuery.data || emptyLedgerSummary : localSummary;
   const [exporting,setExporting]=useState(false);
   const handleExport=async(format:'PDF'|'CSV')=>{
     if(exporting)return;setExporting(true);setShowExportModal(false);
-    try{await exportReport(await buildReportForExport(state,format==='CSV'?'9':'3',selectedMonthKey),somitiInfo.name,selectedMonthKey,format);}
+    try{await exportReport(await buildReportForExport(useSomitiStore.getState(),format==='CSV'?'9':'3',selectedMonthKey),somitiInfo.name,selectedMonthKey,format);}
     catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}
     finally{setExporting(false);}
   };
@@ -222,7 +232,7 @@ export default function FinanceScreen() {
         </View>
       )}
 
-      <ScrollView
+      <RemoteDataState query={summaryQuery}><ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -376,7 +386,7 @@ export default function FinanceScreen() {
         </View>
 
         <View style={styles.scrollSpacer} />
-      </ScrollView>
+      </ScrollView></RemoteDataState>
 
       {/* Floating Action Button (+ খরচ লিখুন) */}
       <FAB label={l('Record Expense', 'খরচ লিখুন')} onPress={() => router.push('/(admin)/expense/new')} />

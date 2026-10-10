@@ -11,7 +11,7 @@ import type { Transaction, ExpenseItem } from '../store/somitiStore';
 import { Platform } from 'react-native';
 import { readProfilePhoto } from './profilePhoto';
 import { friendlyAuthError } from './authErrors';
-import { LedgerFilter, LedgerCursor, LedgerPage, LedgerSummary, emptyLedgerSummary, monthRange } from './ledger';
+import { LedgerFilter, LedgerCursor, LedgerPage, LedgerSummary, emptyLedgerSummary } from './ledger';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -259,7 +259,57 @@ export async function fetchTransactionByReference(reference:string):Promise<Tran
   return result ? mapTransaction(result) : null;
 }
 
-export async function fetchAll(isStaff: boolean) {
+const allRows = async (table:string, columns='*', order='created_at', since?:string, statuses?:string[]) => {
+    const rows:any[]=[];
+    for(let offset=0;;offset+=1000) {
+      let query = supabase.from(table).select(columns).order(order,{ascending:false}).order('id').range(offset,offset+999);
+      if (table === 'members') query = query.is('deleted_at', null);
+      if (statuses) query = query.in('status',statuses);
+      if (since) query = query.gte('created_at',since);
+      const page:any[] = unwrap(await query);
+      rows.push(...page); if(page.length<1000) return rows;
+    }
+  };
+
+const photoUrls = new Map<string, { url: string; expires: number }>();
+let photoOwner = '';
+let photoGeneration = 0;
+export function clearPhotoCache() { photoUrls.clear(); photoOwner = ''; photoGeneration++; }
+export async function signedPhotoUrls(paths: string[], owner: string) {
+  if (owner !== photoOwner) { clearPhotoCache(); photoOwner = owner; }
+  const generation = photoGeneration;
+  const now = Date.now();
+  const result = new Map<string,string>();
+  const missing = [...new Set(paths)].filter(path => {
+    const cached = photoUrls.get(path);
+    if (cached && cached.expires > now) { result.set(path,cached.url); return false; }
+    photoUrls.delete(path); return true;
+  });
+  if (missing.length) {
+    const {data} = await supabase.storage.from('member-documents').createSignedUrls(missing,3600);
+    // Ignore responses from an account that was locked/logged out meanwhile.
+    if (owner !== photoOwner || generation !== photoGeneration) return new Map<string,string>();
+    for (const item of data || []) if (item.path && item.signedUrl && !item.error) {
+      photoUrls.set(item.path,{url:item.signedUrl,expires:now+55*60*1000});
+      result.set(item.path,item.signedUrl);
+    }
+  }
+  return result;
+}
+export async function fetchAuditLogs() {
+  const rows = unwrap(await supabase.from('audit_logs').select('*').order('id',{ascending:false}).limit(300)) as any[];
+  return (rows || []).map(a=>({id:String(a.id),action:a.action as string,actor:a.actor_name || '',details:a.details || {},createdAt:a.created_at as string}));
+}
+export async function fetchApprovalHistory() {
+  const rows = await allRows('approvals','*','created_at',undefined,['approved','rejected']);
+  return {approved:rows.filter(a=>a.status==='approved').map(mapApproval),rejected:rows.filter(a=>a.status==='rejected').map(mapApproval)};
+}
+export async function fetchMembersAndSummary(photoScope: string) {
+  const [rows, summary] = await Promise.all([allRows('members',MEMBER_COLUMNS,'code'),supabase.rpc('get_somiti_summary').then(unwrap)]);
+  const signed = await signedPhotoUrls(rows.map(m=>m.avatar_path).filter(Boolean),photoScope);
+  return {members:rows.map(m=>mapMember({...m,photo_uri:signed.get(m.avatar_path)})),summary:summary as Record<string,any>};
+}
+export async function fetchAll(isStaff: boolean, photoScope = '') {
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
@@ -268,20 +318,7 @@ export async function fetchAll(isStaff: boolean) {
     await supabase.rpc('refresh_dues').then(() => {}, () => {});
   }
 
-  const allRows = async (table:string, columns='*', order='created_at', since?:string) => {
-    const rows:any[]=[];
-    for(let offset=0;;offset+=1000) {
-      let query = supabase.from(table).select(columns).order(order,{ascending:false}).order('id').range(offset,offset+999);
-      if (table === 'members') query = query.is('deleted_at', null);
-      if (since) query = query.gte('created_at',since);
-      const page:any[] = unwrap(await query);
-      rows.push(...page); if(page.length<1000) return rows;
-    }
-  };
-  const now=new Date(), first=new Date(now.getFullYear(),now.getMonth()-11,1);
-  const from=`${first.getFullYear()}-${String(first.getMonth()+1).padStart(2,'0')}-01`;
-  const to=monthRange(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`).to;
-  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, audit, ledgerSummary] = await Promise.all([
+  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
     allRows('members',MEMBER_COLUMNS,'code'),
@@ -289,12 +326,8 @@ export async function fetchAll(isStaff: boolean) {
     isStaff ? q(supabase.from('cash_accounts').select('*').order('sort')) : empty,
     fetchTransactionPage(),
     isStaff ? q(supabase.from('expenses').select('*').order('created_at',{ascending:false}).limit(50)) : empty,
-    isStaff ? allRows('approvals') : empty,
+    isStaff ? allRows('approvals','*','created_at',undefined,['pending']) : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
-    isStaff
-      ? Promise.resolve(q(supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300))).catch(() => [])
-      : empty,
-    isStaff ? fetchLedgerSummary(from,to) : Promise.resolve(emptyLedgerSummary),
   ]);
 
   const ledger = ledgerPage.rows;
@@ -308,8 +341,7 @@ export async function fetchAll(isStaff: boolean) {
   const memberRows = (members as any[]) || [];
   const paths = memberRows.map(m=>m.avatar_path).filter(Boolean);
   if (paths.length) {
-    const {data} = await supabase.storage.from('member-documents').createSignedUrls(paths,3600);
-    const signed = new Map((data||[]).map(item=>[item.path,item.signedUrl]));
+    const signed = await signedPhotoUrls(paths, photoScope);
     memberRows.forEach(m=>{m.photo_uri=signed.get(m.avatar_path);});
   }
   const apRows = (approvals as any[]) || [];
@@ -319,11 +351,11 @@ export async function fetchAll(isStaff: boolean) {
     projects: ((projects as any[]) || []).map(mapProject),
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: ledger,
-    ledgerSummary,
+    ledgerSummary: emptyLedgerSummary,
     expenses: ((expenses as any[]) || []).filter((e) => e.status !== 'rejected').map(mapExpense),
     approvals: apRows.filter((a) => a.status === 'pending').map(mapApproval),
-    approvedApprovals: apRows.filter((a) => a.status === 'approved').map(mapApproval),
-    rejectedApprovals: apRows.filter((a) => a.status === 'rejected').map(mapApproval),
+    approvedApprovals: [],
+    rejectedApprovals: [],
     notices: ((notices as any[]) || []).map((n) => ({
       id: n.id,
       title: n.title,
@@ -331,13 +363,7 @@ export async function fetchAll(isStaff: boolean) {
       createdBy: n.created_by_name || '',
       createdAt: n.created_at,
     })),
-    auditLogs: ((audit as any[]) || []).map((a) => ({
-      id: String(a.id),
-      action: a.action as string,
-      actor: a.actor_name || '',
-      details: a.details || {},
-      createdAt: a.created_at as string,
-    })),
+    auditLogs: [],
   };
 }
 

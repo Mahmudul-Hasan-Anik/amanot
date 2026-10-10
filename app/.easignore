@@ -22,6 +22,7 @@ private-backups/
 eas-build-info.json
 npm-audit.json
 scripts/improve-*.cjs
+scripts/archive/
 scripts/generate-summary-migration.cjs
 scripts/test-*
 scripts/capture-*

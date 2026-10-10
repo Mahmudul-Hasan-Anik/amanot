@@ -1,10 +1,14 @@
+import { useRemoteQuery } from '../../../src/hooks/useRemoteQuery';
+import { RemoteDataState } from '../../../src/components/RemoteDataState';
+import { fetchLedgerSummary } from '../../../src/lib/api';
+import { emptyLedgerSummary, monthRange } from '../../../src/lib/ledger';
 import { Card } from '../../../src/components/Card';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -30,7 +34,9 @@ type FilterType = 'all' | 'paid' | 'due';
 
 export default function CollectionScreen() {
   const router = useRouter();
-  const { members, transactions, ledgerSummary } = useSomitiStore();
+  const members=useSomitiStore(s=>s.members);
+  const transactions=useSomitiStore(s=>s.transactions);
+  const localSummary=useSomitiStore(s=>s.ledgerSummary);
   const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<FilterType>('all');
@@ -43,6 +49,8 @@ export default function CollectionScreen() {
   // Month calculations
   const [selectedMonth, setSelectedMonth] = useState(recentMonths(12)[0].key);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const summaryQuery=useRemoteQuery('summary:'+selectedMonth,()=>{const range=monthRange(selectedMonth);return fetchLedgerSummary(range.from,range.to)});
+  const ledgerSummary=REMOTE ? summaryQuery.data || emptyLedgerSummary : localSummary;
   const _now = new Date(`${selectedMonth}-01T00:00:00`);
   const curMonth = _now.getMonth();
   const monthLabelEn = _now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -171,11 +179,16 @@ export default function CollectionScreen() {
         </View>
       )}
 
-      <ScrollView
+      <RemoteDataState query={summaryQuery}><FlatList
+        data={filteredMembers}
+        keyExtractor={member=>member.id}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={7}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
-      >
-        {/* Month Selector Pill */}
+        ListHeaderComponent={<>        {/* Month Selector Pill */}
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={l('Select Month', 'মাস নির্বাচন করুন')} accessibilityState={{ expanded: showMonthPicker }} style={styles.monthPill} onPress={handleMonthPress} activeOpacity={0.75}>
           <Ionicons name="calendar-outline" size={16} color={colors.text} />
           <Text style={styles.monthPillText}>{l(monthLabelEn, monthLabelBn)}</Text>
@@ -226,9 +239,8 @@ export default function CollectionScreen() {
           />
         </View>
 
-        {/* Members Collection List Card */}
-        <View style={styles.membersCard}>
-          {filteredMembers.map((item, index) => {
+</>}
+        renderItem={({item,index})=>{
             const isPaid = isPaidThisMonth(item);
 
             return (
@@ -236,6 +248,9 @@ export default function CollectionScreen() {
                 key={item.id}
                 style={[
                   styles.memberRow,
+                  {backgroundColor:colors.surface},
+                  index===0 && {borderTopLeftRadius:20,borderTopRightRadius:20},
+                  index===filteredMembers.length-1 && {borderBottomLeftRadius:20,borderBottomRightRadius:20},
                   index < filteredMembers.length - 1 && styles.memberRowBorder,
                 ]}
                 onPress={() => router.push(`/(admin)/member/${item.id}`)}
@@ -270,19 +285,10 @@ export default function CollectionScreen() {
                 )}
               </TouchableOpacity>
             );
-          })}
 
-          {filteredMembers.length === 0 && (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={32} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>
-                {l('No members found', 'কোনো সদস্য পাওয়া যায়নি')}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Outlined Reminder Button */}
+        }}
+        ListEmptyComponent={<View style={styles.emptyContainer}><Ionicons name="search-outline" size={32} color={colors.textSecondary}/><Text style={styles.emptyText}>{l('No members found','কোনো সদস্য পাওয়া যায়নি')}</Text></View>}
+        ListFooterComponent={<View style={{marginTop:16}}>        {/* Outlined Reminder Button */}
         <TouchableOpacity
           style={styles.reminderCard}
           onPress={() => router.push('/(admin)/reminder')}
@@ -295,7 +301,8 @@ export default function CollectionScreen() {
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+</View>}
+      /></RemoteDataState>
 
       {/* Floating Action Button (FAB) */}
       <FAB label={l('Deposit', 'জমা নিন')} onPress={() => router.push('/(admin)/deposit/new')} />

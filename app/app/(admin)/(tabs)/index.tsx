@@ -25,15 +25,13 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
-  const {
-    somitiInfo,
-    approvals,
-    members,
-    projects,
-    cashAccounts,
-    expenses,
-    approveRequest,
-  } = useSomitiStore();
+  const somitiInfo=useSomitiStore(s=>s.somitiInfo);
+  const approvals=useSomitiStore(s=>s.approvals);
+  const members=useSomitiStore(s=>s.members);
+  const projects=useSomitiStore(s=>s.projects);
+  const cashAccounts=useSomitiStore(s=>s.cashAccounts);
+  const expenses=useSomitiStore(s=>s.expenses);
+  const approveRequest=useSomitiStore(s=>s.approveRequest);
   const { l, isBengali, formatMoney, formatNum, dueDateDay } = useLanguage();
 
   const [refreshing, setRefreshing] = useState(false);

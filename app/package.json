@@ -35,7 +35,8 @@
     "test:report-queries": "node scripts/test-report-queries.cjs",
     "test:account-deletion": "node scripts/test-account-deletion.cjs",
     "check:backend": "node scripts/check-backend.cjs",
-    "check:release": "node scripts/check-release-config.cjs"
+    "check:release": "node scripts/check-release-config.cjs",
+    "test:remote-query": "node scripts/test-remote-query.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

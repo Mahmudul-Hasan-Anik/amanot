@@ -188,11 +188,12 @@ export default function MembersScreen() {
 
         {/* Member List */}
         <FlatList
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
           data={filteredMembers}
           keyExtractor={(item) => item.id}
           renderItem={renderMemberItem}
-          initialNumToRender={10}
-          windowSize={7}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={<Text style={styles.sortText}>{l('No matching members', 'কোনো সদস্য পাওয়া যায়নি')}</Text>}
           showsVerticalScrollIndicator={false}

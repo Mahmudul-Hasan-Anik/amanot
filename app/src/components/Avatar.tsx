@@ -14,7 +14,7 @@ interface AvatarProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({
+export const Avatar: React.FC<AvatarProps> = React.memo(({
   name,
   photoUri,
   variant = 'circle',
@@ -53,7 +53,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       </Text>}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   base: {

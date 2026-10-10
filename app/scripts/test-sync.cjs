@@ -6,7 +6,7 @@ let now=Date.now();
 class TestDate extends Date { static now(){return now;} }
 const data={somitiInfo:{name:'Fixture'},members:[{id:'fixture-member',nid:'fixture-private'}],projects:[],cashAccounts:[],transactions:[],expenses:[],approvals:[],approvedApprovals:[],rejectedApprovals:[],notices:[{id:'notice'}],auditLogs:[{id:'audit'}]};
 const rejectedWrite=async()=>{throw Error('fixture server denied write')};
-const api={fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
+const api={__esModule:true,clearPhotoCache:()=>{},fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
   if(n==='zustand'||n==='zustand/middleware')return require(n);
@@ -54,6 +54,27 @@ async function main(){
   assert.equal(calls,beforeParallel+1,'Full snapshot starts while revision is still pending');
   const joined=store.getState().syncFromServer(false);finishRevision();await Promise.all([cold,joined]);revisionGate=null;
   assert.equal(calls,beforeParallel+1,'Initial auto-sync joins login without a second full snapshot');
+  // Targeted edits skip unrelated tables, preserve member history and reject stale responses.
+  let directoryCalls=0;
+  api.fetchMembersAndSummary=async()=>{directoryCalls++;return {members:[{id:'fixture-member',name:'Updated',recentTxns:[]}],summary:{totalFund:123}}};
+  api.updateMember=async()=>({});api.updateSomitiInfo=async fields=>fields;
+  store.setState({members:[{id:'fixture-member',recentTxns:[{receiptNo:'keep'}]}]});
+  const beforeEdits=calls,version=store.getState().dataVersion;
+  await store.getState().updateSomitiInfo({name:'Renamed'});
+  assert.equal(calls,beforeEdits);assert.equal(directoryCalls,0);assert.equal(store.getState().somitiInfo.name,'Renamed');
+  await store.getState().updateMember('fixture-member',{name:'Updated'});
+  assert.equal(calls,beforeEdits);assert.equal(directoryCalls,1);assert.equal(store.getState().members[0].recentTxns[0].receiptNo,'keep');assert.equal(store.getState().somitiInfo.totalFund,123);
+  await store.getState().updateSomitiInfo({lateFee:0});assert.equal(directoryCalls,2);assert.equal(store.getState().dataVersion,version+3);
+  let finishDirectory;api.fetchMembersAndSummary=()=>new Promise(resolve=>finishDirectory=resolve);
+  const oldDirectory=store.getState().updateMember('fixture-member',{name:'First edit'});
+  for(let i=0;i<10;i++)await Promise.resolve();
+  const beforeConcurrent=calls;await store.getState().updateSomitiInfo({name:'Second edit'});
+  finishDirectory({members:[],summary:{totalFund:999}});await oldDirectory;
+  assert.equal(calls,beforeConcurrent+1,'Overlapping edits fall back to a fresh snapshot');assert.notEqual(store.getState().somitiInfo.totalFund,999);
+  let releaseEdit;api.updateSomitiInfo=()=>new Promise(resolve=>releaseEdit=resolve);
+  const oldEdit=store.getState().updateSomitiInfo({name:'Stale'});store.getState().clearLocalData();releaseEdit({name:'Stale'});await oldEdit;
+  assert.notEqual(store.getState().somitiInfo.name,'Stale');
+  console.log('PASS targeted edits: settings avoid full reload, dues/member edits refresh directory and totals, history retained, stale writes discarded.');
   console.log('PASS sync: unchanged revision reuse, independent 45-minute snapshot refresh, force refetch, no persisted financial data, stale responses discarded even after same-user re-login, PIN gate enforced.');
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1});

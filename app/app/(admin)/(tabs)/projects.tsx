@@ -5,6 +5,7 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -23,7 +24,10 @@ import { typography } from '../../../src/theme/typography';
 
 export default function ProjectsScreen() {
   const router = useRouter();
-  const { projects, addProject, cashAccounts, somitiInfo } = useSomitiStore();
+  const projects=useSomitiStore(s=>s.projects);
+  const addProject=useSomitiStore(s=>s.addProject);
+  const cashAccounts=useSomitiStore(s=>s.cashAccounts);
+  const somitiInfo=useSomitiStore(s=>s.somitiInfo);
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const [showNew, setShowNew] = useState(false);
@@ -137,11 +141,16 @@ export default function ProjectsScreen() {
         </View>
       )}
 
-      <ScrollView
+      <FlatList
+        data={filteredProjects}
+        keyExtractor={project=>project.id}
+        ItemSeparatorComponent={()=> <View style={{height:10}}/>}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {/* Top Summary Card */}
+        ListHeaderComponent={<>        {/* Top Summary Card */}
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.topStatsRow}>
             <View>
@@ -203,9 +212,8 @@ export default function ProjectsScreen() {
           ))}
         </View>
 
-        {/* Projects List */}
-        <View style={styles.projectsList}>
-          {filteredProjects.map((project) => {
+</>}
+        renderItem={({item:project})=>{
             const isProfit = project.netProfit >= 0;
             const profitRoiText = isProfit
               ? `+${formatMoney(project.netProfit)} · ${formatNum(project.roiPct)}%`
@@ -283,20 +291,17 @@ export default function ProjectsScreen() {
                 </View>
               </TouchableOpacity>
             );
-          })}
 
-          {filteredProjects.length === 0 && (
-            <View style={styles.emptyState}>
+        }}
+        ListEmptyComponent={            <View style={styles.emptyState}>
               <Ionicons name="briefcase-outline" size={32} color={colors.textSecondary} />
               <Text style={styles.emptyText}>
                 {l('No projects found', 'কোনো প্রজেক্ট পাওয়া যায়নি')}
               </Text>
             </View>
-          )}
-        </View>
-
-        <View style={styles.scrollSpacer} />
-      </ScrollView>
+}
+        ListFooterComponent={<View style={styles.scrollSpacer}/>}
+      />
 
       {/* FAB: + নতুন প্রজেক্ট */}
       <FAB label={l('New Project', 'নতুন প্রজেক্ট')} onPress={() => setShowNew(true)} />

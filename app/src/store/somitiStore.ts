@@ -26,6 +26,7 @@ export const REMOTE = isSupabaseConfigured();
 let syncPromise: Promise<void> | null = null;
 let syncAgain = false;
 let syncGeneration = 0;
+let editRevision = 0;
 
 const emptySomitiInfo: typeof mockSomitiInfo = {
   ...mockSomitiInfo,
@@ -196,9 +197,36 @@ export interface SomitiState {
   lastSyncedAt: number | null;
   lastFullSyncedAt: number | null;
   syncRevision: string | null;
+  dataVersion: number;
   syncError: string | null;
   syncFromServer: (force?: boolean) => Promise<void>;
   clearLocalData: () => void;
+}
+
+
+async function refreshAfterEdit(get:()=>SomitiState,set:(patch:Partial<SomitiState>)=>void,write:()=>Promise<any>,directory:boolean,fields?:Partial<typeof mockSomitiInfo>) {
+  const { useAuthStore } = require('../features/auth/authStore');
+  const session=useAuthStore.getState(),generation=syncGeneration;
+  const valid=()=>{const current=useAuthStore.getState();return generation===syncGeneration && current.isPinVerified && !current.mustChangePin && current.currentUser?.id===session.currentUser?.id && current.actualRole===session.actualRole};
+  if(!session.isPinVerified || session.mustChangePin) throw new Error('Please unlock your account first');
+  const edit=++editRevision;
+  const saved=await write();
+  if(!valid())return;
+  try {
+    const refreshWhole=async()=>{await get().syncFromServer();if(valid() && get().syncError)throw new Error(get().syncError!)};
+    // Concurrent writes/full refreshes may contain an earlier snapshot. Queue a fresh pass.
+    if(syncPromise || edit!==editRevision){await refreshWhole();return;}
+    const fresh=directory ? await api.fetchMembersAndSummary(session.currentUser?.id || '') : null;
+    if(!valid())return;
+    if(syncPromise || edit!==editRevision){await refreshWhole();return;}
+    const state=get();
+    const info:Partial<typeof mockSomitiInfo>={};
+    if(fields)for(const key of Object.keys(fields)) (info as any)[key]=saved?.[key] ?? (fields as any)[key];
+    const recent=new Map(state.members.map(member=>[member.id,member.recentTxns]));
+    set({somitiInfo:{...state.somitiInfo,...info,...(fresh?.summary || {})},
+      ...(fresh ? {members:fresh.members.map(member=>({...member,recentTxns:recent.get(member.id)||[]}))} : {}),
+      dataVersion:state.dataVersion+1,syncError:null});
+  } catch(error:any){if(valid())set({syncError:error?.message || String(error)});throw error;}
 }
 
 export const useSomitiStore = create<SomitiState>()(
@@ -209,6 +237,7 @@ export const useSomitiStore = create<SomitiState>()(
       lastFullSyncedAt: null,
       ledgerSummary: emptyLedgerSummary,
       syncRevision: null,
+      dataVersion: 0,
       notices: [],
       auditLogs: [],
 
@@ -471,7 +500,7 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       updateMember: async (id, updatedFields) => {
-        if (REMOTE) { await api.updateMember(id,updatedFields as any); await get().syncFromServer(); return; }
+        if (REMOTE) { await refreshAfterEdit(get,set,()=>api.updateMember(id,updatedFields as any),true); return; }
         set({
           members: get().members.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
         });
@@ -936,7 +965,7 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       updateSomitiInfo: async (data) => {
-        if (REMOTE) { await api.updateSomitiInfo(data as any); await get().syncFromServer(); return; }
+        if (REMOTE) { await refreshAfterEdit(get,set,()=>api.updateSomitiInfo(data as any),['dueDay','graceDays','lateFee'].some(key=>Object.prototype.hasOwnProperty.call(data,key)),data); return; }
         set({
           somitiInfo: {
             ...get().somitiInfo,
@@ -989,7 +1018,7 @@ export const useSomitiStore = create<SomitiState>()(
           const fullRefresh = force || !get().lastFullSyncedAt || Date.now()-get().lastFullSyncedAt! >= 45*60*1000;
           const [nextRevision, data] = await Promise.all([
             canReuseSnapshot ? Promise.resolve(revision!) : api.fetchSyncRevision(),
-            api.fetchAll(isStaff),
+            api.fetchAll(isStaff, session.currentUser?.id || ''),
           ]);
           const current = useAuthStore.getState();
           if (generation !== syncGeneration || !current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
@@ -1000,6 +1029,7 @@ export const useSomitiStore = create<SomitiState>()(
             lastSyncedAt: Date.now(),
             lastFullSyncedAt: fullRefresh ? Date.now() : get().lastFullSyncedAt,
             syncRevision: nextRevision,
+            dataVersion: get().dataVersion + 1,
             syncError: null,
           });
         } catch (e: any) {
@@ -1013,6 +1043,7 @@ export const useSomitiStore = create<SomitiState>()(
       clearLocalData: () => {
         if (!REMOTE) return;
         syncGeneration++;
+        api.clearPhotoCache();
         set({
           somitiInfo: { ...emptySomitiInfo },
           members: [],
@@ -1023,7 +1054,7 @@ export const useSomitiStore = create<SomitiState>()(
           cashAccounts: [],
           transactions: [],
           expenses: [],
-          notices: [], auditLogs: [], syncError: null, syncRevision: null,
+          notices: [], auditLogs: [], ledgerSummary: emptyLedgerSummary, syncError: null, syncRevision: null, dataVersion: get().dataVersion + 1,
           lastSyncedAt: null,
           lastFullSyncedAt: null,
         });

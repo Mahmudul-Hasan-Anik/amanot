@@ -3,7 +3,7 @@
     "name": "Amanot",
     "icon": "./assets/icon.png",
     "slug": "amanot",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "primaryColor": "#0F5E4A",
@@ -18,13 +18,15 @@
     },
     "android": {
       "package": "com.amanot.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
         "backgroundColor": "#0F5E4A"
       },
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "scheme": "amanot",
     "plugins": [

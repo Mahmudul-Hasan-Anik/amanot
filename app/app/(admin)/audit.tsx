@@ -1,3 +1,6 @@
+import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
+import { RemoteDataState } from '../../src/components/RemoteDataState';
+import { fetchAuditLogs } from '../../src/lib/api';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -30,7 +33,9 @@ interface AuditItem {
 export default function AuditLogScreen() {
   const router = useRouter();
   const { l, isBengali } = useLanguage();
-  const { auditLogs } = useSomitiStore();
+  const localLogs = useSomitiStore(s=>s.auditLogs);
+  const query=useRemoteQuery('audit',fetchAuditLogs);
+  const auditLogs=REMOTE ? query.data || [] : localLogs;
   const [filter, setFilter] = useState<'all' | 'financial' | 'member' | 'settings'>('all');
 
   // Baseline sample audit entries from Page 24
@@ -80,7 +85,7 @@ export default function AuditLogScreen() {
   ];
 
   const allLogs = useMemo(() => {
-    if (REMOTE && auditLogs && auditLogs.length > 0) {
+    if (REMOTE) {
       const ACTIONS: Record<string, { en: string; bn: string; cat: AuditItem['category'] }> = {
         account_created: { en: 'Account activated', bn: 'অ্যাকাউন্ট চালু', cat: 'member' },
         member_added: { en: 'Member added', bn: 'নতুন সদস্য যোগ', cat: 'member' },
@@ -108,7 +113,7 @@ export default function AuditLogScreen() {
           category: meta.cat,
         };
       });
-      return [...canonicalLogs, ...mapped];
+      return mapped;
     }
     return canonicalLogs;
   }, [auditLogs, isBengali]);
@@ -149,7 +154,7 @@ export default function AuditLogScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <RemoteDataState query={query}><ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -268,7 +273,7 @@ export default function AuditLogScreen() {
         </View>
 
         <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </ScrollView></RemoteDataState>
     </SafeAreaView>
   );
 }
