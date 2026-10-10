@@ -1,4 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const queryCache={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib/queryCache.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:queryCache,Map,Promise,Error});
 const memory=new Map(),storage={getItem:async k=>memory.get(k)||null,setItem:async(k,v)=>memory.set(k,v),removeItem:async k=>memory.delete(k)};
 let auth={isPinVerified:true,mustChangePin:false,currentUser:{id:'fixture-member'},actualRole:'member'};
 let revision='2026-10-09:1',calls=0,release=null,revisionGate=null;
@@ -9,6 +10,7 @@ const rejectedWrite=async()=>{throw Error('fixture server denied write')};
 const api={__esModule:true,clearPhotoCache:()=>{},fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
+  if(n==='../lib/queryCache')return queryCache;
   if(n==='zustand'||n==='zustand/middleware')return require(n);
   if(n==='@react-native-async-storage/async-storage')return {__esModule:true,default:storage};
   if(n==='../mocks/mockData')return {mockSomitiInfo:{dueBreakdown:{}},mockMembers:[],mockProjects:[],mockPendingApprovals:[],mockApprovedApprovals:[],mockRejectedApprovals:[],mockCashAccounts:[]};

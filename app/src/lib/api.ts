@@ -456,18 +456,19 @@ export async function fetchMyProfile(freshSignInUserId?: string) {
   // Ordinary refreshes continue to validate the user with the Auth server.
   const userId = freshSignInUserId || (await supabase.auth.getUser()).data.user?.id;
   if (!userId) return null;
-  const profile = unwrap(
-    await supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin').eq('id', userId).maybeSingle()
-  ) as any;
-  if (!profile || !profile.is_active) return null;
-  const [ready, memberRow] = await Promise.all([
-    profile.must_change_pin ? Promise.resolve(true) : supabase.rpc('session_ready').then(unwrap),
-    profile.member_id
-      ? supabase.from('members').select(MEMBER_COLUMNS).eq('id', profile.member_id).maybeSingle().then(unwrap)
-      : Promise.resolve(null),
+  // A many-to-one FK join returns this account's member with its profile in one request.
+  // Readiness runs concurrently; neither active-account nor PIN-session checks are skipped.
+  const [row, ready] = await Promise.all([
+    supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin,member:members!member_id('+MEMBER_COLUMNS+')').eq('id',userId).maybeSingle().then(unwrap),
+    supabase.rpc('session_ready').then(unwrap),
   ]);
-  if (ready !== true) return null;
-  return { profile, member: memberRow ? mapMember(memberRow) : null };
+  const profile = row as any;
+  if (!profile || !profile.is_active || (!profile.must_change_pin && ready !== true)) return null;
+  const memberRow = profile.member;
+  if (memberRow && memberRow.id !== profile.member_id) return null;
+  if (profile.member_id && !profile.must_change_pin && !memberRow) return null;
+  const {member: joinedMember, ...accountProfile} = profile;
+  return {profile:accountProfile,member:memberRow ? mapMember(memberRow) : null};
 }
 
 export async function changeOwnPin(newPin: string, currentPin: string) {

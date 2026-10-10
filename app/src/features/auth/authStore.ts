@@ -1,3 +1,4 @@
+import { clearQueryCache } from '../../lib/queryCache';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -140,7 +141,8 @@ export const useAuthStore = create<AuthState>()(
         const revision=++authRevision;
         set({ isPinVerified:false });
         try {
-          const registration = await api.checkPhone(phone);
+          // A registered account is authenticated by the server; no extra phone lookup is needed.
+          const registration = get().phoneRegistered ? {exists:true,registered:true} : await api.checkPhone(phone);
           if (!registration.exists) throw new Error('নম্বরটি নিবন্ধিত নয়। সমিতির অ্যাডমিনের সাথে যোগাযোগ করুন।');
           if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           set({phoneRegistered:registration.registered});
@@ -190,7 +192,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       lockApp: () => {
-        if (REMOTE && get().isAuthenticated) set({ isPinVerified: false, phoneRegistered: true });
+        if (REMOTE && get().isAuthenticated) { clearQueryCache(); set({ isPinVerified: false, phoneRegistered: true }); }
       },
 
       setPhone: (phone: string) => set({ phone }),

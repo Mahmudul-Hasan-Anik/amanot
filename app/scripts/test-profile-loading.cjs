@@ -1,9 +1,9 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
-let userReads=0,memberReads=0,ready=true,active=true,gate=null;
+let userReads=0,memberReads=0,profileReads=0,ready=true,active=true,gate=null,missingMember=false,mustChangePin=false;
 const sdk={auth:{getUser:async()=>{userReads++;return {data:{user:{id:'fresh-user'}}}}},rpc:async name=>{assert.equal(name,'session_ready');if(gate)await gate;return {data:ready,error:null}},from:table=>{
- const q={select:()=>q,eq:()=>q,maybeSingle:()=>q,then:(resolve,reject)=>{
-  if(table==='members')memberReads++;
-  return Promise.resolve({data:table==='profiles'?{id:'fresh-user',member_id:'member',phone:'01700000000',role:'member',is_active:active,must_change_pin:false}:{id:'member',name:'Fixture',join_date:'2026-01-01',months_status:{}},error:null}).then(resolve,reject);
+ const q={select:columns=>{if(table==='profiles')assert.ok(columns.includes('member:members!member_id('));return q;},eq:()=>q,maybeSingle:()=>q,then:(resolve,reject)=>{
+  if(table==='members')memberReads++;if(table==='profiles')profileReads++;
+  return Promise.resolve({data:table==='profiles'?{id:'fresh-user',member_id:'member',phone:'01700000000',role:'member',is_active:active,must_change_pin:mustChangePin,member:missingMember?null:{id:'member',name:'Fixture',join_date:'2026-01-01',months_status:{}}}:{id:'member',name:'Fixture',join_date:'2026-01-01',months_status:{}},error:null}).then(resolve,reject);
  }};return q;
 }};
 const exportsFixture={};const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib/api.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
@@ -14,11 +14,13 @@ async function main(){
  let release;gate=new Promise(r=>release=r);
  const fresh=exportsFixture.fetchMyProfile('fresh-user');
  for(let i=0;i<10;i++)await Promise.resolve();
- assert.equal(userReads,0);assert.equal(memberReads,1,'Member request starts before session readiness resolves');
+ assert.equal(userReads,0);assert.equal(profileReads,1,'Joined profile request starts before session readiness resolves');assert.equal(memberReads,0,'No separate member request');
  release();assert.equal((await fresh).profile.role,'member');gate=null;
  await exportsFixture.fetchMyProfile();assert.equal(userReads,1,'Regular refresh still validates Auth user');
  ready=false;assert.equal(await exportsFixture.fetchMyProfile('fresh-user'),null,'Invalid session cannot load account');
  ready=true;active=false;const before=memberReads;assert.equal(await exportsFixture.fetchMyProfile('fresh-user'),null);assert.equal(memberReads,before);
- console.log('PASS profile loading: fresh server sign-in avoids duplicate Auth lookup, member/readiness checks run concurrently, refresh revalidates Auth and inactive/unverified accounts remain blocked.');
+ active=true;missingMember=true;assert.equal(await exportsFixture.fetchMyProfile('fresh-user'),null,'Missing joined member fails closed');
+ mustChangePin=true;ready=false;assert.equal((await exportsFixture.fetchMyProfile('fresh-user')).profile.must_change_pin,true,'Forced PIN upgrade works even when member RLS hides records');
+ console.log('PASS profile loading: fresh sign-in skips duplicate Auth lookup, joined profile/member plus readiness run concurrently, no separate member request, refresh revalidates Auth and inactive/unverified accounts remain blocked.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

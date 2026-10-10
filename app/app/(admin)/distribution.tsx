@@ -1,3 +1,4 @@
+import { cachedQuery } from '../../src/lib/queryCache';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -31,6 +32,7 @@ export default function ProfitDistributionScreen() {
   const { l, formatMoney, formatNum, isBengali } = useLanguage();
   const { members, projects, somitiInfo } = useSomitiStore();
   const actualRole = useAuthStore(s => s.actualRole);
+  const owner=useAuthStore(s=>s.currentUser?.id);
   const canManage = actualRole === 'admin' || actualRole === 'super_admin';
   const [reserveInput, setReserveInput] = useState(String((somitiInfo as any).profitReservePct ?? 0));
   const [managementInput, setManagementInput] = useState(String((somitiInfo as any).profitManagementPct ?? 0));
@@ -46,11 +48,13 @@ export default function ProfitDistributionScreen() {
   const bnYear = toBengaliDigits(year);
   const [preview, setPreview] = useState<any>(!REMOTE ? (somitiInfo as any).demoProfitDistributions?.[year] || null : null);
 
-  const loadPreview = () => {
-    if (REMOTE) api.profitPreview(year).then(v => { setPreview(v); setPreviewError(null); }).catch(e => setPreviewError(e.message));
+  const loadPreview = (force=false) => {
+    const state=useSomitiStore.getState();
+    const key=JSON.stringify(['profit-preview',year,owner,actualRole,state.syncRevision,state.dataVersion]);
+    if (REMOTE) cachedQuery(key,()=>api.profitPreview(year),force).then(v => { setPreview(v); setPreviewError(null); }).catch(e => setPreviewError(e.message));
   };
 
-  useEffect(loadPreview, []);
+  useEffect(()=>loadPreview(), []);
 
   useEffect(() => {
     if (preview?.alreadyDistributed) {
@@ -97,7 +101,7 @@ export default function ProfitDistributionScreen() {
           const result = await api.distributeProfit(year, reservePercent, directorPercent);
           setPreview({ ...preview, alreadyDistributed: true, reservePct: reservePercent, managementPct: directorPercent, distributed: Number(result.distributed) });
           await useSomitiStore.getState().syncFromServer();
-          loadPreview();
+          loadPreview(true);
         } catch (e: any) {
           Alert.alert(l('Failed', 'ব্যর্থ'), e?.message || String(e));
           setSaving(false);
@@ -186,7 +190,7 @@ export default function ProfitDistributionScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {previewError && <TouchableOpacity onPress={loadPreview}><Text style={{color: colors.danger, marginBottom:12}}>{previewError} · {l('Retry','আবার চেষ্টা')}</Text></TouchableOpacity>}
+        {previewError && <TouchableOpacity onPress={()=>loadPreview(true)}><Text style={{color: colors.danger, marginBottom:12}}>{previewError} · {l('Retry','আবার চেষ্টা')}</Text></TouchableOpacity>}
         {REMOTE && !preview && !previewError && <Text>{l('Loading annual accounts…','বার্ষিক হিসাব লোড হচ্ছে…')}</Text>}
         {/* 4-Step Stepper Card */}
         <View style={styles.stepperCard}>

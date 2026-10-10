@@ -3,7 +3,7 @@
     "name": "Amanot",
     "icon": "./assets/icon.png",
     "slug": "amanot",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "primaryColor": "#0F5E4A",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.amanot.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",

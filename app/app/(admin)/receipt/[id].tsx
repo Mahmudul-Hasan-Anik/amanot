@@ -1,3 +1,4 @@
+import { cachedQuery } from '../../../src/lib/queryCache';
 import React, {useEffect,useState} from 'react';
 import {
   View,
@@ -33,13 +34,14 @@ export default function ReceiptScreen() {
 
   const identity=useAuthStore(s=>`${s.currentUser?.id}:${s.actualRole}:${s.isPinVerified}`);
   const reference=String(id||'');
-  const key=`${reference}:${identity}`;
+  const revision=useSomitiStore(s=>`${s.syncRevision}:${s.dataVersion}`);
+  const key=JSON.stringify(['receipt',reference,identity,revision]);
   const cached=getTransactionById(reference);
   const [resolved,setResolved]=useState<{key:string;txn:Transaction|null;error?:string}>();
   useEffect(()=>{
     let active=true;
     if(!isSupabaseConfigured()||cached)return;
-    fetchTransactionByReference(reference).then(txn=>{if(active)setResolved({key,txn});},e=>{if(active)setResolved({key,txn:null,error:e.message});});
+    cachedQuery(key,()=>fetchTransactionByReference(reference)).then(txn=>{if(active)setResolved({key,txn});},e=>{if(active)setResolved({key,txn:null,error:e.message});});
     return()=>{active=false;};
   },[key,!!cached]);
   const txn=cached||(resolved?.key===key?resolved.txn:null);

@@ -1,3 +1,4 @@
+import { clearQueryCache } from '../lib/queryCache';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1044,6 +1045,7 @@ export const useSomitiStore = create<SomitiState>()(
         if (!REMOTE) return;
         syncGeneration++;
         api.clearPhotoCache();
+        clearQueryCache();
         set({
           somitiInfo: { ...emptySomitiInfo },
           members: [],

@@ -1,4 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const queryCache={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib/queryCache.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:queryCache,Map,Promise,Error});
 let slots=[],index=0,effects=[],focused=true,version=0,requests=[];
 let auth={isPinVerified:true,mustChangePin:false,currentUser:{id:'owner'},actualRole:'admin'};
 const equal=(a,b)=>a&&b&&a.length===b.length&&a.every((v,i)=>v===b[i]);
@@ -9,7 +10,7 @@ const react={
 };
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/hooks/useRemoteQuery.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const out={};vm.runInNewContext(code,{exports:out,require:n=>{
- if(n==='react')return react;if(n==='expo-router')return {useIsFocused:()=>focused};
+ if(n==='../lib/queryCache')return queryCache;if(n==='react')return react;if(n==='expo-router')return {useIsFocused:()=>focused};
  if(n==='../store/somitiStore')return {REMOTE:true,useSomitiStore:fn=>fn({syncRevision:'1',dataVersion:version})};
  if(n==='../features/auth/authStore')return {useAuthStore:fn=>fn(auth)};throw Error(n);
 }});
@@ -21,10 +22,14 @@ async function main(){
  focused=true;let view=render();assert.equal(view.loading,true);assert.equal(view.data,undefined);assert.equal(requests.length,1);
  render('month-b');requests[0].resolve('wrong-month');await flush();view=render('month-b');assert.equal(view.data,undefined);
  requests[1].resolve('correct-month');await flush();view=render('month-b');assert.equal(view.data,'correct-month');
+ focused=false;render('month-b');focused=true;view=render('month-b');assert.equal(requests.length,2,'Focus with same revision reuses report');
+ slots.forEach(slot=>slot?.cleanup?.());slots=[];view=render('month-b');assert.equal(view.data,'correct-month');assert.equal(requests.length,2,'Remount reuses report');
+ render('month-a');await flush();assert.equal(requests.length,2,'Returning to an earlier filter reuses its cache');
+ render('month-b');
  version++;view=render('month-b');assert.equal(view.data,undefined,'Edits invalidate old financial results');assert.equal(requests.length,3);
  requests[2].reject(Error('offline'));await flush();view=render('month-b');assert.equal(view.error,'offline');
  view.reload();render('month-b');assert.equal(requests.length,4);requests[3].resolve('retry-ok');await flush();view=render('month-b');assert.equal(view.data,'retry-ok');
- view.reload();render('month-b');auth={...auth,isPinVerified:false};view=render('month-b');assert.equal(view.data,undefined);
+ view.reload();render('month-b');queryCache.clearQueryCache();auth={...auth,isPinVerified:false};view=render('month-b');assert.equal(view.data,undefined);
  requests[4].resolve('stale-lock');await flush();view=render('month-b');assert.equal(view.data,undefined);assert.equal(requests.length,5);
  auth={...auth,isPinVerified:true};render('month-b');requests[5].resolve('fresh');await flush();view=render('month-b');assert.equal(view.data,'fresh');
  focused=false;render('month-b');version++;render('month-b');assert.equal(requests.length,6);

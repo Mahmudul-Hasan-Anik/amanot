@@ -1,15 +1,16 @@
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const assert = require('node:assert/strict'), ts = require('typescript');
+const queryCache={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib/queryCache.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:queryCache,Map,Promise,Error});
 const memory = new Map();
 const storage = { getItem: async k => memory.get(k) ?? null, setItem: async (k,v) => {memory.set(k,v)}, removeItem: async k => {memory.delete(k)} };
 const member = { id:'member-test', name:'Test', phone:'01700000000', role:'member' };
 let mustChangePin = false;
 let signInFails = false, pinChangeFails = false, profileMissing = false, syncCalls = 0;
-let signIns=0;
+let signIns=0,phoneChecks=0;
 let registered=true,activations=0,signInWait=null,exists=true,bootstrapCalls=0,bootstrapWait=null,clearCalls=0;
 let fetchedMember=member;
 const api = {
-  checkPhone: async () => ({exists,registered,initial:'T'}),
+  checkPhone: async () => {phoneChecks++;return {exists,registered,initial:'T'}},
   bootstrapSomiti: async (name,adminName,phone,pin) => {bootstrapCalls++;assert.equal(name,'New society');assert.equal(adminName,'New admin');assert.equal(pin,'572849');if(bootstrapWait)await bootstrapWait;},
   signInWithPin: async () => {signIns++;if(signInWait)await signInWait;if(signInFails) throw Error('Invalid login');},
   activateWithPin:async()=>{activations++},
@@ -21,6 +22,7 @@ const api = {
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/features/auth/authStore.ts'),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const result = {};
 vm.runInNewContext(code, { exports:result, require: name => {
+  if (name==='../../lib/queryCache')return queryCache;
   if (name==='zustand' || name==='zustand/middleware') return require(name);
   if (name==='@react-native-async-storage/async-storage') return {default:storage};
   if (name==='../../mocks/mockData') return {mockMembers:[member]};
@@ -56,9 +58,10 @@ async function main() {
   auth.switchRole('admin'); assert.equal(store.getState().userRole,'member');
   pinChangeFails=true; await assert.rejects(()=>auth.setCustomPin('572849','1234'),/offline/);
   await assert.rejects(()=>auth.resetMemberPin(member.id),/denied/);
+  const beforeRegisteredLogin=phoneChecks;
   mustChangePin=true;
   assert.equal((await auth.loginWithPin('572849')).ok,true);
-  assert.equal(store.getState().mustChangePin,true);
+  assert.equal(store.getState().mustChangePin,true);assert.equal(phoneChecks,beforeRegisteredLogin,'Registered login avoids another phone lookup');
   assert.equal(syncCalls,1);
   assert.equal(auth.verifyOtp('482700'),false);
   auth.lockApp(); assert.equal(store.getState().isPinVerified,false);
