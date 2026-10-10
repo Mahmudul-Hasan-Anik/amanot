@@ -2,13 +2,21 @@
 
 ## Selected destination — 10 October 2026
 
-Owner selected [Google Drive backup folder](https://drive.google.com/drive/folders/1Ad0sggyHrv-p--n9R_ecZK8-J_clZPxQ). Login and sharing verified: folder name Amanot, general access Restricted, only the owner listed. No sharing permissions changed. Upload only the encrypted `.amanotbak` file after creating and inspecting it; keep its passphrase separately. This replaces the earlier external-drive choice. No backup has been created/uploaded. Folder selection does not configure automatic backups.
+Owner selected [Google Drive backup folder](https://drive.google.com/drive/folders/1Ad0sggyHrv-p--n9R_ecZK8-J_clZPxQ). Sharing rechecked on 10 October: folder name Amanot, general access Restricted, only the owner listed. No sharing permissions changed. Upload only the encrypted `.amanotbak` file after creating and inspecting it; keep its passphrase separately. This replaces the earlier external-drive choice. Folder selection does not configure automatic backups.
+
+### Actual snapshot — 10 October 2026
+
+Owner's `create` command reported `encrypted_backup_created` followed by `integrity_verified`. File: `%LOCALAPPDATA%\Amanot\backups\amanot-20261010-153451.amanotbak`; snapshot UTC `2026-10-10T09:35:38.971Z`; database dump 589345 bytes, profile photos 0, `databaseOnly: false`. Independently read the encrypted file SHA-256 and matched the owner's output: `9499e864f75fe8942125c9b4dcab2494dc1ddd84d3c622d98e6f512b09a61f11`. This confirms the local encrypted artifact; it does not prove restore or off-site retention.
+
+Uploaded this 786160-byte encrypted file to the selected private Amanot folder through the signed-in Drive UI. The UI reported **1 upload complete** and showed the matching filename. Evidence: `amanot-backup-uploaded.png` in the task proof directory. Cloud download/checksum verification was attempted but not completed; upload confirmation alone is not a round-trip integrity or recovery test.
+
+Restore environment preflight: Docker and Supabase CLI not found on PATH, no Docker/PostgreSQL installation found in their standard Program Files locations, and `wsl --status` reports WSL not installed. Approximately 9.7 GiB remained on C: at this check. Prepare a Docker-compatible local Supabase environment with adequate disk space before decrypting/restoring. Docker/WSL installation may require administrator actions and a Windows restart; neither has been installed by the agent. The passphrase stays with the owner and must be entered privately for rehearsal. Actual restore and cleanup remain pending.
 
 Official PostgreSQL 17.11 command-line tools were extracted to ignored `.tools/postgresql17`; the installer SHA-256 matches winget metadata (`612c7f5400a003aaffa0372cb273eed52278f93c680ab911eb9cb2229e329072`). `backup.ps1 -Mode check` successfully runs pg_dump/pg_restore/psql. Tools are discovered by the wrapper without changing the system PATH. The package uses the [official EDB extraction options](https://www.enterprisedb.com/docs/supported-open-source/postgresql/installing/command_line_parameters/); no database service was installed. A Supabase-compatible restore environment is still pending.
 
-The remaining create step requires owner entry of the private database URL, server-only Storage key and a separately retained backup passphrase. These values were not available in the current process and must not be posted in chat. The wrapper now checks tools before asking for secrets and automatically decrypts/inspects a newly created file before reporting it ready for upload.
+Future exports require owner entry of the private database URL, server-only Storage key and a separately retained backup passphrase. These values are not retained in the agent process and must not be posted in chat. The wrapper checks tools before asking for secrets and automatically decrypts/inspects a newly created file before reporting it ready for upload.
 
-The owner-operated tools encrypt a custom-format PostgreSQL dump and private **profile photos** into one `.amanotbak` file. AES-256-GCM authenticates the file; a 16+ character passphrase derives the key with scrypt. No plaintext dump is written to disk during export. This is development tooling, not proof that a real backup or disaster restore has succeeded.
+The owner-operated tools encrypt a custom-format PostgreSQL dump and private **profile photos** into one `.amanotbak` file. AES-256-GCM authenticates the file; a 16+ character passphrase derives the key with scrypt. No plaintext dump is written to disk during export. Export and integrity inspection have succeeded for the snapshot above; disaster restore remains unverified.
 
 ## Prerequisites
 
@@ -50,6 +58,13 @@ Keep the pre-pilot snapshot and at least seven daily/after-work snapshots initia
 
 Use a local Supabase-compatible PostgreSQL cluster with the matching platform roles/extensions already available, then create a **new empty database** named `amanot_restore_*`. A stock PostgreSQL install may lack Supabase extensions; a dump failing on missing roles/extensions is not a successful rehearsal. Never point the rehearsal at the live project. The tool rejects remote hosts, other database names and nonempty databases; it does not drop or replace existing tables.
 
+Environment preparation order:
+
+1. Prepare sufficient free disk space, install/start a Docker-compatible runtime and satisfy Windows WSL/virtualization prerequisites. Follow the [official Supabase local development setup](https://supabase.com/docs/guides/local-development). Installation may require administrator access/restart; do not restart during active work without owner coordination.
+2. Use an isolated local Supabase project/cluster for recovery, not the app's live project. Check its Postgres version and available extensions/roles against the source archive. Create a new `amanot_restore_*` database from the empty template in that cluster; the cluster supplies platform roles and extension binaries. Do not load the dump over an initialized Supabase database containing existing tables.
+3. Owner enters the backup passphrase privately into the existing wrapper and supplies only the local target URL. Keep ACL restoration enabled. On any missing-role/extension or duplicate-object error, retain the failed target for diagnosis and create a fresh target for a corrected attempt; do not suppress errors to obtain a pass.
+4. Require `local_restore_completed` with `metricsVerified: true`, then perform the per-record/auth/permission review below. Do not equate count/total equality with full application recovery.
+
 ```powershell
 .\scripts\backup.ps1 -Mode rehearse -InputFile 'C:\private\amanot-YYYYMMDD-HHMMSS.amanotbak' -PhotosOutput 'C:\private\rehearsal-photos-YYYYMMDD'
 ```
@@ -64,4 +79,4 @@ New exports include encrypted source member/profile/transaction counts and trans
 
 An actual new hosted Supabase restore requires owner access and a reviewed platform-specific procedure: restore schema/data and auth configuration, upload private photos with original paths, confirm storage limits/RLS/RPC grants, disable recovered sessions/refresh tokens, reconfigure Edge Function secrets and rebuild/reconfigure the app if the project URL changes. Signing credentials and EAS account recovery are separate from this database backup. The local rehearsal tool intentionally does not automate writes to a live replacement project.
 
-Current status: encryption/integrity and restore-safety guards are tested with synthetic fixtures. No real export or restore is claimed; credentials, destination and owner rehearsal are pending.
+Current status: owner-operated real export and integrity inspection succeeded; local encrypted file checksum independently matched; Drive upload visibly completed. Encryption/integrity and restore-safety guards also pass synthetic tests. Actual local restore, cloud download/checksum verification and cleanup remain pending.

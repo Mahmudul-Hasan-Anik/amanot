@@ -1,5 +1,7 @@
 # Client demo — 10 October 2026
 
+Update: owner requested a signed live APK, superseding the previous hold. Live APK **1.0.3/code 4** is built and archive-verified, **23.56 MiB**, 74.5% smaller than the old APK. [Download APK](https://expo.dev/artifacts/eas/KNgjqqYV21uZws3AMWtEHL_LGo23nnMEf29KUNLiClc.apk); local copy `app/releases/amanot-1.0.3-live.apk`. Build/checksum details are in [ANDROID_RELEASE.md](ANDROID_RELEASE.md). Device/recovery/rollout limits below still apply.
+
 আজকের presentation-এর জন্য Android-width local app preview প্রস্তুত। এটি website launch নয়। APK build/update এখনও মালিকের নির্দেশ অনুযায়ী বন্ধ আছে।
 
 ## Demo খুলুন

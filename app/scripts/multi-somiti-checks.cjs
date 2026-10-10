@@ -19,6 +19,22 @@ module.exports=async({db,sql,one,pass,denied,root})=>{
     assert.deepEqual((await one("select jsonb_agg(to_jsonb(t)-'somiti_id' order by id) ledger from transactions t")).ledger,ledgerBefore.ledger);
     await denied('update transactions set amount=1');
   });
+  await pass('hosted auth-schema restriction reproduced; caller helper restores RPCs without auth access',async()=>{
+    await db.exec('revoke usage on schema auth from amanot_rpc');
+    await login(first);
+    await assert.rejects(()=>sql('select get_somiti_summary()'),/permission denied for schema auth/);
+    await db.exec('reset role');
+    const migration=fs.readFileSync(path.join(root,'supabase/migrations/015_rpc_caller_identity.sql'),'utf8');
+    await db.exec(migration);await db.exec(migration);
+    assert.equal((await one("select has_schema_privilege('amanot_rpc','auth','usage') ok")).ok,false);
+    assert.equal((await one("select has_table_privilege('amanot_rpc','auth.users','select') ok")).ok,false);
+    assert.equal((await one("select rolbypassrls or rolcanlogin unsafe from pg_roles where rolname='amanot_rpc'")).unsafe,false);
+    await login(first);
+    await denied('select public.rpc_caller_id()');
+    assert.ok((await one('select get_somiti_summary() summary')).summary);
+    await db.exec('reset role;set role anon');await denied('select public.rpc_caller_id()');await denied('select get_somiti_summary()');
+    await db.exec('reset role');
+  });
   await pass('another phone registers an independent society and cannot choose its tenant/role',async()=>{
     await signup(second,'01799000088','Second',{somiti_id:a,role:'platform_admin'});
     const p=await one('select somiti_id,role from profiles where id=$1',[second]);b=p.somiti_id;
@@ -29,6 +45,25 @@ module.exports=async({db,sql,one,pass,denied,root})=>{
   });
   await pass('one phone cannot register another society',async()=>{
     await denied(`insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values('00000000-0000-4000-8000-000000000077','01799000099@member.amanot.app','{"phone":"01799000099","pin":"983725","name":"Duplicate","somiti_name":"Duplicate","bootstrap":true}',md5('amanot:983725'))`);
+  });
+  await pass('identical society names remain independent tenants',async()=>{
+    await db.exec('reset role');
+    const firstName=(await one('select info from somiti_settings where somiti_id=$1',[a])).info.name;
+    await login(first);
+    await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({name:'N11'})]);
+    await login(second);
+    await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({name:'N11'})]);
+    assert.equal((await one('select info from somiti_settings')).info.name,'N11');
+    assert.equal((await one('select current_somiti_id() id')).id,b);
+    assert.equal(Number((await one('select count(*) n from somiti_settings')).n),1);
+    assert.equal(Number((await one('select count(*) n from profiles where id=$1',[first])).n),0);
+    await login(first);
+    assert.equal((await one('select info from somiti_settings')).info.name,'N11');
+    assert.equal((await one('select current_somiti_id() id')).id,a);
+    assert.equal(Number((await one('select count(*) n from profiles where id=$1',[second])).n),0);
+    await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({name:firstName})]);
+    await login(second);
+    await sql('select update_somiti_info($1::jsonb)',[JSON.stringify({name:'Second Society'})]);
   });
   await pass('each society can issue SM-002 and maintain independent settings',async()=>{
     await login(first);

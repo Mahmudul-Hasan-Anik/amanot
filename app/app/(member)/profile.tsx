@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   Pressable,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../../src/features/auth/authStore';

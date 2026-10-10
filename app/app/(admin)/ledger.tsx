@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
-import {SafeAreaView,View,Text,TouchableOpacity,FlatList} from 'react-native';
+import {View,Text,TouchableOpacity,FlatList} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useLocalSearchParams,useRouter} from 'expo-router';
 import {useLedgerPage} from '../../src/hooks/useLedgerPage';
 import {LedgerPaging} from '../../src/components/LedgerPaging';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../../src/theme/colors';
@@ -8,6 +9,8 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 
 export default function TabLayout() {
   const { l } = useLanguage();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
 
   const renderIcon = (name: keyof typeof Ionicons.glyphMap, nameOutline: keyof typeof Ionicons.glyphMap, focused: boolean, color: any) => (
     <View style={focused ? styles.activePill : styles.inactivePill}>
@@ -19,14 +22,25 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarButton: ({ children, style, onPress, onLongPress, accessibilityLabel, accessibilityState, 'aria-selected': selected, testID }) => (
+          <Pressable
+            style={style}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            accessibilityRole="tab"
+            accessibilityLabel={accessibilityLabel}
+            accessibilityState={{ ...accessibilityState, selected: selected === true }}
+            testID={testID}
+          >{children}</Pressable>
+        ),
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 56 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 6,
         },
         tabBarLabelStyle: {

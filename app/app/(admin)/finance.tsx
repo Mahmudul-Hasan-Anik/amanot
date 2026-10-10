@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   Pressable,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Modal,
   TextInput,
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore, Transaction, REMOTE } from '../../src/store/somitiStore';

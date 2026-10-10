@@ -1,5 +1,15 @@
 # Amanot Android release — 9 October 2026
 
+## New build authorized — 10 October 2026
+
+Owner requested the APK again, superseding the earlier build hold. Version 1.0.3/code 4 uses the live `release` profile, existing remote signing keystore and production public backend configuration. ARM/ARM64 libraries, R8/resource shrinking and compressed native APK packaging are enabled. TypeScript, release config, design tokens, accounting/isolation (34), security (11), readiness (9), ledger SQL (7), auth/PIN/session, profit, photo and report regressions passed before submission.
+
+Build `fa5a1455-b08b-4f42-843e-ae5b91f63e9d` **FINISHED** on 10 October 2026. [Build details](https://expo.dev/accounts/anik13dev/projects/amanot/builds/fa5a1455-b08b-4f42-843e-ae5b91f63e9d). [Download live APK 1.0.3](https://expo.dev/artifacts/eas/KNgjqqYV21uZws3AMWtEHL_LGo23nnMEf29KUNLiClc.apk). Local ignored copy: `app/releases/amanot-1.0.3-live.apk`.
+
+Measured download size **24,706,878 bytes / 23.56 MiB**, down **74.5%** from the prior 96,723,400-byte / 92.24 MiB APK. Archive verified: manifest, three DEX files, JS bundle, SecureStore/Crypto native module symbols; only `arm64-v8a` and `armeabi-v7a` native libraries, all compressed. SHA-256 `2a4e26001d2de7d53ebba89070f9542465eb378fe7a73af7b3d1198979691380`. This is download/archive verification, not independent signature verification, installed-size measurement or a device runtime test. Existing signing key was used by EAS; update installation remains to be checked on a phone.
+
+Actual Android device checks, real backup restore, old test-data cleanup, upstream dependency advisories and owner Store details remain outstanding. This build is for client/pilot evaluation, not clearance for unrestricted production rollout.
+
 ## Client demo development — 10 October 2026
 
 Migrations 012/013 and the `delete-account` function are deployed. Account PIN attempt/session gates, account deletion/society closure, incremental ledger sync, dependency/asset cleanup and Android size configuration are implemented. No new APK was built. Current instructions and verification limits: [CLIENT_DEMO_READY.md](CLIENT_DEMO_READY.md). This update supersedes older remaining-development bullets below; device/backup/load gates still apply. Production audit now reports 0 moderate, 14 high and 0 critical, with two unpatched upstream roots.

@@ -32,9 +32,11 @@ Owner এখন [Google Drive folder](https://drive.google.com/drive/folders/1Ad
 
 Backup TLS correction: official Supabase CA local discovery added; `verify-full` retained. Public pooler test with an intentionally invalid dummy password passed TLS and reached authentication rejection. Owner must retry diagnose with the private real URI; no actual export/restore claimed.
 
-## 5. Optimized APK — owner hold
+10 October update: owner diagnose passed, followed by actual encrypted export and automatic integrity inspection. Local file SHA-256 independently matched the reported checksum (details in BACKUP_RECOVERY.md). No photos were present in the exported profile-photo manifest. Restore blocked by absent Docker/local Supabase runtime and WSL not installed; C: free space about 9.7 GiB. No restore or cleanup performed. Drive sharing rechecked: Restricted, owner only; encrypted file uploaded and UI reported 1 upload complete. Cloud download/checksum verification remains pending.
 
-ARM/R8/resource/native compression config ready। অনুমতি পেলে build, actual download/installed size, Android install/startup/PIN/photo/PDF/share/update যাচাই। Old 92.24 MiB APK-র arithmetic breakdown নতুন APK-এর measured size নয়।
+## 5. Optimized APK — built and downloaded
+
+Owner APK build আবার চেয়েছেন; আগের hold superseded। Live APK 1.0.3/code 4 build FINISHED; local ignored file `app/releases/amanot-1.0.3-live.apk`। Actual downloaded size 24,706,878 bytes / **23.56 MiB**, old 92.24 MiB থেকে **74.5% ছোট**। Manifest/DEX/bundle/SecureStore/Crypto এবং compressed ARM/ARM64 libraries verified; checksum/build URL [ANDROID_RELEASE.md](ANDROID_RELEASE.md)-এ। Installed size ও Android install/startup/PIN/photo/PDF/share/update device checks pending।
 
 ## 6. Store preparation — owner details pending
 
