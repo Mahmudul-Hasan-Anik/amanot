@@ -205,10 +205,7 @@ export default function LoginScreen() {
     return `${formatNum(mins)}:${secs < 10 ? formatNum('0') : ''}${formatNum(secs)}`;
   };
 
-  // Dynamic logo initial letter (first letter of somiti name)
-  const somitiInitial = isBengali
-    ? ((somitiInfo.name && somitiInfo.name.trim().length > 0) ? somitiInfo.name.trim().charAt(0) : 'আ')
-    : ((somitiInfo.nameEn && somitiInfo.nameEn.trim().length > 0) ? somitiInfo.nameEn.trim().charAt(0) : 'A');
+  const somitiInitial = isBengali ? 'আ' : 'A';
 
   return (
     <KeyboardAvoidingView
@@ -220,14 +217,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity accessibilityRole="link" onPress={()=>router.push('/privacy')}><Text style={styles.demoHintText}>{l('Privacy and support','গোপনীয়তা ও সহায়তা')}</Text></TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.privacyLink} accessibilityRole="link" onPress={()=>router.push('/privacy')}><Text style={styles.demoHintText}>{l('Privacy and support','গোপনীয়তা ও সহায়তা')}</Text></TouchableOpacity>
+          <LanguageToggle compact shortLabels />
+        </View>
         {!REMOTE && <View style={styles.demoHintBox}><Text style={styles.demoHintText}>{l('Demo · No SMS is sent. Admin: 01711223344 · OTP: 482700 · PIN: 1234', 'ডেমো · এসএমএস পাঠানো হয় না। অ্যাডমিন: ০১৭১১২২৩৩৪৪ · ওটিপি: ৪৮২৭০০ · পিন: ১২৩৪')}</Text></View>}
-        {/* Top Language Switcher (Dev-only) */}
-        {__DEV__ && (
-          <View style={styles.topBar}>
-            <LanguageToggle />
-          </View>
-        )}
 
         {/* Brand Header */}
         <View style={styles.header}>
@@ -235,10 +229,10 @@ export default function LoginScreen() {
             <Text style={styles.logoText}>{somitiInitial}</Text>
           </View>
           <Text style={styles.brandTitle}>
-            {l(somitiInfo.nameEn || 'Amanot Samity', somitiInfo.name || 'আমানত সমিতি')}
+            {l('Amanot', 'আমানত')}
           </Text>
           <Text style={styles.brandSubtitle}>
-            {l('Justice in Accounts, Security in Amanat', somitiInfo.tagline || 'সমিতির সব হিসাব, এক জায়গায়')}
+            {l('All society accounts, in one place', 'সমিতির সব হিসাব, এক জায়গায়')}
           </Text>
         </View>
 
@@ -556,8 +550,15 @@ const styles = StyleSheet.create({
   topBar: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 8,
+  },
+  privacyLink: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',

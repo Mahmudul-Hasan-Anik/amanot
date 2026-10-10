@@ -1,5 +1,7 @@
 # APK size and production data cleanup
 
+Latest implementation: [OPTIMIZATION_STATUS.md](OPTIMIZATION_STATUS.md). Direct APK compression and optional ARM64-only profile are now configured; native results remain unmeasured until a new APK is authorized. Historical cleanup descriptions below are not confirmation that any deletion occurred.
+
 Reviewed: 10 October 2026. No APK built or updated. No hosted data deleted.
 
 ## Measured APK size

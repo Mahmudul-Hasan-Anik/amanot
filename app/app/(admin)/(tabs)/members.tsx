@@ -21,15 +21,25 @@ import { FilterChip } from '../../../src/components/FilterChip';
 import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { SelectModal } from '../../../src/components/SelectModal';
+import { toEnglishDigits } from '../../../src/lib/money';
 
 type FilterType = 'all' | 'active' | 'due' | 'inactive';
 
 export default function MembersScreen() {
   const router = useRouter();
-  const { members, somitiInfo } = useSomitiStore();
-  const { l, formatMoney, formatNum } = useLanguage();
+  const members = useSomitiStore(s => s.members);
+  const { l, formatMoney, formatNum, language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [showFilter, setShowFilter] = useState(false);
+  const [showSort, setShowSort] = useState(false);
+  const [sortBy, setSortBy] = useState('name');
+  const sortOptions = [
+    { value: 'name', label: l('Name', 'নাম') },
+    { value: 'code', label: l('Member ID', 'সদস্য আইডি') },
+    { value: 'due', label: l('Highest dues first', 'বেশি বকেয়া আগে') },
+  ];
 
   // Aggregated totals matching Somiti level counts
   const totalCount = members.length;
@@ -38,22 +48,26 @@ export default function MembersScreen() {
   const inactiveCount = members.filter((m) => m.status === 'inactive').length;
 
   const filteredMembers = useMemo(() => {
+    const query = toEnglishDigits(searchQuery).toLowerCase().trim();
     return members.filter((m) => {
       if (activeFilter === 'active' && m.status === 'inactive') return false;
-      if (activeFilter === 'due' && m.status !== 'due' && m.status !== 'partial') return false;
+      if (activeFilter === 'due' && m.dueAmount <= 0) return false;
       if (activeFilter === 'inactive' && m.status !== 'inactive') return false;
 
-      if (searchQuery.trim().length > 0) {
-        const query = searchQuery.toLowerCase().trim();
+      if (query.length > 0) {
         return (
-          m.name.toLowerCase().includes(query) ||
-          m.code.toLowerCase().includes(query) ||
-          m.phone.includes(query)
+          toEnglishDigits(m.name).toLowerCase().includes(query) ||
+          toEnglishDigits(m.code).toLowerCase().includes(query) ||
+          toEnglishDigits(m.phone).includes(query)
         );
       }
       return true;
+    }).sort((a, b) => {
+      if (sortBy === 'due' && a.dueAmount !== b.dueAmount) return b.dueAmount - a.dueAmount;
+      if (sortBy === 'code') return a.code.localeCompare(b.code, 'en', { numeric: true });
+      return a.name.localeCompare(b.name, language);
     });
-  }, [members, searchQuery, activeFilter]);
+  }, [members, searchQuery, activeFilter, sortBy, language]);
 
   const renderMemberItem = ({ item, index }: { item: Member; index: number }) => {
     let tagBg = colors.primarySoft;
@@ -114,8 +128,8 @@ export default function MembersScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.menuBtn} activeOpacity={0.7}>
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+        <TouchableOpacity style={styles.menuBtn} accessibilityRole="button" accessibilityLabel={l('Sort members', 'সদস্য সাজান')} onPress={() => setShowSort(true)} activeOpacity={0.7}>
+          <Ionicons name="swap-vertical" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -163,8 +177,10 @@ export default function MembersScreen() {
 
         {/* Sort & Filter Bar */}
         <View style={styles.sortFilterBar}>
-          <Text style={styles.sortText}>{l('Sorted by name', 'নাম অনুযায়ী সাজানো')}</Text>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => setShowSort(true)}>
+            <Text style={styles.sortText}>{l('Sort: ', 'সাজানো: ')}{sortOptions.find(option => option.value === sortBy)?.label}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.filterBtn} accessibilityRole="button" onPress={() => setShowFilter(true)} activeOpacity={0.7}>
             <Ionicons name="funnel-outline" size={13} color={colors.textSecondary} />
             <Text style={styles.filterBtnText}>{l('Filter', 'ফিল্টার')}</Text>
           </TouchableOpacity>
@@ -175,6 +191,10 @@ export default function MembersScreen() {
           data={filteredMembers}
           keyExtractor={(item) => item.id}
           renderItem={renderMemberItem}
+          initialNumToRender={10}
+          windowSize={7}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={<Text style={styles.sortText}>{l('No matching members', 'কোনো সদস্য পাওয়া যায়নি')}</Text>}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
         />
@@ -182,6 +202,10 @@ export default function MembersScreen() {
 
       {/* Floating Action Button: + নতুন সদস্য */}
       <FAB label={l('New Member', 'নতুন সদস্য')} onPress={() => router.push('/(admin)/member/new')} />
+      <SelectModal visible={showSort} title={l('Sort members', 'সদস্য সাজান')} value={sortBy} options={sortOptions} onSelect={setSortBy} onClose={() => setShowSort(false)} />
+      <SelectModal visible={showFilter} title={l('Filter members', 'সদস্য বাছাই করুন')} value={activeFilter}
+        options={[{value:'all',label:l('All','সব')},{value:'active',label:l('Active','সক্রিয়')},{value:'due',label:l('Due','বকেয়া')},{value:'inactive',label:l('Inactive','নিষ্ক্রিয়')}]}
+        onSelect={value => setActiveFilter(value as FilterType)} onClose={() => setShowFilter(false)} />
     </SafeAreaView>
   );
 }

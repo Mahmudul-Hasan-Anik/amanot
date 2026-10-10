@@ -28,7 +28,8 @@
     "test:readiness": "node scripts/test-readiness.cjs",
     "test:ledger-sync": "node scripts/test-ledger-sync.cjs",
     "test:account-deletion": "node scripts/test-account-deletion.cjs",
-    "check:backend": "node scripts/check-backend.cjs"
+    "check:backend": "node scripts/check-backend.cjs",
+    "check:release": "node scripts/check-release-config.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

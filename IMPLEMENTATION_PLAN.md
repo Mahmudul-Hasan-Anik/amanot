@@ -1,5 +1,9 @@
 # Amanot — Android launch-এর বাকি কাজ ও implementation plan
 
+## 10 October — current optimization status
+
+সর্বশেষ কাজ ও বাকি release gates: [OPTIMIZATION_STATUS.md](OPTIMIZATION_STATUS.md)। Direct APK native compression/ARM64 profile, periodic full-sync correction, stale same-user response guard ও member-list sorting/filter/search যোগ হয়েছে। APK build এখনও বন্ধ; real device/hosted deletion/independent backup/cleanup/load/store checks সম্পন্ন নয়। নিচের পুরোনো audit ও test counts-এর বদলে নতুন status file অনুসরণ করুন।
+
 তারিখ: ৯ অক্টোবর ২০২৬
 
 ## সর্বশেষ development update

@@ -511,7 +511,9 @@ export default function SettingsScreen() {
                   : l('Reset Demo Data', 'ডেমো ডেটা রিসেট করুন')}
               </Text>
               <Text style={styles.rowSub}>
-                {l('Restore all demo records to initial state', 'নতুন করে প্রাথমিক ডেটা লোড হবে')}
+                {REMOTE
+                  ? l('Fetch the latest saved records', 'সার্ভারে সংরক্ষিত সর্বশেষ তথ্য আনুন')
+                  : l('Restore all demo records to initial state', 'নতুন করে প্রাথমিক ডেটা লোড হবে')}
               </Text>
             </View>
             <Ionicons name="refresh-outline" size={20} color={colors.warning} />

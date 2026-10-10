@@ -24,6 +24,7 @@ import { smsGateway } from '../services/smsGateway';
 export const REMOTE = isSupabaseConfigured();
 let syncPromise: Promise<void> | null = null;
 let syncAgain = false;
+let syncGeneration = 0;
 
 const emptySomitiInfo: typeof mockSomitiInfo = {
   ...mockSomitiInfo,
@@ -191,6 +192,7 @@ export interface SomitiState {
   // Backend sync
   isSyncing: boolean;
   lastSyncedAt: number | null;
+  lastFullSyncedAt: number | null;
   syncRevision: string | null;
   syncError: string | null;
   syncFromServer: (force?: boolean) => Promise<void>;
@@ -202,6 +204,7 @@ export const useSomitiStore = create<SomitiState>()(
     (set, get) => ({
       isSyncing: false,
       lastSyncedAt: null,
+      lastFullSyncedAt: null,
       syncRevision: null,
       notices: [],
       auditLogs: [],
@@ -968,21 +971,23 @@ export const useSomitiStore = create<SomitiState>()(
           try {
           const { useAuthStore } = require('../features/auth/authStore');
           const session = useAuthStore.getState();
+          const generation = syncGeneration;
           if (!session.isPinVerified || session.mustChangePin) { set({isSyncing:false}); return; }
           const revision = await api.fetchSyncRevision();
-          if (!force && !syncAgain && revision === get().syncRevision && get().lastSyncedAt && Date.now()-get().lastSyncedAt! < 45*60*1000) {
+          if (!force && !syncAgain && revision === get().syncRevision && get().lastFullSyncedAt && Date.now()-get().lastFullSyncedAt! < 45*60*1000) {
             set({isSyncing:false,syncError:null}); return;
           }
           const isStaff = session.actualRole !== 'member';
-          const fullRefresh = force || !get().lastSyncedAt || Date.now()-get().lastSyncedAt! >= 45*60*1000;
+          const fullRefresh = force || !get().lastFullSyncedAt || Date.now()-get().lastFullSyncedAt! >= 45*60*1000;
           const data = await api.fetchAll(isStaff,fullRefresh ? undefined : get().transactions);
           const current = useAuthStore.getState();
-          if (!current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
+          if (generation !== syncGeneration || !current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
           set({
             ...data,
             somitiInfo: { ...emptySomitiInfo, ...data.somitiInfo },
             isSyncing: false,
             lastSyncedAt: Date.now(),
+            lastFullSyncedAt: fullRefresh ? Date.now() : get().lastFullSyncedAt,
             syncRevision: revision,
             syncError: null,
           });
@@ -996,6 +1001,7 @@ export const useSomitiStore = create<SomitiState>()(
 
       clearLocalData: () => {
         if (!REMOTE) return;
+        syncGeneration++;
         set({
           somitiInfo: { ...emptySomitiInfo },
           members: [],
@@ -1008,6 +1014,7 @@ export const useSomitiStore = create<SomitiState>()(
           expenses: [],
           notices: [], auditLogs: [], syncError: null, syncRevision: null,
           lastSyncedAt: null,
+          lastFullSyncedAt: null,
         });
       },
     }),

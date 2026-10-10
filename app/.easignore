@@ -16,3 +16,7 @@ eas-build-info.json
 npm-audit.json
 scripts/improve-*.cjs
 scripts/generate-summary-migration.cjs
+scripts/test-*
+scripts/capture-*
+scripts/capture-all.js
+audit-current.json

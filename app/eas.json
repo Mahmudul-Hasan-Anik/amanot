@@ -32,6 +32,9 @@
       "ios": {
         "simulator": false
       }
+    },
+    "release-arm64": {
+      "extends": "release"
     }
   },
   "submit": {

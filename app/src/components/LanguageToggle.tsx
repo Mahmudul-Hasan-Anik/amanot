@@ -1,17 +1,22 @@
 ﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLanguage } from '../i18n/useLanguage';
+import { colors } from '../theme/colors';
 
 interface LanguageToggleProps {
   compact?: boolean;
+  shortLabels?: boolean;
 }
 
-export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false }) => {
+export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false, shortLabels = false }) => {
   const { language, setLanguage } = useLanguage();
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="বাংলা"
+        accessibilityState={{ selected: language === 'bn' }}
         style={[
           styles.segment,
           language === 'bn' && styles.segmentActive,
@@ -27,11 +32,14 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false 
             compact && styles.segmentTextCompact,
           ]}
         >
-          বাংলা
+          {shortLabels ? 'BN' : 'বাংলা'}
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="English"
+        accessibilityState={{ selected: language === 'en' }}
         style={[
           styles.segment,
           language === 'en' && styles.segmentActive,
@@ -47,7 +55,7 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false 
             compact && styles.segmentTextCompact,
           ]}
         >
-          English
+          {shortLabels ? 'EN' : 'English'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -57,28 +65,39 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.primarySoft,
     borderRadius: 20,
     padding: 3,
     alignItems: 'center',
   },
   containerCompact: {
     borderRadius: 16,
-    padding: 2,
+    padding: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   segment: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 16,
   },
   segmentCompact: {
+    minWidth: 32,
+    minHeight: 26,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 0,
     borderRadius: 13,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   segmentActive: {
-    backgroundColor: '#0F766E',
-    shadowColor: '#0F766E',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -87,13 +106,15 @@ const styles = StyleSheet.create({
   segmentText: {
     fontFamily: 'HindSiliguri-SemiBold',
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   segmentTextActive: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontWeight: '700',
   },
   segmentTextCompact: {
     fontSize: 11,
+    lineHeight: 16,
+    includeFontPadding: false,
   },
 });
