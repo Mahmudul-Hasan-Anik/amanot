@@ -12,6 +12,7 @@ import { isValidPhone } from '../../lib/phoneAuth';
 import { friendlyAuthError } from '../../lib/authErrors';
 
 const REMOTE = isSupabaseConfigured();
+let authRevision = 0;
 
 type ServerRole = 'super_admin' | 'admin' | 'cashier' | 'field_worker' | 'member';
 
@@ -105,10 +106,18 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshProfile: async () => {
+        const revision = authRevision;
         const me = await api.fetchMyProfile();
-        if (!me) return false;
+        if (!me || revision !== authRevision) return false;
         const role = me.profile.role as ServerRole;
+        const previous = get();
+        const changedAccount = !!previous.currentUser?.id && (
+          (!!me.member?.id && previous.currentUser.id !== me.member.id) ||
+          normalizePhone(previous.phone) !== normalizePhone(me.profile.phone)
+        );
+        if (changedAccount || previous.actualRole !== role) somiti().clearLocalData();
         set({
+          ...(changedAccount ? { isPinVerified: false } : {}),
           actualRole: role,
           userRole: role === 'member' ? 'member' : 'admin',
           currentUser: me.member || stubMember(me.profile.phone, me.profile.full_name),
@@ -156,14 +165,22 @@ export const useAuthStore = create<AuthState>()(
       },
 
       registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin) => {
+        if (somitiName.trim().length<2 || adminName.trim().length<2) return {ok:false,error:'সমিতি ও অ্যাডমিনের নাম কমপক্ষে ২ অক্ষরে লিখুন।'};
         const phone = normalizePhone(adminPhone);
         if (!isValidPhone(phone)) return {ok:false,error:'সঠিক মোবাইল নম্বর দিন।'};
         const pin = toEnglishDigits(adminPin).replace(/\D/g, '');
         if (!isStrongPin(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; একই বা ধারাবাহিক সংখ্যা ব্যবহার করবেন না।' };
+        const revision = ++authRevision;
         try {
+          const existing = await api.checkPhone(phone);
+          if (revision !== authRevision) return {ok:false,error:'নিবন্ধন বাতিল হয়েছে। আবার শুরু করুন।'};
+          if (existing.exists) return {ok:false,error:'এই নম্বরটি ইতিমধ্যে একটি সমিতিতে আছে। লগইন করুন অথবা নতুন সমিতির জন্য আলাদা নম্বর দিন।'};
           await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin);
+          if (revision !== authRevision) return {ok:false,error:'নিবন্ধন বাতিল হয়েছে। লগইন দিয়ে আবার শুরু করুন।'};
+          somiti().clearLocalData();
           set({ phone, phoneRegistered: true });
           if (!await get().refreshProfile()) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
+          if (revision !== authRevision) return {ok:false,error:'লগইন দিয়ে আবার শুরু করুন।'};
           set({ isAuthenticated: true, isPinVerified: true });
           somiti().syncFromServer();
           return { ok: true };
@@ -353,6 +370,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        authRevision++;
         if (REMOTE) {
           api.signOut().catch(() => {});
           somiti().clearLocalData();

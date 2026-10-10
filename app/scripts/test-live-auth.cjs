@@ -6,12 +6,14 @@ const member = { id:'member-test', name:'Test', phone:'01700000000', role:'membe
 let mustChangePin = false;
 let signInFails = false, pinChangeFails = false, profileMissing = false, syncCalls = 0;
 let signIns=0;
-let registered=true,activations=0,signInWait=null;
+let registered=true,activations=0,signInWait=null,exists=true,bootstrapCalls=0,bootstrapWait=null,clearCalls=0;
+let fetchedMember=member;
 const api = {
-  checkPhone: async () => ({exists:true,registered,initial:'T'}),
+  checkPhone: async () => ({exists,registered,initial:'T'}),
+  bootstrapSomiti: async (name,adminName,phone,pin) => {bootstrapCalls++;assert.equal(name,'New society');assert.equal(adminName,'New admin');assert.equal(pin,'572849');if(bootstrapWait)await bootstrapWait;},
   signInWithPin: async () => {signIns++;if(signInWait)await signInWait;if(signInFails) throw Error('Invalid login');},
   activateWithPin:async()=>{activations++},
-  fetchMyProfile: async () => profileMissing ? null : {profile:{role:'member',phone:member.phone,must_change_pin:mustChangePin},member},
+  fetchMyProfile: async () => profileMissing ? null : {profile:{role:'member',phone:fetchedMember.phone,must_change_pin:mustChangePin},member:fetchedMember},
   changeOwnPin: async () => {if(pinChangeFails) throw Error('offline');},
   resetMemberPin: async () => {throw Error('denied');},
   signOut: async () => {},
@@ -30,7 +32,7 @@ vm.runInNewContext(code, { exports:result, require: name => {
   if (name==='../../lib/authErrors') return {friendlyAuthError:s=>s};
   if (name==='../../lib/sessionStorage') return {sessionStorage:storage};
   if (name==='../../lib/pinPolicy') return {normalizePin:s=>s.replace(/[০-৯]/g,c=>'০১২৩৪৫৬৭৮৯'.indexOf(c)).trim(),isStrongPin:s=>/^\d{6}$/.test(s),generateTemporaryPin:()=> '572849'};
-  if (name==='../../store/somitiStore') return {useSomitiStore:{getState:()=>({syncFromServer:()=>{syncCalls++},clearLocalData:()=>{}})}};
+  if (name==='../../store/somitiStore') return {useSomitiStore:{getState:()=>({syncFromServer:()=>{syncCalls++},clearLocalData:()=>{clearCalls++}})}};
   throw Error('Unexpected import '+name);
 }});
 async function main() {
@@ -70,6 +72,22 @@ async function main() {
   let release;signInWait=new Promise(resolve=>release=resolve);
   const pending=auth.loginWithPin('572849');await Promise.resolve();await Promise.resolve();auth.logout();release();
   assert.equal((await pending).ok,false);assert.equal(store.getState().isAuthenticated,false);assert.equal(store.getState().isPinVerified,false);
+  assert.equal((await auth.registerSomitiRemote('','New admin',member.phone,'572849')).ok,false);
+  assert.equal((await auth.registerSomitiRemote('New society','New admin',member.phone,'572849')).ok,false);
+  assert.equal(bootstrapCalls,0);
+  exists=false;mustChangePin=false;
+  const clearsBefore=clearCalls;
+  assert.equal((await auth.registerSomitiRemote(' New society ',' New admin ',member.phone,'৫৭২৮৪৯')).ok,true);
+  assert.equal(bootstrapCalls,1);assert.ok(clearCalls>clearsBefore);assert.equal(store.getState().isPinVerified,true);
+  fetchedMember={...member,id:'other-society-member',phone:'01799000088'};
+  const clearsBeforeSwitch=clearCalls;
+  await auth.refreshProfile();
+  assert.equal(store.getState().isPinVerified,false);assert.ok(clearCalls>clearsBeforeSwitch);
+  fetchedMember=member;
+  let finishBootstrap;bootstrapWait=new Promise(resolve=>finishBootstrap=resolve);
+  const registering=auth.registerSomitiRemote('New society','New admin',member.phone,'572849');
+  await Promise.resolve();await Promise.resolve();auth.logout();finishBootstrap();
+  assert.equal((await registering).ok,false);assert.equal(store.getState().isPinVerified,false);
   console.log('PASS live auth regression: demo bypass denied, wrong PIN/profile denied, Bengali PIN, member role, failed changes, app lock, cache redaction');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

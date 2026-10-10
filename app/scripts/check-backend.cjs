@@ -7,7 +7,9 @@ async function main() {
   if(!url?.startsWith('https://')||!key) throw Error('Missing backend configuration');
   const headers={apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};
   const health=await fetch(`${url}/rest/v1/rpc/somiti_initialized`,{method:'POST',headers,body:'{}',signal:AbortSignal.timeout(20000)});
-  if(!health.ok || await health.json() !== true) throw Error('Hosted initialization check failed');
+  // On a multi-society backend initialization describes the signed-in caller;
+  // anonymous callers correctly receive false. Health is a valid boolean reply.
+  if(!health.ok || typeof await health.json() !== 'boolean') throw Error('Hosted initialization check failed');
   console.log('PASS live database health query');
   const response=await fetch(`${url}/rest/v1/members?select=id&limit=1`,{headers,signal:AbortSignal.timeout(20000)});
   if(response.ok) {

@@ -1,5 +1,9 @@
 # Amanot Android release — 9 October 2026
 
+## Multiple-society development update — 10 October 2026
+
+Migration 011 is deployed: different phones can register independent societies; one phone belongs to one society in this version. Public registration is now visible in production-mode source, and financial/administrative RPCs and private photos are bound to the caller's society. Validation and remaining owner gates: [MULTI_SOMITI.md](MULTI_SOMITI.md). Existing test records were preserved; the old global reset refuses to run on the new schema. APK builds remain on hold. The delivered 1.0.2 APK does not contain the new public registration UI.
+
 ## PIN-screen hotfix: 1.0.3 / code 4
 
 Fixed a regression in 1.0.2: entering four digits on the six-digit live PIN screen incorrectly ran demo verification and reset the input. Demo verification is now restricted to demo mode. Live six-digit and explicitly selected legacy four-digit inputs use backend login only. No credential or database change is required.

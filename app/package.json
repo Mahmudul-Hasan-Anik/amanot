@@ -21,6 +21,7 @@
     "build:web:demo": "node scripts/build-web.cjs --demo",
     "preview:web": "node scripts/serve-web.cjs",
     "test:security": "node scripts/test-security.cjs",
+    "test:sms-scope": "node scripts/test-sms-scope.cjs",
     "test:backup": "node scripts/test-backup.cjs",
     "test:session-storage": "node scripts/test-session-storage.cjs",
     "test:sync": "node scripts/test-sync.cjs",

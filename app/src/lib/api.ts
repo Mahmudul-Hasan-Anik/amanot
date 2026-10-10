@@ -326,7 +326,7 @@ export async function activateWithPin(phone: string, pin: string) {
   return res.data.session;
 }
 
-/** Very first user: creates the somiti and becomes super admin. */
+/** Creates a separate society; its registering owner becomes that society's super admin. */
 export async function bootstrapSomiti(somitiName: string, adminName: string, phone: string, pin: string) {
   const res = await supabase.auth.signUp({
     email: phoneToEmail(phone),

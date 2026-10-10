@@ -32,11 +32,12 @@ async function main(){
       alter default privileges in schema public grant select,insert,update,delete on tables to anon,authenticated;`);
     let schema=fs.readFileSync(path.join(root,'supabase/schema.sql'),'utf8').replace('create extension if not exists pgcrypto with schema extensions;','');
     await db.exec(schema);
-    for(const f of fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql')).sort()){
+    for(const f of fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql') && f<'011').sort()){
       await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',f),'utf8'));console.log('Loaded',f);
     }
     await pass('security migration is repeatable',()=>db.exec(fs.readFileSync(path.join(root,'supabase/migrations/009_pin_security.sql'),'utf8')));
     await sql(`insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values($1,'01711000001@member.amanot.app','{"phone":"01711000001","pin":"983725","name":"Admin","bootstrap":true}',md5('amanot:983725'))`,[admin]);
+    await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/011_multiple_somitis.sql'),'utf8'));
     await sql(`select set_config('request.jwt.claim.sub',$1,false)`,[admin]);
     const user='00000000-0000-4000-8000-000000000051';
     const add=async(phone,pin='948275')=>one('select * from add_member($1::jsonb)',[JSON.stringify({name:'Security fixture',phone,initialPin:pin})]);

@@ -32,7 +32,9 @@ async function main(){
       alter default privileges in schema public grant select,insert,update,delete on tables to anon,authenticated;`);
     let schema=fs.readFileSync(path.join(root,'supabase/schema.sql'),'utf8').replace('create extension if not exists pgcrypto with schema extensions;','');
     await db.exec(schema);
-    for(const f of fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql')).sort()){
+    // Exercise legacy upgrade/reset first, then upgrade that populated fixture
+    // to multiple societies and run isolation checks below.
+    for(const f of fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql') && f<'011').sort()){
       await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',f),'utf8'));console.log('Loaded',f);
     }
     await pass('migration 005 can be applied twice',()=>db.exec(fs.readFileSync(path.join(root,'supabase/migrations/005_accounting_integrity.sql'),'utf8')));
@@ -141,6 +143,36 @@ async function main(){
       assert.equal(Number((await one('select count(*) n from public.amanot_schema_versions')).n),4);
       await db.exec('set role authenticated');await denied('select * from amanot_backup_20261009.members');await db.exec('reset role');
     });
+    const resetSql=fs.readFileSync(path.join(root,'supabase/maintenance/reset-test-data.sql'),'utf8');
+    await pass('full test reset requires explicit confirmation and refuses stored photos',async()=>{
+      await assert.rejects(()=>db.exec(resetSql),/Explicit all-account reset confirmation/);
+      await db.exec('rollback');
+      await sql("select set_config('amanot.reset_confirmation','DELETE ALL TEST ACCOUNTS INCLUDING ADMIN',false)");
+      await assert.rejects(()=>db.exec(resetSql),/Storage is not empty/);
+      await db.exec('rollback');
+      assert.ok(Number((await one('select count(*) n from transactions')).n)>0);
+      assert.ok(Number((await one('select count(*) n from auth.users')).n)>0);
+      await sql('delete from storage.objects'); // disposable local fixture only
+    });
+    await pass('full reset removes old accounts and financial data; fresh bootstrap creates new super admin',async()=>{
+      // Match hosted session FK cascade; PGlite fixture originally omits this FK.
+      await db.exec('alter table auth.sessions add constraint test_user_fk foreign key(user_id) references auth.users(id) on delete cascade');
+      await db.exec(resetSql);
+      for(const table of ['auth.users','auth.sessions','profiles','members','transactions','expenses','projects','profit_shares','profit_distributions','somiti_settings','audit_logs']){
+        assert.equal(Number((await one(`select count(*) n from ${table}`)).n),0,table);
+      }
+      assert.equal((await one('select somiti_initialized() initialized')).initialized,false);
+      assert.equal(Number((await one('select sum(amount) total from cash_accounts')).total),0);
+      assert.equal(Number((await one('select count(*) n from cash_accounts')).n),5);
+      const newAdmin='00000000-0000-4000-8000-000000000099';
+      await sql(`insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values($1,'01799000099@member.amanot.app','{"phone":"01799000099","pin":"983725","name":"New owner","somiti_name":"Fresh society","bootstrap":true}',md5('amanot:983725'))`,[newAdmin]);
+      assert.equal((await one('select role from profiles where id=$1',[newAdmin])).role,'super_admin');
+      assert.equal((await one('select info from somiti_settings where id=1')).info.name,'Fresh society');
+      assert.equal((await one('select somiti_initialized() initialized')).initialized,true);
+      assert.equal(Number((await one('select nextval(\'receipt_seq\') n')).n),1001);
+      await denied(`insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values('00000000-0000-4000-8000-000000000098','01799000098@member.amanot.app','{"phone":"01799000098","pin":"983725","bootstrap":true}',md5('amanot:983725'))`);
+    });
+    await require('./multi-somiti-checks.cjs')({db,sql,one,pass,denied,root});
     console.log(`\n${checks} accounting checks passed.`);
   } finally {await db.close();}
 }

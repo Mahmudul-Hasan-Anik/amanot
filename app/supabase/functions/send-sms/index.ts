@@ -19,6 +19,14 @@ Deno.serve(async(request:Request)=>{
     const digits=String(payload.phone||'').replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/\D/g,'');
     phone=digits.length>=10?'0'+digits.slice(-10):digits;message=String(payload.message||'').trim();
     if(!/^01[3-9]\d{8}$/.test(phone)||!message||message.length>1600) return json({error:'Invalid phone or message'},400);
+    // Validate a selected recipient through the caller's tenant-bound RLS
+    // BEFORE contacting the provider, not only when writing the SMS audit log.
+    if(payload.memberId) {
+      const member=await fetch(base+'/rest/v1/members?id=eq.'+encodeURIComponent(String(payload.memberId))+'&select=id,phone&deleted_at=is.null',{headers});
+      const recipients=member.ok?await member.json():[];
+      const recipientPhone=String(recipients?.[0]?.phone||'').replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/\D/g,'');
+      if(recipients.length!==1||('0'+recipientPhone.slice(-10))!==phone) return json({error:'Recipient is not a member of your society'},403);
+    }
     if(provider==='mock') responseData={simulated:true};
     else if(provider==='greenweb') {
       const key=Deno.env.get('SMS_API_KEY');if(!key) return json({error:'SMS provider is not configured'},503);

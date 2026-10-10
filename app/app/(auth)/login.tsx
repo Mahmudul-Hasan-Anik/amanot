@@ -161,6 +161,7 @@ export default function LoginScreen() {
   };
 
   const handleRegisterSomitiSubmit = () => {
+    if (busy) return;
     if (!regSomitiName.trim() || !regAdminName.trim() || !regAdminPhone.trim()) {
       Alert.alert(
         l('Incomplete Info', 'অসম্পূর্ণ তথ্য'),
@@ -408,15 +409,15 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Super Admin Registration Link (Dev-only / Initial Setup) */}
-        {__DEV__ && (
+        {/* Public registration: each society gets its own isolated workspace. */}
+        {(
           <TouchableOpacity
             onPress={() => setShowRegisterModal(true)}
             style={styles.superAdminRegLink}
           >
             <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
             <Text style={styles.superAdminRegText}>
-              {l('First Time? Register New Somiti as Admin', 'নতুন সমিতি? সুপার অ্যাডমিন হিসেবে নিবন্ধন করুন')}
+              {l('Create a new society', 'নতুন সমিতি তৈরি করুন')}
             </Text>
           </TouchableOpacity>
         )}
@@ -476,7 +477,7 @@ export default function LoginScreen() {
       >
         <View style={styles.regModalHeader}>
           <Text style={styles.regModalTitle}>
-            {l('Super Admin Registration', 'সুপার অ্যাডমিন নিবন্ধন')}
+            {l('Create a new society', 'নতুন সমিতি তৈরি করুন')}
           </Text>
           <TouchableOpacity onPress={() => setShowRegisterModal(false)}>
             <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -484,6 +485,9 @@ export default function LoginScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.unregDesc}>
+            {l('Your society has its own members and accounts. One mobile number can belong to one society.', 'আপনার সমিতির সদস্য ও হিসাব আলাদা থাকবে। একটি মোবাইল নম্বর একটি সমিতিতে ব্যবহার করা যাবে।')}
+          </Text>
           <Text style={styles.modalInputLabel}>{l('Somiti Name *', 'সমিতির নাম *')}</Text>
           <TextInput
             style={styles.modalInput}
@@ -520,7 +524,7 @@ export default function LoginScreen() {
             keyboardType="number-pad"
             maxLength={REMOTE?6:4}
             secureTextEntry
-            placeholder="1234"
+            placeholder={REMOTE ? l('Choose a strong 6-digit PIN', 'নিরাপদ ৬ সংখ্যার পিন দিন') : '1234'}
             placeholderTextColor={colors.textSecondary}
           />
 
