@@ -2,11 +2,11 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=r
 const memory=new Map(),storage={getItem:async k=>memory.get(k)||null,setItem:async(k,v)=>memory.set(k,v),removeItem:async k=>memory.delete(k)};
 let auth={isPinVerified:true,mustChangePin:false,currentUser:{id:'fixture-member'},actualRole:'member'};
 let revision='2026-10-09:1',calls=0,release=null;
-let now=Date.now(),lastHistory;
+let now=Date.now();
 class TestDate extends Date { static now(){return now;} }
 const data={somitiInfo:{name:'Fixture'},members:[{id:'fixture-member',nid:'fixture-private'}],projects:[],cashAccounts:[],transactions:[],expenses:[],approvals:[],approvedApprovals:[],rejectedApprovals:[],notices:[{id:'notice'}],auditLogs:[{id:'audit'}]};
 const rejectedWrite=async()=>{throw Error('fixture server denied write')};
-const api={fetchSyncRevision:async()=>revision,fetchAll:async(staff,history)=>{calls++;lastHistory=history;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
+const api={fetchSyncRevision:async()=>revision,fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
   if(n==='zustand'||n==='zustand/middleware')return require(n);
@@ -16,6 +16,7 @@ const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promis
   if(n==='react-native')return {Alert:{alert:()=>{}}};
   if(n==='../lib/supabase')return {isSupabaseConfigured:()=>true};
   if(n==='../lib/api')return api;
+  if(n==='../lib/ledger')return {emptyLedgerSummary:{months:[],categories:[],collections:{}}};
   if(n==='../services/smsGateway')return {smsGateway:{}};
   if(n==='../features/auth/authStore')return {useAuthStore:{getState:()=>auth}};
   throw Error('Unexpected dependency '+n);
@@ -28,9 +29,9 @@ async function main(){
   await store.getState().syncFromServer();assert.equal(calls,3);
   const fullAt=store.getState().lastFullSyncedAt;
   now+=30*60*1000;revision='changed-at-30-minutes';await store.getState().syncFromServer(false);
-  assert.ok(Array.isArray(lastHistory));assert.equal(store.getState().lastFullSyncedAt,fullAt);
-  now+=16*60*1000;await store.getState().syncFromServer(false);
-  assert.equal(lastHistory,undefined);assert.equal(store.getState().lastFullSyncedAt,now);
+  assert.equal(store.getState().lastFullSyncedAt,fullAt);
+  const beforePeriodic=calls;now+=16*60*1000;await store.getState().syncFromServer(false);
+  assert.equal(calls,beforePeriodic+1);assert.equal(store.getState().lastFullSyncedAt,now);
   assert.deepEqual(JSON.parse(memory.get('amanot-somiti-cache')).state,{});
   const before=store.getState();
   for(const action of [()=>store.getState().addNotice('Title','Body'),()=>store.getState().deleteNotice('notice'),()=>store.getState().updateMember('fixture-member',{name:'Wrong'}),()=>store.getState().deleteMember('fixture-member'),()=>store.getState().setMemberRole('fixture-member','admin'),()=>store.getState().updateSomitiInfo({name:'Wrong'})]) await assert.rejects(action,/server denied/);
@@ -46,6 +47,6 @@ async function main(){
   store.getState().clearLocalData();finish();await stale;release=null;
   assert.equal(store.getState().members.length,0);
   auth={...auth,isPinVerified:true,mustChangePin:true};await store.getState().syncFromServer();assert.equal(store.getState().members.length,0);
-  console.log('PASS sync: revision/delta reuse, independent 45-minute full refresh, force refetch, no persisted financial data, stale responses discarded even after same-user re-login, PIN gate enforced.');
+  console.log('PASS sync: unchanged revision reuse, independent 45-minute snapshot refresh, force refetch, no persisted financial data, stale responses discarded even after same-user re-login, PIN gate enforced.');
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1});

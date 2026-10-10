@@ -19,6 +19,7 @@ import { Alert } from 'react-native';
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as api from '../lib/api';
 import { smsGateway } from '../services/smsGateway';
+import { LedgerSummary, emptyLedgerSummary } from '../lib/ledger';
 
 /** true = real Supabase backend, false = local demo data */
 export const REMOTE = isSupabaseConfigured();
@@ -116,6 +117,7 @@ export interface SomitiState {
   rejectedApprovals: PendingApproval[];
   cashAccounts: CashAccount[];
   transactions: Transaction[];
+  ledgerSummary: LedgerSummary;
   expenses: ExpenseItem[];
 
   // Members Actions
@@ -205,6 +207,7 @@ export const useSomitiStore = create<SomitiState>()(
       isSyncing: false,
       lastSyncedAt: null,
       lastFullSyncedAt: null,
+      ledgerSummary: emptyLedgerSummary,
       syncRevision: null,
       notices: [],
       auditLogs: [],
@@ -958,6 +961,7 @@ export const useSomitiStore = create<SomitiState>()(
           rejectedApprovals: [...mockRejectedApprovals],
           cashAccounts: [...mockCashAccounts],
           transactions: [],
+          ledgerSummary: emptyLedgerSummary,
           expenses: [],
         });
       },
@@ -979,7 +983,7 @@ export const useSomitiStore = create<SomitiState>()(
           }
           const isStaff = session.actualRole !== 'member';
           const fullRefresh = force || !get().lastFullSyncedAt || Date.now()-get().lastFullSyncedAt! >= 45*60*1000;
-          const data = await api.fetchAll(isStaff,fullRefresh ? undefined : get().transactions);
+          const data = await api.fetchAll(isStaff);
           const current = useAuthStore.getState();
           if (generation !== syncGeneration || !current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
           set({

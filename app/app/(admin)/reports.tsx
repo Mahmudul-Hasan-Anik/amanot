@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { buildReport, exportReport } from '../../src/utils/reportExport';
+import { buildReportForExport, exportReport } from '../../src/utils/reportExport';
 import { recentMonths } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
@@ -108,7 +108,7 @@ export default function ReportsScreen() {
   const handleDownload = async (id:string,format:'PDF'|'CSV') => {
     if(exporting) return;
     setExporting(true);
-    try { await exportReport(buildReport(state,id,month),state.somitiInfo.name,month,format); }
+    try { await exportReport(await buildReportForExport(state,id,month),state.somitiInfo.name,month,format); }
     catch(e:any) { Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message); }
     finally {setExporting(false);}
   };

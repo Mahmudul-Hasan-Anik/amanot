@@ -5,11 +5,25 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { escapeHtml } from './pdfExport';
 import { colors } from '../theme/colors';
 import type { SomitiState } from '../store/somitiStore';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { fetchLedgerSummary, fetchTransactionHistory } from '../lib/api';
+import { monthRange } from '../lib/ledger';
 
 export type Report = { title: string; columns: string[]; rows: Array<Array<string | number>> };
+export async function buildReportForExport(state:SomitiState,id:string,month:string):Promise<Report> {
+  if(!isSupabaseConfigured())return buildReport(state,id,month);
+  const range=monthRange(month);
+  if(id==='1') {
+    const summary=await fetchLedgerSummary(range.from,range.to);
+    return {title:'মাসিক আদায় রিপোর্ট',columns:['আইডি','সদস্য','এই মাসে আদায়','বকেয়া'],rows:state.members.map(m=>[m.code,m.name,Number(summary.collections[m.id]||0),m.dueAmount])};
+  }
+  if(id==='3'||id==='7'||id==='9')return buildReport({...state,transactions:await fetchTransactionHistory(range)},id,month);
+  return buildReport({...state,transactions:[]},id,month);
+}
 export function buildReport(state: SomitiState, id: string, month: string): Report {
   const tx = state.transactions.filter(t => t.dateISO?.startsWith(month));
   const members = state.members;
+  if(id==='9')return {title:'মাসিক লেজার',columns:['তারিখ','রসিদ','ধরন','বিবরণ','পরিমাণ','মাধ্যম'],rows:tx.map(t=>[t.date,t.receiptNo,t.type,t.note||t.memberName,t.amount,t.paymentMethod])};
   if (id==='2') return { title:'বকেয়া তালিকা',columns:['আইডি','সদস্য','মাস','বকেয়া','ফোন'],rows:members.filter(m=>m.dueAmount>0).map(m=>[m.code,m.name,m.dueMonths,m.dueAmount,m.phone]) };
   if (id==='5') return { title:'প্রজেক্ট রিপোর্ট',columns:['প্রজেক্ট','বিনিয়োগ','ফেরত','লাভ/ক্ষতি','অবস্থা'],rows:state.projects.map(p=>[p.name,p.investedAmount,p.returnedAmount,p.netProfit,p.status]) };
   if (id==='6') return { title:'নগদ ও ব্যাংক বই',columns:['হিসাব','বর্তমান ব্যালেন্স','দায়িত্বপ্রাপ্ত'],rows:state.cashAccounts.map(a=>[a.name,a.amount,a.holder||'']) };
@@ -17,7 +31,9 @@ export function buildReport(state: SomitiState, id: string, month: string): Repo
   if (id==='4') return { title:'সদস্য স্টেটমেন্ট',columns:['আইডি','সদস্য','মোট সঞ্চয়','মাসিক কিস্তি','বকেয়া'],rows:members.map(m=>[m.code,m.name,m.totalDeposit,m.monthlyAmount,m.dueAmount]) };
   if (id==='7') return { title:'আদায়কারীর রিপোর্ট',columns:['রসিদ','তারিখ','সদস্য','আদায়','মাধ্যম'],rows:tx.filter(t=>t.type==='deposit').map(t=>[t.receiptNo,t.date,t.memberName,t.amount,t.paymentMethod]) };
   if (id==='3') return { title:'আয়-ব্যয় রিপোর্ট',columns:['তারিখ','রসিদ','ধরন','বিবরণ','পরিমাণ'],rows:tx.filter(t=>t.type!=='transfer').map(t=>[t.date,t.receiptNo,t.type,t.note||t.memberName,t.type==='expense'?-t.amount:t.amount]) };
-  return { title:'মাসিক আদায় রিপোর্ট',columns:['আইডি','সদস্য','এই মাসে আদায়','বকেয়া'],rows:members.map(m=>[m.code,m.name,tx.filter(t=>t.memberId===m.id&&t.type==='deposit').reduce((sum,t)=>sum+t.amount,0),m.dueAmount]) };
+  const collected=new Map<string,number>();
+  for(const t of tx)if(t.type==='deposit')collected.set(t.memberId,(collected.get(t.memberId)||0)+t.amount);
+  return { title:'মাসিক আদায় রিপোর্ট',columns:['আইডি','সদস্য','এই মাসে আদায়','বকেয়া'],rows:members.map(m=>[m.code,m.name,collected.get(m.id)||0,m.dueAmount]) };
 }
 
 export function reportHtml(report: Report, somiti: string, period: string): string {

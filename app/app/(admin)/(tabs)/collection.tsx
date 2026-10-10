@@ -20,7 +20,7 @@ import { ProgressRing } from '../../../src/components/ProgressRing';
 import { SegmentedControl } from '../../../src/components/SegmentedControl';
 import { Avatar } from '../../../src/components/Avatar';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
-import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useSomitiStore, REMOTE } from '../../../src/store/somitiStore';
 import { Member, mockMembers } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { recentMonths } from '../../../src/lib/months';
@@ -30,7 +30,7 @@ type FilterType = 'all' | 'paid' | 'due';
 
 export default function CollectionScreen() {
   const router = useRouter();
-  const { members, transactions } = useSomitiStore();
+  const { members, transactions, ledgerSummary } = useSomitiStore();
   const { l, formatMoney, formatNum } = useLanguage();
 
   const [filter, setFilter] = useState<FilterType>('all');
@@ -58,7 +58,7 @@ export default function CollectionScreen() {
 
   // Design-fidelity metrics matching PDF Page 7
   const target = activeMembers.reduce((s,m)=>s+m.monthlyAmount,0);
-  const collected = transactions.filter(t=>t.type==='deposit' && t.dateISO?.slice(0,7)===selectedMonth).reduce((s,t)=>s+t.amount,0);
+  const collected = REMOTE ? Number(ledgerSummary.months.find(m=>m.month===selectedMonth)?.deposits||0) : transactions.filter(t=>t.type==='deposit' && t.dateISO?.slice(0,7)===selectedMonth).reduce((s,t)=>s+t.amount,0);
   const percent = target>0 ? Math.min(100, Math.round(collected/target*100)) : 0;
 
   const paidCount = paidMembers.length;

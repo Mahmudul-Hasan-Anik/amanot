@@ -27,6 +27,7 @@ import { BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
 import { ENGLISH_MONTHS } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
+import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function MemberProfileScreen() {
   const isAdminUser = actualRole === 'super_admin' || actualRole === 'admin';
 
   const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
+  const history=useLedgerPage({memberId:member?.id},!!member);
 
   // Edit Member Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -317,7 +319,7 @@ export default function MemberProfileScreen() {
     : 0;
   const elapsedThisYear = joinISO && Number(joinISO.slice(0, 4)) === thisYear ? thisMonth - (Number(joinISO.slice(5, 7)) - 1) + 1 : thisMonth + 1;
 
-  const recentTransactions = (member?.recentTxns || []).map((t) => ({
+  const recentTransactions = isSupabaseConfigured() ? history.rows.slice(0,10).map(t=>({date:t.date,title:t.note||t.months?.join(', ')||t.type,amount:t.amount,receipt:t.receiptNo,type:t.paymentMethod})) : (member?.recentTxns || []).map((t) => ({
     date: t.date,
     title: t.title,
     amount: t.amount,
@@ -444,7 +446,7 @@ export default function MemberProfileScreen() {
           <TouchableOpacity
             testID="member-statement-btn"
             style={styles.actionBtn}
-            onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
+            onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color={colors.text} />
@@ -572,14 +574,16 @@ export default function MemberProfileScreen() {
         </View>
 
         <Card style={styles.card}>
-          {recentTransactions.length === 0 && (
+          {history.loading&&<Text style={styles.txnMeta}>{l('Loading…','লোড হচ্ছে…')}</Text>}
+          {history.error&&<TouchableOpacity onPress={history.reload}><Text style={styles.txnMeta}>{history.error} · {l('Retry','আবার চেষ্টা করুন')}</Text></TouchableOpacity>}
+          {!history.loading&&!history.error&&recentTransactions.length === 0 && (
             <Text style={[styles.txnMeta, { paddingVertical: 12 }]}>{l('No transactions yet', 'এখনো কোনো লেনদেন নেই')}</Text>
           )}
           {recentTransactions.map((txn, index) => (
             <TouchableOpacity
               key={index}
               activeOpacity={0.7}
-              onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
+              onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
               style={[
                 styles.txnRow,
                 index === recentTransactions.length - 1 && { borderBottomWidth: 0 },

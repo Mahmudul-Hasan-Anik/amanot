@@ -20,6 +20,9 @@ import { AppModal } from '../../../src/components/AppModal';
 import { toEnglishDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
+import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
+import {LedgerPaging} from '../../../src/components/LedgerPaging';
+import {isSupabaseConfigured} from '../../../src/lib/supabase';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
@@ -31,6 +34,7 @@ export default function ProjectDetailScreen() {
   const project = allProjects.find(
     (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
   );
+  const history=useLedgerPage({projectId:project?.id},!!project);
 
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -97,7 +101,7 @@ export default function ProjectDetailScreen() {
   };
 
   // Project ledger
-  const sampleTransactions = transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':'))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
+  const sampleTransactions = (isSupabaseConfigured()?history.rows:transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':')))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
 
   if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Project not found','প্রজেক্ট পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to projects','প্রজেক্ট তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   const projectTitle = isBengali
@@ -263,6 +267,7 @@ export default function ProjectDetailScreen() {
         </View>
 
         <View style={styles.transactionsCard}>
+          <LedgerPaging {...history}/>
           {sampleTransactions.map((txn, idx) => (
             <React.Fragment key={txn.id}>
               {idx > 0 && <View style={styles.txnDivider} />}

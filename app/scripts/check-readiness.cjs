@@ -4,13 +4,13 @@ const env=Object.fromEntries(fs.readFileSync(path.join(__dirname,'../.env'),'utf
 async function main(){
  const base=env.EXPO_PUBLIC_SUPABASE_URL,key=env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
  const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
- for(const fn of ['confirm_pin_session','preview_account_deletion','delete_my_account']){
-   const body=fn==='confirm_pin_session'?{p_pin:'000000'}:{p_pin:'000000',p_close_society:false,p_confirmation:'DELETE'};
+ for(const fn of ['confirm_pin_session','preview_account_deletion','delete_my_account','get_transaction_page','get_ledger_summary']){
+   const body=fn==='get_transaction_page'?{}:fn==='get_ledger_summary'?{p_from:'2026-10-01',p_to:'2026-11-01'}:fn==='confirm_pin_session'?{p_pin:'000000'}:{p_pin:'000000',p_close_society:false,p_confirmation:'DELETE'};
    const response=await fetch(base+'/rest/v1/rpc/'+fn,{method:'POST',headers,body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
    assert.ok([401,403].includes(response.status),fn+' should require authentication');
  }
  const response=await fetch(base+'/functions/v1/delete-account',{method:'POST',headers,body:JSON.stringify({pin:'000000',closeSociety:false,confirmation:'DELETE'}),signal:AbortSignal.timeout(20000)});
  assert.equal(response.status,401);const data=await response.json();assert.ok(data.error);
- console.log('PASS hosted readiness: session grant and deletion RPCs reject anonymous calls; deployed Edge Function rejects anonymous user before mutations.');
+ console.log('PASS hosted readiness: ledger, session grant and deletion RPCs reject anonymous calls; deployed Edge Function rejects anonymous user before mutations.');
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1;});

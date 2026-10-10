@@ -5,6 +5,8 @@ import {useLanguage} from '../i18n/useLanguage';
 import {Page,pageStyles as s} from '../components/Page';
 import {exportReport,Report} from '../utils/reportExport';
 import {colors} from '../theme/colors';
+import {isSupabaseConfigured} from '../lib/supabase';
+import {fetchTransactionHistory} from '../lib/api';
 
 export default function Statements(){
   const state=useSomitiStore();const {l,formatMoney}=useLanguage();
@@ -13,11 +15,13 @@ export default function Statements(){
   const total=members.reduce((sum,m)=>sum+m.totalDeposit,0),due=members.reduce((sum,m)=>sum+m.dueAmount,0);
   const exportStatement=async(format:'PDF'|'CSV')=>{
     if(busy)return;if(!members.length){Alert.alert(l('Select a member','সদস্য নির্বাচন করুন'));return;}
+    setBusy(true);try{
+    const transactions=target==='single'&&isSupabaseConfigured()?await fetchTransactionHistory({memberId}):state.transactions;
     const report:Report=target==='single'?{
       title:`${l('Statement','স্টেটমেন্ট')} · ${members[0].name} (${members[0].code})`,columns:[l('Date','তারিখ'),l('Receipt','রসিদ'),l('Description','বিবরণ'),l('Amount','পরিমাণ')],
-      rows:state.transactions.filter(t=>t.memberId===memberId).map(t=>[t.date,t.receiptNo,t.note||t.type,t.amount]),
+      rows:transactions.filter(t=>t.memberId===memberId).map(t=>[t.date,t.receiptNo,t.note||t.type,t.amount]),
     }:{title:l('Member statements','সদস্যদের স্টেটমেন্ট'),columns:['আইডি','সদস্য','ফোন','মোট সঞ্চয়','বকেয়া','লাভের ব্যালেন্স'],rows:members.map(m=>[m.code,m.name,m.phone,m.totalDeposit,m.dueAmount,m.profitBalance||0])};
-    setBusy(true);try{await exportReport(report,state.somitiInfo.name,new Date().toISOString().slice(0,10),format);}catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}finally{setBusy(false);}
+    await exportReport(report,state.somitiInfo.name,new Date().toISOString().slice(0,10),format);}catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}finally{setBusy(false);}
   };
   return <Page title={l('Member Statements','সদস্য স্টেটমেন্ট')} subtitle={l('Export balances and transaction history','ব্যালেন্স ও লেনদেনের বিস্তারিত এক্সপোর্ট করুন')}>
     <View style={s.chips}>{(['all','due','single'] as const).map(t=><TouchableOpacity key={t} style={[s.chip,target===t&&{backgroundColor:colors.primary}]} onPress={()=>setTarget(t)}><Text style={[s.text,target===t&&{color:colors.surface}]}>{t==='all'?l('All members','সব সদস্য'):t==='due'?l('Overdue','বকেয়া সদস্য'):l('One member','একজন সদস্য')}</Text></TouchableOpacity>)}</View>

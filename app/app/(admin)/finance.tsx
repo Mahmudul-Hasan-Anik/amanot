@@ -17,7 +17,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useSomitiStore, Transaction } from '../../src/store/somitiStore';
+import { useSomitiStore, Transaction, REMOTE } from '../../src/store/somitiStore';
+import { useLedgerPage } from '../../src/hooks/useLedgerPage';
+import { monthRange } from '../../src/lib/ledger';
+import { buildReportForExport, exportReport } from '../../src/utils/reportExport';
 import { mockCashAccounts } from '../../src/mocks/mockData';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
@@ -64,7 +67,8 @@ const MONTHS_LIST = recentMonths(12);
 
 export default function FinanceScreen() {
   const router = useRouter();
-  const { somitiInfo, cashAccounts, expenses, transactions, transferCash } = useSomitiStore();
+  const state=useSomitiStore();
+  const { somitiInfo, cashAccounts, expenses, transactions, transferCash, ledgerSummary } = state;
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const displayCashAccounts = useMemo(() => {
@@ -74,6 +78,14 @@ export default function FinanceScreen() {
   // Selected Month State
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(MONTHS_LIST[0].key);
   const [showMonthModal, setShowMonthModal] = useState<boolean>(false);
+  const ledger=useLedgerPage(monthRange(selectedMonthKey));
+  const [exporting,setExporting]=useState(false);
+  const handleExport=async(format:'PDF'|'CSV')=>{
+    if(exporting)return;setExporting(true);setShowExportModal(false);
+    try{await exportReport(await buildReportForExport(state,format==='CSV'?'9':'3',selectedMonthKey),somitiInfo.name,selectedMonthKey,format);}
+    catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}
+    finally{setExporting(false);}
+  };
 
   // Transfer Modal State
   const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
@@ -118,11 +130,12 @@ export default function FinanceScreen() {
   }, [displayCashAccounts]);
 
   // Approved expenses of the selected month, grouped by category
-  const periodTransactions = transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey));
+  const periodTransactions = REMOTE ? ledger.rows : transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey));
   const periodExpenses = expenses.filter(e=>e.status==='approved' && inMonth((e as any).dateISO,selectedMonthKey));
-  const totalExpense = periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
-  const totalIncome = periodTransactions.filter(t=>t.type==='deposit'||t.type==='profit').reduce((sum,t)=>sum+t.amount,0);
-  const groups = periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
+  const totals=ledgerSummary.months.find(m=>m.month===selectedMonthKey);
+  const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
+  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.filter(t=>t.type==='deposit'||t.type==='profit').reduce((sum,t)=>sum+t.amount,0);
+  const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
   const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:name,nameEn:name,amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
 
@@ -281,13 +294,7 @@ export default function FinanceScreen() {
                         : l('Cash with Field Worker', 'মাঠকর্মীর হাতে')}
                     </Text>
                     <Text style={styles.accountSub}>
-                      {account.id === 'ca1'
-                        ? (somitiInfo.bankName || l('[Bank Name]', '[ব্যাংকের নাম]'))
-                        : account.id === 'ca3'
-                        ? (somitiInfo.bkashNo || l('[bKash Number]', '[বিকাশ নম্বর]'))
-                        : account.id === 'ca4'
-                        ? l('Sumon Mia · Deposit today', 'সুমন মিয়া · আজ জমা দিতে হবে')
-                        : `${account.holder}${account.note ? ` · ${account.note}` : ''}`}
+                      {[account.holder || account.name, account.note].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
                   <Text style={styles.accountBalance}>
@@ -336,7 +343,7 @@ export default function FinanceScreen() {
         <View style={[styles.sectionHeaderRow, styles.sectionTitleSpaced]}>
           <Text style={styles.sectionTitle}>{l('Recent', 'সাম্প্রতিক')}</Text>
           <TouchableOpacity
-            onPress={() => router.push('/(admin)/audit')}
+            onPress={() => router.push({pathname:'/(admin)/ledger',params:{month:selectedMonthKey}})}
             activeOpacity={0.7}
           >
             <Text style={styles.seeAllLink}>{l('See All', 'সব দেখুন')}</Text>
@@ -344,6 +351,8 @@ export default function FinanceScreen() {
         </View>
 
         <View style={styles.recentCard}>
+          {ledger.loading&&<Text style={styles.recentMeta}>{l('Loading…','লোড হচ্ছে…')}</Text>}
+          {ledger.error&&<TouchableOpacity onPress={ledger.reload}><Text style={styles.recentMeta}>{ledger.error} · {l('Retry','আবার চেষ্টা করুন')}</Text></TouchableOpacity>}
           {recentTxnsList.map((txn, index) => (
             <React.Fragment key={txn.id}>
               <View style={styles.recentRow}>
@@ -508,10 +517,8 @@ export default function FinanceScreen() {
 
           <TouchableOpacity
             style={styles.exportOption}
-            onPress={() => {
-              setShowExportModal(false);
-              triggerToast(l('Financial statement downloaded (PDF)', 'মাসিক আর্থিক বিবরণী ডাউনলোড হয়েছে (PDF)'));
-            }}
+            disabled={exporting}
+            onPress={() => handleExport('PDF')}
             activeOpacity={0.7}
           >
             <Ionicons name="document-text-outline" size={22} color={colors.primary} />
@@ -520,14 +527,12 @@ export default function FinanceScreen() {
 
           <TouchableOpacity
             style={styles.exportOption}
-            onPress={() => {
-              setShowExportModal(false);
-              triggerToast(l('Full financial ledger downloaded (Excel)', 'পূর্ণাঙ্গ আর্থিক লেজার ডাউনলোড হয়েছে (Excel)'));
-            }}
+            disabled={exporting}
+            onPress={() => handleExport('CSV')}
             activeOpacity={0.7}
           >
             <Ionicons name="grid-outline" size={22} color={colors.primary} />
-            <Text style={styles.exportOptionText}>{l('Financial Ledger (Excel)', 'আর্থিক লেজার (Excel)')}</Text>
+            <Text style={styles.exportOptionText}>{l('Monthly Ledger (Excel)', 'মাসিক লেজার (Excel)')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>

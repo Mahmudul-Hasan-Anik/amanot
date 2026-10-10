@@ -27,6 +27,9 @@
     "test:sync": "node scripts/test-sync.cjs",
     "test:readiness": "node scripts/test-readiness.cjs",
     "test:ledger-sync": "node scripts/test-ledger-sync.cjs",
+    "test:ledger-queries": "node scripts/test-ledger-queries.cjs",
+    "test:ledger-hook": "node scripts/test-ledger-hook.cjs",
+    "test:report-queries": "node scripts/test-report-queries.cjs",
     "test:account-deletion": "node scripts/test-account-deletion.cjs",
     "check:backend": "node scripts/check-backend.cjs",
     "check:release": "node scripts/check-release-config.cjs"

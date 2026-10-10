@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../src/lib/bengali';
 import { bnDate } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import {useLedgerPage} from '../../src/hooks/useLedgerPage';
 
 const MONTH_NAMES_BN = [
   'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -58,14 +59,21 @@ export default function MemberDashboardScreen() {
     status: 'paid',
   };
 
-  // The deposit transaction that paid a given month (1-12)
+  const voucher=useLedgerPage({memberId:member.id,paidMonth:`${year}-${String(selectedVoucherMonth||1).padStart(2,'0')}`},selectedVoucherMonth!==null&&!!member.id);
+  // Paid month is independent of posting date (advance/late payments).
   const txnForMonth = (mNum: number) =>
-    (transactions || []).find(
+    (selectedVoucherMonth===mNum?voucher.rows[0]:undefined)||(transactions || []).find(
       (t: any) =>
         t.memberId === member.id &&
         t.type === 'deposit' &&
         (t.months || []).some((month:string) => month === `${year}-${String(mNum).padStart(2,'0')}` || month === BENGALI_MONTHS_FULL[mNum - 1])
     );
+  useEffect(()=>{
+    if(selectedVoucherMonth!==null&&!voucher.loading&&(voucher.error||!txnForMonth(selectedVoucherMonth))) {
+      Alert.alert(l('Receipt unavailable','রসিদ পাওয়া যায়নি'),voucher.error||l('No saved receipt for this month','এই মাসের সংরক্ষিত রসিদ নেই'));
+      setSelectedVoucherMonth(null);
+    }
+  },[selectedVoucherMonth,voucher.loading,voucher.error,voucher.rows]);
 
   const isDue = (member.dueAmount || 0) > 0;
 
@@ -278,8 +286,7 @@ export default function MemberDashboardScreen() {
                     isUpcoming && styles.monthBoxUpcoming,
                   ]}
                   onPress={() => {
-                    if (isPaid && txnForMonth(mNum)) setSelectedVoucherMonth(mNum);
-                    else if (isPaid) Alert.alert(l('Receipt unavailable', 'এই মাসের রসিদ পাওয়া যায়নি'));
+                    if (isPaid) setSelectedVoucherMonth(mNum);
                   }}
                   activeOpacity={isPaid ? 0.75 : 1}
                 >
@@ -398,6 +405,7 @@ export default function MemberDashboardScreen() {
       </ScrollView>
 
       {/* Voucher Modal */}
+      {selectedVoucherMonth!==null&&voucher.loading&&<View style={styles.webModalOverlay}><View style={styles.voucherCard}><Text style={styles.voucherLabel}>{l('Loading receipt…','রসিদ লোড হচ্ছে…')}</Text><TouchableOpacity onPress={()=>setSelectedVoucherMonth(null)}><Text style={styles.voucherLabel}>{l('Cancel','বাতিল')}</Text></TouchableOpacity></View></View>}
       {selectedVoucherMonth !== null && txnForMonth(selectedVoucherMonth) && (
         <View style={styles.webModalOverlay}>
           <Pressable

@@ -2,6 +2,8 @@
 
 ## Update — 10 October 2026
 
+Migration 014 deployed: SECURITY INVOKER transaction paging and staff-only ledger summaries preserve caller RLS/session checks. Tenant/member/anonymous isolation and stable 1001-row pagination passed disposable SQL tests. Initial/forced snapshots now contain 50 recent transactions; full scoped history is fetched only for exports. Historical full-history and delta-sync descriptions below are superseded. Real Auth/device verification remains pending.
+
 Migrations 012/013 add private row-locked per-account login counters (five failures/15 minutes), session-bound server PIN grants for newly issued sessions, invited-activation admission and verified account deletion/society closure. Direct Auth login alone cannot unlock business data on a new session. Already-issued pre-migration sessions retain access under the existing revocation rules. SMS ownership verification is intentionally excluded.
 
 Current production audit: **0 moderate, 14 high, 0 critical**. A scoped xcode UUID 11.1.1 override removes the moderate root; compatible CommonJS calls were verified. `braces` 3.0.3 and `node-forge` 1.4.0 remain the latest published versions and still carry the high advisories listed below; no safe released upgrade was available. No forced framework downgrade or local crypto rewrite was applied. See [CLIENT_DEMO_READY.md](CLIENT_DEMO_READY.md) for the deployed behavior, new checks and remaining device/auth/backup gates. Historical counts below describe the previous release.

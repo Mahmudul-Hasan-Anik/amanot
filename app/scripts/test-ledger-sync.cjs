@@ -1,26 +1,38 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
-const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib/api.ts'),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
-const row=(id,date)=>({id,created_at:date,date:date.slice(0,10),receipt_no:id,member_id:'member',party_name:'Fixture',party_code:'SM-001',amount:100,type:'deposit',payment_method:'cash'});
-const before=row('a','2026-10-10T10:00:00.000Z'),recent=row('b','2026-10-10T10:01:00.000Z'),late=row('c','2026-10-09T10:00:00.000Z');
-let rows=[],requests=[];
-const supabase={rpc:async n=>({data:n==='get_transaction_count'?rows.length:{},error:null}),storage:{},from:table=>{
- const filter={};const chain={select:()=>chain,order:()=>chain,is:()=>chain,eq:()=>chain,limit:()=>chain,maybeSingle:()=>chain,range:(a,b)=>{filter.range=[a,b];return chain;},gte:(_,v)=>{filter.since=v;return chain;},then:(resolve,reject)=>{
-   let data=table==='transactions'?rows.filter(r=>!filter.since||r.created_at>=filter.since):[];
-   if(filter.range)data=data.slice(filter.range[0],filter.range[1]+1);
-   if(table==='somiti_settings')data={info:{name:'Fixture'}};
+const compile=file=>ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib',file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
+const ledger={};vm.runInNewContext(compile('ledger.ts'),{exports:ledger});
+let rows=[],requests=[],revision=1,revisionCalls=0,changing=false;
+const summary={months:[{month:'2026-10',deposits:123456,profit:0,expenses:0,transaction_count:1001}],categories:[],collections:{}};
+const supabase={rpc:async(name,args={})=>{
+ requests.push({name,args});
+ if(name==='get_sync_revision'){revisionCalls++;return {data:String(changing?revisionCalls:revision),error:null};}
+ if(name==='get_ledger_summary')return {data:summary,error:null};
+ if(name==='get_transaction_page'){
+   const filtered=rows.filter(r=>(!args.p_from||r.date>=args.p_from)&&(!args.p_to||r.date<args.p_to)&&(!args.p_member_id||r.member_id===args.p_member_id));
+   const index=args.p_before_id?filtered.findIndex(r=>r.id===args.p_before_id)+1:0;
+   const page=filtered.slice(index,index+args.p_limit),last=page.at(-1);
+   return {data:{rows:page,hasMore:filtered.length>index+args.p_limit,cursor:last?{createdAt:last.created_at,id:last.id}:null},error:null};
+ }
+ return {data:{},error:null};
+},storage:{},from:table=>{
+ const filter={};const chain={select:()=>chain,order:()=>chain,is:()=>chain,eq:()=>chain,limit:n=>{filter.limit=n;return chain;},maybeSingle:()=>chain,range:(a,b)=>{filter.range=[a,b];return chain;},then:(resolve,reject)=>{
+   let data=table==='somiti_settings'?{info:{name:'Fixture'}}:[];
    requests.push({table,...filter});return Promise.resolve({data,error:null}).then(resolve,reject);
  }};return chain;
 }};
-const out={};vm.runInNewContext(code,{exports:out,Date,Map,Promise,require:n=>{
- if(n==='./supabase')return {supabase};if(n==='./bengali')return {BENGALI_MONTHS_FULL:[]};if(n==='./money')return {toBengaliDigits:String};if(n==='react-native')return {Platform:{OS:'web'}};if(n==='./profilePhoto'||n==='./authErrors')return {};throw Error(n);
+const out={};vm.runInNewContext(compile('api.ts'),{exports:out,Date,Map,Promise,require:n=>{
+ if(n==='./ledger')return ledger;if(n==='./supabase')return {supabase};if(n==='./bengali')return {BENGALI_MONTHS_FULL:[]};if(n==='./money')return {toBengaliDigits:String};if(n==='react-native')return {Platform:{OS:'web'}};if(n==='./profilePhoto'||n==='./authErrors')return {};throw Error(n);
 }});
 async function main(){
- rows=[before];let snapshot=await out.fetchAll(false);assert.equal(snapshot.transactions.length,1);
- requests=[];await out.fetchAll(false,snapshot.transactions);assert.equal(requests.some(r=>r.table==='transactions'),false);
- rows=[recent,before];requests=[];let next=await out.fetchAll(false,snapshot.transactions);assert.equal(next.transactions.length,2);assert.equal(requests.filter(r=>r.table==='transactions').length,1);assert.ok(requests.find(r=>r.table==='transactions').since);
- rows=[recent,before,late];requests=[];next=await out.fetchAll(false,snapshot.transactions);assert.equal(next.transactions.length,3);assert.equal(requests.filter(r=>r.table==='transactions').length,2);assert.equal(requests.filter(r=>r.table==='transactions')[1].since,undefined);
- rows=[before];requests=[];next=await out.fetchAll(false,snapshot.transactions);assert.equal(next.transactions.length,1);
- rows=Array.from({length:1001},(_,i)=>row(String(i),'2026-10-10T10:00:00.000Z'));requests=[];next=await out.fetchAll(false);assert.equal(next.transactions.length,1001);assert.equal(requests.filter(r=>r.table==='transactions').length,2);
- console.log('PASS ledger sync: unchanged ledger reused, append delta deduplicated, late commit outside overlap falls back to full history, 1001 rows paginated without truncation.');
+ rows=Array.from({length:1001},(_,i)=>({id:String(i),created_at:'2026-10-10T10:00:00.000Z',date:'2026-10-10',receipt_no:String(i),member_id:i<500?'member-a':'member-b',party_name:'Fixture',party_code:'SM-001',amount:10.25,type:'deposit',payment_method:'cash'}));
+ let snapshot=await out.fetchAll(true);assert.equal(snapshot.transactions.length,50);assert.equal(snapshot.ledgerSummary.months[0].deposits,123456);
+ assert.equal(requests.some(r=>r.table==='transactions'),false);assert.equal(requests.find(r=>r.table==='expenses').limit,50);
+ requests=[];const history=await out.fetchTransactionHistory({from:'2026-10-01',to:'2026-11-01'});
+ assert.equal(history.length,1001);assert.equal(new Set(history.map(t=>t.id)).size,1001);assert.equal(requests.filter(r=>r.name==='get_transaction_page').length,6);
+ assert.ok(requests.filter(r=>r.name==='get_transaction_page').every(r=>r.args.p_limit===200&&r.args.p_from==='2026-10-01'));
+ const own=await out.fetchTransactionHistory({memberId:'member-a'});assert.equal(own.length,500);assert.ok(own.every(t=>t.memberId==='member-a'));
+ changing=true;await assert.rejects(()=>out.fetchTransactionHistory(),/পরিবর্তন/);changing=false;
+ assert.equal(ledger.monthRange('2026-12').to,'2027-01-01');assert.throws(()=>ledger.monthRange('2026-13'));
+ console.log('PASS ledger loading: bounded 50-row login snapshot, independent server totals, full 1001-row scoped export, member filtering, revision-change rejection and year boundary.');
 }
-main().catch(e=>{console.error(e.message);process.exitCode=1;});
+main().catch(e=>{console.error(e);process.exitCode=1;});

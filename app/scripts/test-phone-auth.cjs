@@ -8,7 +8,7 @@ const calls=[];let sdkError=null;
 const sdk=async payload=>{calls.push(payload);return {data:{session:{fixture:true}},error:sdkError}};
 let gateOk=true;
 const gateCalls=[];
-const api=load('api.ts',{'./supabase':{...phone,supabase:{rpc:async(name,args)=>{gateCalls.push({name,args});return {data:{ok:gateOk,error:'বেশি ভুল চেষ্টা হয়েছে।'},error:null};},auth:{signUp:sdk,signInWithPassword:sdk,signOut:async()=>{}}}},'./authErrors':errors,'./bengali':{BENGALI_MONTHS_FULL:[]},'./money':{},'react-native':{Platform:{OS:'web'}},'./profilePhoto':{}});
+const api=load('api.ts',{'./ledger':load('ledger.ts'),'./supabase':{...phone,supabase:{rpc:async(name,args)=>{gateCalls.push({name,args});return {data:{ok:gateOk,error:'বেশি ভুল চেষ্টা হয়েছে।'},error:null};},auth:{signUp:sdk,signInWithPassword:sdk,signOut:async()=>{}}}},'./authErrors':errors,'./bengali':{BENGALI_MONTHS_FULL:[]},'./money':{},'react-native':{Platform:{OS:'web'}},'./profilePhoto':{}});
 async function main(){
   for(const input of ['01700000000','1700000000','+880 1700-000000','008801700000000','০১৭০০০০০০০০']) {
     assert.equal(phone.normalizePhone(input),'01700000000');assert.equal(phone.phoneToEmail(input),'01700000000@member.amanot.app');

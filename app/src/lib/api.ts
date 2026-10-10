@@ -11,6 +11,7 @@ import type { Transaction, ExpenseItem } from '../store/somitiStore';
 import { Platform } from 'react-native';
 import { readProfilePhoto } from './profilePhoto';
 import { friendlyAuthError } from './authErrors';
+import { LedgerFilter, LedgerCursor, LedgerPage, LedgerSummary, emptyLedgerSummary, monthRange } from './ledger';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -221,7 +222,44 @@ function mapApproval(r: any): PendingApproval {
 // reads
 // ---------------------------------------------------------------------------
 
-export async function fetchAll(isStaff: boolean, previousTransactions?: Transaction[]) {
+export async function fetchTransactionPage(filter:LedgerFilter={},cursor:LedgerCursor|null=null,limit=50):Promise<LedgerPage> {
+  const result=unwrap(await supabase.rpc('get_transaction_page',{
+    p_limit:limit,p_before_created:cursor?.createdAt||null,p_before_id:cursor?.id||null,
+    p_from:filter.from||null,p_to:filter.to||null,p_member_id:filter.memberId||null,
+    p_project_id:filter.projectId||null,p_paid_month:filter.paidMonth||null,
+  })) as any;
+  return {rows:result.rows.map(mapTransaction),hasMore:result.hasMore,cursor:result.cursor};
+}
+
+export async function fetchLedgerSummary(from:string,to:string):Promise<LedgerSummary> {
+  return unwrap(await supabase.rpc('get_ledger_summary',{p_from:from,p_to:to})) as LedgerSummary;
+}
+
+/** Export only the requested scope; retry if accounting changes during paging. */
+export async function fetchTransactionHistory(filter:LedgerFilter={}):Promise<Transaction[]> {
+  for(let attempt=0;attempt<2;attempt++) {
+    const revision=await fetchSyncRevision();
+    const rows:Transaction[]=[];let cursor:LedgerCursor|null=null;
+    do {
+      const page=await fetchTransactionPage(filter,cursor,200);
+      rows.push(...page.rows);
+      if(!page.hasMore)break;
+      if(!page.cursor || page.cursor.id===cursor?.id)throw new Error('Ledger pagination did not advance');
+      cursor=page.cursor;
+    } while(true);
+    if(revision===await fetchSyncRevision())return rows;
+  }
+  throw new Error('হিসাব পরিবর্তন হচ্ছে। একটু পরে আবার এক্সপোর্ট করুন।');
+}
+
+export async function fetchTransactionByReference(reference:string):Promise<Transaction|null> {
+  const ref=reference.replace(/^#/,'');
+  const column=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(ref)?'id':'receipt_no';
+  const result=unwrap(await supabase.from('transactions').select('*').eq(column,ref).maybeSingle());
+  return result ? mapTransaction(result) : null;
+}
+
+export async function fetchAll(isStaff: boolean) {
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
@@ -240,38 +278,26 @@ export async function fetchAll(isStaff: boolean, previousTransactions?: Transact
       rows.push(...page); if(page.length<1000) return rows;
     }
   };
-  const readLedger = async () => {
-    if (previousTransactions?.length) {
-      const count = Number(unwrap(await supabase.rpc('get_transaction_count')));
-      if (count === previousTransactions.length) return previousTransactions;
-      const latest = previousTransactions.reduce((max,t)=>Math.max(max,Date.parse(t.createdAt || '') || 0),0);
-      if (count > previousTransactions.length && latest) {
-        const delta = (await allRows('transactions','*','created_at',new Date(latest-10*60*1000).toISOString())).map(mapTransaction);
-        const merged = new Map(previousTransactions.map(t=>[t.id,t]));
-        delta.forEach(t=>merged.set(t.id,t));
-        // Count equality is essential: late commits outside the overlap must
-        // trigger a complete read rather than silently omit accounting entries.
-        if (merged.size === count) return [...merged.values()].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'') || a.id.localeCompare(b.id));
-      }
-    }
-    return (await allRows('transactions')).map(mapTransaction);
-  };
-  const [settings, summary, members, projects, cash, txns, expenses, approvals, notices, audit] = await Promise.all([
+  const now=new Date(), first=new Date(now.getFullYear(),now.getMonth()-11,1);
+  const from=`${first.getFullYear()}-${String(first.getMonth()+1).padStart(2,'0')}-01`;
+  const to=monthRange(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`).to;
+  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, audit, ledgerSummary] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
     allRows('members',MEMBER_COLUMNS,'code'),
     allRows('projects'),
     isStaff ? q(supabase.from('cash_accounts').select('*').order('sort')) : empty,
-    readLedger(),
-    isStaff ? allRows('expenses') : empty,
+    fetchTransactionPage(),
+    isStaff ? q(supabase.from('expenses').select('*').order('created_at',{ascending:false}).limit(50)) : empty,
     isStaff ? allRows('approvals') : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
     isStaff
       ? Promise.resolve(q(supabase.from('audit_logs').select('*').order('id', { ascending: false }).limit(300))).catch(() => [])
       : empty,
+    isStaff ? fetchLedgerSummary(from,to) : Promise.resolve(emptyLedgerSummary),
   ]);
 
-  const ledger = txns as Transaction[];
+  const ledger = ledgerPage.rows;
   const txRows = ledger.map(t=>({member_id:t.memberId,date:t.dateISO,receipt_no:t.receiptNo,note:t.note,months:t.months,amount:t.amount,payment_method:t.paymentMethod}));
   const recentByMember=new Map<string,typeof txRows>();
   for(const transaction of txRows){
@@ -293,6 +319,7 @@ export async function fetchAll(isStaff: boolean, previousTransactions?: Transact
     projects: ((projects as any[]) || []).map(mapProject),
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: ledger,
+    ledgerSummary,
     expenses: ((expenses as any[]) || []).filter((e) => e.status !== 'rejected').map(mapExpense),
     approvals: apRows.filter((a) => a.status === 'pending').map(mapApproval),
     approvedApprovals: apRows.filter((a) => a.status === 'approved').map(mapApproval),

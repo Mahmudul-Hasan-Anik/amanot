@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect,useState} from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,10 @@ import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { exportAndShareReceipt, shareReceiptViaWhatsApp } from '../../../src/utils/pdfExport';
+import {fetchTransactionByReference} from '../../../src/lib/api';
+import {isSupabaseConfigured} from '../../../src/lib/supabase';
+import {useAuthStore} from '../../../src/features/auth/authStore';
+import type {Transaction} from '../../../src/store/somitiStore';
 
 export default function ReceiptScreen() {
   const router = useRouter();
@@ -27,7 +31,22 @@ export default function ReceiptScreen() {
 
   const displayMembers = members;
 
-  const txn = getTransactionById(id as string);
+  const identity=useAuthStore(s=>`${s.currentUser?.id}:${s.actualRole}:${s.isPinVerified}`);
+  const reference=String(id||'');
+  const key=`${reference}:${identity}`;
+  const cached=getTransactionById(reference);
+  const [resolved,setResolved]=useState<{key:string;txn:Transaction|null;error?:string}>();
+  useEffect(()=>{
+    let active=true;
+    if(!isSupabaseConfigured()||cached)return;
+    fetchTransactionByReference(reference).then(txn=>{if(active)setResolved({key,txn});},e=>{if(active)setResolved({key,txn:null,error:e.message});});
+    return()=>{active=false;};
+  },[key,!!cached]);
+  const txn=cached||(resolved?.key===key?resolved.txn:null);
+  if(!txn||txn.type!=='deposit')return <SafeAreaView style={styles.container}>
+    <TouchableOpacity onPress={()=>router.back()}><Text style={styles.homeLinkText}>{l('Back','ফিরুন')}</Text></TouchableOpacity>
+    <Text style={styles.homeLinkText}>{resolved?.key===key&&resolved.error ? resolved.error : isSupabaseConfigured()&&resolved?.key!==key&&!cached ? l('Loading receipt…','রসিদ লোড হচ্ছে…') : l('Deposit receipt not found','জমার রসিদ পাওয়া যায়নি')}</Text>
+  </SafeAreaView>;
   const member = txn
     ? getMemberById(txn.memberId) || displayMembers.find((m) => m.id === txn.memberId)
     : displayMembers.find((m) => m.id === '2') || displayMembers[0];

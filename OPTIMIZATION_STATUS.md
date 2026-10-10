@@ -9,7 +9,9 @@ Updated: 10 October 2026. No APK/AAB built, no hosted data deleted in this updat
 - JavaScript bundle compression is left off to preserve Hermes startup behavior. Native compression can increase installed disk use and extraction time; physical-device checks remain required.
 - `npm run check:release` checks all release profiles against the installed Expo plugin, including rejection of demo configuration. It creates no native build and makes no network requests.
 - `scripts/apk-size.ps1 -ApkPath <path>` reports actual ZIP entry sizes by architecture and category without modifying the APK.
-- Background delta sync no longer postpones the 45-minute full snapshot/image-URL refresh when new records keep arriving. A separate full-refresh timestamp controls the interval.
+- Initial and forced snapshots now load only 50 recent transactions and 50 recent expenses. Revision polling and the 45-minute refresh update this bounded snapshot/image URLs; they do not download the full ledger.
+- Migration 014 supplies RLS-protected keyset pagination and authoritative monthly totals. Finance, analytics and collection use server totals; member/project/history screens load their own scope. Older receipts are fetched directly instead of relying on the recent cache.
+- Exports fetch the complete requested month/member history on demand and reject changing snapshots after one retry. Finance PDF/CSV controls now create actual reports.
 - Clearing the local session invalidates in-flight data responses even if the same user logs back in before a request finishes.
 - Member list reads only its member state, renders a limited window, supports real name/ID/dues sorting, functional filter selection, Bengali-digit search and an empty result message. Due filter and count now both use positive dues.
 - Live settings reload description no longer describes resetting demo data.
@@ -34,7 +36,7 @@ For Play Store, use the existing AAB profile so users download device-specific p
 
 ## Checks and limits
 
-Sync regressions cover delta reuse, periodic full refresh despite intervening updates, and stale data after same-user re-login. Ledger tests cover late commits and 1001-row pagination. Release-config validation passed without native build. Accounting (34), security (11), readiness (9), deletion handler, backup, photo (6), session storage, live/phone auth, TypeScript and design-token checks passed. SQL/Auth/Storage fixtures do not replace hosted/device tests.
+Sync regressions cover bounded snapshots, periodic refresh and stale data after same-user re-login. Ledger SQL tests cover 1001 same-timestamp rows, decimal totals, date boundaries, paid-month filtering, tenant/member isolation and anonymous denial. Hook tests cover filter races, duplicate requests, retry and lock/logout. Export tests distinguish authoritative totals and full scoped history from the recent cache. Release-config validation passed without native build. Accounting (34), security (11), readiness (9), deletion handler, backup, photo (6), session storage, live/phone auth, TypeScript and design-token checks passed. SQL/Auth/Storage fixtures do not replace hosted/device tests.
 
 Current npm production audit rechecked: **0 moderate, 14 high, 0 critical**. Remaining advisories need review/compatible upstream fixes; no forced framework downgrade was applied. The project is not security-certified.
 
@@ -49,7 +51,7 @@ Both live and demo local preview exports passed. Browser verification confirmed 
 | Independent backup and restore | Tooling exists; owner backup destination, secret and real export/restore rehearsal remain required. Synthetic backup tests are not recovery proof. |
 | Old test-data cleanup | All old data including admin was identified as test data earlier. The old global reset refuses multi-society schema. Prepare an exact tenant-scoped inventory, verified backup and reviewed cleanup; permanent deletion still pending. |
 | Dependency advisories | 14 high findings remain. Audit fixes must keep Expo/React Native compatible. |
-| Large histories / quota | Initial and forced snapshots still load complete paginated history. Next architectural improvement is server-filtered reports and paginated transaction screens with authoritative totals, rather than truncating the ledger in existing reports. Real concurrent load not measured. |
+| Large histories / quota | Transaction paging/server totals implemented and migration 014 deployed. Members/projects/approvals metadata still loads fully; exports collect the requested scope in memory. Real concurrent load and quota consumption remain unmeasured. |
 | Store launch | Owner support/retention details, privacy/deletion public links, signing/store listing and store/device checks remain. APK/AAB upload has not been performed. |
 
 Sources: [Expo build properties](https://docs.expo.dev/versions/latest/sdk/build-properties/), [Android size guidance](https://developer.android.com/topic/performance/reduce-apk-size).
