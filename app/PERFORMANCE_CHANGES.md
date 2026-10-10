@@ -1,6 +1,6 @@
 # Performance changes — 10 October 2026
 
-Implemented in source; the existing 1.0.4 APK has not been rebuilt.
+Included in live APK 1.0.5 (Android versionCode 6), built 10 October 2026. Artifact structure/native module checks passed; physical device testing remains.
 
 - Login snapshot no longer downloads audit logs, decided approval history or the 12-month ledger report. Pending approvals remain available for the badge. Transaction preview stays limited to 50 rows.
 - Finance, collection and analytics fetch authoritative totals for their selected period when focused. Audit/history load when opened. Loading/error/retry states prevent missing reports appearing as zero balances. Live audit never mixes sample records into real history.
