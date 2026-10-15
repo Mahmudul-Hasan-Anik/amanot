@@ -100,7 +100,7 @@ export default function MembersScreen() {
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{item.name}</Text>
               <Text style={styles.memberCodeAndRate}>
-                {item.code} · {formatMoney(item.monthlyAmount)}
+                {item.code}
               </Text>
             </View>
           </View>

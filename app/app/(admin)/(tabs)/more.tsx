@@ -178,32 +178,12 @@ export default function MoreScreen() {
           <View style={styles.menuDivider} />
 
           {/* বকেয়া তালিকা */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/overdue')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="warning-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Due List', 'বকেয়া তালিকা')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
+          
 
           <View style={styles.menuDivider} />
 
           {/* রিমাইন্ডার ও টেমপ্লেট */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/reminder')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="megaphone-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Reminders & Templates', 'রিমাইন্ডার ও টেমপ্লেট')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
+          
         </View>
 
         {/* Section 3: সমিতি (Society) */}

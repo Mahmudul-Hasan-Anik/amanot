@@ -165,85 +165,6 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Section 1: মাসিক জমা (Monthly Deposit) */}
-        <Text style={styles.sectionTitle}>{l('Monthly Deposit', 'মাসিক জমা')}</Text>
-        <View style={styles.card}>
-          {/* Row 1: Default Monthly Deposit */}
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => setNumberSetting({key:'defaultMonthly',title:l('Default Monthly Deposit','ডিফল্ট মাসিক জমা'),value:defaultMonthlyDeposit,min:1,max:100000000,localSave:setDefaultMonthlyDeposit})}
-          >
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>
-                {l('Default Monthly Deposit', 'ডিফল্ট মাসিক জমা')}
-              </Text>
-              <Text style={styles.rowSub}>
-                {l('Customizable per member', 'সদস্যভিত্তিক পরিবর্তনযোগ্য')}
-              </Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{formatMoney(defaultMonthlyDeposit)}</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Row 2: Due Date / Date Setting */}
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => setShowDateModal(true)}
-          >
-            <Text style={styles.rowTitle}>{l('Deposit Due Date', 'জমার শেষ তারিখ')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {isBengali
-                  ? `প্রতি মাসের ${formatNum(dueDateDay)} তারিখ`
-                  : `${dueDateDay}th of every month`}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Row 3: Grace Period */}
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => setNumberSetting({key:'graceDays',title:l('Grace Period (days)','গ্রেস পিরিয়ড (দিন)'),value:gracePeriodDays,min:0,max:365,integer:true,localSave:setGracePeriodDays})}
-          >
-            <Text style={styles.rowTitle}>{l('Grace Period', 'গ্রেস পিরিয়ড')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {isBengali ? `${formatNum(gracePeriodDays)} দিন` : `${gracePeriodDays} days`}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Row 4: Late Fee */}
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => setNumberSetting({key:'lateFee',title:l('Late Fee (BDT)','বিলম্ব ফি (টাকা)'),value:lateFeeAmount,min:0,max:100000000,localSave:setLateFeeAmount})}
-          >
-            <Text style={styles.rowTitle}>{l('Late Fee', 'বিলম্ব ফি')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {isBengali
-                  ? `${formatMoney(lateFeeAmount)} (নির্দিষ্ট)`
-                  : `${formatMoney(lateFeeAmount)} (Fixed)`}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* Section 2: লাভ-ক্ষতি বণ্টন (Profit-Loss Distribution) */}
         <Text style={styles.sectionTitle}>
           {l('Profit-Loss Distribution', 'লাভ-ক্ষতি বণ্টন')}
@@ -380,53 +301,6 @@ export default function SettingsScreen() {
               thumbColor={colors.surface}
             />
           </View>
-        </View>
-
-        {/* Section 4: যোগাযোগ (Communication) - Page 22 */}
-        <Text style={styles.sectionTitle}>{l('Communication', 'যোগাযোগ')}</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>
-                {l('Automatic Due Reminder', 'স্বয়ংক্রিয় বকেয়া রিমাইন্ডার')}
-              </Text>
-              <Text style={styles.rowSub}>
-                {l('Not enabled. Send reminders manually from the reminder page.', 'চালু নেই। রিমাইন্ডার পাতা থেকে নিজে বার্তা পাঠান।')}
-              </Text>
-            </View>
-            <Switch
-              value={false}
-              disabled
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.surface}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(admin)/reminder')}
-          >
-            <Text style={styles.rowTitle}>{l('Message Templates', 'বার্তার টেমপ্লেট')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>{isBengali ? '৫টি' : '5'}</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-            <Text style={styles.rowTitle}>{l('SMS Gateway', 'এসএমএস গেটওয়ে')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={[styles.valText, { color: colors.primary }]}>
-                {l('Status not verified', 'সংযোগ যাচাই হয়নি')}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Section 5: অ্যাপ (App Settings) - Page 22 */}

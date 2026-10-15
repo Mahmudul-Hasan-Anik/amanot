@@ -30,11 +30,39 @@ async function main(){
  const identityMigration=fs.readFileSync(path.join(root,'supabase/migrations/016_member_identity.sql'),'utf8');
  await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/015_rpc_caller_identity.sql'),'utf8'));
  await pass('identity migration applies and is repeatable',async()=>{await db.exec(identityMigration);await db.exec(identityMigration)});
+ const detailsMigration=fs.readFileSync(path.join(root,'supabase/migrations/017_member_parent_names_no_admission_fee.sql'),'utf8');
+ await pass('parent names migration applies and is repeatable',async()=>{await db.exec(detailsMigration);await db.exec(detailsMigration)});
  const legacy=await one('select member_id from profiles where id=$1',[owner]);
- const add=async(number,category='general',phone='01722000001')=>(await one('select * from public.add_member($1::jsonb)',[JSON.stringify({name:'Identity fixture',phone,memberCategory:category,memberNumber:number,initialPin:'983725',monthlyAmount:2000,admissionFee:100,joinDate:'2026-01-01'})]));
+ const add=async(number,category='general',phone='01722000001')=>(await one('select * from public.add_member($1::jsonb)',[JSON.stringify({name:'Identity fixture',fatherName:'  Father fixture  ',motherName:'Mother fixture',phone,memberCategory:category,memberNumber:number,initialPin:'983725',monthlyAmount:2000,admissionFee:100,joinDate:'2026-01-01'})]));
  await as('authenticated',owner);
  let member;
  await pass('manual number preserves zeros and server derives prefix',async()=>{member=await add('00202001');assert.equal(member.code,'M-00202001');assert.equal(member.member_number,'00202001');assert.equal(member.member_category,'general');assert.equal(member.pin_hash,null);assert.equal(member.app_role,'member')});
+ await pass('parent names persist and obsolete admission fee cannot create money',async()=>{
+  assert.equal(member.father_name,'Father fixture');assert.equal(member.mother_name,'Mother fixture');assert.equal(Number(member.total_deposit),0);
+  assert.equal((await one('select count(*)::int n from transactions where member_id=$1',[member.id])).n,0);
+  const changed=await one('select * from update_member($1,$2::jsonb)',[member.id,JSON.stringify({fatherName:'Updated father',motherName:''})]);
+  assert.equal(changed.father_name,'Updated father');assert.equal(changed.mother_name,null);
+  const unchanged=await one('select * from update_member($1,$2::jsonb)',[member.id,JSON.stringify({name:'Other edit'})]);assert.equal(unchanged.father_name,'Updated father');
+ });
+ await pass('voluntary migration clears obligations and preserves recorded money',async()=>{
+  const post=async(amount,id,fee=0)=>one('select * from record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9)',[member.id,[],amount-fee,fee,amount,'cash',null,'fixture',id]);
+  await post(333,'00000000-0000-4000-8000-000000000101');
+  await as('postgres');
+  const ledger=await one('select jsonb_agg(to_jsonb(t) order by id) rows from transactions t');
+  const balances=await one('select jsonb_agg(jsonb_build_object(\'id\',id,\'amount\',amount) order by id) rows from cash_accounts');
+  const migration=fs.readFileSync(path.join(root,'supabase/migrations/018_voluntary_deposits.sql'),'utf8');await db.exec(migration);await db.exec(migration);
+  assert.deepEqual(await one('select jsonb_agg(to_jsonb(t) order by id) rows from transactions t'),ledger);
+  assert.deepEqual(await one('select jsonb_agg(jsonb_build_object(\'id\',id,\'amount\',amount) order by id) rows from cash_accounts'),balances);
+  assert.equal((await one('select count(*)::int n from members where monthly_amount<>0 or due_amount<>0 or due_months<>0')).n,0);
+  await as('authenticated',owner);
+  await post(125.50,'00000000-0000-4000-8000-000000000102');await post(400,'00000000-0000-4000-8000-000000000103');
+  await post(400,'00000000-0000-4000-8000-000000000103');
+  await assert.rejects(()=>post(100,'00000000-0000-4000-8000-000000000104',10),/Late fees/);
+  member=await one('select * from members where id=$1',[member.id]);assert.equal(Number(member.total_deposit),858.50);assert.equal(Number(member.due_amount),0);
+  assert.equal((await one('select count(*)::int n from transactions where member_id=$1',[member.id])).n,3);
+  const changed=await one('select * from update_member($1,$2::jsonb)',[member.id,JSON.stringify({monthlyAmount:9999})]);assert.equal(Number(changed.monthly_amount),0);
+  const created=await add('VOL'.replace('VOL','777'),'general','01722000009');assert.equal(Number(created.monthly_amount),0);assert.equal(Number(created.due_amount),0);
+ });
  await pass('missing, malformed category/number and old auto-code payload fail',async()=>{
   await assert.rejects(()=>add(undefined,'general','01722000002'));await assert.rejects(()=>add('abc','general','01722000002'));await assert.rejects(()=>add('202002','admin','01722000002'));
   await assert.rejects(()=>one('select add_member($1::jsonb)',[JSON.stringify({name:'Old client',phone:'01722000002',code:'SM-900',initialPin:'983725'})]));

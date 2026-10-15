@@ -58,7 +58,8 @@ export default function CollectionScreen() {
 
   // Member classification
   const activeMembers = useMemo(() => displayMembers.filter((m) => m.status !== 'inactive'), [displayMembers]);
-  const isPaidThisMonth = (m: Member) => m.paymentMonths ? m.paymentMonths[selectedMonth] === 'paid' : (_now.getFullYear()===new Date().getFullYear() && m.monthsStatus?.[curMonth] === 'paid');
+  const memberCollection=(m:Member)=>REMOTE?Number(ledgerSummary.collections[m.id]||0):transactions.filter(t=>t.type==='deposit'&&t.memberId===m.id&&t.dateISO?.startsWith(selectedMonth)).reduce((sum,t)=>sum+t.amount,0);
+  const isPaidThisMonth=(m:Member)=>memberCollection(m)>0;
 
   const paidMembers = activeMembers.filter(isPaidThisMonth);
   const dueMembers = activeMembers.filter((m) => !isPaidThisMonth(m));
@@ -78,7 +79,7 @@ export default function CollectionScreen() {
   const tabOptions = useMemo(() => [
     { value: 'all' as FilterType, label: l('All', 'সব') },
     { value: 'paid' as FilterType, label: `${l('Paid', 'জমা')} ${formatNum(paidCount)}` },
-    { value: 'due' as FilterType, label: `${l('Due', 'বকেয়া')} ${formatNum(dueCount)}` },
+    { value: 'due' as FilterType, label: `${l('No deposit', 'জমা নেই')} ${formatNum(dueCount)}` },
   ], [l, formatNum, paidCount, dueCount]);
 
   // Filtered members list
@@ -97,36 +98,12 @@ export default function CollectionScreen() {
       }
       return true;
     });
-  }, [activeMembers, filter, searchQuery, selectedMonth]);
+  }, [activeMembers, filter, searchQuery, selectedMonth, ledgerSummary, transactions]);
 
   // Subtitle builder for member rows
-  const getMemberSubtitle = (item: Member) => {
-    if (isPaidThisMonth(item)) {
-      return `${formatMoney(item.monthlyAmount)} · ${l('Paid', 'জমা')}`;
-    }
-    if (item.status === 'partial') {
-      const paidPart = Math.max(0, item.monthlyAmount - (item.dueAmount || 0));
-      return `${formatMoney(paidPart)} ${l('Paid', 'জমা')} · ${formatMoney(item.dueAmount || 0)} ${l('Due', 'বাকি')}`;
-    }
-    if (item.dueMonths > 1) {
-      return `${formatMoney(item.monthlyAmount)} + ${formatNum(item.dueMonths - 1)} ${l('months due', 'মাসের বকেয়া')}`;
-    }
-    return `${formatMoney(item.monthlyAmount)} · ${l('Due', 'বকেয়া')}`;
-  };
+  const getMemberSubtitle=(m:Member)=>`${m.code} · ${formatMoney(memberCollection(m))}`;
 
   const handleMonthPress = () => setShowMonthPicker(true);
-
-  const handleMorePress = () => {
-    Alert.alert(
-      l('Collection Options', 'আদায় অপশন'),
-      undefined,
-      [
-        { text: l('Send Due Reminders', 'বকেয়া রিমাইন্ডার পাঠান'), onPress: () => router.push('/(admin)/reminder') },
-        { text: l('View Due List', 'বকেয়া তালিকা দেখুন'), onPress: () => router.push('/(admin)/due') },
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-      ]
-    );
-  };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -150,7 +127,7 @@ export default function CollectionScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={handleMorePress}
+            onPress={()=>router.push('/(admin)/deposit/new')}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -198,18 +175,12 @@ export default function CollectionScreen() {
         {/* Collection Summary Card */}
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryTop}>
-            <ProgressRing
-              progress={percent}
-              size={80}
-              strokeWidth={8}
-              color={colors.primary}
-              backgroundColor={colors.primarySoft}
-            />
+
 
             <View style={styles.summaryRight}>
               <Text style={styles.summarySubLabel}>{l('Collected', 'আদায় হয়েছে')}</Text>
               <Text style={styles.summaryAmount}>{formatMoney(collected)}</Text>
-              <Text style={styles.summaryTarget}>{l('Target at current member rates', 'বর্তমান সদস্য হারে লক্ষ্য')} {formatMoney(target)}</Text>
+              
             </View>
           </View>
 
@@ -219,13 +190,10 @@ export default function CollectionScreen() {
               <Text style={styles.statLabel}>{l('Paid', 'জমা দিয়েছেন')}</Text>
               <Text style={styles.statValPrimary}>{formatNum(paidCount)} {l('members', 'জন')}</Text>
             </View>
-            <View style={styles.statColCenter}>
-              <Text style={styles.statLabel}>{l('Partial', 'আংশিক')}</Text>
-              <Text style={styles.statValWarning}>{formatNum(partialCount)} {l('members', 'জন')}</Text>
-            </View>
+            
             <View style={styles.statColRight}>
-              <Text style={styles.statLabel}>{l('Due', 'বকেয়া')}</Text>
-              <Text style={styles.statValWarning}>{formatNum(unpaidCount)} {l('members', 'জন')}</Text>
+              <Text style={styles.statLabel}>{l('No deposit', 'জমা নেই')}</Text>
+              <Text style={styles.statValWarning}>{formatNum(dueCount)} {l('members', 'জন')}</Text>
             </View>
           </View>
         </Card>
@@ -267,11 +235,6 @@ export default function CollectionScreen() {
                   <Text style={styles.memberSub}>{getMemberSubtitle(item)}</Text>
                 </View>
 
-                {isPaid ? (
-                  <View style={styles.paidBadge}>
-                    <Text style={styles.paidBadgeText}>{l('Paid', 'জমা')}</Text>
-                  </View>
-                ) : (
                   <TouchableOpacity
                     style={styles.payBtn}
                     onPress={(e) => {
@@ -282,25 +245,12 @@ export default function CollectionScreen() {
                   >
                     <Text style={styles.payBtnText}>{l('Deposit', 'জমা নিন')}</Text>
                   </TouchableOpacity>
-                )}
               </TouchableOpacity>
             );
 
         }}
         ListEmptyComponent={<View style={styles.emptyContainer}><Ionicons name="search-outline" size={32} color={colors.textSecondary}/><Text style={styles.emptyText}>{l('No members found','কোনো সদস্য পাওয়া যায়নি')}</Text></View>}
-        ListFooterComponent={<View style={{marginTop:16}}>        {/* Outlined Reminder Button */}
-        <TouchableOpacity
-          style={styles.reminderCard}
-          onPress={() => router.push('/(admin)/reminder')}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="megaphone-outline" size={18} color={colors.text} />
-          <Text style={styles.reminderCardText}>
-            {l('Send reminder to due members', 'বকেয়া সদস্যদের রিমাইন্ডার পাঠান')}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 100 }} />
+        ListFooterComponent={<View style={{marginTop:16}}>        <View style={{ height: 100 }} />
 </View>}
       /></RemoteDataState>
 

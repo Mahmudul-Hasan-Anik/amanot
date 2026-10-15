@@ -75,7 +75,8 @@ export default function MemberDashboardScreen() {
     }
   },[selectedVoucherMonth,voucher.loading,voucher.error,voucher.rows]);
 
-  const isDue = (member.dueAmount || 0) > 0;
+  const isDue = false;
+  const history=useLedgerPage({memberId:member.id},!!member.id);
 
   const handleCopy = async (text: string, label: string) => {
     if (!text) return;
@@ -172,14 +173,14 @@ export default function MemberDashboardScreen() {
 
           <View style={styles.heroMetricsRow}>
             <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Monthly Savings', 'মাসিক সঞ্চয়')}</Text>
-              <Text style={styles.metricVal}>{formatMoney(member.monthlyAmount || 0)}</Text>
+              <Text style={styles.metricSub}>{l('Deposit rule', 'জমার নিয়ম')}</Text>
+              <Text style={styles.metricVal}>{l('Any amount', 'ইচ্ছামতো পরিমাণ')}</Text>
             </View>
 
             <View style={styles.metricSeparator} />
 
             <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Status / Due', 'স্ট্যাটাস / বকেয়া')}</Text>
+              <Text style={styles.metricSub}>{l('Status', 'স্ট্যাটাস')}</Text>
               {isDue ? (
                 <View style={styles.dueBadge}>
                   <Text style={styles.dueBadgeText}>
@@ -188,7 +189,7 @@ export default function MemberDashboardScreen() {
                 </View>
               ) : (
                 <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>{l('All Paid ✓', 'পরিশোধিত ✓')}</Text>
+                  <Text style={styles.paidBadgeText}>{l('Active', 'সক্রিয়')}</Text>
                 </View>
               )}
             </View>
@@ -214,7 +215,7 @@ export default function MemberDashboardScreen() {
           </View>
           <Text style={styles.cardSubText}>
             {l(
-              'Pay your due amount and confirm with cashier.',
+              'Deposit any amount and confirm with cashier.',
               'নিচের নম্বরে কিস্তির টাকা পাঠিয়ে কোষাধ্যক্ষকে অবগত করুন।'
             )}
           </Text>
@@ -256,67 +257,13 @@ export default function MemberDashboardScreen() {
           </View>
         </View>
 
-        {/* 3. 12-Month Digital Passbook */}
         <View style={styles.sectionCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-            <Text style={styles.cardSectionTitle}>
-              {l(
-                `12-Month Digital Passbook (${year})`,
-                `১২ মাসের ডিজিটাল পাসবুক (${toBengaliDigits(year)})`
-              )}
-            </Text>
-          </View>
-
-          <View style={styles.monthsGrid}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((mNum) => {
-              const monthKey = `${year}-${String(mNum).padStart(2, '0')}`;
-              const status = member.paymentMonths?.[monthKey] ?? member.monthsStatus?.[mNum - 1];
-              const isPaid = status === 'paid';
-              const isDueMonth = status === 'due';
-              const isUpcoming = !isPaid && !isDueMonth;
-
-              return (
-                <TouchableOpacity
-                  key={mNum}
-                  style={[
-                    styles.monthItemBox,
-                    isPaid && styles.monthBoxPaid,
-                    isDueMonth && styles.monthBoxDue,
-                    isUpcoming && styles.monthBoxUpcoming,
-                  ]}
-                  onPress={() => {
-                    if (isPaid) setSelectedVoucherMonth(mNum);
-                  }}
-                  activeOpacity={isPaid ? 0.75 : 1}
-                >
-                  <Text style={styles.monthNameText}>
-                    {language === 'en' ? MONTH_NAMES_EN[mNum - 1] : MONTH_NAMES_BN[mNum - 1]}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.monthStatusText,
-                      isPaid && styles.statusPaidText,
-                      isDueMonth && styles.statusDueText,
-                      isUpcoming && styles.statusUpcomingText,
-                    ]}
-                  >
-                    {isPaid
-                      ? l('Paid ✓', 'জমা ✓')
-                      : isDueMonth
-                      ? l('Due ✗', 'বকেয়া ✗')
-                      : l('Pending', 'আসন্ন')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={styles.gridHint}>
-            {l(
-              '💡 Tap on any paid month to view official money receipt voucher.',
-              '💡 পরিশোধিত মাসে ট্যাপ করে অফিশিয়াল মানি রিসিট ভাউচার দেখুন।'
-            )}
-          </Text>
+          <Text style={styles.cardSectionTitle}>{l('Deposit history', 'জমার ইতিহাস')}</Text>
+          {history.rows.filter(t=>t.type==='deposit').map(t=><View key={t.id} style={{paddingVertical:12}}><Text>{t.receiptNo} · {t.date}</Text><Text>{formatMoney(t.amount)}</Text></View>)}
+          {history.loading && <Text>{l('Loading…','লোড হচ্ছে…')}</Text>}
+          {!!history.error && <TouchableOpacity onPress={history.reload}><Text>{l('Could not load history. Try again.','ইতিহাস পাওয়া যায়নি। আবার চেষ্টা করুন।')}</Text></TouchableOpacity>}
+          {!history.loading && !history.error && history.rows.length===0 && <Text>{l('No deposits yet','এখনো কোনো জমা নেই')}</Text>}
+          {history.hasMore && <TouchableOpacity onPress={history.loadMore}><Text>{l('Load more','আরও দেখুন')}</Text></TouchableOpacity>}
         </View>
 
         {/* 4. Notice Board */}

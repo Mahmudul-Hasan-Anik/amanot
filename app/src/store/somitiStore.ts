@@ -135,8 +135,9 @@ export interface SomitiState {
     nomineeName: string;
     nomineeRelation: string;
     nomineePhone?: string;
-    monthlyAmount: number;
-    admissionFee?: number;
+    monthlyAmount?: number;
+    fatherName?: string;
+    motherName?: string;
     initialPin?: string;
     joinDate?: string; // YYYY-MM-DD
     whatsapp?: string;
@@ -448,6 +449,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberCategory:data.memberCategory,
           memberNumber:data.memberNumber,
           name: data.name,
+          fatherName: data.fatherName?.trim() || '',
+          motherName: data.motherName?.trim() || '',
           phone: data.phone,
           whatsapp: data.phone,
           nid: data.nid || '',
@@ -459,8 +462,8 @@ export const useSomitiStore = create<SomitiState>()(
           joinDateISO: data.joinDate || new Date().toISOString().slice(0,10),
           duesStartMonth: (data.joinDate || new Date().toISOString()).slice(0,7),
           paymentMonths: {},
-          monthlyAmount: data.monthlyAmount,
-          totalDeposit: data.admissionFee || 0,
+          monthlyAmount: 0,
+          totalDeposit: 0,
           dueAmount: 0,
           dueMonths: 0,
           status: 'paid',
@@ -468,15 +471,7 @@ export const useSomitiStore = create<SomitiState>()(
           monthsStatus: {
             0: 'paid', 1: 'paid', 2: 'paid', 3: 'paid', 4: 'paid', 5: 'paid', 6: 'paid', 7: 'paid', 8: 'paid', 9: 'upcoming', 10: 'upcoming', 11: 'upcoming'
           },
-          recentTxns: data.admissionFee ? [
-            {
-              date: '১ অক্টোবর',
-              title: 'ভর্তি ফি ও প্রাথমিক জমা',
-              amount: data.admissionFee,
-              receiptNo: `#${toBengaliDigits(1000 + currentMembers.length + 1)}`,
-              type: 'হাতে নগদ'
-            }
-          ] : []
+          recentTxns: []
         };
 
         const updatedMembers = [newMember, ...currentMembers];
@@ -484,12 +479,9 @@ export const useSomitiStore = create<SomitiState>()(
           ...get().somitiInfo,
           totalMembersCount: get().somitiInfo.totalMembersCount + 1,
           activeMembersCount: get().somitiInfo.activeMembersCount + 1,
-          totalFund: get().somitiInfo.totalFund + (data.admissionFee || 0),
-          cashAndBank: get().somitiInfo.cashAndBank + (data.admissionFee || 0),
         };
 
-        set({ members: updatedMembers, somitiInfo: updatedSomiti,
-          cashAccounts:get().cashAccounts.map(a=>a.type==='cashier'?{...a,amount:a.amount+(data.admissionFee||0)}:a) });
+        set({ members: updatedMembers, somitiInfo: updatedSomiti });
 
 
         if (data.initialPin) {
@@ -546,7 +538,7 @@ export const useSomitiStore = create<SomitiState>()(
         const member = currentMembers.find((m) => m.id === memberId);
         if (!member || member.status === 'inactive') throw new Error('সক্রিয় সদস্য নির্বাচন করুন');
         if (Math.abs(data.baseAmount + lateFee - totalAmount) > 0.01 || lateFee < 0 || data.baseAmount < 0) throw new Error('জমার হিসাব সঠিক নয়');
-        if (new Set(months).size !== months.length || months.some(key => member.paymentMonths?.[key] === 'paid' || (!member.paymentMonths && Number(key.slice(0,4)) === new Date().getFullYear() && member.monthsStatus?.[Number(key.slice(5))-1] === 'paid'))) throw new Error('এই মাসের জমা ইতিমধ্যে হয়েছে');
+        if (lateFee !== 0) throw new Error('বিলম্ব ফি বন্ধ রয়েছে');
         if (data.id) { const existing = get().transactions.find(t => t.id === data.id); if (existing) return existing; }
         const receiptNumber = `#${toBengaliDigits(1043 + get().transactions.length)}`;
         const txnId = data.id || api.uuid();
@@ -572,17 +564,6 @@ export const useSomitiStore = create<SomitiState>()(
         const updatedMembers = currentMembers.map((m) => {
           if (m.id === memberId) {
             const newTotalDeposit = m.totalDeposit + Math.max(0, totalAmount - lateFee);
-            const newDueAmount = Math.max(0, m.dueAmount - totalAmount);
-            let credit = Number(m.partialCredit || 0) + data.baseAmount;
-            const payableMonths = months.filter(() => { if (credit < m.monthlyAmount) return false; credit -= m.monthlyAmount; return true; });
-            const newDueMonths = Math.max(0, m.dueMonths - payableMonths.length);
-            const newStatus: 'paid' | 'due' | 'partial' | 'inactive' = newDueAmount === 0 ? 'paid' : 'due';
-            const monthsStatus = {...m.monthsStatus};
-            const paymentMonths = m.paymentMonths ? {...m.paymentMonths} : undefined;
-            for (const key of payableMonths) {
-              if (paymentMonths) paymentMonths[key] = 'paid';
-              if (Number(key.slice(0,4)) === new Date().getFullYear()) monthsStatus[Number(key.slice(5))-1] = 'paid';
-            }
             const updatedTxns = [
               {
                 date: api.bnDate(new Date().toISOString(), false),
@@ -597,12 +578,12 @@ export const useSomitiStore = create<SomitiState>()(
             return {
               ...m,
               totalDeposit: newTotalDeposit,
-              dueAmount: newDueAmount,
-              dueMonths: newDueMonths,
-              monthsStatus,
-              paymentMonths,
-              partialCredit: credit,
-              status: newStatus,
+              dueAmount: 0,
+              dueMonths: 0,
+              monthsStatus: m.monthsStatus,
+              paymentMonths: m.paymentMonths,
+              partialCredit: m.partialCredit,
+              status: 'paid' as const,
               recentTxns: updatedTxns,
             };
           }

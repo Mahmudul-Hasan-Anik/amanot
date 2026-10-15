@@ -313,16 +313,7 @@ export default function HomeDashboardScreen() {
             <Text style={styles.actionLabel}>{l('Expense', 'খরচ লিখুন')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/reminder')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionCircle}>
-              <Ionicons name="megaphone-outline" size={22} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>{l('Reminder', 'রিমাইন্ডার')}</Text>
-          </TouchableOpacity>
+          
 
           <TouchableOpacity
             style={styles.actionBtn}
@@ -344,67 +335,27 @@ export default function HomeDashboardScreen() {
           <Card style={styles.sectionCard}>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
-              <Text style={styles.cardSubtitle}>
-                {l(`Due Date ${dueDateDay} ${new Date().toLocaleDateString('en-GB', {month:'long'})}`, `শেষ তারিখ ${formatNum(dueDateDay)} ${BENGALI_MONTHS_FULL[new Date().getMonth()]}`)}
-              </Text>
+
             </View>
 
             <View style={styles.collectionBody}>
-              <ProgressRing
-                progress={monthlyCollectedPct}
-                size={76}
-                strokeWidth={7}
-                color={colors.primary}
-                backgroundColor={colors.primarySoft}
-              />
+
 
               <View style={styles.collectionStats}>
                 <Text style={styles.collectionAmount}>
                   {formatMoney(monthlyCollected)}
                 </Text>
-                <Text style={styles.collectionSub}>
-                  {l('Target', 'লক্ষ্য')} {formatMoney(monthlyTarget)} · {l('Remaining', 'বাকি')} {formatMoney(monthlyRemaining)}
-                </Text>
+                
               </View>
             </View>
 
-            <View style={styles.collectionFooterRow}>
-              <Text style={styles.paidText}>
-                {formatNum(paidCount)} {l('members paid', 'জন জমা দিয়েছেন')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push('/(admin)/due')}
-                style={styles.dueLink}
-              >
-                <Text style={styles.dueText}>
-                  {formatNum(dueCount)} {l('due ›', 'জন বাকি ›')}
-                </Text>
-              </TouchableOpacity>
-            </View>
           </Card>
         </TouchableOpacity>
 
         {/* 4. Two-Column Cards: বকেয়া & প্রজেক্ট */}
         <View style={styles.twoColumnRow}>
           {/* Due Card (Peach Warning Soft) */}
-          <TouchableOpacity
-            style={styles.halfCardWrapper}
-            onPress={() => router.push('/(admin)/due')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.dueHalfCard}>
-              <View style={styles.halfCardHeader}>
-                <Ionicons name="warning-outline" size={16} color={colors.warning} />
-                <Text style={styles.dueHalfCardTitle}>{l('Due', 'বকেয়া')}</Text>
-              </View>
-              <Text style={styles.dueHalfCardAmount}>
-                {formatMoney(totalDueAmount)}
-              </Text>
-              <Text style={styles.dueHalfCardSub}>
-                {formatNum(dueCount)} {l('members · 3 members 3+ mos', 'জন · ৩ জন ৩+ মাস')}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          
 
           {/* Projects Card (White Card) */}
           <TouchableOpacity
@@ -457,55 +408,6 @@ export default function HomeDashboardScreen() {
             </View>
           </Card>
         </TouchableOpacity>
-
-        {/* 6. আজকের ফলো-আপ */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{l("Today's Follow-up", 'আজকের ফলো-আপ')}</Text>
-            <TouchableOpacity onPress={() => router.push('/(admin)/due')}>
-              <Text style={styles.viewLinkText}>{l('View All', 'সব দেখুন')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {followupList.length === 0 && (
-            <Text style={[styles.followupNote, { paddingVertical: 12 }]}>{l('No dues today', 'আজ কোনো বকেয়া নেই')}</Text>
-          )}
-          {followupList.map((item, index) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.followupRow,
-                index === followupList.length - 1 && { borderBottomWidth: 0 },
-              ]}
-              onPress={() => handleFollowupPress(item)}
-              activeOpacity={0.7}
-            >
-              <Avatar name={item.name} size="sm" index={index} style={{ marginRight: 12 }} />
-
-              <View style={styles.followupInfo}>
-                <Text style={styles.followupName}>{item.name}</Text>
-                <Text style={styles.followupNote}>{item.note}</Text>
-              </View>
-
-              <View style={styles.followupActions}>
-                <TouchableOpacity
-                  style={styles.actionIconBtn}
-                  onPress={() => handleCall(item.name, item.phone)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="call-outline" size={17} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionIconBtn}
-                  onPress={() => handleMessage(item.name, item.phone, item.note, item.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="chatbubble-outline" size={17} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </Card>
 
         {/* 7. অনুমোদন অপেক্ষমাণ */}
         <Card style={styles.sectionCard}>

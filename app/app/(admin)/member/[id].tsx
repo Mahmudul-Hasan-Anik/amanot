@@ -46,9 +46,10 @@ export default function MemberProfileScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCategory,setEditCategory]=useState<MemberCategory|''>(member?.memberCategory || '');
   const [editName, setEditName] = useState(member?.name || '');
+  const [editFatherName,setEditFatherName] = useState(member?.fatherName || '');
+  const [editMotherName,setEditMotherName] = useState(member?.motherName || '');
   const [editPhone, setEditPhone] = useState(member?.phone || '');
   const [editAddress, setEditAddress] = useState(member?.address || '');
-  const [editMonthlyAmount, setEditMonthlyAmount] = useState(String(member?.monthlyAmount || 2000));
   const [editNomineeName, setEditNomineeName] = useState(member?.nomineeName || '');
   const [editNomineeRelation, setEditNomineeRelation] = useState(member?.nomineeRelation || '');
 
@@ -65,9 +66,10 @@ export default function MemberProfileScreen() {
     if (member) {
       setEditCategory(member.memberCategory || '');
       setEditName(member.name);
+      setEditFatherName(member.fatherName || '');
+      setEditMotherName(member.motherName || '');
       setEditPhone(toEnglishDigits(member.phone));
       setEditAddress(member.address && member.address !== '[ঠিকানা]' ? member.address : '');
-      setEditMonthlyAmount(String(member.monthlyAmount || 2000));
       setEditNomineeName(member.nomineeName || '');
       setEditNomineeRelation(member.nomineeRelation || '');
       setShowEditModal(true);
@@ -83,9 +85,10 @@ export default function MemberProfileScreen() {
     try { await updateMember(member.id, {
       ...(editCategory && editCategory!==member.memberCategory ? {memberCategory:editCategory} : {}),
       name: editName.trim(),
+      fatherName: editFatherName.trim(),
+      motherName: editMotherName.trim(),
       phone: editPhone.trim(),
       address: editAddress.trim() || '[ঠিকানা]',
-      monthlyAmount: parseInt(toEnglishDigits(editMonthlyAmount), 10) || 2000,
       nomineeName: editNomineeName.trim(),
       nomineeRelation: editNomineeRelation.trim(),
     });
@@ -339,6 +342,8 @@ export default function MemberProfileScreen() {
   }));
 
   const infoRows = [
+    { label: l("Father's Name", 'পিতার নাম'), value: member.fatherName || '—' },
+    { label: l("Mother's Name", 'মাতার নাম'), value: member.motherName || '—' },
     { label: l('Mobile', 'মোবাইল'), value: formatNum(member.phone) },
     { label: l('WhatsApp', 'হোয়াটসঅ্যাপ'), value: formatNum(member.whatsapp || member.phone) },
     { label: l('National ID (NID)', 'জাতীয় পরিচয়পত্র'), value: member.nid ? formatNum(member.nid) : '—' },
@@ -473,7 +478,7 @@ export default function MemberProfileScreen() {
             {formatMoney(member.totalDeposit)}
           </Text>
           <Text style={styles.cardSubText}>
-            {l('Monthly Deposit', 'মাসিক জমা')} {formatMoney(member.monthlyAmount)} · {formatNum(monthsSinceJoin)} {l('Months', 'মাস')}
+            {l('Voluntary deposits', 'ইচ্ছামতো জমা')} · {formatNum(monthsSinceJoin)} {l('Months', 'মাস')}
           </Text>
 
           {/* Overdue Banner */}
@@ -503,73 +508,6 @@ export default function MemberProfileScreen() {
                 +{formatMoney(member.estimatedProfit2026 || 0)}
               </Text>
             </View>
-          </View>
-        </Card>
-
-        {/* Card: ২০২৬ সালের জমা (৭/৯ মাস) */}
-        <Card style={styles.card}>
-          <View style={styles.cardHeaderFlex}>
-            <Text style={styles.cardTitle}>{l(`${thisYear} Deposits`, `${toBengaliDigits(thisYear)} সালের জমা`)}</Text>
-            <Text style={styles.fractionText}>{`${formatNum(paidMonthsCount)}/${formatNum(Math.max(0, elapsedThisYear))} ${l('Months', 'মাস')}`}</Text>
-          </View>
-
-          <View style={styles.monthGrid}>
-            {monthsData.map((m, idx) => {
-              const isPaid = m.status === 'paid';
-              const isDue = m.status === 'due';
-
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    if (isDue) {
-                      router.push(`/(admin)/deposit/new?memberId=${member.id}`);
-                    } else if (isPaid) {
-                      Alert.alert(
-                        l('Paid Month', 'পরিশোধিত মাস'),
-                        l(
-                          `${m.name} deposit of ${formatMoney(member.monthlyAmount)} was received.`,
-                          `${m.name} মাসের জমা ${formatMoney(member.monthlyAmount)} পরিশোধিত হয়েছে।`
-                        )
-                      );
-                    } else {
-                      Alert.alert(
-                        l('Upcoming Month', 'আসন্ন মাস'),
-                        l(`${m.name} deposit is not yet due.`, `${m.name} মাসের জমা এখনো শুরু হয়নি।`)
-                      );
-                    }
-                  }}
-                  style={[
-                    styles.monthTile,
-                    isPaid && styles.monthTilePaid,
-                    isDue && styles.monthTileDue,
-                    !isPaid && !isDue && styles.monthTileUpcoming,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.monthTileName,
-                      isPaid && styles.monthNamePaid,
-                      isDue && styles.monthNameDue,
-                      !isPaid && !isDue && styles.monthNameUpcoming,
-                    ]}
-                  >
-                    {m.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.monthTileStatus,
-                      isPaid && styles.monthStatusPaid,
-                      isDue && styles.monthStatusDue,
-                      !isPaid && !isDue && styles.monthStatusUpcoming,
-                    ]}
-                  >
-                    {isPaid ? l('Paid ✓', 'জমা ✓') : isDue ? l('Due', 'বকেয়া') : l('Upcoming', 'আসন্ন')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
         </Card>
 
@@ -694,6 +632,12 @@ export default function MemberProfileScreen() {
           placeholderTextColor={colors.textSecondary}
         />
 
+        <Text style={styles.modalInputLabel}>{l("Father's Name", 'পিতার নাম')}</Text>
+        <TextInput testID="edit-father-name-input" style={styles.modalInput} value={editFatherName} onChangeText={setEditFatherName} placeholderTextColor={colors.textSecondary} />
+
+        <Text style={styles.modalInputLabel}>{l("Mother's Name", 'মাতার নাম')}</Text>
+        <TextInput testID="edit-mother-name-input" style={styles.modalInput} value={editMotherName} onChangeText={setEditMotherName} placeholderTextColor={colors.textSecondary} />
+
         <Text style={styles.modalInputLabel}>{l('Mobile Number', 'মোবাইল নম্বর')}</Text>
         <TextInput
           testID="edit-phone-input"
@@ -701,16 +645,6 @@ export default function MemberProfileScreen() {
           value={editPhone}
           onChangeText={(t) => setEditPhone(toEnglishDigits(t))}
           keyboardType="phone-pad"
-          placeholderTextColor={colors.textSecondary}
-        />
-
-        <Text style={styles.modalInputLabel}>{l('Monthly Deposit Amount (৳)', 'মাসিক জমার পরিমাণ (৳)')}</Text>
-        <TextInput
-          testID="edit-amount-input"
-          style={styles.modalInput}
-          value={editMonthlyAmount}
-          onChangeText={(t) => setEditMonthlyAmount(toEnglishDigits(t))}
-          keyboardType="number-pad"
           placeholderTextColor={colors.textSecondary}
         />
 

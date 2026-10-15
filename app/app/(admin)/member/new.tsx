@@ -34,8 +34,8 @@ import { todayDMY, parseDMY } from '../../../src/lib/months';
 
 export default function NewMemberScreen() {
   const router = useRouter();
-  const { l, isBengali, formatNum, defaultMonthlyDeposit } = useLanguage();
-  const { addMember, members, somitiInfo } = useSomitiStore();
+  const { l, isBengali, formatNum } = useLanguage();
+  const { addMember, members } = useSomitiStore();
 
   const [memberCategory,setMemberCategory]=useState<MemberCategory|''>('');
   const [memberNumber,setMemberNumber]=useState('');
@@ -43,6 +43,8 @@ export default function NewMemberScreen() {
   // Member details
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [fatherName, setFatherName] = useState('');
+  const [motherName, setMotherName] = useState('');
   const [nid, setNid] = useState('');
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
@@ -53,10 +55,6 @@ export default function NewMemberScreen() {
   const [nomineeRelation, setNomineeRelation] = useState('');
   const [nomineePhone, setNomineePhone] = useState('');
   const [joinDate, setJoinDate] = useState(todayDMY());
-  const [monthlyAmount, setMonthlyAmount] = useState(String(Number((somitiInfo as any).defaultMonthly ?? defaultMonthlyDeposit)));
-  const [isMonthlyFocused, setIsMonthlyFocused] = useState(false);
-  const [admissionFee, setAdmissionFee] = useState('500');
-  const [isFeeFocused, setIsFeeFocused] = useState(false);
 
   // DatePicker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -117,24 +115,6 @@ export default function NewMemberScreen() {
     setShowDatePicker(false);
   };
 
-  const getMonthlyDisplay = () => {
-    if (isMonthlyFocused) {
-      return isBengali ? toBengaliDigits(monthlyAmount) : monthlyAmount;
-    }
-    const num = Number(monthlyAmount);
-    if (!num) return '';
-    return formatNum(num);
-  };
-
-  const getFeeDisplay = () => {
-    if (isFeeFocused) {
-      return isBengali ? toBengaliDigits(admissionFee) : admissionFee;
-    }
-    const num = Number(admissionFee);
-    if (!num) return '';
-    return formatNum(num);
-  };
-
   // Success modal
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [temporaryPin,setTemporaryPin] = useState('');
@@ -182,12 +162,6 @@ export default function NewMemberScreen() {
       Alert.alert(l('Error', 'ত্রুটি'), l('Mobile number must be 11 digits (01XXXXXXXXX)', 'মোবাইল নম্বর ১১ সংখ্যার হতে হবে (০১XXXXXXXXX)'));
       return;
     }
-    const cleanMonthly = Number(toEnglishDigits(monthlyAmount).replace(/[^\d]/g, ''));
-    if (!cleanMonthly) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter the monthly deposit amount', 'মাসিক জমার পরিমাণ লিখুন'));
-      return;
-    }
-    const cleanFee = Number(toEnglishDigits(admissionFee).replace(/[^\d]/g, '')) || 0;
     const formattedPhone = phone.startsWith('0') ? phone : `0${phone}`;
     const joinISO = parseDMY(toEnglishDigits(joinDate));
     if (!joinISO) {
@@ -203,6 +177,8 @@ export default function NewMemberScreen() {
     const initialPin = REMOTE ? generateTemporaryPin() : '1234';
     const newMember = await addMember({
       name: name.trim(),
+      fatherName: fatherName.trim(),
+      motherName: motherName.trim(),
       phone: formattedPhone,
       memberCategory:memberCategory as MemberCategory,
       memberNumber:normalizeMemberNumber(memberNumber),
@@ -214,8 +190,6 @@ export default function NewMemberScreen() {
       nomineeName: nomineeName.trim() || l('Nominee not provided', 'নমিনি দেওয়া হয়নি'),
       nomineeRelation: nomineeRelation.trim() || l('Relation not specified', 'সম্পর্ক দেওয়া হয়নি'),
       nomineePhone: nomineePhone.trim(),
-      monthlyAmount: cleanMonthly,
-      admissionFee: cleanFee,
     });
 
     if(REMOTE && photoUri) {
@@ -283,6 +257,16 @@ export default function NewMemberScreen() {
             placeholder={l('e.g. Md. Abdul Karim', 'যেমন: মোঃ আব্দুল করিম')}
             placeholderTextColor={colors.textSecondary}
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>{l("Father's Name (optional)", 'পিতার নাম (ঐচ্ছিক)')}</Text>
+          <TextInput testID="input-member-father-name" style={styles.input} value={fatherName} onChangeText={setFatherName} placeholder={l("Father's full name", 'পিতার নাম')} placeholderTextColor={colors.textSecondary} />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabel}>{l("Mother's Name (optional)", 'মাতার নাম (ঐচ্ছিক)')}</Text>
+          <TextInput testID="input-member-mother-name" style={styles.input} value={motherName} onChangeText={setMotherName} placeholder={l("Mother's full name", 'মাতার নাম')} placeholderTextColor={colors.textSecondary} />
         </View>
 
         <MemberIdentityFields category={memberCategory} number={memberNumber} onCategory={setMemberCategory} onNumber={setMemberNumber}/>
@@ -423,73 +407,34 @@ export default function NewMemberScreen() {
         {/* 4. সমিতির তথ্য */}
         <Text style={styles.sectionTitle}>{l('Somiti Details', 'সমিতির তথ্য')}</Text>
 
-        <View style={styles.twoColsRow}>
-          <View style={[styles.inputGroup, styles.col]}>
-            <Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
-            <View style={styles.inputWithIcon}>
-              <TextInput
-                testID="input-join-date"
-                style={styles.inputWithIconText}
-                value={formatNum(joinDate)}
-                onChangeText={(t) => setJoinDate(toEnglishDigits(t))}
-                placeholder="30/09/2026"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <TouchableOpacity
-                testID="btn-join-date-calendar"
-                style={styles.calendarIconBtn}
-                onPress={() => openDatePicker('joinDate')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.col]}>
-            <Text style={styles.fieldLabel}>{l('Monthly Deposit *', 'মাসিক জমা *')}</Text>
-            <View style={styles.currencyInputContainer}>
-              <Text style={styles.currencyPrefix}>৳</Text>
-              <TextInput
-                testID="input-monthly-amount"
-                style={styles.currencyInput}
-                value={getMonthlyDisplay()}
-                onFocus={() => setIsMonthlyFocused(true)}
-                onBlur={() => setIsMonthlyFocused(false)}
-                onChangeText={(t) => setMonthlyAmount(toEnglishDigits(t).replace(/[^\d]/g, ''))}
-                placeholder="2000"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-        </View>
-
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Admission Fee', 'ভর্তি ফি')}</Text>
-          <View style={styles.currencyInputContainer}>
-            <Text style={styles.currencyPrefix}>৳</Text>
+          <Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
+          <View style={styles.inputWithIcon}>
             <TextInput
-              testID="input-admission-fee"
-              style={styles.currencyInput}
-              value={getFeeDisplay()}
-              onFocus={() => setIsFeeFocused(true)}
-              onBlur={() => setIsFeeFocused(false)}
-              onChangeText={(t) => setAdmissionFee(toEnglishDigits(t).replace(/[^\d]/g, ''))}
-              placeholder="500"
+              testID="input-join-date"
+              style={styles.inputWithIconText}
+              value={formatNum(joinDate)}
+              onChangeText={(t) => setJoinDate(toEnglishDigits(t))}
+              placeholder="30/09/2026"
               placeholderTextColor={colors.textSecondary}
-              keyboardType="numeric"
             />
+            <TouchableOpacity
+              testID="btn-join-date-calendar"
+              style={styles.calendarIconBtn}
+              onPress={() => openDatePicker('joinDate')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
-
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.infoBoxText}>
             {l(
-              'Monthly deposit amount can be modified later from member profile. History will be preserved.',
-              'মাসিক জমার পরিমাণ পরে সদস্যের প্রোফাইল থেকে পরিবর্তন করা যাবে। পরিবর্তনের ইতিহাস সংরক্ষিত থাকবে।'
+              'Members may deposit any amount. There is no fixed target, due amount or late fee.',
+              'সদস্য নিজের ইচ্ছামতো জমা দিতে পারবেন। নির্দিষ্ট লক্ষ্য, বকেয়া বা বিলম্ব ফি নেই।'
             )}
           </Text>
         </View>

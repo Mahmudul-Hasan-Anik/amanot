@@ -164,9 +164,9 @@ export default function MemberProfileScreen() {
           </View>
 
           <View style={[styles.infoRow, styles.infoRowLast]}>
-            <Text style={styles.infoLabel}>{l('Monthly Rate', 'মাসিক জমার হার')}</Text>
+            <Text style={styles.infoLabel}>{l('Deposit rule', 'জমার নিয়ম')}</Text>
             <Text style={styles.infoValPrimary}>
-              {formatMoney(member.monthlyAmount || 2000)}
+              {l('Any amount', 'ইচ্ছামতো পরিমাণ')}
             </Text>
           </View>
         </View>

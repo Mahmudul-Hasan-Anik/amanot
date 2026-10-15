@@ -51,17 +51,6 @@ export default function RecordDepositScreen() {
     return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
   }, [displayMembers, selectedMemberId]);
 
-  const lateFeePerMonth = Number((somitiInfo as any).lateFee ?? 0);
-
-  // Months this member can pay for
-  const monthOptions: MonthOption[] = useMemo(() => {
-    return getDepositMonthOptions(currentMember);
-  }, [currentMember]);
-
-  const [selectedMonths, setSelectedMonths] = useState<number[]>(() => {
-    return defaultSelectedMonths(getDepositMonthOptions(currentMember));
-  });
-
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('bkash');
   const [trxId, setTrxId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -75,45 +64,8 @@ export default function RecordDepositScreen() {
   // Notification delivery methods
   const [sendSMS, setSendSMS] = useState(false);
 
-  const rate = currentMember?.monthlyAmount || 2000;
-  const partialCredit = Number((currentMember as any)?.partialCredit || 0);
-
-  // Calculate breakdown amounts
-  const calcBreakdown = (sel: number[], r: number) => {
-    const chosen = monthOptions.filter((o) => sel.includes(o.index));
-    const fee = chosen.filter((o) => o.overdue).length * lateFeePerMonth;
-    const base = chosen.length * r;
-    const total = Math.max(0, base + fee - partialCredit);
-    return { count: chosen.length, fee, base, total };
-  };
-
-  const { count: monthsCount, fee: lateFee, base: baseAmount, total: calculatedTotal } = calcBreakdown(selectedMonths, rate);
-
-  // Editable custom amount
-  const [customAmount, setCustomAmount] = useState<string>(String(calculatedTotal));
-
-  // Sync custom amount when month selection or rate changes
-  useEffect(() => {
-    setCustomAmount(String(calculatedTotal));
-  }, [calculatedTotal]);
-
-  const toggleMonth = (idx: number) => {
-    const next = selectedMonths.includes(idx)
-      ? selectedMonths.filter((i) => i !== idx)
-      : [...selectedMonths, idx].sort((a, b) => a - b);
-    setSelectedMonths(next);
-  };
-
-  const handleSelectMember = (mId: string) => {
-    setSelectedMemberId(mId);
-    setShowMemberModal(false);
-    const m = displayMembers.find((x) => x.id === mId);
-    if (m) {
-      const opts = getDepositMonthOptions(m);
-      const sel = defaultSelectedMonths(opts);
-      setSelectedMonths(sel);
-    }
-  };
+  const [customAmount,setCustomAmount]=useState('');
+  const handleSelectMember=(id:string)=>{setSelectedMemberId(id);setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
 
   // Payment methods segmented control options
   const paymentMethodsList: Array<{ id: PaymentMethodType; label: string }> = [
@@ -125,24 +77,13 @@ export default function RecordDepositScreen() {
 
   // Numeric total amount for calculation
   const numericAmount = Number(toEnglishDigits(customAmount).replace(/[^0-9.]/g, ''));
-  const newTotalDeposit = (currentMember?.totalDeposit || 0) + numericAmount - lateFee;
-
-  // Bengali months label for info card
-  const selectedMonthLabels = useMemo(() => {
-    return monthOptions
-      .filter((o) => selectedMonths.includes(o.index))
-      .map((o) => l(o.en, o.bn));
-  }, [monthOptions, selectedMonths, l]);
-
-  const monthsSummaryText = selectedMonthLabels.length > 0
-    ? selectedMonthLabels.join(l(' and ', ' ও '))
-    : l('current installment', 'চলতি কিস্তি');
+  const newTotalDeposit = (currentMember?.totalDeposit || 0) + numericAmount;
 
   const methodNameText = paymentMethodsList.find((p) => p.id === paymentMethod)?.label || l('bKash', 'বিকাশ');
 
   const handleConfirmDeposit = async () => {
     if (saving || !currentMember) return;
-    if (numericAmount <= 0) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       Alert.alert(
         l('Invalid Amount', 'ভুল টাকার পরিমাণ'),
         l('Please enter a valid deposit amount.', 'অনুগ্রহ করে সঠিক জমার টাকার পরিমাণ লিখুন।')
@@ -158,22 +99,18 @@ export default function RecordDepositScreen() {
       return;
     }
 
-    const monthNames = monthOptions
-      .filter((o) => selectedMonths.includes(o.index))
-      .map((o) => o.key);
-
     setSaving(true);
     try {
     const newTxn = await recordDeposit({
       id: requestId.current,
       memberId: currentMember.id,
-      months: monthNames,
-      baseAmount: Math.max(0, numericAmount - Math.min(lateFee, numericAmount)),
-      lateFee: Math.min(lateFee, numericAmount),
+      months: [],
+      baseAmount: numericAmount,
+      lateFee: 0,
       totalAmount: numericAmount,
       paymentMethod,
       trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
-      note: monthNames.length ? `${monthNames.join(', ')} কিস্তি` : 'নিয়মিত জমা',
+      note: l('Deposit', 'জমা'),
       sendSMS,
     });
 
@@ -222,7 +159,7 @@ export default function RecordDepositScreen() {
           <View style={styles.memberDetails}>
             <Text style={styles.memberName}>{l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}</Text>
             <Text style={styles.memberSub}>
-              {currentMember?.code} · {l('Monthly', 'মাসিক')} {formatMoney(currentMember?.monthlyAmount || 2000)}
+              {currentMember?.code} · {l('Voluntary deposits', 'ইচ্ছামতো জমা')}
             </Text>
           </View>
           <TouchableOpacity
@@ -235,43 +172,10 @@ export default function RecordDepositScreen() {
         </View>
 
         {/* 1. Month Selection */}
-        <Text style={styles.sectionTitle}>{l('Which month deposit', 'কোন মাসের জমা')}</Text>
-        <View style={styles.monthPillsRow}>
-          {monthOptions.map((o) => {
-            const active = selectedMonths.includes(o.index);
-            const label = o.kind === 'due'
-              ? l(`${o.en} (Due)`, `${o.bn} (বকেয়া)`)
-              : o.kind === 'advance'
-              ? l(`${o.en} (Advance)`, `${o.bn} (অগ্রিম)`)
-              : l(o.en, o.bn);
-
-            return (
-              <TouchableOpacity
-                key={o.index}
-                style={[styles.monthPill, active && styles.monthPillActive]}
-                onPress={() => toggleMonth(o.index)}
-                activeOpacity={0.8}
-              >
-                {active && (
-                  <Ionicons
-                    name="checkmark"
-                    size={16}
-                    color={colors.primary}
-                    style={{ marginRight: 4 }}
-                  />
-                )}
-                <Text style={[styles.monthPillText, active && styles.monthPillTextActive]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
         {/* 2. Amount Card with Green Underline & Breakdown */}
         <View style={styles.amountCard}>
           <Text style={styles.amountSectionLabel}>{l('Deposit Amount', 'পরিমাণ')}</Text>
-          <Text style={styles.amountHint}>{l('Enter a full, partial or advance amount', 'পূর্ণ, আংশিক বা অগ্রিম জমার পরিমাণ লিখুন')}</Text>
+          <Text style={styles.amountHint}>{l('Enter the amount received. No fixed rate or late fee.', 'যত টাকা জমা দিয়েছেন লিখুন। নির্দিষ্ট হার বা বিলম্ব ফি নেই।')}</Text>
 
           {/* Large Amount Input Container */}
           <View style={styles.largeAmountContainer}>
@@ -290,22 +194,6 @@ export default function RecordDepositScreen() {
           {/* Solid Green Underline Divider */}
           <View style={styles.greenUnderline} />
 
-          {/* Breakdown Lines */}
-          <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>
-              {l(`${monthsCount} mo × ${formatMoney(rate)}`, `${formatNum(monthsCount)} মাস × ${formatMoney(rate)}`)}
-            </Text>
-            <Text style={styles.amountVal}>{formatMoney(baseAmount)}</Text>
-          </View>
-
-          {lateFee > 0 && (
-            <View style={styles.amountRow}>
-              <Text style={styles.amountLabel}>
-                {l('Late fee (August)', 'বিলম্ব ফি (আগস্ট)')}
-              </Text>
-              <Text style={styles.amountVal}>{formatMoney(lateFee)}</Text>
-            </View>
-          )}
         </View>
 
         {/* 3. Payment Method */}
@@ -387,8 +275,8 @@ export default function RecordDepositScreen() {
           />
           <Text style={styles.infoText}>
             {l(
-              `${l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}'s ${monthsSummaryText} deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
-              `${currentMember?.name}ের ${monthsSummaryText}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
+              `${l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}'s deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
+              `${currentMember?.name}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
             )}
           </Text>
         </View>
@@ -443,7 +331,7 @@ export default function RecordDepositScreen() {
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.memberName}>{l(item.nameEn || item.name, item.name)}</Text>
                 <Text style={styles.memberSub}>
-                  {item.code} · {formatMoney(item.monthlyAmount)}
+                  {item.code}
                 </Text>
               </View>
               {item.dueAmount > 0 && (

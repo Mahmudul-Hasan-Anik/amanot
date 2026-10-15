@@ -79,16 +79,24 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 // ---------------------------------------------------------------------------
 
 const MEMBER_COLUMNS =
-  'id,user_id,code,member_category,member_number,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
+  'id,user_id,code,member_category,member_number,name,name_en,father_name,mother_name,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
   'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path';
 
 const LEGACY_MEMBER_COLUMNS=MEMBER_COLUMNS.replace('member_category,member_number,','');
 let identitySchemaSupported:boolean|null=null;
+let parentSchemaSupported=true;
 function missingIdentityColumns(error:any){return error?.code==='42703' && /member_category|member_number/.test(error.message || '')}
 async function memberRead<T>(load:(columns:string)=>PromiseLike<{data:T|null;error:any}>):Promise<T>{
-  let result=await load(identitySchemaSupported===false?LEGACY_MEMBER_COLUMNS:MEMBER_COLUMNS);
-  if(missingIdentityColumns(result.error)){identitySchemaSupported=false;result=await load(LEGACY_MEMBER_COLUMNS)}
+  const read=async(columns:string)=>{
+    let result=await load(parentSchemaSupported?columns:columns.replace('father_name,mother_name,',''));
+    if(result.error?.code==='42703' && /father_name|mother_name/.test(result.error.message || '')){
+      parentSchemaSupported=false;result=await load(columns.replace('father_name,mother_name,',''));
+    }
+    return result;
+  };
+  let result=await read(identitySchemaSupported===false?LEGACY_MEMBER_COLUMNS:MEMBER_COLUMNS);
+  if(missingIdentityColumns(result.error)){identitySchemaSupported=false;result=await read(LEGACY_MEMBER_COLUMNS)}
   else if(!result.error && identitySchemaSupported!==false)identitySchemaSupported=true;
   return unwrap(result);
 }
@@ -127,6 +135,8 @@ export function mapMember(r: any, txns: any[] = []): Member {
     memberCategory: r.member_category || undefined,
     memberNumber: r.member_number || undefined,
     name: r.name,
+    fatherName: r.father_name || '',
+    motherName: r.mother_name || '',
     nameEn: r.name_en || undefined,
     phone: r.phone,
     whatsapp: r.whatsapp || r.phone,
@@ -502,22 +512,43 @@ export async function signOut() {
 
 const rpc = async (fn: string, args: Record<string, any> = {}) => unwrap(await supabase.rpc(fn, args));
 
+let memberDetailsWriteReady=false;
+let voluntarySchemaReady=false;
+async function requireVoluntarySchema(){
+  if(voluntarySchemaReady)return;
+  const result=await supabase.from('somiti_settings').select('info').eq('id',1).maybeSingle();
+  if(result.error || result.data?.info?.depositMode!=='voluntary')throw new Error('নতুন জমার নিয়ম এখনো চালু হয়নি। / The updated deposit rules are not available yet.');
+  voluntarySchemaReady=true;
+}
+async function requireMemberDetailsSchema(){
+  if(memberDetailsWriteReady)return;
+  const result=await supabase.from('members').select('father_name,mother_name').limit(0);
+  if(result.error)throw new Error('সদস্যের নতুন তথ্য সংরক্ষণের backend update এখনো চালু হয়নি। / Apply the member details migration before saving parent names.');
+  memberDetailsWriteReady=true;
+  parentSchemaSupported=true;
+}
+
 export const addMember = async(p: Record<string, any>) => {
+  await requireVoluntarySchema();
   if(identitySchemaSupported!==true){
     const probe=await supabase.from('members').select('member_category,member_number').limit(0);
     if(probe.error)throw new Error('সদস্য ID-এর backend migration এখনো প্রয়োগ হয়নি। / Apply the member identity migration before adding members.');
     identitySchemaSupported=true;
   }
-  const result=await supabase.rpc('add_member',{p});
+  if('fatherName' in p || 'motherName' in p)await requireMemberDetailsSchema();
+  const result=await supabase.rpc('add_member',{p:{...p,monthlyAmount:0}});
   if(result.error?.code==='23505' && /members_number_identity_uq/.test(result.error.message))throw new Error('এই সদস্য নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে। / Member number is already in use.');
   return unwrap(result);
 };
-export const updateMember = (id: string, p: Record<string, any>) => rpc('update_member', { p_id: id, p });
+export const updateMember = async(id: string, p: Record<string, any>) => {
+  if('fatherName' in p || 'motherName' in p)await requireMemberDetailsSchema();
+  return rpc('update_member', { p_id: id, p });
+};
 export const deleteMember = (id: string) => rpc('delete_member', { p_id: id });
 export const resetMemberPin = (memberId: string, pin: string) =>
   rpc('admin_reset_member_pin', { p_member_id: memberId, p_new_pin: pin });
 
-export const recordDeposit = (d: {
+export const recordDeposit = async(d: {
   id: string;
   memberId: string;
   months: string[];
@@ -527,11 +558,13 @@ export const recordDeposit = (d: {
   paymentMethod: string;
   trxId?: string;
   note?: string;
-}) =>
-  rpc('record_deposit', {
+}) => {
+  await requireVoluntarySchema();
+  if(d.lateFee!==0 || d.baseAmount!==d.totalAmount)throw new Error('বিলম্ব ফি বন্ধ রয়েছে। / Late fees are disabled.');
+  return rpc('record_deposit', {
     p_id: d.id,
     p_member_id: d.memberId,
-    p_months: d.months,
+    p_months: [],
     p_base_amount: d.baseAmount,
     p_late_fee: d.lateFee,
     p_total_amount: d.totalAmount,
@@ -539,6 +572,7 @@ export const recordDeposit = (d: {
     p_trx_id: d.trxId ?? null,
     p_note: d.note ?? null,
   });
+};
 
 export const addExpense = (d: {
   title: string;

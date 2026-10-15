@@ -10,6 +10,8 @@ export interface Member {
   whatsapp?: string;
   nid?: string;
   address: string;
+  fatherName?: string;
+  motherName?: string;
   nomineeName: string;
   nomineeNameEn?: string;
   nomineeRelation: string;

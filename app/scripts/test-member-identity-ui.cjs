@@ -18,7 +18,12 @@ async function main(){
  const render=()=>{sh.reset();return nodes(Screen())};const field=id=>render().find(n=>n.props.testID===id);const form=()=>render().find(n=>n.type==='Identity').props;
  assert.equal(form().category,'');field('input-member-name').props.onChangeText('Fixture');field('input-member-phone').props.onChangeText('01700000000');await field('submit-new-member-btn').props.onPress();assert.equal(writes.length,0);
  form().onCategory('general');form().onNumber('003');await field('submit-new-member-btn').props.onPress();assert.equal(writes.length,0,'Reserved legacy number rejected');
+ assert.equal(field('input-admission-fee'),undefined);
+ assert.equal(field('input-monthly-amount'),undefined);
+ field('input-member-father-name').props.onChangeText('  Father  ');field('input-member-mother-name').props.onChangeText('Mother');
  form().onCategory('director');form().onNumber('০০২০২০০১');await field('submit-new-member-btn').props.onPress();assert.equal(writes.length,1);assert.equal(writes[0].memberNumber,'00202001');assert.equal(writes[0].memberCategory,'director');assert.equal('code' in writes[0],false);
+ assert.equal(writes[0].fatherName,'Father');assert.equal(writes[0].motherName,'Mother');assert.equal('admissionFee' in writes[0],false);
+ assert.equal('monthlyAmount' in writes[0],false);
  console.log('PASS member identity UI: three prefixes, Bengali digits/zeros, invalid IDs, locked edit, safe legacy state, required selection, duplicate prevention and manual-number submission.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

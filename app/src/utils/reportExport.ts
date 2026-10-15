@@ -28,12 +28,12 @@ export function buildReport(state: SomitiState, id: string, month: string): Repo
   if (id==='5') return { title:'প্রজেক্ট রিপোর্ট',columns:['প্রজেক্ট','বিনিয়োগ','ফেরত','লাভ/ক্ষতি','অবস্থা'],rows:state.projects.map(p=>[p.name,p.investedAmount,p.returnedAmount,p.netProfit,p.status]) };
   if (id==='6') return { title:'নগদ ও ব্যাংক বই',columns:['হিসাব','বর্তমান ব্যালেন্স','দায়িত্বপ্রাপ্ত'],rows:state.cashAccounts.map(a=>[a.name,a.amount,a.holder||'']) };
   if (id==='8') return { title:'লাভ বণ্টন রিপোর্ট',columns:['সদস্য','বছর','শেষ বণ্টন','মোট লাভের ব্যালেন্স'],rows:members.map(m=>[m.name,m.lastProfitYear||'',m.profit2025||0,m.profitBalance||0]) };
-  if (id==='4') return { title:'সদস্য স্টেটমেন্ট',columns:['আইডি','সদস্য','মোট সঞ্চয়','মাসিক কিস্তি','বকেয়া'],rows:members.map(m=>[m.code,m.name,m.totalDeposit,m.monthlyAmount,m.dueAmount]) };
+  if (id==='4') return { title:'সদস্য স্টেটমেন্ট',columns:['আইডি','সদস্য','মোট সঞ্চয়'],rows:members.map(m=>[m.code,m.name,m.totalDeposit]) };
   if (id==='7') return { title:'আদায়কারীর রিপোর্ট',columns:['রসিদ','তারিখ','সদস্য','আদায়','মাধ্যম'],rows:tx.filter(t=>t.type==='deposit').map(t=>[t.receiptNo,t.date,t.memberName,t.amount,t.paymentMethod]) };
   if (id==='3') return { title:'আয়-ব্যয় রিপোর্ট',columns:['তারিখ','রসিদ','ধরন','বিবরণ','পরিমাণ'],rows:tx.filter(t=>t.type!=='transfer').map(t=>[t.date,t.receiptNo,t.type,t.note||t.memberName,t.type==='expense'?-t.amount:t.amount]) };
   const collected=new Map<string,number>();
   for(const t of tx)if(t.type==='deposit')collected.set(t.memberId,(collected.get(t.memberId)||0)+t.amount);
-  return { title:'মাসিক আদায় রিপোর্ট',columns:['আইডি','সদস্য','এই মাসে আদায়','বকেয়া'],rows:members.map(m=>[m.code,m.name,collected.get(m.id)||0,m.dueAmount]) };
+  return { title:'মাসিক আদায় রিপোর্ট',columns:['আইডি','সদস্য','এই মাসে আদায়'],rows:members.map(m=>[m.code,m.name,collected.get(m.id)||0]) };
 }
 
 export function reportHtml(report: Report, somiti: string, period: string): string {
