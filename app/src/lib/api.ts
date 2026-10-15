@@ -558,10 +558,11 @@ export const recordDeposit = async(d: {
   paymentMethod: string;
   trxId?: string;
   note?: string;
+  date?: string;
 }) => {
   await requireVoluntarySchema();
   if(d.lateFee!==0 || d.baseAmount!==d.totalAmount)throw new Error('বিলম্ব ফি বন্ধ রয়েছে। / Late fees are disabled.');
-  return rpc('record_deposit', {
+  const payload: any = {
     p_id: d.id,
     p_member_id: d.memberId,
     p_months: [],
@@ -571,7 +572,19 @@ export const recordDeposit = async(d: {
     p_payment_method: d.paymentMethod,
     p_trx_id: d.trxId ?? null,
     p_note: d.note ?? null,
-  });
+  };
+  if (d.date) {
+    payload.p_date = d.date;
+  }
+  let res = await supabase.rpc('record_deposit', payload);
+  if (res.error && d.date && (res.error.code === '42883' || /p_date|does not exist|function/i.test(res.error.message || ''))) {
+    delete payload.p_date;
+    if (d.date) {
+      payload.p_note = payload.p_note ? `[তারিখ: ${d.date}] ${payload.p_note}` : `[তারিখ: ${d.date}] জমা`;
+    }
+    res = await supabase.rpc('record_deposit', payload);
+  }
+  return unwrap(res);
 };
 
 export const addExpense = (d: {

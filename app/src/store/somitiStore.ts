@@ -157,6 +157,7 @@ export interface SomitiState {
     paymentMethod: 'cash' | 'bkash' | 'nagad' | 'bank';
     trxId?: string;
     note?: string;
+    date?: string;
     sendWhatsApp?: boolean;
     sendSMS?: boolean;
   }) => Promise<Transaction>;
@@ -533,7 +534,7 @@ export const useSomitiStore = create<SomitiState>()(
           }
           return saved;
         }
-        const { memberId, totalAmount, paymentMethod, trxId, note, months, lateFee } = data;
+        const { memberId, totalAmount, paymentMethod, trxId, note, months, lateFee, date } = data;
         const currentMembers = get().members;
         const member = currentMembers.find((m) => m.id === memberId);
         if (!member || member.status === 'inactive') throw new Error('সক্রিয় সদস্য নির্বাচন করুন');
@@ -543,19 +544,20 @@ export const useSomitiStore = create<SomitiState>()(
         const receiptNumber = `#${toBengaliDigits(1043 + get().transactions.length)}`;
         const txnId = data.id || api.uuid();
 
+        const customDateISO = date ? date : new Date().toISOString().slice(0, 10);
         const newTxn: Transaction = {
           id: txnId,
           receiptNo: receiptNumber,
           memberId,
           memberName: member?.name || 'সদস্য',
           memberCode: member?.code || 'SM-000',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0, 10),
+          date: api.bnDate(customDateISO),
+          dateISO: customDateISO,
           amount: totalAmount,
           type: 'deposit',
           paymentMethod,
           trxId,
-          note: note || `${months.join(', ')} মাসের কিস্তি`,
+          note: note || (months.length > 0 ? `${months.join(', ')} মাসের কিস্তি` : 'জমা'),
           months,
           lateFee,
         };

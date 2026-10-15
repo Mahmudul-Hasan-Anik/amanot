@@ -21,10 +21,10 @@ import { AppModal } from '../../../src/components/AppModal';
 import { Avatar } from '../../../src/components/Avatar';
 import { Checkbox } from '../../../src/components/Checkbox';
 import { toEnglishDigits } from '../../../src/lib/money';
-import { toBengaliDigits } from '../../../src/lib/bengali';
+import { toBengaliDigits, BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
-import { getDepositMonthOptions, defaultSelectedMonths, MonthOption } from '../../../src/lib/months';
+import { getDepositMonthOptions, defaultSelectedMonths, MonthOption, todayDMY, parseDMY } from '../../../src/lib/months';
 import { uuid } from '../../../src/lib/api';
 
 type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'bank';
@@ -56,10 +56,50 @@ export default function RecordDepositScreen() {
   const [saving, setSaving] = useState(false);
   const requestId = useRef(uuid());
 
-  // Format date: DD/MM/YYYY
-  const now = new Date();
-  const rawDateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-  const displayDate = isBengali ? toBengaliDigits(rawDateStr) : rawDateStr;
+  // Deposit date & Comment
+  const [depositDate, setDepositDate] = useState(todayDMY());
+  const [comment, setComment] = useState('');
+
+  // DatePicker modal state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerDay, setPickerDay] = useState(new Date().getDate());
+  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth() + 1);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+
+  const MONTH_NAMES_BN = BENGALI_MONTHS_FULL;
+  const MONTH_NAMES_EN = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const openDatePicker = () => {
+    if (depositDate) {
+      const parts = toEnglishDigits(depositDate).split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
+        if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
+        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+      }
+    } else {
+      const now = new Date();
+      setPickerDay(now.getDate());
+      setPickerMonth(now.getMonth() + 1);
+      setPickerYear(now.getFullYear());
+    }
+    setShowDatePicker(true);
+  };
+
+  const handleConfirmDate = () => {
+    const dd = pickerDay < 10 ? `0${pickerDay}` : `${pickerDay}`;
+    const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
+    const yyyy = `${pickerYear}`;
+    const dateStr = `${dd}/${mm}/${yyyy}`;
+    setDepositDate(dateStr);
+    setShowDatePicker(false);
+  };
 
   // Notification delivery methods
   const [sendSMS, setSendSMS] = useState(false);
@@ -99,22 +139,32 @@ export default function RecordDepositScreen() {
       return;
     }
 
+    const depositISO = parseDMY(toEnglishDigits(depositDate));
+    if (!depositISO) {
+      Alert.alert(
+        l('Invalid Date', 'ভুল তারিখ'),
+        l('Deposit date must be in DD/MM/YYYY format.', 'জমার তারিখ DD/MM/YYYY ফরম্যাটে দিন।')
+      );
+      return;
+    }
+
     setSaving(true);
     try {
-    const newTxn = await recordDeposit({
-      id: requestId.current,
-      memberId: currentMember.id,
-      months: [],
-      baseAmount: numericAmount,
-      lateFee: 0,
-      totalAmount: numericAmount,
-      paymentMethod,
-      trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
-      note: l('Deposit', 'জমা'),
-      sendSMS,
-    });
+      const newTxn = await recordDeposit({
+        id: requestId.current,
+        memberId: currentMember.id,
+        months: [],
+        baseAmount: numericAmount,
+        lateFee: 0,
+        totalAmount: numericAmount,
+        paymentMethod,
+        trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
+        note: comment.trim() || l('Deposit', 'জমা'),
+        date: depositISO,
+        sendSMS,
+      });
 
-    router.replace(`/(admin)/receipt/${newTxn.id}`);
+      router.replace(`/(admin)/receipt/${newTxn.id}`);
     } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
   };
 
@@ -239,9 +289,44 @@ export default function RecordDepositScreen() {
 
           <View style={styles.colRight}>
             <Text style={styles.fieldLabel}>{l('Date', 'তারিখ')}</Text>
-            <View style={styles.inputBox}>
-              <Text style={styles.inputText}>{displayDate}</Text>
+            <View style={styles.dateInputWithIcon}>
+              <TextInput
+                testID="input-deposit-date"
+                style={styles.dateInputText}
+                value={formatNum(depositDate)}
+                onChangeText={(t) => setDepositDate(toEnglishDigits(t))}
+                placeholder={todayDMY()}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity
+                testID="btn-deposit-date-calendar"
+                style={styles.calendarIconBtn}
+                onPress={openDatePicker}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
+          </View>
+        </View>
+
+        {/* 5. Comment / Note Field */}
+        <View style={styles.commentGroup}>
+          <Text style={styles.fieldLabel}>{l('Comment / Note (Optional)', 'মন্তব্য / নোট (ঐচ্ছিক)')}</Text>
+          <View style={styles.commentInputBox}>
+            <TextInput
+              testID="input-deposit-comment"
+              style={styles.commentInput}
+              value={comment}
+              onChangeText={setComment}
+              placeholder={l(
+                'e.g. Received on 1st, entry delayed due to office closure',
+                'যেমন: ১ তারিখে প্রাপ্ত, অফিস বন্ধ থাকার কারণে বিলম্বে এন্ট্রি'
+              )}
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={2}
+            />
           </View>
         </View>
 
@@ -344,6 +429,132 @@ export default function RecordDepositScreen() {
             </TouchableOpacity>
           )}
         />
+      </AppModal>
+
+      {/* Date Picker Modal */}
+      <AppModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.datePickerHeader}>
+          <View style={styles.datePickerTitleRow}>
+            <Ionicons name="calendar" size={20} color={colors.primary} />
+            <Text style={styles.datePickerTitle}>
+              {l('Select Deposit Date', 'জমার তারিখ নির্বাচন করুন')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            testID="btn-close-datepicker"
+            onPress={() => setShowDatePicker(false)}
+            style={styles.datePickerCloseBtn}
+          >
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected Date Preview Banner */}
+        <View style={styles.datePreviewBox}>
+          <Text style={styles.datePreviewLabel}>
+            {l('Selected Date', 'নির্বাচিত তারিখ')}
+          </Text>
+          <Text style={styles.datePreviewVal}>
+            {isBengali
+              ? `${toBengaliDigits(pickerDay)} ${MONTH_NAMES_BN[pickerMonth - 1]} ${toBengaliDigits(pickerYear)}`
+              : `${pickerDay} ${MONTH_NAMES_EN[pickerMonth - 1]} ${pickerYear}`}
+          </Text>
+        </View>
+
+        {/* 3 Column Picker */}
+        <View style={styles.pickerColumnsRow}>
+          {/* Day Column */}
+          <View style={styles.pickerCol}>
+            <Text style={styles.pickerColHeader}>{l('Day', 'দিন')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+                const isSelected = d === pickerDay;
+                return (
+                  <TouchableOpacity
+                    key={`day-${d}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerDay(d)}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                      {isBengali ? toBengaliDigits(d) : d}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Month Column */}
+          <View style={[styles.pickerCol, { flex: 1.4 }]}>
+            <Text style={styles.pickerColHeader}>{l('Month', 'মাস')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                const isSelected = m === pickerMonth;
+                const mName = isBengali ? MONTH_NAMES_BN[m - 1] : MONTH_NAMES_EN[m - 1];
+                return (
+                  <TouchableOpacity
+                    key={`month-${m}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerMonth(m)}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}
+                    >
+                      {mName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Year Column */}
+          <View style={styles.pickerCol}>
+            <Text style={styles.pickerColHeader}>{l('Year', 'বছর')}</Text>
+            <ScrollView
+              style={styles.pickerScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => {
+                const isSelected = y === pickerYear;
+                return (
+                  <TouchableOpacity
+                    key={`year-${y}`}
+                    style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                    onPress={() => setPickerYear(y)}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                      {isBengali ? toBengaliDigits(y) : y}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <TouchableOpacity
+          testID="btn-confirm-datepicker"
+          style={styles.datePickerConfirmBtn}
+          onPress={handleConfirmDate}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="checkmark" size={18} color={colors.textWhite} />
+          <Text style={styles.datePickerConfirmBtnText}>
+            {l('Confirm Date', 'তারিখ নিশ্চিত করুন')}
+          </Text>
+        </TouchableOpacity>
       </AppModal>
 
       {/* Pinned Bottom CTA */}
@@ -611,6 +822,51 @@ const styles = StyleSheet.create({
     color: colors.text,
     padding: 0,
   },
+  dateInputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  dateInputText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+    padding: 0,
+    outlineStyle: 'none' as any,
+  },
+  calendarIconBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentGroup: {
+    marginBottom: 16,
+  },
+  commentInputBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 68,
+  },
+  commentInput: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    color: colors.text,
+    padding: 0,
+    textAlignVertical: 'top',
+    outlineStyle: 'none' as any,
+  },
   deliveryCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -736,5 +992,97 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     lineHeight: typography.lineHeight.md,
     color: colors.surface,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  datePickerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  datePickerTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.text,
+  },
+  datePickerCloseBtn: {
+    padding: 4,
+  },
+  datePreviewBox: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  datePreviewLabel: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  datePreviewVal: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.base,
+    color: colors.primary,
+  },
+  pickerColumnsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    height: 190,
+    marginBottom: 16,
+  },
+  pickerCol: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderRadius: 10,
+    padding: 6,
+  },
+  pickerColHeader: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  pickerScrollView: {
+    flex: 1,
+  },
+  pickerItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  pickerItemSelected: {
+    backgroundColor: colors.primarySoft,
+  },
+  pickerItemText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.caption,
+    color: colors.text,
+  },
+  pickerItemTextSelected: {
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
+  },
+  datePickerConfirmBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  datePickerConfirmBtnText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.size.md,
+    color: colors.textWhite,
   },
 });

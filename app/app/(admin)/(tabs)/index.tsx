@@ -313,7 +313,16 @@ export default function HomeDashboardScreen() {
             <Text style={styles.actionLabel}>{l('Expense', 'খরচ লিখুন')}</Text>
           </TouchableOpacity>
 
-          
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => router.push('/(admin)/reminder')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.actionCircle}>
+              <Ionicons name="megaphone-outline" size={22} color={colors.text} />
+            </View>
+            <Text style={styles.actionLabel}>{l('Reminder', 'রিমাইন্ডার')}</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionBtn}

@@ -109,6 +109,7 @@ export default function ReceiptScreen() {
     lateFee,
     dueAmount: member?.dueAmount,
     trxId: txn?.trxId,
+    note: txn?.note,
     somitiName: somitiInfo.name,
     somitiReg: somitiInfo.regNo,
     somitiPhone: somitiInfo.phone,
@@ -129,8 +130,11 @@ export default function ReceiptScreen() {
 
   const handleShare = async () => {
     try {
+      const noteLine = txn?.note && txn.note !== 'জমা' && txn.note !== 'Deposit' && txn.note !== 'কিস্তি জমা'
+        ? `${l('Note:', 'মন্তব্য:')} ${txn.note}\n`
+        : '';
       await Share.share({
-        message: `${somitiTitle}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(totalDepositNow)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`,
+        message: `${somitiTitle}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${noteLine}${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(totalDepositNow)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`,
       });
     } catch (e) {}
   };
@@ -199,6 +203,13 @@ export default function ReceiptScreen() {
               <Text style={styles.label}>{l('Date', 'তারিখ')}</Text>
               <Text style={styles.value}>{dateStr}</Text>
             </View>
+
+            {!!txn?.note && txn.note !== 'জমা' && txn.note !== 'Deposit' && txn.note !== 'কিস্তি জমা' && (
+              <View style={styles.row}>
+                <Text style={styles.label}>{l('Comment / Note', 'মন্তব্য / নোট')}</Text>
+                <Text style={styles.value}>{txn.note}</Text>
+              </View>
+            )}
 
             <View style={styles.row}>
               <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>

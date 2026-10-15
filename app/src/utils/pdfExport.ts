@@ -22,6 +22,7 @@ export interface DepositReceiptData {
   lateFee?: number;
   dueAmount?: number;
   trxId?: string;
+  note?: string;
   somitiName?: string;
   somitiReg?: string;
   somitiPhone?: string;
@@ -205,6 +206,11 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
       <div><span class="label">বিলম্ব ফি:</span> <span class="value">৳${bnLateFee}</span></div>
     </div>` : ''}
 
+    ${data.note && data.note !== 'জমা' && data.note !== 'Deposit' && data.note !== 'কিস্তি জমা' ? `
+    <div class="info-row">
+      <div><span class="label">মন্তব্য / নোট:</span> <span class="value">${escapeHtml(data.note)}</span></div>
+    </div>` : ''}
+
     <div class="amount-box">
       <div class="amount-title">জমার মোট পরিমাণ</div>
       <div class="amount-number">৳${bnAmount}</div>
@@ -225,8 +231,7 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
     </div>
   </div>
 </body>
-</html>
-  `;
+</html>`;
 }
 
 /**
@@ -275,8 +280,9 @@ export async function shareReceiptViaWhatsApp(
   const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
   const bnAmount = toBengaliDigits(data.amount);
   const somiti = data.somitiName || 'আমানত সমিতি';
+  const hasComment = !!data.note && data.note !== 'জমা' && data.note !== 'Deposit' && data.note !== 'কিস্তি জমা';
 
-  const message = `*${somiti} - মানি রিসিট*\n\nরসিদ নং: #${data.receiptNo}\nসদস্য: ${data.memberName} (${data.memberCode})\nতারিখ: ${data.date}\nজমা: ৳${bnAmount}\nপদ্ধতি: ${data.paymentMethod}\n\nআপনার সঞ্চয় সফলভাবে জমা হয়েছে। ধন্যবাদ।`;
+  const message = `*${somiti} - মানি রিসিট*\n\nরসিদ নং: #${data.receiptNo}\nসদস্য: ${data.memberName} (${data.memberCode})\nতারিখ: ${data.date}\nজমা: ৳${bnAmount}\nপদ্ধতি: ${data.paymentMethod}${hasComment ? `\nমন্তব্য: ${data.note}` : ''}\n\nআপনার সঞ্চয় সফলভাবে জমা হয়েছে। ধন্যবাদ।`;
 
   const url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
   try {

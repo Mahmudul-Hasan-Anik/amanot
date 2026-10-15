@@ -58,7 +58,9 @@ export default function ReminderScreen() {
         });
       }
     }
-    return allMembers.filter(m=>m.status!=='inactive' && m.dueAmount>0);
+    const dueList = allMembers.filter((m) => m.status !== 'inactive' && (m.dueAmount || 0) > 0);
+    if (dueList.length > 0) return dueList;
+    return allMembers.filter((m) => m.status !== 'inactive');
   }, [allMembers, paramIds, preferredIds]);
 
   const [pushSelected, setPushSelected] = useState(false);
@@ -87,6 +89,13 @@ export default function ReminderScreen() {
       nameEn: 'Urgent Notice',
       textBn: 'জরুরি নোটিশ: জনাব {নাম}, আপনার একাউন্টে {বকেয়া_মাস} মাসের মোট {বকেয়া_টাকা} টাকা বকেয়া পড়েছে। সমিতির নিয়মানুযায়ী দ্রুত পরিশোধ করতে অনুরোধ করা হচ্ছে। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]',
       textEn: 'Urgent Notice: Dear {name}, a total of {due_amount} for {due_months} is pending on your account. Please settle urgently per somiti rules. bKash: {bkash_no}. Thank you, [Somiti Name]',
+    },
+    {
+      id: 'general',
+      name: 'সাধারণ আমানত তাগাদা',
+      nameEn: 'General Deposit Notice',
+      textBn: 'আসসালামু আলাইকুম {নাম}, চলতি মাসের সমিতির আমানত জমা দেওয়ার অনুরোধ করা হচ্ছে। অনুগ্রহ করে আপনার সুবিধাজনক সময়ে টাকা জমা দিন। বিকাশ: {বিকাশ_নম্বর}। ধন্যবাদ, [সমিতির নাম]',
+      textEn: 'Assalamu Alaikum {name}, you are kindly requested to make your monthly deposit for this month. bKash: {bkash_no}. Thank you, [Somiti Name]',
     },
   ], []);
 
@@ -168,7 +177,7 @@ export default function ReminderScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => safeBack(router, '/(admin)/due')}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
