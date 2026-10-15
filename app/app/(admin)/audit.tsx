@@ -1,3 +1,4 @@
+import { MEMBER_CATEGORIES } from '../../src/lib/memberIdentity';
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchAuditLogs } from '../../src/lib/api';
@@ -89,6 +90,7 @@ export default function AuditLogScreen() {
       const ACTIONS: Record<string, { en: string; bn: string; cat: AuditItem['category'] }> = {
         account_created: { en: 'Account activated', bn: 'অ্যাকাউন্ট চালু', cat: 'member' },
         member_added: { en: 'Member added', bn: 'নতুন সদস্য যোগ', cat: 'member' },
+        member_category_changed: { en: 'Member category changed', bn: 'সদস্যের ক্যাটাগরি পরিবর্তন', cat: 'member' },
         member_updated: { en: 'Member info updated', bn: 'সদস্যের তথ্য হালনাগাদ', cat: 'member' },
         deposit_recorded: { en: 'Deposit', bn: 'জমা এন্ট্রি', cat: 'financial' },
         expense_added: { en: 'Expense', bn: 'ব্যয় এন্ট্রি', cat: 'financial' },
@@ -103,6 +105,8 @@ export default function AuditLogScreen() {
         if (d.amount) parts.push(`৳${d.amount}`);
         if (d.receipt) parts.push(`রসিদ #${d.receipt}`);
         if (d.member) parts.push(String(d.member));
+        if(d.from && d.to)parts.push([d.from,d.to].map(value=>{const category=MEMBER_CATEGORIES.find(item=>item.value===value);return category?(isBengali?category.bn:category.en):String(value)}).join(' → '));
+        if(d.number)parts.push(`${isBengali?'নম্বর':'Number'}: ${d.number}`);
         if (d.reason) parts.push(String(d.reason));
 
         return {

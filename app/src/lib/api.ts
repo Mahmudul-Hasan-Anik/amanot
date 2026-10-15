@@ -79,9 +79,19 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 // ---------------------------------------------------------------------------
 
 const MEMBER_COLUMNS =
-  'id,user_id,code,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
+  'id,user_id,code,member_category,member_number,name,name_en,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
   'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path';
+
+const LEGACY_MEMBER_COLUMNS=MEMBER_COLUMNS.replace('member_category,member_number,','');
+let identitySchemaSupported:boolean|null=null;
+function missingIdentityColumns(error:any){return error?.code==='42703' && /member_category|member_number/.test(error.message || '')}
+async function memberRead<T>(load:(columns:string)=>PromiseLike<{data:T|null;error:any}>):Promise<T>{
+  let result=await load(identitySchemaSupported===false?LEGACY_MEMBER_COLUMNS:MEMBER_COLUMNS);
+  if(missingIdentityColumns(result.error)){identitySchemaSupported=false;result=await load(LEGACY_MEMBER_COLUMNS)}
+  else if(!result.error && identitySchemaSupported!==false)identitySchemaSupported=true;
+  return unwrap(result);
+}
 
 export function mapTransaction(r: any): Transaction {
   return {
@@ -114,6 +124,8 @@ export function mapMember(r: any, txns: any[] = []): Member {
   return {
     id: r.id,
     code: r.code,
+    memberCategory: r.member_category || undefined,
+    memberNumber: r.member_number || undefined,
     name: r.name,
     nameEn: r.name_en || undefined,
     phone: r.phone,
@@ -262,11 +274,14 @@ export async function fetchTransactionByReference(reference:string):Promise<Tran
 const allRows = async (table:string, columns='*', order='created_at', since?:string, statuses?:string[]) => {
     const rows:any[]=[];
     for(let offset=0;;offset+=1000) {
-      let query = supabase.from(table).select(columns).order(order,{ascending:false}).order('id').range(offset,offset+999);
-      if (table === 'members') query = query.is('deleted_at', null);
-      if (statuses) query = query.in('status',statuses);
-      if (since) query = query.gte('created_at',since);
-      const page:any[] = unwrap(await query);
+      const read=(selected:string)=>{
+        let query=supabase.from(table).select(selected).order(order,{ascending:false}).order('id').range(offset,offset+999);
+        if(table==='members')query=query.is('deleted_at',null);
+        if(statuses)query=query.in('status',statuses);
+        if(since)query=query.gte('created_at',since);
+        return query;
+      };
+      const page:any[]=table==='members'?await memberRead(read):unwrap(await read(columns));
       rows.push(...page); if(page.length<1000) return rows;
     }
   };
@@ -459,7 +474,7 @@ export async function fetchMyProfile(freshSignInUserId?: string) {
   // A many-to-one FK join returns this account's member with its profile in one request.
   // Readiness runs concurrently; neither active-account nor PIN-session checks are skipped.
   const [row, ready] = await Promise.all([
-    supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin,member:members!member_id('+MEMBER_COLUMNS+')').eq('id',userId).maybeSingle().then(unwrap),
+    memberRead(columns=>supabase.from('profiles').select('id,member_id,phone,full_name,role,is_active,must_change_pin,member:members!member_id('+columns+')').eq('id',userId).maybeSingle()),
     supabase.rpc('session_ready').then(unwrap),
   ]);
   const profile = row as any;
@@ -487,7 +502,16 @@ export async function signOut() {
 
 const rpc = async (fn: string, args: Record<string, any> = {}) => unwrap(await supabase.rpc(fn, args));
 
-export const addMember = (p: Record<string, any>) => rpc('add_member', { p });
+export const addMember = async(p: Record<string, any>) => {
+  if(identitySchemaSupported!==true){
+    const probe=await supabase.from('members').select('member_category,member_number').limit(0);
+    if(probe.error)throw new Error('সদস্য ID-এর backend migration এখনো প্রয়োগ হয়নি। / Apply the member identity migration before adding members.');
+    identitySchemaSupported=true;
+  }
+  const result=await supabase.rpc('add_member',{p});
+  if(result.error?.code==='23505' && /members_number_identity_uq/.test(result.error.message))throw new Error('এই সদস্য নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে। / Member number is already in use.');
+  return unwrap(result);
+};
 export const updateMember = (id: string, p: Record<string, any>) => rpc('update_member', { p_id: id, p });
 export const deleteMember = (id: string) => rpc('delete_member', { p_id: id });
 export const resetMemberPin = (memberId: string, pin: string) =>

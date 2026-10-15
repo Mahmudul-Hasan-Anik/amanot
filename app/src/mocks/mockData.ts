@@ -1,6 +1,9 @@
+import type { MemberCategory } from '../lib/memberIdentity';
 export interface Member {
   id: string;
   code: string;
+  memberCategory?: MemberCategory;
+  memberNumber?: string;
   name: string;
   nameEn?: string;
   phone: string;

@@ -1,3 +1,4 @@
+import { MemberCategory, memberCode, normalizeMemberNumber, legacyMemberNumber } from '../lib/memberIdentity';
 import { clearQueryCache } from '../lib/queryCache';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -127,6 +128,8 @@ export interface SomitiState {
     name: string;
     phone: string;
     code?: string;
+    memberCategory: MemberCategory;
+    memberNumber: string;
     nid?: string;
     address: string;
     nomineeName: string;
@@ -427,20 +430,23 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       addMember: async (data) => {
+        const identityCode=memberCode(data.memberCategory,data.memberNumber);
+        data={...data,memberNumber:normalizeMemberNumber(data.memberNumber),code:identityCode};
+        if(get().members.some(member=>(member.memberNumber || legacyMemberNumber(member.code))===data.memberNumber))throw new Error("এই সদস্য নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে। / Member number is already in use.");
         if (REMOTE) {
           const member = api.mapMember(await api.addMember({ ...data, id: api.uuid() }));
           await get().syncFromServer();
           return member;
         }
         const currentMembers = get().members;
-        const nextCodeNum = currentMembers.length + 1;
-        const codeNumStr = nextCodeNum < 10 ? `00${nextCodeNum}` : nextCodeNum < 100 ? `0${nextCodeNum}` : `${nextCodeNum}`;
-        const newCode = data.code?.trim() || `SM-${codeNumStr}`;
+        const newCode = identityCode;
         const newId = REMOTE ? api.uuid() : String(Date.now());
 
         const newMember: Member = {
           id: newId,
           code: newCode,
+          memberCategory:data.memberCategory,
+          memberNumber:data.memberNumber,
           name: data.name,
           phone: data.phone,
           whatsapp: data.phone,
@@ -485,10 +491,6 @@ export const useSomitiStore = create<SomitiState>()(
         set({ members: updatedMembers, somitiInfo: updatedSomiti,
           cashAccounts:get().cashAccounts.map(a=>a.type==='cashier'?{...a,amount:a.amount+(data.admissionFee||0)}:a) });
 
-        if (REMOTE) {
-          remote('সদস্য যোগ', () => api.addMember({ ...data, id: newId, code: data.code?.trim() || undefined }));
-          return newMember;
-        }
 
         if (data.initialPin) {
           try {
@@ -501,9 +503,14 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       updateMember: async (id, updatedFields) => {
+        const existing=get().getMemberById(id);
+        if(updatedFields.memberNumber!==undefined && updatedFields.memberNumber!==existing?.memberNumber)throw new Error("সদস্য নম্বর পরিবর্তন করা যাবে না। / Member number is permanent.");
+        if(updatedFields.code!==undefined && updatedFields.code!==existing?.code)throw new Error("সদস্য ID সরাসরি পরিবর্তন করা যাবে না। / Member ID is derived from category and number.");
+        if(updatedFields.memberCategory!==undefined){if(!existing?.memberNumber)throw new Error("পুরোনো সদস্যের mapping প্রয়োজন। / Legacy member mapping is required.");memberCode(updatedFields.memberCategory,existing.memberNumber);}
+
         if (REMOTE) { await refreshAfterEdit(get,set,()=>api.updateMember(id,updatedFields as any),true); return; }
         set({
-          members: get().members.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
+          members: get().members.map((m) => (m.id === id ? { ...m, ...updatedFields,code:updatedFields.memberCategory?memberCode(updatedFields.memberCategory,m.memberNumber!):m.code } : m))
         });
         remote('সদস্য হালনাগাদ', () => api.updateMember(id, updatedFields as any));
       },

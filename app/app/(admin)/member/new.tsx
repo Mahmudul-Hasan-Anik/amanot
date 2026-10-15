@@ -1,3 +1,5 @@
+import { MemberIdentityFields } from '../../../src/components/MemberIdentityFields';
+import { MemberCategory, memberCode, legacyMemberNumber, normalizeMemberNumber } from '../../../src/lib/memberIdentity';
 import { generateTemporaryPin } from '../../../src/lib/pinPolicy';
 import React, { useState } from 'react';
 import {
@@ -35,15 +37,12 @@ export default function NewMemberScreen() {
   const { l, isBengali, formatNum, defaultMonthlyDeposit } = useLanguage();
   const { addMember, members, somitiInfo } = useSomitiStore();
 
-  // next code = highest existing number + 1 (server makes the final choice)
-  const nextCodeNum =
-    members.reduce((mx, m) => Math.max(mx, parseInt((m.code || '').replace(/\D/g, ''), 10) || 0), 0) + 1;
-  const autoMemberCode = `SM-${String(nextCodeNum).padStart(3, '0')}`;
+  const [memberCategory,setMemberCategory]=useState<MemberCategory|''>('');
+  const [memberNumber,setMemberNumber]=useState('');
 
-  // Form states matching PDF Page 6
+  // Member details
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [memberCode] = useState(autoMemberCode);
   const [nid, setNid] = useState('');
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
@@ -197,13 +196,16 @@ export default function NewMemberScreen() {
     }
     const waDigits = !sameAsPhone && whatsappPhone ? `0${whatsappPhone.replace(/^0/, '')}` : formattedPhone;
 
+    try{memberCode(memberCategory,memberNumber)}catch{Alert.alert(l('Invalid member ID','সদস্য ID সঠিক নয়'),l('Select category and enter a digits-only member number.','ক্যাটাগরি নির্বাচন করে শুধু সংখ্যায় সদস্য নম্বর লিখুন।'));return;}
+    if(members.some(member=>(member.memberNumber || legacyMemberNumber(member.code))===normalizeMemberNumber(memberNumber))){Alert.alert(l('Duplicate number','নম্বর ব্যবহৃত হয়েছে'),l('This member number already belongs to a member.','এই নম্বর অন্য সদস্যের জন্য ব্যবহৃত হয়েছে।'));return;}
     setSaving(true);
     try {
     const initialPin = REMOTE ? generateTemporaryPin() : '1234';
     const newMember = await addMember({
       name: name.trim(),
       phone: formattedPhone,
-      code: autoMemberCode,
+      memberCategory:memberCategory as MemberCategory,
+      memberNumber:normalizeMemberNumber(memberNumber),
       initialPin,
       joinDate: joinISO,
       whatsapp: waDigits,
@@ -283,13 +285,7 @@ export default function NewMemberScreen() {
           />
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Member ID', 'সদস্য আইডি')}</Text>
-          <View style={styles.readonlyIdContainer}>
-            <Text style={styles.readonlyIdText}>{autoMemberCode}</Text>
-          </View>
-          <Text style={styles.helperHint}>{l('Auto-generated', 'স্বয়ংক্রিয়ভাবে তৈরি')}</Text>
-        </View>
+        <MemberIdentityFields category={memberCategory} number={memberNumber} onCategory={setMemberCategory} onNumber={setMemberNumber}/>
 
         <View style={styles.inputGroup}>
           <Text style={styles.fieldLabel}>{l('National ID Number *', 'জাতীয় পরিচয়পত্র নম্বর *')}</Text>

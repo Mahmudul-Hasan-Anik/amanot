@@ -57,7 +57,7 @@ export default function ReceiptScreen() {
   const receiptNo = txn?.receiptNo || ('#' + defaultNum);
   const amount = txn?.amount ?? 0;
   const memberName = l(member?.nameEn || txn?.memberName || member?.name || 'করিম উদ্দিন', txn?.memberName || member?.name || 'করিম উদ্দিন');
-  const memberCode = txn?.memberCode || member?.code || 'SM-042';
+  const memberCode = member?.code || txn?.memberCode || 'SM-042';
 
   const defaultMonthsBn = 'আগস্ট, সেপ্টেম্বর ২০২৬';
   const defaultMonthsEn = 'August, September 2026';

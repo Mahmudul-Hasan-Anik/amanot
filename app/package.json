@@ -37,7 +37,10 @@
     "check:backend": "node scripts/check-backend.cjs",
     "check:release": "node scripts/check-release-config.cjs",
     "test:remote-query": "node scripts/test-remote-query.cjs",
-    "test:query-cache": "node scripts/test-query-cache.cjs"
+    "test:query-cache": "node scripts/test-query-cache.cjs",
+    "test:member-identity-db": "node scripts/test-member-identity-db.cjs",
+    "test:member-identity-ui": "node scripts/test-member-identity-ui.cjs",
+    "test:member-identity-api": "node scripts/test-member-identity-api.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

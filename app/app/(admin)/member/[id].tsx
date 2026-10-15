@@ -1,3 +1,5 @@
+import { MemberIdentityFields } from '../../../src/components/MemberIdentityFields';
+import { MemberCategory, MEMBER_CATEGORIES, legacyMemberNumber } from '../../../src/lib/memberIdentity';
 import React, { useState } from 'react';
 import {
   View,
@@ -42,6 +44,7 @@ export default function MemberProfileScreen() {
 
   // Edit Member Modal State
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editCategory,setEditCategory]=useState<MemberCategory|''>(member?.memberCategory || '');
   const [editName, setEditName] = useState(member?.name || '');
   const [editPhone, setEditPhone] = useState(member?.phone || '');
   const [editAddress, setEditAddress] = useState(member?.address || '');
@@ -60,6 +63,7 @@ export default function MemberProfileScreen() {
 
   const openEditModal = () => {
     if (member) {
+      setEditCategory(member.memberCategory || '');
       setEditName(member.name);
       setEditPhone(toEnglishDigits(member.phone));
       setEditAddress(member.address && member.address !== '[ঠিকানা]' ? member.address : '');
@@ -70,13 +74,14 @@ export default function MemberProfileScreen() {
     }
   };
 
-  const handleSaveEdit = async () => {
+  const saveEdit = async () => {
     if (!editName.trim() || !editPhone.trim()) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Name and phone are required', 'নাম ও মোবাইল নম্বর আবশ্যক'));
       return;
     }
 
     try { await updateMember(member.id, {
+      ...(editCategory && editCategory!==member.memberCategory ? {memberCategory:editCategory} : {}),
       name: editName.trim(),
       phone: editPhone.trim(),
       address: editAddress.trim() || '[ঠিকানা]',
@@ -88,6 +93,12 @@ export default function MemberProfileScreen() {
     setShowEditModal(false);
     Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+  };
+
+  const handleSaveEdit = () => {
+    if(editCategory && editCategory!==member.memberCategory){
+      Alert.alert(l('Change member category?','সদস্যের ক্যাটাগরি পরিবর্তন করবেন?'),l('Only the prefix changes. The member number and all account history stay the same.','শুধু prefix বদলাবে। সদস্য নম্বর ও সব হিসাব অপরিবর্তিত থাকবে।'),[{text:l('Cancel','বাতিল'),style:'cancel'},{text:l('Confirm','নিশ্চিত করুন'),onPress:()=>{void saveEdit()}}]);
+    }else void saveEdit();
   };
 
   const handleSaveFollowup = async () => {
@@ -396,6 +407,7 @@ export default function MemberProfileScreen() {
               {member.code} · {l('Joined', 'যোগদান')} {formatJoinDate(member.joinDate)}
             </Text>
 
+            {member.memberCategory && <Text style={styles.memberSub}>{(()=>{const category=MEMBER_CATEGORIES.find(item=>item.value===member.memberCategory);return category?l(category.en,category.bn):''})()}</Text>}
             <View style={styles.badgeRow}>
               <View style={styles.activeBadge}>
                 <Text style={styles.activeBadgeText}>{l('Active', 'সক্রিয়')}</Text>
@@ -662,7 +674,8 @@ export default function MemberProfileScreen() {
       </StickyCTA>
 
       {/* Edit Member Modal */}
-      <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)}>
+      <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)} contentContainerStyle={{maxHeight:'90%'}}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={{flexShrink:1}}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{l('Edit Member Info', 'সদস্যের তথ্য সংশোধন')}</Text>
           <TouchableOpacity onPress={() => setShowEditModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -670,6 +683,7 @@ export default function MemberProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        <MemberIdentityFields category={editCategory} number={member.memberNumber || legacyMemberNumber(member.code) || ''} onCategory={setEditCategory} existingCode={member.code} locked legacy={!member.memberNumber}/>
         <Text style={styles.modalInputLabel}>{l('Member Name', 'সদস্যের পুরো নাম')}</Text>
         <TextInput
           testID="edit-name-input"
@@ -734,6 +748,7 @@ export default function MemberProfileScreen() {
           onPress={handleSaveEdit}
           style={{ marginTop: 16 }}
         />
+        </ScrollView>
       </AppModal>
 
       {/* Edit Follow-up Modal */}
