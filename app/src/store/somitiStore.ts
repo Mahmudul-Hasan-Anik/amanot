@@ -71,7 +71,7 @@ export interface Transaction {
   memberCode: string;
   date: string;
   amount: number;
-  type: 'deposit' | 'expense' | 'transfer' | 'profit' | 'loan';
+  type: 'deposit' | 'expense' | 'transfer' | 'profit' | 'loan' | 'withdrawal' | 'withdrawal_reversal';
   paymentMethod: 'cash' | 'bkash' | 'nagad' | 'bank';
   trxId?: string;
   note?: string;
@@ -111,6 +111,11 @@ export interface AuditLog {
 }
 
 export interface SomitiState {
+  withdrawalRequests: import('../lib/withdrawal').Withdrawal[];
+  submitWithdrawal:(p:{id:string;memberId:string;amount:number;method:import('../lib/withdrawal').WithdrawalMethod;reason:string})=>Promise<void>;
+  decideWithdrawal:(id:string,action:'approve'|'reject'|'cancel',note:string)=>Promise<void>;
+  payWithdrawal:(id:string,method:import('../lib/withdrawal').WithdrawalMethod,date:string,reference:string,note:string)=>Promise<void>;
+  reverseWithdrawal:(id:string,reversalId:string,date:string,reason:string)=>Promise<void>;
   investmentProposals: import('../lib/investment').InvestmentProposal[];
   withdrawInvestmentProposal: (id:string,note:string)=>Promise<void>;
   decideInvestmentProposal: (id:string,approve:boolean,note:string)=>Promise<void>;
@@ -263,6 +268,60 @@ export const useSomitiStore = create<SomitiState>()(
       dataVersion: 0,
       notices: [],
       auditLogs: [],
+      withdrawalRequests: [],
+      submitWithdrawal: async p => {
+        if(REMOTE){await api.submitWithdrawal(p);await get().syncFromServer();return;}
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(p.memberId!==auth.currentUser?.id&&!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('Not permitted');
+        const m=get().members.find(m=>m.id===p.memberId&&m.status!=='inactive');
+        const previous=get().withdrawalRequests.find(r=>r.id===p.id);
+        if(previous){if(previous.member_id!==p.memberId||previous.amount!==p.amount||previous.preferred_method!==p.method||previous.reason!==p.reason.trim())throw new Error('Request ID already used');return;}
+        const reserved=get().withdrawalRequests.filter(r=>r.member_id===p.memberId&&r.status==='approved').reduce((s,r)=>s+r.amount,0);
+        if(!m||!Number.isFinite(p.amount)||p.amount<=0||roundMoney(p.amount)!==p.amount||p.amount>m.totalDeposit-(m.profitBalance||0)-reserved)throw new Error('Insufficient available savings');
+        const r:import('../lib/withdrawal').Withdrawal={id:p.id,member_id:m.id,member_name:m.name,member_code:m.code,amount:p.amount,reason:p.reason.trim(),preferred_method:p.method,status:'submitted',created_at:new Date().toISOString(),decision_note:'',payment_note:'',reversal_reason:'',payment_reference:''};
+        set({withdrawalRequests:[r,...get().withdrawalRequests],dataVersion:get().dataVersion+1});
+      },
+      decideWithdrawal: async(id,action,note)=>{
+        if(REMOTE){await api.decideWithdrawal(id,action,note);await get().syncFromServer();return;}
+        const auth=require('../features/auth/authStore').useAuthStore.getState(),r=get().withdrawalRequests.find(r=>r.id===id);
+        if(!r)throw new Error('Request unavailable');
+        if(!(action==='cancel'&&r.status==='submitted'&&r.member_id===auth.currentUser?.id)&&!['admin','super_admin'].includes(auth.actualRole))throw new Error('Not permitted');
+        if(action!=='approve'&&!note.trim())throw new Error('Enter a reason');
+        const target=action==='approve'?'approved':action==='reject'?'rejected':'cancelled';
+        if(r.status===target&&r.decision_note===note.trim())return;
+        if(!['submitted',...(action==='cancel'?['approved']:[])].includes(r.status))throw new Error('Invalid request state');
+        if(action==='approve'){
+          const m=get().members.find(m=>m.id===r.member_id&&m.status!=='inactive');
+          const reserved=get().withdrawalRequests.filter(x=>x.member_id===r.member_id&&x.status==='approved').reduce((s,x)=>s+x.amount,0);
+          if(!m||r.amount>m.totalDeposit-(m.profitBalance||0)-reserved)throw new Error('Insufficient available savings');
+        }
+        set({withdrawalRequests:get().withdrawalRequests.map(x=>x.id===id?{...x,status:target,decision_note:note.trim()}:x),dataVersion:get().dataVersion+1});
+      },
+      payWithdrawal: async(id,method,date,reference,note)=>{
+        if(REMOTE){await api.payWithdrawal(id,method,date,reference,note);await get().syncFromServer();return;}
+        const auth=require('../features/auth/authStore').useAuthStore.getState();if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('Not permitted');
+        const r=get().withdrawalRequests.find(r=>r.id===id);if(!r)throw new Error('Request unavailable');
+        if(r.status==='paid'){if(r.payment_method!==method||r.payment_date!==date||r.payment_reference!==reference.trim()||r.payment_note!==note.trim())throw new Error('Payment already recorded');return;}
+        const m=get().members.find(m=>m.id===r.member_id&&m.status!=='inactive');
+        const reserved=get().withdrawalRequests.filter(x=>x.member_id===r.member_id&&x.status==='approved'&&x.id!==id).reduce((s,x)=>s+x.amount,0);
+        const account=get().cashAccounts.find(a=>a.type===(method==='cash'?'cashier':method));
+        if(r.status!=='approved'||!m||r.amount>m.totalDeposit-(m.profitBalance||0)-reserved||!account||account.amount<r.amount)throw new Error('Approval or sufficient savings/account funds required');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>isoToday()||date<r.created_at.slice(0,10)||(method!=='cash'&&!reference.trim()))throw new Error('Enter valid date and reference');
+        const tx:Transaction={id,receiptNo:String(Date.now()),memberId:m.id,memberName:m.name,memberCode:m.code,amount:r.amount,type:'withdrawal',paymentMethod:method,date:api.bnDate(date),dateISO:date,createdAt:new Date().toISOString(),trxId:reference.trim(),note:'Savings withdrawal'+(note.trim()?': '+note.trim():'')};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount-r.amount)}:a),cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({withdrawalRequests:get().withdrawalRequests.map(x=>x.id===id?{...x,status:'paid',paid_transaction_id:id,payment_method:method,payment_date:date,payment_reference:reference.trim(),payment_note:note.trim()}:x),
+          members:get().members.map(x=>x.id===m.id?{...x,totalDeposit:roundMoney(x.totalDeposit-r.amount),totalWithdrawn:roundMoney((x.totalWithdrawn||0)+r.amount)}:x),cashAccounts,transactions:[tx,...get().transactions],somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund-r.amount)},dataVersion:get().dataVersion+1});
+      },
+      reverseWithdrawal: async(id,reversalId,date,reason)=>{
+        if(REMOTE){await api.reverseWithdrawal(id,reversalId,date,reason);await get().syncFromServer();return;}
+        const auth=require('../features/auth/authStore').useAuthStore.getState();if(!['admin','super_admin'].includes(auth.actualRole))throw new Error('Not permitted');
+        const r=get().withdrawalRequests.find(r=>r.id===id);if(!r||!reason.trim())throw new Error('Paid withdrawal and reversal reason required');
+        if(r.status==='reversed'){if(r.reversal_transaction_id!==reversalId||r.reversal_reason!==reason.trim())throw new Error('Reversal already recorded');return;}
+        if(r.status!=='paid'||date>isoToday()||date<(r.payment_date||''))throw new Error('Invalid reversal');
+        const tx:Transaction={id:reversalId,receiptNo:String(Date.now()),memberId:r.member_id,memberName:r.member_name,memberCode:r.member_code,amount:r.amount,type:'withdrawal_reversal',paymentMethod:r.payment_method!,date:api.bnDate(date),dateISO:date,createdAt:new Date().toISOString(),note:'Withdrawal reversal: '+reason.trim()};
+        const cashAccounts=get().cashAccounts.map(a=>a.type===(r.payment_method==='cash'?'cashier':r.payment_method)?{...a,amount:roundMoney(a.amount+r.amount)}:a),cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({withdrawalRequests:get().withdrawalRequests.map(x=>x.id===id?{...x,status:'reversed',reversal_transaction_id:reversalId,reversal_reason:reason.trim()}:x),members:get().members.map(m=>m.id===r.member_id?{...m,totalDeposit:roundMoney(m.totalDeposit+r.amount),totalWithdrawn:roundMoney((m.totalWithdrawn||0)-r.amount)}:m),cashAccounts,transactions:[tx,...get().transactions],somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund+r.amount)},dataVersion:get().dataVersion+1});
+      },
 
       addNotice: async (title, body) => {
         if (REMOTE) { await api.addNotice(title,body); await get().syncFromServer(); return; }
@@ -1073,6 +1132,7 @@ export const useSomitiStore = create<SomitiState>()(
           somitiInfo: { ...mockSomitiInfo },
           members: [...mockMembers],
           investmentProposals: [],
+          withdrawalRequests: [],
           projects: [...mockProjects],
           approvals: mockPendingApprovals.filter(a=>a.type!=='investment'),
           approvedApprovals: [...mockApprovedApprovals],
@@ -1147,6 +1207,7 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           somitiInfo: { ...emptySomitiInfo },
           members: [],
+          withdrawalRequests: [],
           investmentProposals: [],
           projects: [],
           approvals: [],

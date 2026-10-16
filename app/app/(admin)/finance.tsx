@@ -1,7 +1,7 @@
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchLedgerSummary } from '../../src/lib/api';
-import { emptyLedgerSummary } from '../../src/lib/ledger';
+import { emptyLedgerSummary,signedTransactionAmount } from '../../src/lib/ledger';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import { FAB } from '../../src/components/FAB';
@@ -151,9 +151,10 @@ export default function FinanceScreen() {
   const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
   const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:financeLabel(name,true),nameEn:financeLabel(name,false),amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
+  const withdrawals=REMOTE?Number(totals?.withdrawals||0):periodTransactions.reduce((sum,t)=>sum+(t.type==='withdrawal'?t.amount:t.type==='withdrawal_reversal'?-t.amount:0),0);
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:t.type==='expense'||t.investmentReversal||t.investmentDisbursement?-t.amount:t.amount,isIncome:t.type!=='expense'&&!t.investmentReversal&&!t.investmentDisbursement}));
+  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:signedTransactionAmount(t),isIncome:signedTransactionAmount(t)>=0}));
 
   const handleTransferSubmit = async () => {
     try {
@@ -255,6 +256,7 @@ export default function FinanceScreen() {
         </TouchableOpacity>
 
         {/* 3-Column Summary Card */}
+        <Text style={{color:colors.textSecondary,marginBottom:12}}>{l('Net savings withdrawals (separate from expenses)','নিট সঞ্চয় উত্তোলন (ব্যয় থেকে আলাদা)')}: {formatMoney(withdrawals)}</Text>
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
@@ -267,7 +269,7 @@ export default function FinanceScreen() {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>{l('Net', 'নিট')}</Text>
+            <Text style={styles.summaryLabel}>{l('Income less expenses', 'আয় থেকে ব্যয় বাদ')}</Text>
             <Text style={[styles.summaryValue, styles.netProfitColor]}>
               {formatMoney(netAmount)}
             </Text>

@@ -8,9 +8,11 @@ import {exportReport,Report} from '../utils/reportExport';
 import {colors} from '../theme/colors';
 import {isSupabaseConfigured} from '../lib/supabase';
 import {fetchTransactionHistory} from '../lib/api';
+import {signedTransactionAmount} from '../lib/ledger';
+import {financeNote} from '../i18n/financeLabels';
 
 export default function Statements(){
-  const state=useSomitiStore();const {l,formatMoney}=useLanguage();
+  const state=useSomitiStore();const {l,formatMoney,isBengali}=useLanguage();
   const params=useLocalSearchParams<{memberId?:string}>();
   const [target,setTarget]=useState<'all'|'single'>(params.memberId?'single':'all');const [memberId,setMemberId]=useState(String(params.memberId||''));
   useEffect(()=>{if(params.memberId){setTarget('single');setMemberId(String(params.memberId));}},[params.memberId]);
@@ -23,8 +25,8 @@ export default function Statements(){
     const transactions=target==='single'&&isSupabaseConfigured()?await fetchTransactionHistory({memberId}):state.transactions;
     const report:Report=target==='single'?{
       title:`${l('Statement','স্টেটমেন্ট')} · ${members[0].name} (${members[0].code})`,columns:[l('Date','তারিখ'),l('Receipt','রসিদ'),l('Description','বিবরণ'),l('Amount','পরিমাণ')],
-      rows:transactions.filter(t=>t.memberId===memberId).map(t=>[t.date,t.receiptNo,t.note||t.type,t.amount]),
-    }:{title:l('Member statements','সদস্যদের স্টেটমেন্ট'),columns:[l('ID','আইডি'),l('Member','সদস্য'),l('Phone','ফোন'),l('Savings','সঞ্চয়'),l('Profit balance','লাভের ব্যালেন্স')],rows:members.map(m=>[m.code,m.name,m.phone,m.totalDeposit,m.profitBalance||0])};
+      rows:transactions.filter(t=>t.memberId===memberId).map(t=>[t.date,t.receiptNo,financeNote(t.note||t.type,isBengali),signedTransactionAmount(t)]),
+    }:{title:l('Member statements','সদস্যদের স্টেটমেন্ট'),columns:[l('ID','আইডি'),l('Member','সদস্য'),l('Phone','ফোন'),l('Remaining balance','অবশিষ্ট ব্যালেন্স'),l('Profit balance','লাভের ব্যালেন্স'),l('Net withdrawals','নিট উত্তোলন')],rows:members.map(m=>[m.code,m.name,m.phone,m.totalDeposit,m.profitBalance||0,m.totalWithdrawn||0])};
     await exportReport(report,state.somitiInfo.name,new Date().toISOString().slice(0,10),format);}catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}finally{setBusy(false);}
   };
   return <Page title={l('Member Statements','সদস্য স্টেটমেন্ট')} subtitle={l('Export balances and transaction history','ব্যালেন্স ও লেনদেনের বিস্তারিত এক্সপোর্ট করুন')}>

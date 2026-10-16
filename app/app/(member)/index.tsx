@@ -24,6 +24,8 @@ import { bnDate } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import {useLedgerPage} from '../../src/hooks/useLedgerPage';
+import {Button} from '../../src/components/Button';
+import {signedTransactionAmount} from '../../src/lib/ledger';
 
 const MONTH_NAMES_BN = [
   'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -148,8 +150,9 @@ export default function MemberDashboardScreen() {
       >
         {/* 1. Hero Financial Summary Card */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>{l('My Total Savings', 'আমার মোট সঞ্চয়')}</Text>
+          <Text style={styles.heroLabel}>{l('My remaining balance', 'আমার অবশিষ্ট ব্যালেন্স')}</Text>
           <Text style={styles.heroAmount}>{formatMoney(member.totalDeposit || 0)}</Text>
+          <Text style={styles.heroLabel}>{l('Net withdrawals','মোট নিট উত্তোলন')}: {formatMoney(member.totalWithdrawn||0)}</Text>
 
           <View style={styles.heroDivider} />
 
@@ -177,6 +180,7 @@ export default function MemberDashboardScreen() {
         </View>
 
         {/* 2. Pay Due / Payment Accounts */}
+        <Button title={l('Request savings withdrawal','সঞ্চয় উত্তোলনের আবেদন')} onPress={()=>router.push('/(member)/withdrawals')} style={{marginBottom:16}}/>
         <View style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="wallet-outline" size={18} color={colors.primary} />
@@ -230,7 +234,8 @@ export default function MemberDashboardScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.cardSectionTitle}>{l('Deposit history', 'জমার ইতিহাস')}</Text>
-          {history.rows.filter(t=>t.type==='deposit').map(t=><View key={t.id} style={{paddingVertical:12}}><Text>{t.receiptNo} · {t.date}</Text><Text>{formatMoney(t.amount)}</Text></View>)}
+          <Button title={l('Withdrawal requests & receipts','উত্তোলনের আবেদন ও রসিদ')} variant="outline" onPress={()=>router.push('/(member)/withdrawals')}/>
+          {history.rows.filter(t=>['deposit','withdrawal','withdrawal_reversal'].includes(t.type)).map(t=><View key={t.id} style={{paddingVertical:12}}><Text>{t.receiptNo} · {t.date}</Text><Text>{t.type==='withdrawal'?l('Savings withdrawal','সঞ্চয় উত্তোলন'):t.type==='withdrawal_reversal'?l('Withdrawal reversal','উত্তোলন সংশোধন'):l('Deposit','জমা')}</Text><Text>{formatMoney(signedTransactionAmount(t))}</Text></View>)}
           {history.loading && <Text>{l('Loading…','লোড হচ্ছে…')}</Text>}
           {!!history.error && <TouchableOpacity onPress={history.reload}><Text>{l('Could not load history. Try again.','ইতিহাস পাওয়া যায়নি। আবার চেষ্টা করুন।')}</Text></TouchableOpacity>}
           {!history.loading && !history.error && history.rows.length===0 && <Text>{l('No deposits yet','এখনো কোনো জমা নেই')}</Text>}

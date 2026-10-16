@@ -12,8 +12,8 @@ async function main() {
   if(!health.ok || typeof await health.json() !== 'boolean') throw Error('Hosted initialization check failed');
   console.log('PASS live database health query');
   const version=await fetch(url+'/rest/v1/rpc/app_build_version',{method:'POST',headers,body:'{}',signal:AbortSignal.timeout(20000)});
-  if(!version.ok||Number(await version.json())<22)throw Error('Backend migrations are incomplete; release blocked');
-  console.log('PASS backend capability version 22 or newer');
+  if(!version.ok||Number(await version.json())<23)throw Error('Backend migrations are incomplete; release blocked');
+  console.log('PASS backend capability version 23 or newer');
   const response=await fetch(`${url}/rest/v1/members?select=id&limit=1`,{headers,signal:AbortSignal.timeout(20000)});
   if(response.ok) {
     const rows=await response.json();

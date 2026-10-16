@@ -1,4 +1,5 @@
 import {InvestmentApprovalQueue} from '../../src/components/InvestmentApprovalQueue';
+import {WithdrawalApprovalQueue} from '../../src/components/WithdrawalApprovalQueue';
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchApprovalHistory } from '../../src/lib/api';
@@ -52,6 +53,8 @@ export default function ApprovalsScreen() {
   } = useSomitiStore();
 
   const proposals=useSomitiStore(s=>s.investmentProposals);
+  const withdrawals=useSomitiStore(s=>s.withdrawalRequests);
+  const withdrawalCount=(tab:string)=>withdrawals.filter(r=>tab==='pending'?['submitted','approved'].includes(r.status):tab==='approved'?['paid','reversed'].includes(r.status):['rejected','cancelled'].includes(r.status)).length;
   const proposalCount=(tab:string)=>proposals.filter(p=>tab==='pending'?['submitted','approved'].includes(p.status):tab==='approved'?p.status==='disbursed':['rejected','withdrawn'].includes(p.status)).length;
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const history=useRemoteQuery('approval-history',fetchApprovalHistory,activeTab!=='pending');
@@ -183,7 +186,7 @@ export default function ApprovalsScreen() {
                 activeTab === 'pending' && styles.segmentTextActive,
               ]}
             >
-              {l('Pending', 'অপেক্ষমাণ')} {formatNum(approvals.length+proposalCount('pending'))}
+              {l('Pending', 'অপেক্ষমাণ')} {formatNum(approvals.length+proposalCount('pending')+withdrawalCount('pending'))}
             </Text>
           </TouchableOpacity>
 
@@ -198,7 +201,7 @@ export default function ApprovalsScreen() {
                 activeTab === 'approved' && styles.segmentTextActive,
               ]}
             >
-              {l('Approved', 'অনুমোদিত')} {formatNum(approvedList.length+proposalCount('approved'))}
+              {l('Approved', 'অনুমোদিত')} {formatNum(approvedList.length+proposalCount('approved')+withdrawalCount('approved'))}
             </Text>
           </TouchableOpacity>
 
@@ -213,12 +216,13 @@ export default function ApprovalsScreen() {
                 activeTab === 'rejected' && styles.segmentTextActive,
               ]}
             >
-              {l('Rejected', 'প্রত্যাখ্যাত')} {formatNum(rejectedList.length+proposalCount('rejected'))}
+              {l('Rejected', 'প্রত্যাখ্যাত')} {formatNum(rejectedList.length+proposalCount('rejected')+withdrawalCount('rejected'))}
             </Text>
           </TouchableOpacity>
         </View>
 
         <InvestmentApprovalQueue tab={activeTab} hideEmpty />
+        <WithdrawalApprovalQueue tab={activeTab} hideEmpty />
         {currentList.length>0?<Text style={{fontFamily:typography.fontFamily.semiBold,color:colors.text,marginBottom:12}}>{l('Expenses and other requests','ব্যয় ও অন্যান্য অনুরোধ')} · {formatNum(currentList.length)}</Text>:null}
         {/* Auto Approve Quick Action Banner */}
         <RemoteDataState query={history} enabled={activeTab!=='pending'}>
@@ -250,7 +254,7 @@ export default function ApprovalsScreen() {
         )}
 
         {/* Approvals Cards List */}
-        {currentList.length === 0 ? (proposalCount(activeTab)>0 ? null : (
+        {currentList.length === 0 ? (proposalCount(activeTab)+withdrawalCount(activeTab)>0 ? null : (
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-done-circle-outline" size={54} color={colors.primary} />
             <Text style={styles.emptyTitle}>

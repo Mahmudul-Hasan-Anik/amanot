@@ -26,6 +26,7 @@ async function main(){
  assert.equal(out.buildReport(state,'2','2026-10').rows.length,0,'Savings balances do not create installment dues');
  assert.ok(!out.buildReport(state,'1','2026-10','en').columns.includes('বকেয়া'));
  const bundle=await out.buildReportForExport(state,'all','2026-10','en');assert.ok(bundle.rows.some(r=>String(r[0]).includes('Investment report')));assert.ok(bundle.rows.some(r=>String(r[0]).includes('Monthly ledger')));
- console.log('PASS reports: authoritative collection totals, full scoped exports beyond login cache, transfers retained in ledger CSV, balance-only reports avoid ledger downloads, CSV escaping and demo fallback.');
+ const withdrawn=out.buildReport({...state,transactions:[{...full[0],amount:500,type:'withdrawal'},{...full[0],id:'r',amount:100,type:'withdrawal_reversal'}]},'9','2026-10','en');assert.equal(withdrawn.rows[0][4],-500);assert.equal(withdrawn.rows[1][4],100);
+ console.log('PASS reports: authoritative collection totals, full scoped exports beyond login cache, transfers retained in ledger CSV, signed withdrawals/reversals, balance-only reports avoid ledger downloads, CSV escaping and demo fallback.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

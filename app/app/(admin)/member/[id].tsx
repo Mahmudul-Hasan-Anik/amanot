@@ -31,6 +31,8 @@ import { ENGLISH_MONTHS } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
+import {signedTransactionAmount} from '../../../src/lib/ledger';
+import {financeNote} from '../../../src/i18n/financeLabels';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
@@ -315,7 +317,7 @@ export default function MemberProfileScreen() {
     return relation;
   };
 
-  const recentTransactions = isSupabaseConfigured() ? history.rows.slice(0,10).map(t=>({date:t.date,title:t.note||t.months?.join(', ')||t.type,amount:t.amount,receipt:t.receiptNo,type:t.paymentMethod})) : (member?.recentTxns || []).map((t) => ({
+  const recentTransactions = isSupabaseConfigured() ? history.rows.slice(0,10).map(t=>({date:t.date,title:financeNote(t.note||t.months?.join(', ')||t.type,isBengali),amount:signedTransactionAmount(t),receipt:t.receiptNo,type:t.paymentMethod})) : (member?.recentTxns || []).map((t) => ({
     date: t.date,
     title: t.title,
     amount: t.amount,
@@ -449,13 +451,15 @@ export default function MemberProfileScreen() {
 
         {/* Card: মোট জমা */}
         <Card style={styles.card}>
-          <Text style={styles.cardSmallTitle}>{l('Total Deposit', 'মোট জমা')}</Text>
+          <Text style={styles.cardSmallTitle}>{l('Remaining balance', 'অবশিষ্ট ব্যালেন্স')}</Text>
           <Text style={styles.cardLargeAmount}>
             {formatMoney(member.totalDeposit)}
           </Text>
           <Text style={styles.cardSubText}>
             {l('Voluntary savings · No fixed monthly amount','ইচ্ছামতো সঞ্চয় · নির্দিষ্ট মাসিক অঙ্ক নেই')}
           </Text>
+          <Text style={styles.cardSubText}>{l('Net withdrawals','নিট উত্তোলন')}: {formatMoney(member.totalWithdrawn||0)}</Text>
+          <Button title={l('Withdrawal requests','উত্তোলনের আবেদন')} variant="outline" onPress={()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id}})}/>
 
           {/* Overdue Banner */}
 
@@ -512,7 +516,7 @@ export default function MemberProfileScreen() {
                 </Text>
               </View>
               <Text style={styles.txnAmount}>
-                +{formatMoney(txn.amount)}
+                {formatMoney(txn.amount,{showPlusSign:true})}
               </Text>
             </TouchableOpacity>
           ))}

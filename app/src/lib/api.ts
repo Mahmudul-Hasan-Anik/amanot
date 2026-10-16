@@ -98,7 +98,7 @@ function unwrap<T>(res: { data: T | null; error: any }): T {
 const MEMBER_COLUMNS =
   'id,user_id,code,member_category,member_number,name,name_en,father_name,mother_name,phone,whatsapp,nid,address,nominee_name,nominee_name_en,nominee_relation,' +
   'nominee_phone,join_date,monthly_amount,total_deposit,due_amount,due_months,status,role_title,app_role,' +
-  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path';
+  'profit_2025,estimated_profit_2026,months_status,next_followup,partial_credit,dues_start_month,profit_balance,last_profit_year,avatar_path,total_withdrawn';
 
 const LEGACY_MEMBER_COLUMNS=MEMBER_COLUMNS.replace('member_category,member_number,','');
 let identitySchemaSupported:boolean|null=null;
@@ -172,6 +172,7 @@ export function mapMember(r: any, txns: any[] = []): Member {
     joinDate: bnMonthYear(r.join_date),
     monthlyAmount: num(r.monthly_amount),
     totalDeposit: num(r.total_deposit),
+    totalWithdrawn: num(r.total_withdrawn),
     dueAmount: num(r.due_amount),
     dueMonths: num(r.due_months),
     status: r.status,
@@ -358,6 +359,21 @@ export async function fetchMembersAndSummary(photoScope: string) {
   const signed = await signedPhotoUrls(rows.map(m=>m.avatar_path).filter(Boolean),photoScope);
   return {members:rows.map(m=>mapMember({...m,photo_uri:signed.get(m.avatar_path)})),summary:summary as Record<string,any>};
 }
+export async function fetchWithdrawals(): Promise<import('./withdrawal').Withdrawal[]> {
+  return (await allRows('withdrawal_requests','*','created_at')).map(r=>({...r,amount:num(r.amount)})) as import('./withdrawal').Withdrawal[];
+}
+export async function submitWithdrawal(p:{id:string;memberId:string;amount:number;method:string;reason:string}) {
+  return unwrap(await supabase.rpc('submit_withdrawal',{p}));
+}
+export async function decideWithdrawal(id:string,action:'approve'|'reject'|'cancel',note:string) {
+  return unwrap(await supabase.rpc('decide_withdrawal',{p_id:id,p_action:action,p_note:note}));
+}
+export async function payWithdrawal(id:string,method:string,date:string,reference:string,note:string) {
+  return unwrap(await supabase.rpc('pay_withdrawal',{p_id:id,p_method:method,p_date:date,p_reference:reference,p_note:note}));
+}
+export async function reverseWithdrawal(id:string,reversalId:string,date:string,reason:string) {
+  return unwrap(await supabase.rpc('reverse_withdrawal',{p_id:id,p_reversal_id:reversalId,p_date:date,p_reason:reason}));
+}
 export async function fetchAll(isStaff: boolean, photoScope = '', deferPhotos = false) {
   return measureStage('account-snapshot', () => fetchSnapshot(isStaff, photoScope, deferPhotos));
 }
@@ -365,7 +381,7 @@ async function fetchSnapshot(isStaff: boolean, photoScope: string, deferPhotos: 
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
-  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts, proposals] = await Promise.all([
+  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts, proposals, withdrawals] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
     allRows('members',MEMBER_COLUMNS,'code'),
@@ -377,9 +393,10 @@ async function fetchSnapshot(isStaff: boolean, photoScope: string, deferPhotos: 
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
     isStaff ? fetchInvestmentContracts() : empty,
     isStaff ? fetchInvestmentProposals() : empty,
+    fetchWithdrawals(),
   ]);
 
-  if(Number((summary as any)?.backendVersion||0)<22)throw new Error('Backend update required. / সার্ভারের নতুন update প্রয়োজন।');
+  if(Number((summary as any)?.backendVersion||0)<23)throw new Error('Backend update required. / সার্ভারের নতুন update প্রয়োজন।');
   const ledger = ledgerPage.rows;
   const txRows = ledger.map(t=>({member_id:t.memberId,date:t.dateISO,receipt_no:t.receiptNo,note:t.note,months:t.months,amount:t.amount,payment_method:t.paymentMethod}));
   const recentByMember=new Map<string,typeof txRows>();
@@ -400,6 +417,7 @@ async function fetchSnapshot(isStaff: boolean, photoScope: string, deferPhotos: 
     members: memberRows.map((m) => mapMember(m, recentByMember.get(m.id)||[])),
     projects: ((projects as any[]) || []).map(p => mapProject({...p,contract:contracts.find((c:any)=>c.id===p.id)})),
     investmentProposals: proposals,
+    withdrawalRequests: withdrawals,
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: ledger,
     ledgerSummary: emptyLedgerSummary,

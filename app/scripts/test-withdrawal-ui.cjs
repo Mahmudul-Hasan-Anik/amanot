@@ -1,0 +1,31 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,require:n=>{if(n in deps)return deps[n];throw Error(n)}});return out;}
+const digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c)))};
+const domain=load('src/lib/investment.ts',{'./bengali':digits}),withdrawal=load('src/lib/withdrawal.ts'),ledger=load('src/lib/ledger.ts');
+const today=domain.isoToday(),member={id:'m',name:'Fixture Member',code:'M-001',status:'paid',totalDeposit:20000,profitBalance:1000,totalWithdrawn:5000};
+const request={id:'w',member_id:'m',member_name:member.name,member_code:member.code,amount:5000,preferred_method:'bank',status:'submitted',created_at:today+'T00:00:00Z',reason:'',decision_note:'',payment_note:'',reversal_reason:'',payment_reference:''};
+function fixture(role='super_admin',memberView=false,status=null){
+ let cursor=0,counter=0,gate=null,fail=false;const slots=[],calls=[],receipts=[];
+ const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=v;return[slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]},useRef:v=>{const i=cursor++;return slots[i]??(slots[i]={current:v})}};
+ const state={withdrawalRequests:status?[{...request,status}]:[],members:[member],cashAccounts:[{type:'bank',name:'Bank'}],somitiInfo:{name:'Fixture'},submitWithdrawal:async p=>{calls.push(['submit',p]);if(gate)await gate;if(fail)throw Error('Fixture network failure')},decideWithdrawal:async(...args)=>calls.push(['decision',...args]),payWithdrawal:async(...args)=>calls.push(['pay',...args]),reverseWithdrawal:async(...args)=>calls.push(['reverse',...args])};
+ const useStore=f=>f(state);useStore.getState=()=>state;
+ const Screen=load('src/screens/Withdrawals.tsx',{react:React,'react-native':{View:'View',Text:'Text',Modal:'Modal',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',Platform:{OS:'web'},StyleSheet:{create:s=>s}},'expo-router':{useLocalSearchParams:()=>({})},'../components/Page':{Page:'Page',pageStyles:{}},'../components/Button':{Button:'Button'},'../components/Input':{Input:'Input'},'../components/SelectModal':{SelectModal:'Select'},'../store/somitiStore':{useSomitiStore:useStore},'../features/auth/authStore':{useAuthStore:f=>f({currentUser:member,actualRole:role})},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,isBengali:false,formatMoneyPrecise:String})},'../lib/withdrawal':withdrawal,'../lib/investment':domain,'../lib/api':{uuid:()=>String(++counter)},'../utils/reportExport':{exportReport:async r=>receipts.push(r)},'../theme/colors':{colors:{}}}).default;
+ const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):t.type==='Modal'&&!t.props.visible?[]:[t,...nodes(t.props?.children)];
+ const render=()=>{cursor=0;return nodes(Screen({memberView}))};
+ return {render,calls,receipts,button:title=>render().find(n=>n.type==='Button'&&n.props.title===title),input:label=>render().find(n=>n.type==='Input'&&n.props.label===label),setGate:p=>gate=p,setFail:v=>fail=v};
+}
+async function main(){
+ assert.equal(withdrawal.withdrawalAvailable(member,[{...request,status:'approved'}]),14000);
+ assert.equal(ledger.signedTransactionAmount({type:'withdrawal',amount:5000}),-5000);assert.equal(ledger.signedTransactionAmount({type:'withdrawal_reversal',amount:5000}),5000);
+ const f=fixture('member',true);f.button('New withdrawal request').props.onPress();
+ for(const value of ['','abc','NaN','20000','1.234']){f.input('Amount *').props.onChangeText(value);await f.button('Confirm').props.onPress();assert.equal(f.calls.length,0);assert.ok(f.render().some(n=>n.props.accessibilityRole==='alert'));}
+ f.input('Amount *').props.onChangeText('১,২০০.৫০');f.setFail(true);await f.button('Confirm').props.onPress();const first=f.calls[0][1];assert.equal(first.amount,1200.5);assert.equal(first.memberId,'m');
+ let release;f.setGate(new Promise(resolve=>release=resolve));f.setFail(false);const pending=f.button('Confirm').props.onPress();await f.button('Confirm').props.onPress();assert.equal(f.calls.length,2,'Double tap cannot submit twice');assert.equal(f.calls[1][1].id,first.id,'Network retry uses same operation ID');release();await pending;
+ assert.equal(fixture('member',true,'submitted').button('Approve'),undefined);assert.equal(fixture('member',true,'approved').button('Record money paid'),undefined);assert.ok(fixture('member',true,'submitted').button('Cancel request'));
+ const admin=fixture('super_admin',false,'submitted');admin.button('Approve').props.onPress();await admin.button('Confirm').props.onPress();assert.deepEqual(admin.calls,[['decision','w','approve','']]);assert.equal(admin.calls.some(c=>c[0]==='pay'),false);
+ const cashier=fixture('cashier',false,'approved');cashier.button('Record money paid').props.onPress();await cashier.button('Confirm payment').props.onPress();assert.equal(cashier.calls.length,0,'Noncash payment needs a reference');cashier.input('Reference (required except cash)').props.onChangeText('REF');await cashier.button('Confirm payment').props.onPress();assert.equal(cashier.calls[0][0],'pay');assert.equal(cashier.calls[0][2],'bank');assert.equal(cashier.calls[0][4],'REF');
+ const reverse=fixture('super_admin',false,'paid');reverse.button('Correct by reversal').props.onPress();await reverse.button('Confirm reversal').props.onPress();assert.equal(reverse.calls.length,0);reverse.input('Reason *').props.onChangeText('Returned in full');await reverse.button('Confirm reversal').props.onPress();assert.equal(reverse.calls[0][0],'reverse');
+ const receipt=fixture('member',true,'paid');await receipt.button('Receipt PDF').props.onPress();assert.ok(receipt.receipts[0].rows.some(r=>r[0]==='Amount paid'&&r[1]===5000));
+ console.log('PASS withdrawal UI: profit/reservations, invalid fields, Bengali amounts, retry ID, duplicate taps, role actions, approval/payment, reference/reversal reasons and receipt.');
+}
+main().catch(e=>{console.error(e);process.exitCode=1});

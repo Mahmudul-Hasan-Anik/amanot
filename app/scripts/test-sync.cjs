@@ -41,10 +41,12 @@ async function main(){
   const before=store.getState();
   for(const action of [()=>store.getState().addNotice('Title','Body'),()=>store.getState().deleteNotice('notice'),()=>store.getState().updateMember('fixture-member',{name:'Wrong'}),()=>store.getState().deleteMember('fixture-member'),()=>store.getState().setMemberRole('fixture-member','admin'),()=>store.getState().updateSomitiInfo({name:'Wrong'})]) await assert.rejects(action,/server denied/);
   assert.equal(store.getState().members,before.members);assert.equal(store.getState().notices,before.notices);assert.equal(store.getState().somitiInfo,before.somitiInfo);
+  store.setState({withdrawalRequests:[{id:'private-withdrawal',member_id:'fixture-member'}]});
   let finish;release=new Promise(resolve=>finish=resolve);
   const request=store.getState().syncFromServer();await Promise.resolve();await Promise.resolve();
   auth={...auth,isPinVerified:false};store.getState().clearLocalData();finish();await request;release=null;
   assert.equal(store.getState().members.length,0);assert.equal(store.getState().notices.length,0);assert.equal(store.getState().auditLogs.length,0);
+  assert.equal(store.getState().withdrawalRequests.length,0,'Logout clears private withdrawal records');
   assert.equal(store.getState().lastFullSyncedAt,null);
   // Logout and re-login as the same person must also discard the old snapshot.
   auth={...auth,isPinVerified:true};release=new Promise(resolve=>finish=resolve);

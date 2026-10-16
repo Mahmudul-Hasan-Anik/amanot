@@ -1,4 +1,5 @@
 import {InvestmentApprovalQueue} from '../../../src/components/InvestmentApprovalQueue';
+import {WithdrawalApprovalQueue} from '../../../src/components/WithdrawalApprovalQueue';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
@@ -28,7 +29,7 @@ export default function HomeDashboardScreen() {
   const router = useRouter();
   const somitiInfo=useSomitiStore(s=>s.somitiInfo);
   const approvals=useSomitiStore(s=>s.approvals);
-  const pendingCount=useSomitiStore(s=>s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length);
+  const pendingCount=useSomitiStore(s=>s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length+s.withdrawalRequests.filter(r=>['submitted','approved'].includes(r.status)).length);
   const members=useSomitiStore(s=>s.members);
   const projects=useSomitiStore(s=>s.projects);
   const cashAccounts=useSomitiStore(s=>s.cashAccounts);
@@ -142,7 +143,7 @@ export default function HomeDashboardScreen() {
           <View style={styles.heroTopRow}>
             <Text style={styles.heroTitle}>{l('Total Fund', 'মোট তহবিল')}</Text>
             <View style={styles.growthBadge}>
-              <Ionicons name="arrow-up" size={12} color={colors.primary} />
+              <Ionicons name={somitiInfo.monthlyFundGrowth<0?'arrow-down':'arrow-up'} size={12} color={colors.primary} />
               <Text style={styles.growthText}>
                 {formatNum(somitiInfo.monthlyFundGrowth || 0)}% {l('this month', 'এ মাসে')}
               </Text>
@@ -310,6 +311,7 @@ export default function HomeDashboardScreen() {
         </TouchableOpacity>
 
         <InvestmentApprovalQueue />
+        <WithdrawalApprovalQueue hideEmpty />
         {/* 7. অনুমোদন অপেক্ষমাণ */}
         <Card style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>

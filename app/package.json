@@ -43,7 +43,9 @@
     "test:member-identity-api": "node scripts/test-member-identity-api.cjs",
     "test:investment-db": "node scripts/test-investment-db.cjs",
     "test:investment-ui": "node scripts/test-investment-ui.cjs",
-    "test:approval-menu-ui": "node scripts/test-approval-menu-ui.cjs"
+    "test:approval-menu-ui": "node scripts/test-approval-menu-ui.cjs",
+    "test:withdrawal-db": "node scripts/test-withdrawal-db.cjs",
+    "test:withdrawal-ui": "node scripts/test-withdrawal-ui.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

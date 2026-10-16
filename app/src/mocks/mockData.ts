@@ -19,6 +19,7 @@ export interface Member {
   joinDate: string;
   monthlyAmount: number;
   totalDeposit: number;
+  totalWithdrawn?: number;
   dueAmount: number;
   dueMonths: number;
   status: 'paid' | 'due' | 'partial' | 'inactive';

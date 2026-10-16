@@ -21,7 +21,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const { logout, currentUser, actualRole } = useAuthStore();
   const { l, formatNum, isBengali } = useLanguage();
-  const pendingCount = useSomitiStore(s => s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length);
+  const pendingCount = useSomitiStore(s => s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length+s.withdrawalRequests.filter(r=>['submitted','approved'].includes(r.status)).length);
 
   const defaultName = isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain';
   const defaultRole = isBengali ? 'সভাপতি • সুপার অ্যাডমিন' : 'President • Super Admin';
@@ -96,6 +96,10 @@ export default function MoreScreen() {
           <View style={styles.menuDivider} />
 
           {/* অনুমোদন */}
+          <TouchableOpacity style={styles.menuRow} onPress={()=>router.push('/(admin)/withdrawals')} accessibilityRole="button">
+            <View style={styles.iconBox}><Ionicons name="cash-outline" size={18} color={colors.primary}/></View>
+            <Text style={styles.menuTitle}>{l('Savings withdrawals','সঞ্চয় উত্তোলন')}</Text><Ionicons name="chevron-forward" size={16} color={colors.textSecondary}/>
+          </TouchableOpacity><View style={styles.menuDivider}/>
           <TouchableOpacity
             style={styles.menuRow}
             onPress={() => router.push('/(admin)/approvals')}

@@ -6,7 +6,7 @@ let photoRequests=0,photoGate=null,memberRows=[];
 const summary={months:[{month:'2026-10',deposits:123456,profit:0,expenses:0,transaction_count:1001}],categories:[],collections:{}};
 const supabase={rpc:async(name,args={})=>{
  requests.push({name,args});
- if(name==='get_somiti_summary')return {data:{backendVersion:22},error:null};
+ if(name==='get_somiti_summary')return {data:{backendVersion:23},error:null};
  if(name==='get_sync_revision'){revisionCalls++;return {data:String(changing?revisionCalls:revision),error:null};}
  if(name==='get_ledger_summary')return {data:summary,error:null};
  if(name==='get_transaction_page'){

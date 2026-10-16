@@ -7,7 +7,8 @@ import {LedgerPaging} from '../../src/components/LedgerPaging';
 import {SelectModal} from '../../src/components/SelectModal';
 import {pageStyles as s} from '../../src/components/Page';
 import {useLanguage} from '../../src/i18n/useLanguage';
-import {monthRange} from '../../src/lib/ledger';
+import {monthRange,signedTransactionAmount} from '../../src/lib/ledger';
+import {financeNote} from '../../src/i18n/financeLabels';
 import {recentMonths} from '../../src/lib/months';
 import {colors} from '../../src/theme/colors';
 import {safeBack} from '../../src/utils/navigation';
@@ -26,9 +27,9 @@ export default function LedgerScreen(){
     </View>
     {!scoped&&<TouchableOpacity accessibilityRole="button" style={[s.chip,{alignSelf:'flex-start',marginHorizontal:20,marginBottom:12}]} onPress={()=>setPicker(true)}><Text style={s.text}>{isBengali?periods.find(p=>p.key===month)?.bn:periods.find(p=>p.key===month)?.en} ▾</Text></TouchableOpacity>}
     <FlatList data={ledger.rows} keyExtractor={t=>t.id} initialNumToRender={10} windowSize={7} contentContainerStyle={{padding:20}}
-      renderItem={({item:t})=><TouchableOpacity style={s.card} disabled={t.type!=='deposit'} accessibilityRole={t.type==='deposit'?'button':undefined} onPress={()=>router.push(`/(admin)/receipt/${t.id}`)}>
+      renderItem={({item:t})=><TouchableOpacity style={s.card} disabled={!['deposit','withdrawal','withdrawal_reversal'].includes(t.type)} accessibilityRole={['deposit','withdrawal','withdrawal_reversal'].includes(t.type)?'button':undefined} onPress={()=>t.type==='deposit'?router.push(`/(admin)/receipt/${t.id}`):router.push({pathname:'/(admin)/withdrawals',params:{requestId:t.id}})}>
         <Text style={s.title}>{t.memberName}</Text><Text style={s.text}>{t.receiptNo} · {t.date}</Text>
-        <Text style={s.text}>{t.note||t.type} · {t.paymentMethod}</Text><Text style={s.value}>{t.type==='expense'||t.investmentReversal||t.investmentDisbursement?'−':''}{formatMoney(t.amount)}</Text>
+        <Text style={s.text}>{financeNote(t.note||t.type,isBengali)} · {t.paymentMethod}</Text><Text style={s.value}>{formatMoney(signedTransactionAmount(t))}</Text>
       </TouchableOpacity>}
       ListEmptyComponent={!ledger.loading&&!ledger.error?<Text style={s.text}>{l('No transactions in this selection','এই সময়ে কোনো লেনদেন নেই')}</Text>:null}
       ListFooterComponent={<LedgerPaging {...ledger}/>}/>
