@@ -13,7 +13,7 @@ import {safeBack} from '../utils/navigation';
 import {EmergencyContact,NewInvestment,contractAmounts,investmentSchedule,isoToday,monthDate,parseInvestmentAmount,validateNewInvestment} from '../lib/investment';
 
 export default function InvestmentNew(){
-  const {l,formatMoney,formatNum}=useLanguage();const router=useRouter();
+  const {l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();const router=useRouter();
   const members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts),create=useSomitiStore(s=>s.createInvestment);
   const role=useAuthStore(s=>s.actualRole);const allowed=role==='admin'||role==='super_admin';
   const request=useRef(uuid());
@@ -29,7 +29,7 @@ export default function InvestmentNew(){
     contacts:contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim()).map(c=>({name:c.name.trim(),relation:c.relation.trim(),phone:c.phone.trim()}))});
   const preview=()=>{
     const code=kind==='member'&&!memberId?'recipient':validateNewInvestment(payload());
-    const messages:Record<string,string>={recipient:l('Select a member or enter recipient name and valid phone.','সদস্য নির্বাচন করুন অথবা গ্রহীতার নাম ও সঠিক ফোন দিন।'),
+    const messages:Record<string,string>={identity:l('NID number, father’s name and mother’s name are required. NID must contain digits only.','NID নম্বর, বাবার নাম ও মায়ের নাম আবশ্যক। NID-তে শুধু সংখ্যা দিন।'),recipient:l('Select a member or enter recipient name and valid phone.','সদস্য নির্বাচন করুন অথবা গ্রহীতার নাম ও সঠিক ফোন দিন।'),
       whatsapp:l('Enter a valid WhatsApp number.','সঠিক WhatsApp নম্বর দিন।'),terms:l('Enter a positive principal, 0–100% contract profit and 1–120 whole months.','মূলধন, ০–১০০% চুক্তির প্রফিট ও ১–১২০ পূর্ণ মাস দিন।'),
       dates:l('Use valid YYYY-MM-DD dates. First installment cannot precede disbursement.','YYYY-MM-DD ফরম্যাটে সঠিক তারিখ দিন। প্রথম কিস্তি বিনিয়োগ প্রদানের আগে হতে পারবে না।'),
       contacts:l('Complete name, relationship and phone for at least one emergency contact; partially filled contacts must be completed.','অন্তত একজনের নাম, সম্পর্ক ও সঠিক ফোন দিন। অন্য কারও তথ্য শুরু করলে সেটিও সম্পূর্ণ করুন।')};
@@ -38,7 +38,7 @@ export default function InvestmentNew(){
   };
   const save=async()=>{
     if(busy)return;setBusy(true);setError('');
-    try{await create(payload());router.replace(`/(admin)/project/${request.current}` as any);}
+    try{const data=payload();await create(data);router.replace(`/(admin)/investment/proposal/${data.id}` as any);}
     catch(e:any){const missing=/Could not find the function|does not exist/.test(e.message||'');setError(missing?l('Investment backend update is not deployed yet. No money was posted.','বিনিয়োগের backend update এখনো deploy হয়নি। কোনো টাকা রেকর্ড হয়নি।'):e.message);}
     finally{setBusy(false);}
   };
@@ -48,17 +48,19 @@ export default function InvestmentNew(){
     <View style={styles.header}><Button variant="ghost" title={l('Back','ফিরুন')} onPress={()=>review?setReview(false):safeBack(router)}/><Text style={styles.title}>{review?l('Review investment','বিনিয়োগ যাচাই'):l('New investment','নতুন বিনিয়োগ')}</Text></View>
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <Text style={styles.hint}>{l('1. Proposal → 2. Approval → 3. Disbursement. Submitting does not deduct any money.','১. প্রস্তাব → ২. অনুমোদন → ৩. টাকা প্রদান। প্রস্তাব জমা দিলে টাকা কাটবে না।')}</Text>
       {error?<Text accessibilityRole="alert" style={styles.error}>{error}</Text>:null}
       {review?<>
         <Card><Text style={styles.heading}>{fields.recipientName}</Text><Text style={styles.body}>{fields.phone} · {kind==='member'?l('Society member','সমিতির সদস্য'):l('External recipient','বাইরের ব্যক্তি')}</Text>
+          <Text style={styles.body}>NID: {fields.nid}</Text><Text style={styles.body}>{l('Father','বাবা')}: {fields.fatherName}</Text><Text style={styles.body}>{l('Mother','মা')}: {fields.motherName}</Text><Text style={styles.body}>{fields.address}</Text>
           <Text style={styles.body}>{l('Emergency contacts:','জরুরি যোগাযোগ:')} {formatNum(payload().contacts.length)}</Text>{payload().contacts.map((c,i)=><Text style={styles.body} key={i}>{c.name} · {c.relation} · {c.phone}</Text>)}</Card>
         <Card><Text style={styles.heading}>{l('Contract terms','চুক্তির শর্ত')}</Text>
-          {[[l('Principal disbursed','প্রদত্ত মূলধন'),formatMoney(principal)],[l('Whole-contract profit','পুরো চুক্তির প্রফিট'),`${formatNum(pct)}% · ${formatMoney(amounts.profit)}`],
+          {[[l('Proposed principal','প্রস্তাবিত মূলধন'),formatMoney(principal)],[l('Whole-contract profit','পুরো চুক্তির প্রফিট'),`${formatNum(pct)}% · ${formatMoney(amounts.profit)}`],
             [l('Total receivable','মোট ফেরতযোগ্য'),formatMoney(amounts.total)],[l('Duration','মেয়াদ'),`${formatNum(term)} ${l('months','মাস')}`],
-            [l('Disbursement date','টাকা প্রদানের তারিখ'),fields.disbursedDate],[l('Funding account','টাকা দেওয়ার হিসাব'),accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method]].map(([label,value])=><View style={styles.row} key={label}><Text style={styles.body}>{label}</Text><Text style={styles.value}>{value}</Text></View>)}
+            [l('Planned disbursement date','প্রস্তাবিত টাকা প্রদানের তারিখ'),fields.disbursedDate],[l('Funding account','টাকা দেওয়ার হিসাব'),accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method]].map(([label,value])=><View style={styles.row} key={label}><Text style={styles.body}>{label}</Text><Text style={styles.value}>{value}</Text></View>)}
           <Text style={styles.hint}>{l('Principal is recovered first, then profit. No automatic late fee or compounding.','আগে মূলধন ফেরত, তারপর প্রফিট। স্বয়ংক্রিয় বিলম্ব ফি বা চক্রবৃদ্ধি নেই।')}</Text></Card>
         <Card><Text style={styles.heading}>{l('Monthly installments','মাসিক কিস্তি')}</Text>{schedule.map(s=><View key={s.number} style={styles.row}><Text style={styles.body}>{formatNum(s.number)} · {s.dueDate}</Text><Text style={styles.value}>{formatMoney(s.amount)}</Text></View>)}</Card>
-        <Button testID="confirm-investment" title={l('Confirm and disburse','নিশ্চিত করে টাকা প্রদান')} loading={busy} onPress={save}/>
+        <Button testID="confirm-investment" title={l('Submit proposal','প্রস্তাব জমা দিন')} loading={busy} onPress={save}/>
       </>:<>
         <Card><Text style={styles.heading}>{l('Recipient','বিনিয়োগগ্রহীতা')}</Text>
           <View style={styles.actions}>{['member','external'].map(k=><Button key={k} size="sm" variant={kind===k?'primary':'outline'} title={k==='member'?l('Society member','সমিতির সদস্য'):l('External person','বাইরের ব্যক্তি')} onPress={()=>{setKind(k);setMemberId('');setFields(s=>({...s,recipientName:'',phone:'',whatsapp:'',address:'',nid:'',fatherName:'',motherName:''}));request.current=uuid();}}/>)}</View>
@@ -67,9 +69,9 @@ export default function InvestmentNew(){
           <Input label={l('Phone','মোবাইল নম্বর')} keyboardType="phone-pad" value={fields.phone} onChangeText={change('phone')}/>
           <Input label={l('WhatsApp number (optional)','WhatsApp নম্বর (ঐচ্ছিক)')} keyboardType="phone-pad" value={fields.whatsapp} onChangeText={change('whatsapp')}/>
           <Input label={l('Address','ঠিকানা')} value={fields.address} multiline onChangeText={change('address')}/>
-          <Input label={l('NID number (optional)','NID নম্বর (ঐচ্ছিক)')} value={fields.nid} keyboardType="number-pad" onChangeText={change('nid')}/>
-          <Input label={l("Father's name (optional)",'বাবার নাম (ঐচ্ছিক)')} value={fields.fatherName} onChangeText={change('fatherName')}/>
-          <Input label={l("Mother's name (optional)",'মায়ের নাম (ঐচ্ছিক)')} value={fields.motherName} onChangeText={change('motherName')}/>
+          <Input label={l('NID number *','NID নম্বর *')} value={fields.nid} keyboardType="number-pad" onChangeText={change('nid')}/>
+          <Input label={l("Father's name *",'বাবার নাম *')} value={fields.fatherName} onChangeText={change('fatherName')}/>
+          <Input label={l("Mother's name *",'মায়ের নাম *')} value={fields.motherName} onChangeText={change('motherName')}/>
         </Card>
         <Card><Text style={styles.heading}>{l('Emergency contacts','জরুরি যোগাযোগ')}</Text><Text style={styles.hint}>{l('At least one required. These contacts are not guarantors.','অন্তত একজন আবশ্যক। এরা জামিনদার নন।')}</Text>
           {contacts.map((contact,index)=><View key={index} style={styles.contact}><Text style={styles.value}>{l('Person','ব্যক্তি')} {formatNum(index+1)} {index>0?l('(optional)','(ঐচ্ছিক)'):''}</Text>
@@ -80,7 +82,7 @@ export default function InvestmentNew(){
           <Input testID="investment-principal" label={l('Principal to disburse','প্রদানের মূলধন')} keyboardType="decimal-pad" value={fields.principal} onChangeText={change('principal')}/>
           <Input testID="investment-profit-pct" label={l('Profit % for the whole contract','পুরো চুক্তির প্রফিট %')} helper={l('This is not an annual or monthly rate.','এটি বার্ষিক বা মাসিক হার নয়।')} keyboardType="decimal-pad" value={fields.profitPct} onChangeText={change('profitPct')}/>
           <Input label={l('Duration in months','মেয়াদ (মাস)')} keyboardType="number-pad" value={fields.termMonths} onChangeText={change('termMonths')}/>
-          <Input label={l('Disbursement date (YYYY-MM-DD)','প্রদানের তারিখ (YYYY-MM-DD)')} value={fields.disbursedDate} onChangeText={change('disbursedDate')}/>
+          <Input label={l('Planned disbursement date (YYYY-MM-DD)','প্রস্তাবিত প্রদানের তারিখ (YYYY-MM-DD)')} value={fields.disbursedDate} onChangeText={change('disbursedDate')}/>
           <Input label={l('First installment date (YYYY-MM-DD)','প্রথম কিস্তির তারিখ (YYYY-MM-DD)')} value={fields.firstDueDate} onChangeText={change('firstDueDate')}/>
           <Button variant="outline" title={`${l('Funding account','টাকা দেওয়ার হিসাব')}: ${accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method}`} onPress={()=>setSelector('account')}/>
           <Text style={styles.hint}>{l('Agreed profit','চুক্তির প্রফিট')}: {formatMoney(amounts.profit)} · {l('Total receivable','মোট ফেরতযোগ্য')}: {formatMoney(amounts.total)}</Text>

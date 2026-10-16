@@ -11,6 +11,7 @@ export type InvestmentContract = {
 export type NewInvestment = Omit<InvestmentContract, 'number' | 'profitAmount'> & {
   paymentMethod: 'cash' | 'bank' | 'bkash' | 'nagad';
 };
+export type InvestmentProposal = {id:string; status:'submitted'|'approved'|'rejected'|'disbursed'; payload:NewInvestment; created_at:string; approved_at?:string; disbursed_at?:string; decision_note:string};
 export type InvestmentPayment = {
   id: string; projectId: string; amount: number; paymentMethod: NewInvestment['paymentMethod'];
   date: string; note: string;
@@ -66,10 +67,11 @@ export function normalizeContactPhone(value: string) {
 }
 export function validateNewInvestment(d: NewInvestment): string | null {
   if (!d.recipientName.trim() || !normalizeContactPhone(d.phone)) return 'recipient';
+  if (!/^\d+$/.test(toEnglishDigits(d.nid).trim()) || !d.fatherName.trim() || !d.motherName.trim()) return 'identity';
   if (d.whatsapp && !normalizeContactPhone(d.whatsapp)) return 'whatsapp';
   if (!Number.isFinite(d.principal)||d.principal<=0||!Number.isFinite(d.profitPct)||d.profitPct<0||d.profitPct>100) return 'terms';
   if (!Number.isInteger(d.termMonths)||d.termMonths<1||d.termMonths>120||(d.principal+contractAmounts(d.principal,d.profitPct).profit)*100<d.termMonths) return 'terms';
-  if (!validISODate(d.disbursedDate)||!validISODate(d.firstDueDate)||d.disbursedDate>isoToday()||d.firstDueDate<d.disbursedDate) return 'dates';
+  if (!validISODate(d.disbursedDate)||!validISODate(d.firstDueDate)||d.firstDueDate<d.disbursedDate) return 'dates';
   const contacts=d.contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim());
   if (!contacts.length||contacts.length>3||contacts.some(c=>!c.name.trim()||!c.relation.trim()||!normalizeContactPhone(c.phone))) return 'contacts';
   return null;

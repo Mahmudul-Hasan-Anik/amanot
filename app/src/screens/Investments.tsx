@@ -11,8 +11,9 @@ import {colors} from '../theme/colors';
 import {typography} from '../theme/typography';
 
 export default function Investments(){
-  const router=useRouter();const {l,formatMoney,formatNum}=useLanguage();
+  const router=useRouter();const {l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
   const projects=useSomitiStore(s=>s.projects),role=useAuthStore(s=>s.actualRole);
+  const proposals=useSomitiStore(s=>s.investmentProposals);
   const canCreate=role==='admin'||role==='super_admin';
   const [query,setQuery]=useState(''),[filter,setFilter]=useState('all');
   const items=useMemo(()=>projects.map(p=>{
@@ -27,6 +28,9 @@ export default function Investments(){
     <View style={styles.header}><Text style={styles.title}>{l('Investments','বিনিয়োগ')}</Text><Text style={styles.muted}>{formatNum(projects.length)} {l('contracts and legacy investments','টি চুক্তি ও পুরোনো বিনিয়োগ')}</Text></View>
     <FlatList data={visible} keyExtractor={item=>item.p.id} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7} contentContainerStyle={styles.content}
       ListHeaderComponent={<>
+        {proposals.filter(p=>p.status!=='disbursed').length?<Text style={styles.name}>{l('Proposals and approvals','প্রস্তাব ও অনুমোদন')}</Text>:null}
+        {proposals.filter(p=>p.status!=='disbursed'&&[p.payload.recipientName,p.payload.phone].join(' ').toLowerCase().includes(query.trim().toLowerCase())).map(p=><Pressable key={p.id} onPress={()=>router.push(('/(admin)/investment/proposal/'+p.id) as any)}><Card><Text style={styles.name}>{p.payload.recipientName}</Text><Text style={styles.value}>{formatMoney(p.payload.principal)}</Text><Text style={styles.muted}>{p.status==='submitted'?l('Awaiting approval','অনুমোদনের অপেক্ষায়'):p.status==='approved'?l('Approved · awaiting disbursement','অনুমোদিত · টাকা প্রদান বাকি'):l('Rejected','প্রত্যাখ্যাত')}</Text><Text style={styles.muted}>{l('No money deducted','কোনো টাকা কাটা হয়নি')}</Text></Card></Pressable>)}
+
         <Card><Text style={styles.muted}>{l('Principal outstanding','বাইরে থাকা মূলধন')}</Text><Text style={styles.amount}>{formatMoney(principal)}</Text>
           <View style={styles.row}><View style={{flex:1}}><Text style={styles.muted}>{l('Recognized profit','হিসাবে গণনাকৃত প্রফিট')}</Text><Text style={styles.value}>{formatMoney(profit)}</Text></View>
           <View style={{flex:1}}><Text style={styles.muted}>{l('Overdue installments','মেয়াদোত্তীর্ণ কিস্তি')}</Text><Text style={[styles.value,{color:colors.warning}]}>{formatMoney(overdue)}</Text></View></View>

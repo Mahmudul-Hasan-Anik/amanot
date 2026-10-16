@@ -21,7 +21,7 @@ function fixture(role='super_admin'){
   const native={View:'View',Text:'Text',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',StyleSheet:{create:s=>s},Platform:{OS:'web'}};
   const Screen=load('src/screens/InvestmentNew.tsx',{
     react:React,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useRouter:()=>({replace:r=>routes.push(r)})},
-    '../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatNum:String})},
+    '../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatMoneyPrecise:String,formatNum:String})},
     '../store/somitiStore':{useSomitiStore:s=>s(state)},'../features/auth/authStore':{useAuthStore:s=>s({actualRole:role})},'../theme/colors':{colors:{}},'../theme/typography':{typography:{fontFamily:{}}},
     '../lib/api':{uuid:()=>`request-${++counter}`},'../utils/navigation':{safeBack:()=>{}},'../lib/investment':domain,
   }).default;
@@ -30,17 +30,34 @@ function fixture(role='super_admin'){
   const input=label=>render().find(n=>n.type==='Input'&&n.props.label===label);
   return{render,button,input,writes,routes};
 }
+const money=load('src/lib/money.ts');
+const lang=load('src/i18n/useLanguage.ts',{'./languageStore':{useLanguageStore:()=>({language:'en',useBengaliDigits:false})},'../lib/money':money}).useLanguage();
+assert.equal(lang.formatMoneyPrecise(91.66),'৳91.66');assert.equal(lang.formatMoneyPrecise(91.74),'৳91.74');
 async function main(){
  const f=fixture();f.button('Review investment').props.onPress();assert.equal(f.writes.length,0);
  f.button('External person').props.onPress();f.input('Full name').props.onChangeText('External');f.input('Phone').props.onChangeText('01733000001');
+ f.input('NID number *').props.onChangeText('1234567890');f.input("Father's name *").props.onChangeText('Father');f.input("Mother's name *").props.onChangeText('Mother');
  f.input('Principal to disburse').props.onChangeText('100000');f.input('Profit % for the whole contract').props.onChangeText('20');
  const contacts=()=>f.render().filter(n=>n.type==='Input'&&n.props.label==='Name');assert.equal(contacts().length,3);contacts()[0].props.onChangeText('Contact');
  f.render().filter(n=>n.type==='Input'&&n.props.label==='Relationship')[0].props.onChangeText('Brother');
  f.render().filter(n=>n.type==='Input'&&n.props.label==='Phone')[1].props.onChangeText('01733000002');
- f.button('Review investment').props.onPress();assert.equal(f.writes.length,0,'review cannot disburse');assert.ok(f.button('Confirm and disburse'));
- await f.button('Confirm and disburse').props.onPress();assert.equal(f.writes.length,1);assert.equal(f.writes[0].contacts.length,1);assert.equal(f.writes[0].memberId,undefined);assert.equal(f.writes[0].profitPct,20);assert.ok(f.routes[0].includes(f.writes[0].id));
- const member=fixture();member.render().find(n=>n.type==='Select'&&n.props.title==='Select active member').props.onSelect('m');assert.equal(member.input('Full name').props.value,'Member');assert.equal(member.input("Father's name (optional)").props.value,'Father');
+ f.button('Review investment').props.onPress();assert.equal(f.writes.length,0,'review cannot disburse');assert.ok(f.button('Submit proposal'));
+ await f.button('Submit proposal').props.onPress();assert.equal(f.writes.length,1);assert.equal(f.writes[0].contacts.length,1);assert.equal(f.writes[0].memberId,undefined);assert.equal(f.writes[0].profitPct,20);assert.ok(f.routes[0].includes('/investment/proposal/'));assert.ok(f.routes[0].includes(f.writes[0].id));
+ for(const key of ['nid','fatherName','motherName'])assert.equal(domain.validateNewInvestment({...f.writes[0],[key]:' '}),'identity');
+ const member=fixture();member.render().find(n=>n.type==='Select'&&n.props.title==='Select active member').props.onSelect('m');assert.equal(member.input('Full name').props.value,'Member');assert.equal(member.input("Father's name *").props.value,'Father');
  assert.equal(fixture('cashier').button('Review investment'),undefined);
+ // Real component harness: the three financial states expose different actions.
+ function proposalFixture(status){
+  const slots=[];let cursor=0;const actions=[],routes=[];
+  const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=v;return[slots[i],n=>slots[i]=n]},useRef:v=>{const i=cursor++;if(!(i in slots))slots[i]={current:v};return slots[i]}};
+  const data=f.writes[0];const state={investmentProposals:[{id:data.id,payload:data,status,created_at:new Date().toISOString(),decision_note:''}],projects:[],cashAccounts:[{type:'bank',name:'Bank',amount:1000000}],decideInvestmentProposal:async(...a)=>actions.push(['decision',...a]),disburseInvestmentProposal:async(...a)=>actions.push(['disburse',...a])};
+  const Screen=load('src/screens/InvestmentProposal.tsx',{react:React,'react-native':{View:'View',Text:'Text',ScrollView:'Scroll',StyleSheet:{create:s=>s}},'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useLocalSearchParams:()=>({id:data.id}),useRouter:()=>({replace:r=>routes.push(r)})},'../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../store/somitiStore':{useSomitiStore:s=>s(state)},'../features/auth/authStore':{useAuthStore:s=>s({actualRole:'super_admin'})},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatMoneyPrecise:String,formatNum:String})},'../lib/investment':domain,'../theme/colors':{colors:{}},'../theme/typography':{typography:{fontFamily:{}}},'../utils/navigation':{safeBack:()=>{}}}).default;
+  const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
+  const render=()=>{cursor=0;return nodes(Screen())};return{button:title=>render().find(n=>n.type==='Button'&&n.props.title===title),actions,routes};
+ }
+ const waiting=proposalFixture('submitted');assert.equal(waiting.button('Prepare disbursement'),undefined);await waiting.button('Approve proposal').props.onPress();assert.equal(waiting.actions[0][0],'decision');
+ const approved=proposalFixture('approved');assert.equal(approved.button('Approve proposal'),undefined);assert.equal(approved.button('Confirm money paid'),undefined);approved.button('Prepare disbursement').props.onPress();await approved.button('Confirm money paid').props.onPress();assert.equal(approved.actions[0][0],'disburse');assert.ok(approved.routes[0].includes('/project/'));
+ assert.equal(proposalFixture('rejected').button('Prepare disbursement'),undefined);
  console.log('PASS investment domain/UI: principal-first allocation, precise totals/rounding, month-end dates, partial installments, private reminder content, strict amount parsing, external/member form, one required contact, explicit review and admin-only disbursement.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

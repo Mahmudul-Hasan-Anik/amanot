@@ -111,6 +111,10 @@ export interface AuditLog {
 }
 
 export interface SomitiState {
+  investmentProposals: import('../lib/investment').InvestmentProposal[];
+  decideInvestmentProposal: (id:string,approve:boolean,note:string)=>Promise<void>;
+  disburseInvestmentProposal: (id:string,date:string,firstDue:string,method:import('../lib/investment').NewInvestment['paymentMethod'])=>Promise<void>;
+  postDemoInvestment: (data:import('../lib/investment').NewInvestment)=>Promise<void>;
   createInvestment: (data: import('../lib/investment').NewInvestment) => Promise<void>;
   collectInvestment: (data: import('../lib/investment').InvestmentPayment) => Promise<Transaction>;
   reverseInvestment: (id: string, paymentId: string, reason: string) => Promise<void>;
@@ -284,6 +288,27 @@ export const useSomitiStore = create<SomitiState>()(
       createInvestment: async (data) => {
         if(validateNewInvestment(data))throw new Error('বিনিয়োগের তথ্য সঠিকভাবে পূরণ করুন');
         if(REMOTE){await api.createInvestment(data);await get().syncFromServer();return;}
+        const old=get().investmentProposals.find(p=>p.id===data.id);
+        if(old){if(JSON.stringify(old.payload)!==JSON.stringify(data))throw new Error('Request differs');return;}
+        set({investmentProposals:[{id:data.id,status:'submitted',payload:data,created_at:new Date().toISOString(),decision_note:''},...get().investmentProposals]});
+      },
+      decideInvestmentProposal: async(id,approve,note)=>{
+        if(REMOTE){await api.decideInvestmentProposal(id,approve,note);await get().syncFromServer();return;}
+        if(!approve&&!note.trim())throw new Error('প্রত্যাখ্যানের কারণ দিন');
+        const p=get().investmentProposals.find(p=>p.id===id);if(p?.status!=='submitted')throw new Error('প্রস্তাব অপেক্ষমাণ নয়');
+        set({investmentProposals:get().investmentProposals.map(p=>p.id===id?{...p,status:approve?'approved':'rejected',approved_at:new Date().toISOString(),decision_note:note}:p)});
+      },
+      disburseInvestmentProposal: async(id,date,firstDue,method)=>{
+        if(REMOTE){await api.disburseInvestmentProposal(id,date,firstDue,method);await get().syncFromServer();return;}
+        const p=get().investmentProposals.find(p=>p.id===id);if(p?.status==='disbursed')return;
+        if(p?.status!=='approved')throw new Error('প্রথমে অনুমোদন প্রয়োজন');
+        await get().postDemoInvestment({...p.payload,disbursedDate:date,firstDueDate:firstDue,paymentMethod:method});
+        set({investmentProposals:get().investmentProposals.map(p=>p.id===id?{...p,status:'disbursed',disbursed_at:new Date().toISOString()}:p)});
+      },
+      postDemoInvestment: async (data) => {
+        if(data.disbursedDate>isoToday())throw new Error('ভবিষ্যতের তারিখে টাকা প্রদান নয়');
+        if(validateNewInvestment(data))throw new Error('বিনিয়োগের তথ্য সঠিকভাবে পূরণ করুন');
+        if(REMOTE)throw new Error('Demo only');
         if(get().projects.some(p=>p.id===data.id))return;
         const account=get().cashAccounts.find(a=>a.type===(data.paymentMethod==='cash'?'cashier':data.paymentMethod));
         if(!account||account.amount<data.principal)throw new Error('পর্যাপ্ত ব্যালেন্স নেই');
@@ -356,6 +381,7 @@ export const useSomitiStore = create<SomitiState>()(
       syncError: null,
       somitiInfo: REMOTE ? { ...emptySomitiInfo } : { ...mockSomitiInfo },
       members: REMOTE ? [] : [...mockMembers],
+      investmentProposals: [],
       projects: REMOTE ? [] : [...mockProjects],
       approvals: REMOTE ? [] : [...mockPendingApprovals],
       approvedApprovals: REMOTE ? [] : [...mockApprovedApprovals],
@@ -1031,6 +1057,7 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           somitiInfo: { ...mockSomitiInfo },
           members: [...mockMembers],
+          investmentProposals: [],
           projects: [...mockProjects],
           approvals: [...mockPendingApprovals],
           approvedApprovals: [...mockApprovedApprovals],
@@ -1095,6 +1122,7 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           somitiInfo: { ...emptySomitiInfo },
           members: [],
+          investmentProposals: [],
           projects: [],
           approvals: [],
           approvedApprovals: [],

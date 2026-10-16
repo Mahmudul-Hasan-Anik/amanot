@@ -350,7 +350,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     await supabase.rpc('refresh_dues').then(() => {}, () => {});
   }
 
-  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts] = await Promise.all([
+  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts, proposals] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
     allRows('members',MEMBER_COLUMNS,'code'),
@@ -361,6 +361,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     isStaff ? allRows('approvals','*','created_at',undefined,['pending']) : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
     isStaff ? fetchInvestmentContracts() : empty,
+    isStaff ? fetchInvestmentProposals() : empty,
   ]);
 
   const ledger = ledgerPage.rows;
@@ -382,6 +383,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     somitiInfo: { ...((settings as any)?.info || {}), ...((summary as any) || {}) },
     members: memberRows.map((m) => mapMember(m, recentByMember.get(m.id)||[])),
     projects: ((projects as any[]) || []).map(p => mapProject({...p,contract:contracts.find((c:any)=>c.id===p.id)})),
+    investmentProposals: proposals,
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: ledger,
     ledgerSummary: emptyLedgerSummary,
@@ -649,7 +651,7 @@ async function fetchInvestmentContracts():Promise<any[]> {
     throw e;
   }
 }
-export const createInvestment = (p:import('./investment').NewInvestment) => rpc('create_investment_contract',{p});
+export const createInvestment = (p:import('./investment').NewInvestment) => rpc('submit_investment_proposal',{p});
 export const collectInvestment = async(p:import('./investment').InvestmentPayment):Promise<Transaction> =>
   mapTransaction(await rpc('collect_investment_payment',{p}));
 export const reverseInvestment = (id:string,paymentId:string,reason:string) => rpc('reverse_investment_payment',{p_id:id,p_payment_id:paymentId,p_reason:reason});
@@ -690,3 +692,9 @@ export const logSms = (d: {
     p_status: d.status ?? 'sent',
     p_response: d.response ?? {},
   });
+
+export async function fetchInvestmentProposals():Promise<import('./investment').InvestmentProposal[]> {
+ return await allRows('investment_proposals','id,status,payload,created_at,approved_at,disbursed_at,decision_note');
+}
+export const decideInvestmentProposal=(id:string,approve:boolean,note:string)=>rpc('decide_investment_proposal',{p_id:id,p_approve:approve,p_note:note});
+export const disburseInvestmentProposal=(id:string,date:string,firstDue:string,method:string)=>rpc('disburse_investment_proposal',{p_id:id,p_date:date,p_first_due:firstDue,p_method:method});

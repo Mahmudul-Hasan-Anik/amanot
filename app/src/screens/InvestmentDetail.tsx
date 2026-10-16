@@ -19,7 +19,7 @@ import {colors} from '../theme/colors';
 import {typography} from '../theme/typography';
 
 export default function InvestmentDetail({project}:{project:Project}){
-  const c=project.contract!;const router=useRouter();const {l,isBengali,formatMoney,formatNum}=useLanguage();
+  const c=project.contract!;const router=useRouter();const {l,isBengali,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
   const collect=useSomitiStore(s=>s.collectInvestment),reverse=useSomitiStore(s=>s.reverseInvestment),accounts=useSomitiStore(s=>s.cashAccounts),society=useSomitiStore(s=>s.somitiInfo);
   const role=useAuthStore(s=>s.actualRole),identity=useAuthStore(s=>s.currentUser?.id),revision=useSomitiStore(s=>s.dataVersion);
   const admin=role==='admin'||role==='super_admin';const history=useLedgerPage({projectId:project.id});

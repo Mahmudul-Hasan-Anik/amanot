@@ -53,3 +53,18 @@ Proof: `../state/old-app-audit/investment-backend-deployed.png`.
 - Existing projects are not automatically assigned invented recipients, percentages or repayment dates.
 - Automated WhatsApp scheduling, contractual term rescheduling, waivers and multiple repayment calculation products are not included in this first implementation. They require separately agreed rules.
 - Recorded contract terms are locked; corrections to posted money use the audited reversal flow. External-recipient personal-detail editing/redaction beyond the linked account-deletion flow remains a follow-up workflow.
+
+## 2026-10-16: Required identity and staged investment workflow
+
+- New proposals require a digit-only NID number, father’s name and mother’s name, for both members and external recipients. Existing contracts and privacy redaction remain compatible. No NID image is collected.
+- Administrator submits an immutable proposal, explicitly approves or rejects it (rejection needs a reason), then confirms actual disbursement separately. The same administrator may perform these steps; no separate-person approval requirement was requested.
+- Submission and approval do not create a financial project, installment debt, ledger transaction, or cash deduction. Only approved disbursement atomically posts the contract, ledger and cash movement.
+- At payment confirmation, actual date, first installment date and funding account are confirmed; agreed principal, rate and duration cannot change. Future planned proposal dates are allowed, future financial postings are forbidden. Cash sufficiency and closed accounting-year checks remain enforced.
+- Request retries and row locks prevent duplicate disbursement. Altered retries are rejected. Ordinary members cannot read proposals; cashier cannot submit, approve or disburse.
+- Investment list shows pending, approved and rejected proposals separately from posted investments. Detail shows recipient identity, emergency contacts, terms, decision note, timestamps and installment preview. Existing collection, principal-first allocation, receipts, reversals and manual WhatsApp reminders continue after disbursement.
+- Proposal privacy copies are removed on linked account/society deletion; remote identity records remain memory-only.
+- Migration 021 is additive and guarded against changes to existing balances, ledger, savings and distributions. Migration 020 must not be reapplied alone after 021, since 021 intentionally replaces its public direct-disbursement entry point.
+- Tests: 19 disposable PostgreSQL checks; domain and component tests for required identity, review, submission, approval and explicit disbursement; TypeScript; existing synchronization checks; web production export. No real production investment was created for testing.
+- APK has not been rebuilt. Physical Android verification is still needed after the user requests a new APK.
+
+Live verification: migration 021 deployed successfully; financial preservation guard returned true. Proposal table/RPC readiness, forced RLS and restored business-role privileges verified. Local demo browser completed proposal → approval → disbursement → contract, with cash deducted only at disbursement; latest preview confirmed fractional installment values (91.66). UI proof: state/old-app-audit/investment-required-identity.png. Backend proof: state/old-app-audit/investment-workflow-deployed.png.

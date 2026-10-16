@@ -73,8 +73,48 @@ async function main(){
  await pass('ordinary member cannot read recipient private contacts or financial events',async()=>{assert.equal((await one('select count(*)::int n from investment_contracts')).n,0);assert.equal((await one('select count(*)::int n from investment_payment_events')).n,0);await assert.rejects(()=>pay({...first,id:'00000000-0000-4000-8000-000000000724',amount:1}));});
  await as('postgres');await sql("update profiles set role='super_admin' where id=$1",[owner]);await as('authenticated',owner);
  await pass('monthly analytics show profit instead of gross repayment',async()=>{const row=await one("select get_ledger_summary(date_trunc('month',current_date)::date,(date_trunc('month',current_date)+interval '1 month')::date) v");assert.equal(Number(row.v.months[0].profit),10000);});
+ await pass('workflow migration preserves live-style financial data and applies twice',async()=>{
+ await as('postgres');const before=await one('select (select sum(amount) from cash_accounts) cash,(select count(*) from transactions) ledger,(select sum(total_deposit) from members) savings');
+ const next=fs.readFileSync(path.join(root,'supabase/migrations/021_investment_workflow.sql'),'utf8');await db.exec(next);await db.exec(next);
+ assert.deepEqual(await one('select (select sum(amount) from cash_accounts) cash,(select count(*) from transactions) ledger,(select sum(total_deposit) from members) savings'),before);
+ assert.equal((await one("select has_schema_privilege('amanot_rpc','public','CREATE') allowed")).allowed,false);await as('authenticated',owner);
+ });
+ const proposed={...contract,id:'00000000-0000-4000-8000-000000000750',principal:100};
+ const submit=p=>one('select * from submit_investment_proposal($1::jsonb)',[JSON.stringify(p)]);
+ const decide=(id,approve,note='')=>one('select * from decide_investment_proposal($1,$2,$3)',[id,approve,note]);
+ const disburse=(id,date=today)=>one('select * from disburse_investment_proposal($1,$2,$3,$4)',[id,date,today,'bank']);
+ await pass('required identity, immutable proposals and no money movement before disbursement',async()=>{
+ const before=await one("select amount from cash_accounts where type='bank'");
+ for(const key of ['nid','fatherName','motherName'])await assert.rejects(()=>submit({...proposed,[key]:' '}));
+ await assert.rejects(()=>submit({...proposed,nid:'not-a-number'}));
+ await submit(proposed);await submit(proposed);await assert.rejects(()=>submit({...proposed,principal:101}));
+ await assert.rejects(()=>disburse(proposed.id));await assert.rejects(()=>create({...proposed,id:'00000000-0000-4000-8000-000000000751'}));
+ await assert.rejects(()=>one('select post_approved_investment($1::jsonb)',[JSON.stringify(proposed)]));
+ assert.deepEqual(await one("select amount from cash_accounts where type='bank'"),before);
+ assert.equal((await one('select count(*)::int n from projects where id=$1',[proposed.id])).n,0);
+ await decide(proposed.id,true);await decide(proposed.id,true);
+ assert.deepEqual(await one("select amount from cash_accounts where type='bank'"),before);
+ await disburse(proposed.id);await disburse(proposed.id);
+ assert.equal(Number((await one("select amount from cash_accounts where type='bank'")).amount),Number(before.amount)-100);
+ await assert.rejects(()=>disburse(proposed.id,'2020-01-01'));
+ assert.equal((await one('select status from investment_proposals where id=$1',[proposed.id])).status,'disbursed');
+ });
+ await pass('future plans and insufficient funds never create premature financial entries',async()=>{
+ const before=await one("select amount from cash_accounts where type='bank'");
+ const future={...proposed,id:'00000000-0000-4000-8000-000000000754',disbursedDate:'2099-01-01',firstDueDate:'2099-02-01'};
+ await submit(future);await decide(future.id,true);await assert.rejects(()=>one('select disburse_investment_proposal($1,$2,$3,$4)',[future.id,'2099-01-01','2099-02-01','bank']));
+ const huge={...proposed,id:'00000000-0000-4000-8000-000000000755',principal:999999999};await submit(huge);await decide(huge.id,true);await assert.rejects(()=>disburse(huge.id));
+ assert.equal((await one('select status from investment_proposals where id=$1',[huge.id])).status,'approved');assert.equal((await one('select count(*)::int n from projects where id=$1',[huge.id])).n,0);assert.deepEqual(await one("select amount from cash_accounts where type='bank'"),before);
+ });
+ await pass('rejection, tenant boundary and cashier cannot approve or disburse',async()=>{
+ const rejected={...proposed,id:'00000000-0000-4000-8000-000000000752'};await submit(rejected);
+ await assert.rejects(()=>decide(rejected.id,false));await decide(rejected.id,false,'Incomplete evidence');await assert.rejects(()=>disburse(rejected.id));
+ await as('authenticated',other);assert.equal((await one('select count(*)::int n from investment_proposals')).n,0);await assert.rejects(()=>decide(proposed.id,true));await as('postgres');
+ await sql("update profiles set role='cashier' where id=$1",[owner]);await as('authenticated',owner);await assert.rejects(()=>submit({...proposed,id:'00000000-0000-4000-8000-000000000753'}));await assert.rejects(()=>decide(rejected.id,true));await assert.rejects(()=>disburse(proposed.id));
+ await assert.rejects(()=>sql("update investment_proposals set status='approved'"));await as('postgres');await sql("update profiles set role='super_admin' where id=$1",[owner]);await as('authenticated',owner);
+ });
  await pass('closed distribution years block new postings',async()=>{await as('postgres');await sql('insert into profit_distributions(somiti_id,year,project_profit,expenses,net_profit,reserve_pct,management_pct,distributed,approved_by_name) values((select somiti_id from profiles where id=$1),extract(year from current_date)::int,0,0,0,0,0,0,$2)',[owner,'fixture']);await as('authenticated',owner);await assert.rejects(()=>pay({...first,id:'00000000-0000-4000-8000-000000000725',amount:1}),/বন্ধ/);});
- await pass('production deployment guard preserves existing ledger, cash and distribution snapshots',async()=>{await as('postgres');await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_020_investments.sql'),'utf8'));});
+ await pass('production workflow deployment guard preserves financial data',async()=>{await as('postgres');await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_021_investments.sql'),'utf8'));});
  console.log(checks+' investment database checks passed');
  }finally{await db.close();}
 }
