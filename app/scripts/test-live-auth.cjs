@@ -6,7 +6,7 @@ const storage = { getItem: async k => memory.get(k) ?? null, setItem: async (k,v
 const member = { id:'member-test', name:'Test', phone:'01700000000', role:'member' };
 let mustChangePin = false;
 let signInFails = false, pinChangeFails = false, profileMissing = false, syncCalls = 0;
-let signIns=0,phoneChecks=0;
+let signIns=0,phoneChecks=0;const syncForces=[];
 let registered=true,activations=0,signInWait=null,exists=true,bootstrapCalls=0,bootstrapWait=null,clearCalls=0;
 let fetchedMember=member;
 const api = {
@@ -34,7 +34,7 @@ vm.runInNewContext(code, { exports:result, require: name => {
   if (name==='../../lib/authErrors') return {friendlyAuthError:s=>s};
   if (name==='../../lib/sessionStorage') return {sessionStorage:storage};
   if (name==='../../lib/pinPolicy') return {normalizePin:s=>s.replace(/[০-৯]/g,c=>'০১২৩৪৫৬৭৮৯'.indexOf(c)).trim(),isStrongPin:s=>/^\d{6}$/.test(s),generateTemporaryPin:()=> '572849'};
-  if (name==='../../store/somitiStore') return {useSomitiStore:{getState:()=>({syncFromServer:()=>{syncCalls++},clearLocalData:()=>{clearCalls++}})}};
+  if (name==='../../store/somitiStore') return {useSomitiStore:{getState:()=>({syncFromServer:force=>{syncForces.push(force);syncCalls++},clearLocalData:()=>{clearCalls++}})}};
   throw Error('Unexpected import '+name);
 }});
 async function main() {
@@ -55,12 +55,15 @@ async function main() {
   store.setState({phoneRegistered:false}); // stale cache must not trigger signup
   assert.equal((await auth.loginWithPin('১২৩৪')).ok,true);
   auth=store.getState(); assert.equal(auth.actualRole,'member'); assert.equal(syncCalls,1);
+  assert.equal(syncForces[0],false,'PIN login allows revision-checked snapshot reuse');
   auth.switchRole('admin'); assert.equal(store.getState().userRole,'member');
   pinChangeFails=true; await assert.rejects(()=>auth.setCustomPin('572849','1234'),/offline/);
   await assert.rejects(()=>auth.resetMemberPin(member.id),/denied/);
   const beforeRegisteredLogin=phoneChecks;
+  store.setState({actualRole:'admin',userRole:'admin'});const clearsBeforeRoleChange=clearCalls;
   mustChangePin=true;
   assert.equal((await auth.loginWithPin('572849')).ok,true);
+  assert.ok(clearCalls>clearsBeforeRoleChange,'Role changes on PIN unlock discard the previous snapshot');
   assert.equal(store.getState().mustChangePin,true);assert.equal(phoneChecks,beforeRegisteredLogin,'Registered login avoids another phone lookup');
   assert.equal(syncCalls,1);
   assert.equal(auth.verifyOtp('482700'),false);

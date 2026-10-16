@@ -6,7 +6,10 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 export function SyncStatus() {
-  const { isSyncing, syncError, syncFromServer, lastSyncedAt } = useSomitiStore();
+  const isSyncing = useSomitiStore(s => s.isSyncing);
+  const syncError = useSomitiStore(s => s.syncError);
+  const syncFromServer = useSomitiStore(s => s.syncFromServer);
+  const lastSyncedAt = useSomitiStore(s => s.lastSyncedAt);
   const { l } = useLanguage();
   const stale = !lastSyncedAt || Date.now()-lastSyncedAt>10*60*1000;
   if (REMOTE && !isSyncing && !syncError && !stale) return null;

@@ -19,6 +19,7 @@ import { recentMonths } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { SelectModal } from '../../src/components/SelectModal';
 
 interface ReportItem {
   id: string;
@@ -105,6 +106,7 @@ export default function ReportsScreen() {
   const [month,setMonth] = useState(periods[0].key);
   const selectedPeriod = periods.find(p=>p.key===month)!;
   const [exporting,setExporting] = useState(false);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const handleDownload = async (id:string,format:'PDF'|'CSV') => {
     if(exporting) return;
     setExporting(true);
@@ -139,7 +141,7 @@ export default function ReportsScreen() {
         {/* Date Selector Pill */}
         <TouchableOpacity
           style={styles.dateSelectorPill}
-          onPress={() => Alert.alert(l('Select month','মাস নির্বাচন'),'',periods.map(p=>({text:isBengali?p.bn:p.en,onPress:()=>setMonth(p.key)})))}
+          onPress={() => setMonthPickerOpen(true)}
           activeOpacity={0.8}
         >
           <Ionicons name="calendar-outline" size={16} color={colors.text} style={styles.calIcon} />
@@ -213,6 +215,9 @@ export default function ReportsScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      <SelectModal visible={monthPickerOpen} title={l('Select month', 'মাস নির্বাচন')} value={month}
+        options={periods.map(p => ({ value: p.key, label: isBengali ? p.bn : p.en }))}
+        onSelect={setMonth} onClose={() => setMonthPickerOpen(false)} />
     </SafeAreaView>
   );
 }

@@ -155,10 +155,16 @@ export const useAuthStore = create<AuthState>()(
           if (revision!==authRevision || !get().isAuthenticated || normalizePhone(get().phone)!==phone) return {ok:false,error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।'};
           if (!me || normalizePhone(me.profile.phone)!==phone) throw new Error('অ্যাকাউন্টের তথ্য পাওয়া যায়নি। আবার লগইন করুন।');
           const role = me.profile.role as ServerRole;
+          const previous = get();
+          if (previous.actualRole !== role || (previous.currentUser?.id && previous.currentUser.id !== me.member?.id)) {
+            somiti().clearLocalData();
+          }
           set({ isAuthenticated:true, isPinVerified:true, phoneRegistered:true, actualRole:role,
             userRole:role==='member'?'member':'admin', currentUser:me.member || stubMember(phone,me.profile.full_name),
             mustChangePin:me.profile.must_change_pin===true });
-          if (!get().mustChangePin) somiti().syncFromServer();
+          // A foreground unlock can reuse its complete in-memory snapshot after
+          // revision validation. Fresh login has no snapshot and still loads all.
+          if (!get().mustChangePin) somiti().syncFromServer(false);
           return { ok: true };
         } catch (e: any) {
           const msg = e?.message || String(e);

@@ -1107,7 +1107,7 @@ export const useSomitiStore = create<SomitiState>()(
           const fullRefresh = force || !get().lastFullSyncedAt || Date.now()-get().lastFullSyncedAt! >= 45*60*1000;
           const [nextRevision, data] = await Promise.all([
             canReuseSnapshot ? Promise.resolve(revision!) : api.fetchSyncRevision(),
-            api.fetchAll(isStaff, session.currentUser?.id || ''),
+            api.fetchAll(isStaff, session.currentUser?.id || '', true),
           ]);
           const current = useAuthStore.getState();
           if (generation !== syncGeneration || !current.isPinVerified || current.currentUser?.id !== session.currentUser?.id || current.actualRole !== session.actualRole) { set({isSyncing:false}); if (syncAgain) continue; return; }
@@ -1121,6 +1121,15 @@ export const useSomitiStore = create<SomitiState>()(
             dataVersion: get().dataVersion + 1,
             syncError: null,
           });
+          // Balances and account data are ready before optional avatar signing.
+          // Never let a delayed photo response overwrite a newer sync or account.
+          const photoVersion = get().dataVersion;
+          const paths = data.members.map(m => m.avatarPath).filter((path): path is string => !!path);
+          if (paths.length) void api.signedPhotoUrls(paths, session.currentUser?.id || '').then(urls => {
+            const active = useAuthStore.getState();
+            if (generation !== syncGeneration || get().dataVersion !== photoVersion || !active.isPinVerified || active.currentUser?.id !== session.currentUser?.id || active.actualRole !== session.actualRole) return;
+            set({ members: get().members.map(m => ({ ...m, photoUri: m.avatarPath ? urls.get(m.avatarPath) : m.photoUri })) });
+          }).catch(() => { /* Initials remain usable when optional photos fail. */ });
         } catch (e: any) {
           set({ isSyncing: false, syncError: e?.message || String(e) });
         }
@@ -1133,6 +1142,7 @@ export const useSomitiStore = create<SomitiState>()(
         if (!REMOTE) return;
         syncGeneration++;
         api.clearPhotoCache();
+        api.clearPerformanceSamples();
         clearQueryCache();
         set({
           somitiInfo: { ...emptySomitiInfo },

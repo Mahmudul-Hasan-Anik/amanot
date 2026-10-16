@@ -9,6 +9,7 @@ interface CustomKeypadProps {
   onPressBackspace: () => void;
   onPressBiometric?: () => void;
   showBiometric?: boolean;
+  disabled?: boolean;
 }
 
 export const CustomKeypad: React.FC<CustomKeypadProps> = ({
@@ -16,8 +17,9 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
   onPressBackspace,
   onPressBiometric,
   showBiometric = true,
+  disabled = false,
 }) => {
-  const { formatNum } = useLanguage();
+  const { formatNum, l } = useLanguage();
   const rows = [
     ['1', '2', '3'],
     ['4', '5', '6'],
@@ -25,12 +27,16 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, disabled && { opacity: 0.45 }]}>
       {rows.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
           {row.map((digit) => (
             <TouchableOpacity
               key={digit}
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityLabel={formatNum(digit)}
+              accessibilityState={{ disabled }}
               style={styles.key}
               activeOpacity={0.7}
               onPress={() => onPressDigit(digit)}
@@ -48,6 +54,10 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
             style={[styles.key, styles.biometricKey]}
             activeOpacity={0.7}
             onPress={onPressBiometric}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={l('Biometric unlock', 'বায়োমেট্রিক আনলক')}
+            accessibilityState={{ disabled }}
           >
             <Ionicons name="finger-print" size={28} color={colors.primary} />
           </TouchableOpacity>
@@ -59,6 +69,10 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
           style={styles.key}
           activeOpacity={0.7}
           onPress={() => onPressDigit('0')}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={formatNum('0')}
+          accessibilityState={{ disabled }}
         >
           <Text style={styles.digitText}>{formatNum('0')}</Text>
         </TouchableOpacity>
@@ -67,6 +81,10 @@ export const CustomKeypad: React.FC<CustomKeypadProps> = ({
           style={styles.key}
           activeOpacity={0.7}
           onPress={onPressBackspace}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={l('Delete digit', 'সংখ্যা মুছুন')}
+          accessibilityState={{ disabled }}
         >
           <Ionicons name="backspace-outline" size={26} color={colors.textMain} />
         </TouchableOpacity>

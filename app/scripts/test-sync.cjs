@@ -8,7 +8,7 @@ let now=Date.now();
 class TestDate extends Date { static now(){return now;} }
 const data={somitiInfo:{name:'Fixture'},members:[{id:'fixture-member',nid:'fixture-private'}],projects:[],cashAccounts:[],transactions:[],expenses:[],approvals:[],approvedApprovals:[],rejectedApprovals:[],notices:[{id:'notice'}],auditLogs:[{id:'audit'}]};
 const rejectedWrite=async()=>{throw Error('fixture server denied write')};
-const api={__esModule:true,clearPhotoCache:()=>{},fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
+const api={__esModule:true,clearPhotoCache:()=>{},clearPerformanceSamples:()=>{},fetchSyncRevision:async()=>{if(revisionGate)await revisionGate;return revision},fetchAll:async()=>{calls++;if(release)await release;return data;},addNotice:rejectedWrite,deleteNotice:rejectedWrite,updateMember:rejectedWrite,deleteMember:rejectedWrite,setMemberRole:rejectedWrite,updateSomitiInfo:rejectedWrite};
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
   if(n==='../lib/memberIdentity')return identity;
@@ -79,6 +79,17 @@ async function main(){
   let releaseEdit;api.updateSomitiInfo=()=>new Promise(resolve=>releaseEdit=resolve);
   const oldEdit=store.getState().updateSomitiInfo({name:'Stale'});store.getState().clearLocalData();releaseEdit({name:'Stale'});await oldEdit;
   assert.notEqual(store.getState().somitiInfo.name,'Stale');
+  let finishPhoto;
+  data.members=[{id:'fixture-member',name:'Photo member',avatarPath:'private/avatar'}];
+  api.signedPhotoUrls=()=>new Promise(resolve=>finishPhoto=resolve);
+  await store.getState().syncFromServer();
+  assert.equal(store.getState().isSyncing,false,'Account is usable while photos are pending');assert.ok(store.getState().lastSyncedAt);
+  finishPhoto(new Map([['private/avatar','signed:first']]));for(let i=0;i<5;i++)await Promise.resolve();
+  assert.equal(store.getState().members[0].photoUri,'signed:first');
+  await store.getState().syncFromServer();store.getState().clearLocalData();
+  finishPhoto(new Map([['private/avatar','signed:stale']]));for(let i=0;i<5;i++)await Promise.resolve();
+  assert.equal(store.getState().members.length,0,'Delayed photos cannot restore logged-out data');
+  console.log('PASS deferred photos: account ready before signing completes, photos hydrate afterwards, logout discards late response.');
   console.log('PASS targeted edits: settings avoid full reload, dues/member edits refresh directory and totals, history retained, stale writes discarded.');
   console.log('PASS sync: unchanged revision reuse, independent 45-minute snapshot refresh, force refetch, no persisted financial data, stale responses discarded even after same-user re-login, PIN gate enforced.');
 }

@@ -8,7 +8,7 @@ function fixture({ remote = true, hydrated = true, ...overrides } = {}) {
   let retries = 0;
   const sync = { lastSyncedAt: null, isSyncing: false, syncError: null, syncFromServer: async () => { retries++; sync.isSyncing = true; }, ...overrides.sync };
   const React = { Fragment: 'Fragment', createElement: (type, props, ...children) => ({ type, props: { ...props, children } }), useState: value => [value, () => {}], useEffect: () => {} };
-  const useAuthStore = () => auth;
+  const useAuthStore = selector => selector(auth);
   useAuthStore.persist = { hasHydrated: () => hydrated, onFinishHydration: () => () => {} };
   const useSomitiStore = selector => selector(sync);
   useSomitiStore.getState = () => sync;
@@ -56,6 +56,8 @@ async function main() {
   assert.equal(fixture({ auth: { mustChangePin: true } }).render().props.href, '/(auth)/change-pin');
   assert.equal(fixture({ auth: { actualRole: 'member' } }).render(true).props.href, '/(member)');
   assert.equal(hasScreen(fixture({ hydrated: false, sync: { lastSyncedAt: Date.now() } }).render()), false);
+  assert.match(JSON.stringify(fixture({sync:{syncError:'Backend update required.'}}).render()),/server needs an update/);
+  assert.match(JSON.stringify(fixture({sync:{syncError:'permission denied'}}).render()),/session or account access/);
   console.log('PASS account readiness: no placeholder dashboard before first snapshot, loaded screen retained during background sync/error, first-load retry/logout, demo and auth/PIN/role/hydration guards.');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });

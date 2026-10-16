@@ -2,7 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=r
 const compile=file=>ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/lib',file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}}).outputText;
 const ledger={};vm.runInNewContext(compile('ledger.ts'),{exports:ledger});
 let rows=[],requests=[],revision=1,revisionCalls=0,changing=false;
-let photoRequests=0,photoGate=null;
+let photoRequests=0,photoGate=null,memberRows=[];
 const summary={months:[{month:'2026-10',deposits:123456,profit:0,expenses:0,transaction_count:1001}],categories:[],collections:{}};
 const supabase={rpc:async(name,args={})=>{
  requests.push({name,args});
@@ -18,7 +18,7 @@ const supabase={rpc:async(name,args={})=>{
  return {data:{},error:null};
 },storage:{from:()=>({createSignedUrls:async paths=>{photoRequests++;if(photoGate)await photoGate;return {data:paths.map(path=>({path,signedUrl:'signed:'+path+':'+photoRequests}))}}})},from:table=>{
  const filter={};const chain={in:(key,value)=>{filter[key]=value.join(',');return chain;},select:()=>chain,order:()=>chain,is:()=>chain,eq:(key,value)=>{filter[key]=value;return chain;},limit:n=>{filter.limit=n;return chain;},maybeSingle:()=>chain,range:(a,b)=>{filter.range=[a,b];return chain;},then:(resolve,reject)=>{
-   let data=table==='somiti_settings'?{info:{name:'Fixture'}}:[];
+   let data=table==='somiti_settings'?{info:{name:'Fixture'}}:table==='members'?memberRows:[];
    requests.push({table,...filter});return Promise.resolve({data,error:null}).then(resolve,reject);
  }};return chain;
 }};
@@ -40,6 +40,10 @@ async function main(){
  out.clearPhotoCache();let finishPhoto;photoGate=new Promise(resolve=>finishPhoto=resolve);
  const stalePhoto=out.signedPhotoUrls(['b'],'owner');out.clearPhotoCache();finishPhoto();assert.equal((await stalePhoto).size,0);photoGate=null;
  await out.signedPhotoUrls(['b'],'owner');assert.equal(photoRequests,4,'Logout invalidates even same-user in-flight URLs');
+ memberRows=[{id:'photo-member',avatar_path:'private/avatar',months_status:{}}];
+ const beforePhotos=photoRequests;const withoutPhotos=await out.fetchAll(false,'owner',true);
+ assert.equal(photoRequests,beforePhotos,'Deferred snapshot makes no Storage request');assert.equal(withoutPhotos.members[0].avatarPath,'private/avatar');assert.equal(withoutPhotos.members[0].photoUri,undefined);
+ const withPhotos=await out.fetchAll(false,'owner');assert.equal(photoRequests,beforePhotos+1);assert.ok(withPhotos.members[0].photoUri);memberRows=[];
  console.log('PASS private photo URLs: duplicate paths/reloads reuse cache; account switch and logout invalidate it.');
  assert.equal(ledger.monthRange('2026-12').to,'2027-01-01');assert.throws(()=>ledger.monthRange('2026-13'));
  console.log('PASS ledger loading: bounded 50-row login snapshot, independent server totals, full 1001-row scoped export, member filtering, revision-change rejection and year boundary.');

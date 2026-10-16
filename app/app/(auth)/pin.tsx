@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
@@ -21,8 +23,22 @@ import { LanguageToggle } from '../../src/components/LanguageToggle';
 
 export default function PinScreen() {
   const router = useRouter();
-  const { verifyPin, currentUser, loginWithPin, phoneRegistered } = useAuthStore();
+  const verifyPin = useAuthStore(s => s.verifyPin);
+  const currentUser = useAuthStore(s => s.currentUser);
+  const loginWithPin = useAuthStore(s => s.loginWithPin);
+  const phoneRegistered = useAuthStore(s => s.phoneRegistered);
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const phone = useAuthStore(s => s.phone);
   const [checking, setChecking] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    if (!checking) { setSlow(false); return; }
+    const timer = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(timer);
+  }, [checking]);
   const [pinLength, setPinLength] = useState(REMOTE ? 6 : 4);
 
   const goHome = () => {
@@ -32,26 +48,32 @@ export default function PinScreen() {
   };
   const { l } = useLanguage();
   const [pinDigits, setPinDigits] = useState<string[]>([]);
-  const auth = useAuthStore();
-  if (REMOTE && (!auth.isAuthenticated || !isValidPhone(auth.phone))) return <Redirect href="/(auth)/login" />;
+  if (REMOTE && (!isAuthenticated || !isValidPhone(phone))) return <Redirect href="/(auth)/login" />;
 
   const handlePressDigit = (digit: string) => {
-    if (checking) return;
+    if (busy.current) return;
     if (pinDigits.length < pinLength) {
       const nextPin = [...pinDigits, digit];
       setPinDigits(nextPin);
 
       if (nextPin.length === pinLength && REMOTE) {
-        if (checking) return;
+        busy.current = true;
         setChecking(true);
         loginWithPin(nextPin.join('')).then((res) => {
-          setChecking(false);
+          if (!mounted.current || !useAuthStore.getState().isAuthenticated || useAuthStore.getState().phone !== phone) return;
           if (res.ok) {
             goHome();
           } else {
             Alert.alert(l('Login failed', 'লগইন ব্যর্থ'), res.error || l('Incorrect PIN', 'পিন সঠিক নয়'));
             setPinDigits([]);
           }
+        }).catch(() => {
+          if (!mounted.current || !useAuthStore.getState().isAuthenticated || useAuthStore.getState().phone !== phone) return;
+          Alert.alert(l('Login failed', 'লগইন ব্যর্থ'), l('Could not verify your PIN. Please try again.', 'পিন যাচাই করা যায়নি। আবার চেষ্টা করুন।'));
+          setPinDigits([]);
+        }).finally(() => {
+          busy.current = false;
+          if (mounted.current) setChecking(false);
         });
         return;
       }
@@ -79,7 +101,7 @@ export default function PinScreen() {
   };
 
   const handlePressBackspace = () => {
-    if (checking) return;
+    if (busy.current) return;
     if (pinDigits.length > 0) {
       setPinDigits(pinDigits.slice(0, -1));
     }
@@ -133,7 +155,7 @@ export default function PinScreen() {
         </View>
       )}
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Top Avatar Circle in Mint Soft background */}
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>{userInitial}</Text>
@@ -169,6 +191,12 @@ export default function PinScreen() {
             );
           })}
         </View>
+        {checking && <View style={styles.checkingStatus} accessibilityLiveRegion="polite" accessibilityState={{ busy: true }}>
+          <ActivityIndicator color={colors.primary} size="small" />
+          <Text style={styles.statusText}>{slow
+            ? l('This is taking longer than usual. Please keep your internet connected.', 'স্বাভাবিকের চেয়ে বেশি সময় লাগছে। ইন্টারনেট সংযোগ চালু রাখুন।')
+            : l('Verifying PIN…', 'পিন যাচাই হচ্ছে…')}</Text>
+        </View>}
         {REMOTE && <TouchableOpacity disabled={checking} onPress={()=>{setPinLength(pinLength===6?4:6);setPinDigits([]);}}><Text style={styles.roleText}>{pinLength===6 ? l('I still have an old 4-digit PIN', 'আমার পুরোনো ৪ সংখ্যার পিন আছে') : l('Use a 6-digit PIN', '৬ সংখ্যার পিন ব্যবহার করুন')}</Text></TouchableOpacity>}
 
         {/* Hint (Dev-only, demo mode) */}
@@ -184,21 +212,25 @@ export default function PinScreen() {
           onPressBackspace={handlePressBackspace}
           onPressBiometric={handleBiometricAuth}
           showBiometric={!REMOTE}
+          disabled={checking}
         />
 
         {/* Forgot PIN Link */}
         <TouchableOpacity
           onPress={handleForgotPin}
+          disabled={checking}
           style={styles.forgotLinkContainer}
         >
           <Text style={styles.forgotLinkText}>{l('Forgot PIN?', 'পিন ভুলে গেছেন?')}</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  checkingStatus: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingHorizontal: 16 },
+  statusText: { flexShrink: 1, color: colors.primary, fontFamily: typography.fontFamily.regular, textAlign: 'center' },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -209,7 +241,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

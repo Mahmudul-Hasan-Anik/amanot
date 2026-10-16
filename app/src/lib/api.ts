@@ -17,6 +17,23 @@ import { LedgerFilter, LedgerCursor, LedgerPage, LedgerSummary, emptyLedgerSumma
 // helpers
 // ---------------------------------------------------------------------------
 
+type PerformanceStage = 'pin-precheck' | 'password-signin' | 'pin-session' | 'profile' | 'account-snapshot';
+const performanceSamples: { stage: PerformanceStage; durationMs: number; ok: boolean }[] = [];
+// Bounded, memory-only diagnostics: never record identities, PINs, tokens or errors.
+export function getPerformanceSamples() { return performanceSamples.map(sample => ({ ...sample })); }
+export function clearPerformanceSamples() { performanceSamples.length = 0; }
+async function measureStage<T>(stage: PerformanceStage, task: () => PromiseLike<T>): Promise<T> {
+  const started = Date.now();
+  let ok = false;
+  try { const value = await task(); ok = true; return value; }
+  finally {
+    const sample = { stage, durationMs: Math.max(0, Date.now() - started), ok };
+    performanceSamples.push(sample);
+    if (performanceSamples.length > 40) performanceSamples.shift();
+    if (typeof __DEV__ !== 'undefined' && __DEV__) console.debug('[amanot:performance]', sample);
+  }
+}
+
 export function uuid(): string {
   const c: any = (globalThis as any).crypto;
   if (c?.randomUUID) return c.randomUUID();
@@ -341,7 +358,10 @@ export async function fetchMembersAndSummary(photoScope: string) {
   const signed = await signedPhotoUrls(rows.map(m=>m.avatar_path).filter(Boolean),photoScope);
   return {members:rows.map(m=>mapMember({...m,photo_uri:signed.get(m.avatar_path)})),summary:summary as Record<string,any>};
 }
-export async function fetchAll(isStaff: boolean, photoScope = '') {
+export async function fetchAll(isStaff: boolean, photoScope = '', deferPhotos = false) {
+  return measureStage('account-snapshot', () => fetchSnapshot(isStaff, photoScope, deferPhotos));
+}
+async function fetchSnapshot(isStaff: boolean, photoScope: string, deferPhotos: boolean) {
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
@@ -370,7 +390,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
   }
   const memberRows = (members as any[]) || [];
   const paths = memberRows.map(m=>m.avatar_path).filter(Boolean);
-  if (paths.length) {
+  if (paths.length && !deferPhotos) {
     const signed = await signedPhotoUrls(paths, photoScope);
     memberRows.forEach(m=>{m.photo_uri=signed.get(m.avatar_path);});
   }
@@ -416,10 +436,30 @@ export async function somitiInitialized(): Promise<boolean> {
 
 export async function signInWithPin(phone: string, pin: string) {
   const email=phoneToEmail(phone),password=pinToPassword(pin);
-  await verifyLoginPin(phone,pin);
-  const res = await supabase.auth.signInWithPassword({ email, password });
-  if (res.error) throw new Error(friendlyAuthError(res.error.message));
-  await confirmPinSession(pin);
+  const { data, error } = await supabase.auth.getSession();
+  const session = data?.session;
+  // A local session is only a candidate. The server still validates the active
+  // account, session revocation, credentials timestamp, PIN and attempt limits.
+  if (!error && session?.user.email === email && (session.expires_at || 0) > Date.now()/1000 + 30) {
+    const result = await measureStage('pin-session', async () => {
+      const response = await supabase.rpc('confirm_pin_session', { p_pin: pin });
+      if (response.error?.code === 'PGRST301' || response.error?.code === 'PGRST303') return null;
+      const confirmation = unwrap(response) as { ok: boolean; error?: string };
+      if (confirmation.ok) return true;
+      if (confirmation.error === 'আবার লগইন করুন।') return null;
+      // Wrong PIN/lockout/network failure must never fall through to a second attempt.
+      throw new Error(confirmation.error || 'পিন যাচাই ব্যর্থ।');
+    });
+    if (result) return session;
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+  await measureStage('pin-precheck', () => verifyLoginPin(phone,pin));
+  const res = await measureStage('password-signin', async () => {
+    const response = await supabase.auth.signInWithPassword({ email, password });
+    if (response.error) throw new Error(friendlyAuthError(response.error.message));
+    return response;
+  });
+  await measureStage('pin-session', () => confirmPinSession(pin));
   return res.data.session;
 }
 
@@ -483,7 +523,10 @@ export async function deleteMyAccount(pin:string,closeSociety:boolean,confirmati
 }
 
 export async function fetchMyProfile(freshSignInUserId?: string) {
-  // The optional ID comes only from the just-completed Auth sign-in response.
+  return measureStage('profile', () => fetchVerifiedProfile(freshSignInUserId));
+}
+async function fetchVerifiedProfile(freshSignInUserId?: string) {
+  // The optional ID comes from Auth sign-in or a server-confirmed PIN session.
   // Ordinary refreshes continue to validate the user with the Auth server.
   const userId = freshSignInUserId || (await supabase.auth.getUser()).data.user?.id;
   if (!userId) return null;
