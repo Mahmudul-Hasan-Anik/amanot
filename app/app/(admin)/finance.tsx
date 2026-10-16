@@ -5,7 +5,7 @@ import { emptyLedgerSummary,signedTransactionAmount } from '../../src/lib/ledger
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import { FAB } from '../../src/components/FAB';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,11 +22,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useSomitiStore, Transaction, REMOTE } from '../../src/store/somitiStore';
+import { useSomitiStore, REMOTE } from '../../src/store/somitiStore';
 import { useLedgerPage } from '../../src/hooks/useLedgerPage';
 import { monthRange } from '../../src/lib/ledger';
 import { buildReportForExport, exportReport } from '../../src/utils/reportExport';
-import { mockCashAccounts } from '../../src/mocks/mockData';
+
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
 import { recentMonths, inMonth } from '../../src/lib/months';
@@ -80,7 +80,7 @@ export default function FinanceScreen() {
   const transactions=useSomitiStore(s=>s.transactions);
   const transferCash=useSomitiStore(s=>s.transferCash);
   const localSummary=useSomitiStore(s=>s.ledgerSummary);
-  const { l, isBengali, formatMoney, formatNum } = useLanguage();
+  const { l, isBengali, formatMoney } = useLanguage();
 
   const displayCashAccounts = useMemo(() => {
     return cashAccounts;
@@ -109,22 +109,6 @@ export default function FinanceScreen() {
 
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
-
-  // Transaction Detail Modal State
-  const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
-
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollOffsetRef = useRef<number>(0);
-
-  const closeTxnModal = () => {
-    const savedY = scrollOffsetRef.current;
-    setSelectedTxn(null);
-    if (Platform.OS === 'web') {
-      requestAnimationFrame(() => {
-        scrollViewRef.current?.scrollTo({ y: savedY, animated: false });
-      });
-    }
-  };
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -234,13 +218,8 @@ export default function FinanceScreen() {
       )}
 
       <RemoteDataState query={summaryQuery}><ScrollView
-        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        onScroll={(e) => {
-          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
       >
         {/* Month Dropdown Pill */}
         <TouchableOpacity

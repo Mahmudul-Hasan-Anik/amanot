@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { mockMembers } from '../../../src/mocks/mockData';
+
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
@@ -27,8 +27,8 @@ import type {Transaction} from '../../../src/store/somitiStore';
 export default function ReceiptScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getTransactionById, getMemberById, transactions, members, somitiInfo } = useSomitiStore();
-  const { l, isBengali, formatMoney, formatNum } = useLanguage();
+  const { getTransactionById, getMemberById, members, somitiInfo } = useSomitiStore();
+  const { l, isBengali, formatMoney } = useLanguage();
 
   const displayMembers = members;
 

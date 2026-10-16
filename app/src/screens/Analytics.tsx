@@ -2,16 +2,15 @@ import { useRemoteQuery } from '../hooks/useRemoteQuery';
 import { RemoteDataState } from '../components/RemoteDataState';
 import { fetchLedgerSummary } from '../lib/api';
 import { monthRange, emptyLedgerSummary } from '../lib/ledger';
-import React,{useState} from 'react';
-import {View,Text,TouchableOpacity} from 'react-native';
-import {useSomitiStore,REMOTE} from '../store/somitiStore';
-import {useLanguage} from '../i18n/useLanguage';
-import {Page,pageStyles as s} from '../components/Page';
-import {recentMonths} from '../lib/months';
-import {colors} from '../theme/colors';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useSomitiStore, REMOTE } from '../store/somitiStore';
+import { useLanguage } from '../i18n/useLanguage';
+import { Page, pageStyles as s } from '../components/Page';
+import { recentMonths } from '../lib/months';
+import { colors } from '../theme/colors';
 
 export default function Analytics(){
-  const members=useSomitiStore(s=>s.members);
   const projects=useSomitiStore(s=>s.projects);
   const transactions=useSomitiStore(s=>s.transactions);
   const somitiInfo=useSomitiStore(s=>s.somitiInfo);

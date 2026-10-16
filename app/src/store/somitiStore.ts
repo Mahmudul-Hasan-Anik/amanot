@@ -3,19 +3,7 @@ import { clearQueryCache } from '../lib/queryCache';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  Member,
-  Project,
-  PendingApproval,
-  CashAccount,
-  mockMembers,
-  mockProjects,
-  mockPendingApprovals,
-  mockApprovedApprovals,
-  mockRejectedApprovals,
-  mockCashAccounts,
-  mockSomitiInfo,
-} from '../mocks/mockData';
+import { Member, Project, PendingApproval, CashAccount, mockMembers, mockProjects, mockPendingApprovals, mockApprovedApprovals, mockRejectedApprovals, mockCashAccounts, mockSomitiInfo } from '../mocks/mockData';
 import { toBengaliDigits } from '../lib/bengali';
 import { Alert } from 'react-native';
 import { isSupabaseConfigured } from '../lib/supabase';

@@ -5,27 +5,18 @@ import { emptyLedgerSummary, monthRange } from '../../../src/lib/ledger';
 import { Card } from '../../../src/components/Card';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  TextInput,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
-import { ProgressRing } from '../../../src/components/ProgressRing';
+
 import { SegmentedControl } from '../../../src/components/SegmentedControl';
 import { Avatar } from '../../../src/components/Avatar';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore, REMOTE } from '../../../src/store/somitiStore';
-import { Member, mockMembers } from '../../../src/mocks/mockData';
+import { Member } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { recentMonths } from '../../../src/lib/months';
 import { SelectModal } from '../../../src/components/SelectModal';
@@ -63,16 +54,11 @@ export default function CollectionScreen() {
 
   const paidMembers = activeMembers.filter(isPaidThisMonth);
   const dueMembers = activeMembers.filter((m) => !isPaidThisMonth(m));
-  const partialMembers = useMemo(() => activeMembers.filter((m) => m.status === 'partial'), [activeMembers]);
 
   // Design-fidelity metrics matching PDF Page 7
-  const target = activeMembers.reduce((s,m)=>s+m.monthlyAmount,0);
   const collected = REMOTE ? Number(ledgerSummary.months.find(m=>m.month===selectedMonth)?.deposits||0) : transactions.filter(t=>t.type==='deposit' && t.dateISO?.slice(0,7)===selectedMonth).reduce((s,t)=>s+t.amount,0);
-  const percent = target>0 ? Math.min(100, Math.round(collected/target*100)) : 0;
 
   const paidCount = paidMembers.length;
-  const partialCount = dueMembers.filter(m=>Number(m.partialCredit||0)>0 || m.status==='partial').length;
-  const unpaidCount = dueMembers.length - partialCount;
   const dueCount = dueMembers.length;
 
   // Segmented control tabs
@@ -209,7 +195,6 @@ export default function CollectionScreen() {
 
 </>}
         renderItem={({item,index})=>{
-            const isPaid = isPaidThisMonth(item);
 
             return (
               <TouchableOpacity
@@ -368,13 +353,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.headline,
     color: colors.text,
   },
-  summaryTarget: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -383,9 +361,6 @@ const styles = StyleSheet.create({
   },
   statColLeft: {
     alignItems: 'flex-start',
-  },
-  statColCenter: {
-    alignItems: 'center',
   },
   statColRight: {
     alignItems: 'flex-end',
@@ -411,17 +386,6 @@ const styles = StyleSheet.create({
   },
   filterWrapper: {
     marginBottom: 16,
-  },
-  membersCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 6,
-    marginBottom: 16,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   memberRow: {
     flexDirection: 'row',
@@ -451,20 +415,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 3,
   },
-  paidBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paidBadgeText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.primary,
-  },
   payBtn: {
     backgroundColor: colors.primarySoft,
     paddingHorizontal: 16,
@@ -488,23 +438,5 @@ const styles = StyleSheet.create({
     fontSize: typography.size.subhead,
     color: colors.textSecondary,
     marginTop: 8,
-  },
-  reminderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 9999,
-    paddingVertical: 14,
-    gap: 8,
-    marginBottom: 20,
-  },
-  reminderCardText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
   },
 });

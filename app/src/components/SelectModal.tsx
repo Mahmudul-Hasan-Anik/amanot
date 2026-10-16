@@ -1,10 +1,10 @@
-import React,{useState} from 'react';
+import React, { useState } from 'react';
 import { Modal, Pressable, FlatList, TextInput, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { useLanguage } from '../i18n/useLanguage';
-import {toEnglishDigits} from '../lib/money';
+import { toEnglishDigits } from '../lib/money';
 
 interface SelectModalProps {
   visible: boolean;

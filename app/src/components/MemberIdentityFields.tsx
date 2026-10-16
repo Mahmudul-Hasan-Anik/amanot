@@ -1,11 +1,11 @@
-import React, {useState} from 'react';
-import {View,Text,TextInput,Pressable,StyleSheet} from 'react-native';
-import {SelectModal} from './SelectModal';
-import {MEMBER_CATEGORIES,MemberCategory,memberCode} from '../lib/memberIdentity';
-import {toEnglishDigits} from '../lib/bengali';
-import {useLanguage} from '../i18n/useLanguage';
-import {colors} from '../theme/colors';
-import {typography} from '../theme/typography';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { SelectModal } from './SelectModal';
+import { MEMBER_CATEGORIES, MemberCategory, memberCode } from '../lib/memberIdentity';
+import { toEnglishDigits } from '../lib/bengali';
+import { useLanguage } from '../i18n/useLanguage';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 export function MemberIdentityFields({category,number,onCategory,onNumber,existingCode,locked=false,legacy=false}:{category:MemberCategory|'';number:string;onCategory:(value:MemberCategory)=>void;onNumber?:(value:string)=>void;existingCode?:string;locked?:boolean;legacy?:boolean}) {
   const {l}=useLanguage();const [open,setOpen]=useState(false);
   const selected=MEMBER_CATEGORIES.find(item=>item.value===category);

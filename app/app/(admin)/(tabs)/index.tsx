@@ -2,25 +2,15 @@ import {InvestmentApprovalQueue} from '../../../src/components/InvestmentApprova
 import {WithdrawalApprovalQueue} from '../../../src/components/WithdrawalApprovalQueue';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Linking,
-  Alert,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { Card } from '../../../src/components/Card';
-import { Avatar } from '../../../src/components/Avatar';
-import { ProgressRing } from '../../../src/components/ProgressRing';
+
+
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
@@ -33,8 +23,6 @@ export default function HomeDashboardScreen() {
   const members=useSomitiStore(s=>s.members);
   const projects=useSomitiStore(s=>s.projects);
   const cashAccounts=useSomitiStore(s=>s.cashAccounts);
-  const expenses=useSomitiStore(s=>s.expenses);
-  const approveRequest=useSomitiStore(s=>s.approveRequest);
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +66,7 @@ export default function HomeDashboardScreen() {
     ? (somitiInfo.name?.trim().charAt(0) || 'আ')
     : (somitiInfo.nameEn?.trim().charAt(0) || 'A');
 
-  const handleQuickApprove = (item: { id: string; title: string; amount: number }) => {
+  const handleQuickApprove = () => {
     router.push('/(admin)/approvals');
   };
 
@@ -335,7 +323,7 @@ export default function HomeDashboardScreen() {
                   styles.approvalItem,
                   index === Math.min(approvals.length, 3) - 1 && { borderBottomWidth: 0 },
                 ]}
-                onPress={() => handleQuickApprove(item)}
+                onPress={handleQuickApprove}
                 activeOpacity={0.7}
               >
                 <View style={styles.approvalItemInfo}>
@@ -564,12 +552,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.base,
     color: colors.text,
   },
-  cardSubtitle: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-  },
   viewLinkText: {
     fontFamily: 'HindSiliguri-Medium',
     fontSize: typography.size.subhead,
@@ -591,37 +573,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.xxl,
     color: colors.text,
   },
-  collectionSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  collectionFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
-  },
-  paidText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.primary,
-  },
-  dueLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dueText: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.warning,
-  },
   twoColumnRow: {
     flexDirection: 'row',
     gap: 12,
@@ -629,13 +580,6 @@ const styles = StyleSheet.create({
   },
   halfCardWrapper: {
     flex: 1,
-  },
-  dueHalfCard: {
-    backgroundColor: colors.warningSoft,
-    borderRadius: 16,
-    padding: 14,
-    minHeight: 110,
-    justifyContent: 'space-between',
   },
   projectHalfCard: {
     padding: 14,
@@ -647,24 +591,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  dueHalfCardTitle: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.warning,
-  },
   projectHalfCardTitle: {
     fontFamily: 'HindSiliguri-Medium',
     fontSize: typography.size.sm,
     lineHeight: typography.lineHeight.sm,
     color: colors.text,
-  },
-  dueHalfCardAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xl,
-    lineHeight: typography.lineHeight.xl,
-    color: colors.warning,
-    marginVertical: 4,
   },
   projectHalfCardAmount: {
     fontFamily: 'HindSiliguri-Bold',
@@ -672,12 +603,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.xl,
     color: colors.primary,
     marginVertical: 4,
-  },
-  dueHalfCardSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.warning,
   },
   projectHalfCardSub: {
     fontFamily: 'HindSiliguri-Regular',
@@ -711,40 +636,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     lineHeight: typography.lineHeight.md,
     color: colors.text,
-  },
-  followupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  followupInfo: {
-    flex: 1,
-  },
-  followupName: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-  },
-  followupNote: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-  },
-  followupActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   approvalItem: {
     flexDirection: 'row',

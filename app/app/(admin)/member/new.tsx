@@ -733,19 +733,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     outlineStyle: 'none' as any,
   },
-  readonlyIdContainer: {
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  readonlyIdText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.md,
-    color: colors.text,
-  },
   helperHint: {
     fontFamily: 'HindSiliguri-Regular',
     fontSize: typography.size.caption,
@@ -807,29 +794,6 @@ const styles = StyleSheet.create({
   },
   col: {
     flex: 1,
-  },
-  currencyInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-  currencyPrefix: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.md,
-    color: colors.text,
-    marginRight: 6,
-  },
-  currencyInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.md,
-    color: colors.text,
-    outlineStyle: 'none' as any,
   },
   datePickerHeader: {
     flexDirection: 'row',
@@ -951,11 +915,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 28,
     gap: 8,
-  },
-  submitBtnText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.base,
-    color: colors.textWhite,
   },
   successModalHeader: {
     alignItems: 'center',

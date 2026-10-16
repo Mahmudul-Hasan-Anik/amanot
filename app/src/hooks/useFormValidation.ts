@@ -1,5 +1,5 @@
-import {useRef,useState} from 'react';
-import {Keyboard,ScrollView,View} from 'react-native';
+import { useRef, useState } from 'react';
+import { Keyboard, ScrollView, View } from 'react-native';
 
 /** Keep error messages beside fields and bring the first invalid field into view. */
 export function useFormValidation(){

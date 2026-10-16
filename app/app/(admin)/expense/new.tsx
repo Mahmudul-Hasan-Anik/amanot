@@ -18,7 +18,7 @@ import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { todayDMY } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
-import { useAuthStore } from '../../../src/features/auth/authStore';
+
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 

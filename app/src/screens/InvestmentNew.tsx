@@ -1,18 +1,18 @@
-import React,{useRef,useState} from 'react';
-import {useFormValidation} from '../hooks/useFormValidation';
-import {View,Text,ScrollView,StyleSheet,Alert,KeyboardAvoidingView,Platform} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useRouter,useLocalSearchParams} from 'expo-router';
-import {Button,Card,Input,SelectModal} from '../components';
-import {MemberPicker} from '../components/MemberPicker';
-import {useLanguage} from '../i18n/useLanguage';
-import {useSomitiStore} from '../store/somitiStore';
-import {useAuthStore} from '../features/auth/authStore';
-import {colors} from '../theme/colors';
-import {typography} from '../theme/typography';
-import {uuid} from '../lib/api';
-import {safeBack} from '../utils/navigation';
-import {EmergencyContact,NewInvestment,contractAmounts,investmentSchedule,isoToday,monthDate,parseInvestmentAmount,investmentFieldErrors} from '../lib/investment';
+import React, { useRef, useState } from 'react';
+import { useFormValidation } from '../hooks/useFormValidation';
+import { View, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Button, Card, Input, SelectModal } from '../components';
+import { MemberPicker } from '../components/MemberPicker';
+import { useLanguage } from '../i18n/useLanguage';
+import { useSomitiStore } from '../store/somitiStore';
+import { useAuthStore } from '../features/auth/authStore';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+import { uuid } from '../lib/api';
+import { safeBack } from '../utils/navigation';
+import { EmergencyContact, NewInvestment, contractAmounts, investmentSchedule, isoToday, monthDate, parseInvestmentAmount, investmentFieldErrors } from '../lib/investment';
 
 export default function InvestmentNew(){
   const {l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();const router=useRouter();

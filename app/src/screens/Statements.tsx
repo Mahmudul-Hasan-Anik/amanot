@@ -1,17 +1,17 @@
-import React,{useState,useEffect,useRef} from 'react';
-import {useLocalSearchParams} from 'expo-router';
-import {Text,View,TouchableOpacity,ScrollView} from 'react-native';
-import {useSomitiStore} from '../store/somitiStore';
-import {useLanguage} from '../i18n/useLanguage';
-import {Page,pageStyles as s} from '../components/Page';
-import {exportReport,Report} from '../utils/reportExport';
-import {colors} from '../theme/colors';
-import {isSupabaseConfigured} from '../lib/supabase';
-import {fetchMemberStatementSnapshot,fetchMemberBalancesSnapshot} from '../lib/api';
-import {buildMemberStatement} from '../lib/memberStatement';
-import {MemberPicker} from '../components/MemberPicker';
-import {MemberBalanceSummary} from '../components/MemberBalanceSummary';
-import {useAuthStore} from '../features/auth/authStore';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { useSomitiStore } from '../store/somitiStore';
+import { useLanguage } from '../i18n/useLanguage';
+import { Page, pageStyles as s } from '../components/Page';
+import { exportReport, Report } from '../utils/reportExport';
+import { colors } from '../theme/colors';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { fetchMemberStatementSnapshot, fetchMemberBalancesSnapshot } from '../lib/api';
+import { buildMemberStatement } from '../lib/memberStatement';
+import { MemberPicker } from '../components/MemberPicker';
+import { MemberBalanceSummary } from '../components/MemberBalanceSummary';
+import { useAuthStore } from '../features/auth/authStore';
 
 export default function Statements(){
   const state=useSomitiStore();const {l,formatMoney,isBengali}=useLanguage();

@@ -23,7 +23,7 @@ import { typography } from '../../src/theme/typography';
 
 export default function SomitiProfileScreen() {
   const router = useRouter();
-  const { l, formatNum, isBengali } = useLanguage();
+  const { l, isBengali } = useLanguage();
   const { somitiInfo, members, projects, updateSomitiInfo } = useSomitiStore();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -655,36 +655,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.textSecondary,
     paddingVertical: 12,
-  },
-  docRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  docIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  docDetails: {
-    flex: 1,
-  },
-  docTitle: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-  },
-  docSub: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,

@@ -1,7 +1,7 @@
-import type {Member} from '../mocks/mockData';
-import type {Transaction} from '../store/somitiStore';
-import type {Report} from '../utils/reportExport';
-import {financeNote} from '../i18n/financeLabels';
+import type { Member } from '../mocks/mockData';
+import type { Transaction } from '../store/somitiStore';
+import type { Report } from '../utils/reportExport';
+import { financeNote } from '../i18n/financeLabels';
 /** Full, revision-consistent history only; allocated profit is shown separately. */
 export function buildMemberStatement(member:Member,history:Transaction[],language:'bn'|'en'):Report{
  const l=(en:string,bn:string)=>language==='en'?en:bn;

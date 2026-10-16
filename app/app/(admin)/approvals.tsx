@@ -21,12 +21,7 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
-import {
-  PendingApproval,
-  mockPendingApprovals,
-  mockApprovedApprovals,
-  mockRejectedApprovals,
-} from '../../src/mocks/mockData';
+import { PendingApproval } from '../../src/mocks/mockData';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';

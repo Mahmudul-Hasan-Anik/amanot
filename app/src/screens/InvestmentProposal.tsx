@@ -1,15 +1,15 @@
-import React,{useRef,useState} from 'react';
-import {View,Text,ScrollView,StyleSheet} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useLocalSearchParams,useRouter} from 'expo-router';
-import {Button,Card,Input,SelectModal} from '../components';
-import {useSomitiStore} from '../store/somitiStore';
-import {useAuthStore} from '../features/auth/authStore';
-import {useLanguage} from '../i18n/useLanguage';
-import {contractAmounts,investmentSchedule,isoToday,monthDate,NewInvestment,validISODate} from '../lib/investment';
-import {colors} from '../theme/colors';
-import {typography} from '../theme/typography';
-import {safeBack} from '../utils/navigation';
+import React, { useRef, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Button, Card, Input, SelectModal } from '../components';
+import { useSomitiStore } from '../store/somitiStore';
+import { useAuthStore } from '../features/auth/authStore';
+import { useLanguage } from '../i18n/useLanguage';
+import { contractAmounts, investmentSchedule, isoToday, monthDate, NewInvestment, validISODate } from '../lib/investment';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+import { safeBack } from '../utils/navigation';
 export default function InvestmentProposal(){
  const {id}=useLocalSearchParams<{id:string}>(),router=useRouter(),{l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
  const proposal=useSomitiStore(s=>s.investmentProposals.find(p=>p.id===id));

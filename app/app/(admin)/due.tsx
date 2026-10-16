@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../src/store/somitiStore';
-import { Member, mockMembers } from '../../src/mocks/mockData';
+import { Member } from '../../src/mocks/mockData';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { Avatar } from '../../src/components/Avatar';
@@ -24,8 +24,8 @@ type FilterChipType = 'all' | '3plus' | '2month' | '1month';
 
 export default function DueMembersScreen() {
   const router = useRouter();
-  const { l, isBengali, formatMoney, formatNum } = useLanguage();
-  const { members, somitiInfo } = useSomitiStore();
+  const { l, formatMoney, formatNum } = useLanguage();
+  const { members } = useSomitiStore();
 
   const displayMembers = useMemo(() => (members), [members]);
 

@@ -2,22 +2,13 @@ import {isoToday,parseInvestmentAmount} from '../../../src/lib/investment';
 import {useFormValidation} from '../../../src/hooks/useFormValidation';
 import {MemberPicker} from '../../../src/components/MemberPicker';
 import {Button} from '../../../src/components/Button';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  StatusBar,
-  Alert,
-} from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { Member, mockMembers } from '../../../src/mocks/mockData';
+import { Member } from '../../../src/mocks/mockData';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
@@ -27,7 +18,7 @@ import { toEnglishDigits } from '../../../src/lib/money';
 import { toBengaliDigits, BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
-import { getDepositMonthOptions, defaultSelectedMonths, MonthOption, todayDMY, parseDMY } from '../../../src/lib/months';
+import { todayDMY, parseDMY } from '../../../src/lib/months';
 import { uuid } from '../../../src/lib/api';
 
 type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'bank';
@@ -35,7 +26,7 @@ type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'bank';
 export default function RecordDepositScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { members, recordDeposit, somitiInfo } = useSomitiStore();
+  const { members, recordDeposit } = useSomitiStore();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const validation=useFormValidation(),submitLock=useRef(false);
 
@@ -573,36 +564,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 4,
   },
-  monthPillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  monthPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 9999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  monthPillActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primarySoft,
-  },
-  monthPillText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.text,
-  },
-  monthPillTextActive: {
-    color: colors.primary,
-    fontFamily: typography.fontFamily.bold,
-  },
   amountCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -660,28 +621,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 6,
     marginBottom: 12,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  amountLabel: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.textSecondary,
-  },
-  amountVal: {
-    flexShrink: 0,
-    marginLeft: 12,
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
   },
   segmentedMethodTrack: {
     flexDirection: 'row',
@@ -843,59 +782,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.text,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.title,
-    lineHeight: typography.lineHeight.title,
-    color: colors.text,
-  },
-  modalSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 38,
-    marginBottom: 12,
-    gap: 8,
-  },
-  modalSearchInput: {
-    flex: 1,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.sm,
-    color: colors.text,
-    padding: 0,
-  },
-  modalMemberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  modalMemberItemActive: {
-    backgroundColor: colors.surfaceMuted,
-  },
-  duePill: {
-    backgroundColor: colors.warningSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  duePillText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.tiny,
-    lineHeight: typography.lineHeight.tiny,
-    color: colors.warning,
-  },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -919,12 +805,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
-  },
-  confirmBtnText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.surface,
   },
   datePickerHeader: {
     flexDirection: 'row',

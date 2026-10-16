@@ -77,7 +77,7 @@ export default function LoginScreen() {
 
   // Timer countdown
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (otpSent && timerSeconds > 0) {
       interval = setInterval(() => {
         setTimerSeconds((prev) => {

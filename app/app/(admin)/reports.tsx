@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-  StyleSheet,
-  StatusBar,
-  Alert,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -348,45 +339,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.xs,
     color: colors.text,
-  },
-  sectionHeading: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.title,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  automatedCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 20,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  toggleTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    color: colors.text,
-    marginBottom: 2,
-  },
-  toggleSub: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    color: colors.textSecondary,
-  },
-  toggleDivider: {
-    height: 1,
-    backgroundColor: colors.surfaceMuted,
-    marginVertical: 14,
   },
   exportAllButton: {
     flexDirection: 'row',

@@ -1,14 +1,14 @@
-import React,{useMemo,useState} from 'react';
-import {View,Text,FlatList,Pressable,StyleSheet} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useRouter} from 'expo-router';
-import {Button,Card,FilterChip,Input} from '../components';
-import {useSomitiStore} from '../store/somitiStore';
-import {useAuthStore} from '../features/auth/authStore';
-import {useLanguage} from '../i18n/useLanguage';
-import {investmentSchedule,roundMoney} from '../lib/investment';
-import {colors} from '../theme/colors';
-import {typography} from '../theme/typography';
+import React, { useMemo, useState } from 'react';
+import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Button, Card, FilterChip, Input } from '../components';
+import { useSomitiStore } from '../store/somitiStore';
+import { useAuthStore } from '../features/auth/authStore';
+import { useLanguage } from '../i18n/useLanguage';
+import { investmentSchedule, roundMoney } from '../lib/investment';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 export default function Investments(){
   const router=useRouter();const {l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();

@@ -6,7 +6,7 @@
 import { Platform, Linking, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { toBengaliDigits, formatSouthAsianNumber } from '../lib/money';
+import { toBengaliDigits } from '../lib/money';
 
 export const escapeHtml = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]!));
 

@@ -19,7 +19,7 @@ import { typography } from '../../../src/theme/typography';
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { logout, currentUser, actualRole } = useAuthStore();
+  const { logout, currentUser } = useAuthStore();
   const { l, formatNum, isBengali } = useLanguage();
   const pendingCount = useSomitiStore(s => s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length+s.withdrawalRequests.filter(r=>['submitted','approved'].includes(r.status)).length);
 

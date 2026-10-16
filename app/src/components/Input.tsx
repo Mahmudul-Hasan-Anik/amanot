@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,6 @@ export const Input: React.FC<InputProps> = ({
   editable = true,
   ...rest
 }) => {
-  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
@@ -58,8 +57,6 @@ export const Input: React.FC<InputProps> = ({
         <TextInput
           editable={editable}
           placeholderTextColor={colors.textSecondary}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           style={[
             styles.input,
             prefix ? styles.inputWithPrefix : null,

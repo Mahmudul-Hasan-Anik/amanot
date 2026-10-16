@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
-import { mockProjects } from '../../../src/mocks/mockData';
+
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';

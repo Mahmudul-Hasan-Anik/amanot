@@ -27,7 +27,7 @@ export default function MemberProfileScreen() {
   const router = useRouter();
   const { currentUser, setCustomPin, switchRole, logout, actualRole } = useAuthStore();
   const { members } = useSomitiStore();
-  const { l, formatMoney, isBengali } = useLanguage();
+  const { l, isBengali } = useLanguage();
 
   const [showPinModal, setShowPinModal] = useState(false);
   const REMOTE = isSupabaseConfigured();

@@ -19,7 +19,7 @@ import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
-import { NumberSettingModal } from '../../src/components/NumberSettingModal';
+
 import { typography } from '../../src/theme/typography';
 
 export default function SettingsScreen() {
@@ -28,7 +28,6 @@ export default function SettingsScreen() {
   const { resetAllData, somitiInfo, updateSomitiInfo } = useSomitiStore();
   const {
     language,
-    isBengali,
     useBengaliDigits,
     l,
     formatMoney,

@@ -30,7 +30,7 @@ type FilterType = 'all' | 'active' | 'general' | 'shareholder' | 'director' | 'i
 export default function MembersScreen() {
   const router = useRouter();
   const members = useSomitiStore(s => s.members);
-  const { l, formatMoney, formatNum, language } = useLanguage();
+  const { l, formatNum, language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showFilter, setShowFilter] = useState(false);
@@ -45,7 +45,6 @@ export default function MembersScreen() {
   // Aggregated totals matching Somiti level counts
   const totalCount = members.length;
   const activeCount = members.filter((m) => m.status !== 'inactive').length;
-  const dueCount = members.filter((m) => m.dueAmount > 0).length;
   const inactiveCount = members.filter((m) => m.status === 'inactive').length;
 
   const filteredMembers = useMemo(() => {

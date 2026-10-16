@@ -3,12 +3,12 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { escapeHtml } from './pdfExport';
-import {financeNote} from '../i18n/financeLabels';
+import { financeNote } from '../i18n/financeLabels';
 import { colors } from '../theme/colors';
 import type { SomitiState } from '../store/somitiStore';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { fetchLedgerSummary, fetchTransactionHistory, fetchDistributionShares } from '../lib/api';
-import {investmentSchedule} from '../lib/investment';
+import { investmentSchedule } from '../lib/investment';
 import { monthRange, signedTransactionAmount } from '../lib/ledger';
 
 export type Report = { title:string; columns:string[]; rows:Array<Array<string|number>>; language?:'bn'|'en' };

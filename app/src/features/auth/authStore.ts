@@ -300,7 +300,7 @@ export const useAuthStore = create<AuthState>()(
           set({ userRole: role });
           return;
         }
-        set((state) => {
+        set(() => {
           if (role === 'admin') {
             return {
               userRole: 'admin',

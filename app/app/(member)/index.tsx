@@ -1,17 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  StatusBar,
-  Linking,
-  Platform,
-  Alert,
-  Share,
-} from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Linking, Alert, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -19,7 +7,7 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { LanguageToggle } from '../../src/components/LanguageToggle';
-import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../src/lib/bengali';
+
 import { bnDate } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
@@ -28,25 +16,12 @@ import {Button} from '../../src/components/Button';
 import {signedTransactionAmount} from '../../src/lib/ledger';
 import {MemberBalanceSummary} from '../../src/components/MemberBalanceSummary';
 
-const MONTH_NAMES_BN = [
-  'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
-  'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'
-];
-
-const MONTH_NAMES_EN = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
-
 export default function MemberDashboardScreen() {
   const router = useRouter();
-  const { currentUser, switchRole, logout, actualRole } = useAuthStore();
-  const { somitiInfo, members, transactions, notices,withdrawalRequests } = useSomitiStore();
+  const { currentUser, switchRole, actualRole } = useAuthStore();
+  const { somitiInfo, members, notices,withdrawalRequests } = useSomitiStore();
   const canSwitchToAdmin = actualRole !== 'member';
-  const year = new Date().getFullYear();
-  const { l, formatMoney, formatNum, language, isBengali } = useLanguage();
-
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const { l, formatMoney, isBengali } = useLanguage();
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
@@ -134,14 +109,6 @@ export default function MemberDashboardScreen() {
               {l('Switch to Admin View ➔', 'অ্যাডমিন ভিউতে যান ➔')}
             </Text>
           </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Copy Toast Feedback */}
-      {copyFeedback && (
-        <View style={styles.copyToast}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-          <Text style={styles.copyToastText}>{copyFeedback}</Text>
         </View>
       )}
 
@@ -414,21 +381,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     color: colors.textSecondary,
   },
-  copyToast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  copyToastText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    color: colors.primary,
-  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -481,30 +433,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.subhead,
     color: colors.surface,
-  },
-  paidBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  paidBadgeText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.xs,
-    color: colors.primary,
-  },
-  dueBadge: {
-    backgroundColor: colors.warningSoft,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  dueBadgeText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.xs,
-    color: colors.warning,
   },
   sectionCard: {
     backgroundColor: colors.surface,
@@ -570,57 +498,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.size.caption,
     color: colors.primary,
-  },
-  monthsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  monthItemBox: {
-    width: '23%',
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  monthBoxPaid: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
-  monthBoxDue: {
-    backgroundColor: colors.warningSoft,
-    borderColor: colors.warning,
-  },
-  monthBoxUpcoming: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-  },
-  monthNameText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    color: colors.text,
-  },
-  monthStatusText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.xs,
-    marginTop: 2,
-  },
-  statusPaidText: {
-    color: colors.primary,
-  },
-  statusDueText: {
-    color: colors.warning,
-  },
-  statusUpcomingText: {
-    color: colors.textSecondary,
-  },
-  gridHint: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 10,
   },
   sampleNotice: {
     flexDirection: 'row',
@@ -715,80 +592,6 @@ const styles = StyleSheet.create({
   helpBtnText: {
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.size.xs,
-    color: colors.surface,
-  },
-  webModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  voucherCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
-  },
-  voucherHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceMuted,
-    paddingBottom: 12,
-    marginBottom: 12,
-  },
-  voucherSomitiTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.base,
-    color: colors.primary,
-  },
-  voucherSubtitle: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    color: colors.textSecondary,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  voucherBody: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  voucherRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  voucherLabel: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    color: colors.textSecondary,
-  },
-  voucherVal: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.caption,
-    color: colors.text,
-  },
-  voucherValBold: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    color: colors.text,
-  },
-  voucherCloseBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  voucherCloseBtnText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
     color: colors.surface,
   },
   bottomSpacer: {

@@ -1,9 +1,9 @@
 import React from 'react';
-import {Text,View} from 'react-native';
-import type {Member} from '../mocks/mockData';
-import {Withdrawal,savingsBreakdown} from '../lib/withdrawal';
-import {useLanguage} from '../i18n/useLanguage';
-import {pageStyles as s} from './Page';
+import { Text, View } from 'react-native';
+import type { Member } from '../mocks/mockData';
+import { Withdrawal, savingsBreakdown } from '../lib/withdrawal';
+import { useLanguage } from '../i18n/useLanguage';
+import { pageStyles as s } from './Page';
 export function MemberBalanceSummary({member,requests}:{member:Member;requests:Withdrawal[]}){
  const {l,formatMoneyPrecise:money}=useLanguage(),b=savingsBreakdown(member,requests);
  const rows:[[string,string],number][]=[

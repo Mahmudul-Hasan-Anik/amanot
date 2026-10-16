@@ -1,9 +1,9 @@
-import React,{useRef,useState} from 'react';
-import {Modal,View,Text,ScrollView,Share,StyleSheet} from 'react-native';
-import {Button} from './Button';
-import {useLanguage} from '../i18n/useLanguage';
-import {colors} from '../theme/colors';
-import {typography} from '../theme/typography';
+import React, { useRef, useState } from 'react';
+import { Modal, View, Text, ScrollView, Share, StyleSheet } from 'react-native';
+import { Button } from './Button';
+import { useLanguage } from '../i18n/useLanguage';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 type LoginMember={name:string;code:string;phone:string};
 export function LoginPinCard({member,pin}:{member:LoginMember;pin:string}){

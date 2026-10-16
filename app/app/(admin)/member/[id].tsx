@@ -1,6 +1,6 @@
 import {ActionMenu} from '../../../src/components/ActionMenu';
 import { MemberIdentityFields } from '../../../src/components/MemberIdentityFields';
-import { MemberCategory, MEMBER_CATEGORIES, legacyMemberNumber } from '../../../src/lib/memberIdentity';
+import { MemberCategory, MEMBER_CATEGORIES } from '../../../src/lib/memberIdentity';
 import React, { useState } from 'react';
 import {
   View,
@@ -26,8 +26,8 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { isSupabaseConfigured } from '../../../src/lib/supabase';
-import { BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
-import { ENGLISH_MONTHS } from '../../../src/lib/months';
+
+
 import { safeBack } from '../../../src/utils/navigation';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
@@ -766,17 +766,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     color: colors.primary,
   },
-  dueBadge: {
-    backgroundColor: colors.warningSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 9999,
-  },
-  dueBadgeText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.xs,
-    color: colors.warning,
-  },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -810,43 +799,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.caption,
     color: colors.textSecondary,
   },
-  cardLargeAmount: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.headline,
-    color: colors.text,
-    marginVertical: 4,
-  },
-  cardSubText: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    color: colors.textSecondary,
-    marginBottom: 14,
-  },
-  overdueBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.warningSoft,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  overdueTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.sm,
-    color: colors.warning,
-  },
-  overdueSub: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    color: colors.warning,
-    marginTop: 2,
-  },
-  overdueAmount: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.base,
-    color: colors.warning,
-  },
   profitGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -864,76 +816,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     color: colors.primary,
     marginTop: 2,
-  },
-  cardHeaderFlex: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    color: colors.text,
-  },
-  fractionText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.caption,
-    color: colors.textSecondary,
-  },
-  monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  monthTile: {
-    flexBasis: '22.8%',
-    flexGrow: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthTilePaid: {
-    backgroundColor: colors.primary,
-  },
-  monthTileDue: {
-    backgroundColor: colors.warningSoft,
-    borderWidth: 1.5,
-    borderColor: colors.warning,
-  },
-  monthTileUpcoming: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-  },
-  monthTileName: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.caption,
-  },
-  monthTileStatus: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.tiny,
-    marginTop: 2,
-  },
-  monthNamePaid: {
-    color: colors.surface,
-  },
-  monthStatusPaid: {
-    color: colors.primarySoft,
-  },
-  monthNameDue: {
-    color: colors.warning,
-  },
-  monthStatusDue: {
-    color: colors.warning,
-  },
-  monthNameUpcoming: {
-    color: colors.textSecondary,
-  },
-  monthStatusUpcoming: {
-    color: colors.textSecondary,
   },
   sectionHeaderFlex: {
     flexDirection: 'row',

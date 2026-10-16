@@ -1,16 +1,16 @@
-import React,{useState} from 'react';
-import {Text,View,Alert} from 'react-native';
-import {useRouter} from 'expo-router';
-import {Page,pageStyles as s} from '../components/Page';
-import {Button} from '../components/Button';
-import {Input} from '../components/Input';
-import {Checkbox} from '../components/Checkbox';
-import {SessionGuard} from '../components/SessionGuard';
-import {useLanguage} from '../i18n/useLanguage';
-import {useAuthStore} from '../features/auth/authStore';
-import {useSomitiStore,REMOTE} from '../store/somitiStore';
-import {deleteMyAccount} from '../lib/api';
-import {normalizePin} from '../lib/pinPolicy';
+import React, { useState } from 'react';
+import { Text, View, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Page, pageStyles as s } from '../components/Page';
+import { Button } from '../components/Button';
+import { Input } from '../components/Input';
+import { Checkbox } from '../components/Checkbox';
+import { SessionGuard } from '../components/SessionGuard';
+import { useLanguage } from '../i18n/useLanguage';
+import { useAuthStore } from '../features/auth/authStore';
+import { useSomitiStore, REMOTE } from '../store/somitiStore';
+import { deleteMyAccount } from '../lib/api';
+import { normalizePin } from '../lib/pinPolicy';
 
 export default function AccountDeletion(){
   const {l}=useLanguage(); const router=useRouter();

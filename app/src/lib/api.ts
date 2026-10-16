@@ -8,7 +8,7 @@ import { BENGALI_MONTHS_FULL } from './bengali';
 import { toBengaliDigits } from './money';
 import type { Member, Project, PendingApproval, CashAccount } from '../mocks/mockData';
 import type { Transaction, ExpenseItem } from '../store/somitiStore';
-import { Platform } from 'react-native';
+
 import { readProfilePhoto } from './profilePhoto';
 import { friendlyAuthError } from './authErrors';
 import { LedgerFilter, LedgerCursor, LedgerPage, LedgerSummary, emptyLedgerSummary } from './ledger';

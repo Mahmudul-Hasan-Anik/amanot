@@ -1,10 +1,10 @@
 import React from 'react';
-import {Text,View,Pressable} from 'react-native';
-import {useRouter} from 'expo-router';
-import {useSomitiStore} from '../store/somitiStore';
-import {useLanguage} from '../i18n/useLanguage';
-import {colors} from '../theme/colors';
-import {pendingDays} from '../lib/withdrawal';
+import { Text, View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSomitiStore } from '../store/somitiStore';
+import { useLanguage } from '../i18n/useLanguage';
+import { colors } from '../theme/colors';
+import { pendingDays } from '../lib/withdrawal';
 export function WithdrawalApprovalQueue({tab='pending',hideEmpty=false}:{tab?:'pending'|'approved'|'rejected';hideEmpty?:boolean}){
  const router=useRouter(),{l,formatMoney,formatNum}=useLanguage();
  const rows=useSomitiStore(s=>s.withdrawalRequests).filter(r=>tab==='pending'?['submitted','approved'].includes(r.status):tab==='approved'?['paid','reversed'].includes(r.status):['rejected','cancelled'].includes(r.status));
