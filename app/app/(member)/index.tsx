@@ -26,6 +26,7 @@ import { typography } from '../../src/theme/typography';
 import {useLedgerPage} from '../../src/hooks/useLedgerPage';
 import {Button} from '../../src/components/Button';
 import {signedTransactionAmount} from '../../src/lib/ledger';
+import {MemberBalanceSummary} from '../../src/components/MemberBalanceSummary';
 
 const MONTH_NAMES_BN = [
   'জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -40,7 +41,7 @@ const MONTH_NAMES_EN = [
 export default function MemberDashboardScreen() {
   const router = useRouter();
   const { currentUser, switchRole, logout, actualRole } = useAuthStore();
-  const { somitiInfo, members, transactions, notices } = useSomitiStore() as any;
+  const { somitiInfo, members, transactions, notices,withdrawalRequests } = useSomitiStore();
   const canSwitchToAdmin = actualRole !== 'member';
   const year = new Date().getFullYear();
   const { l, formatMoney, formatNum, language, isBengali } = useLanguage();
@@ -181,6 +182,11 @@ export default function MemberDashboardScreen() {
 
         {/* 2. Pay Due / Payment Accounts */}
         <Button title={l('Request savings withdrawal','সঞ্চয় উত্তোলনের আবেদন')} onPress={()=>router.push('/(member)/withdrawals')} style={{marginBottom:16}}/>
+        <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
+        {withdrawalRequests.some(r=>r.member_id===member.id&&['submitted','approved'].includes(r.status))&&<View style={styles.sectionCard}>
+          <Text style={styles.cardSectionTitle}>{l('My withdrawal requests','আমার উত্তোলনের আবেদন')}</Text>
+          {withdrawalRequests.filter(r=>r.member_id===member.id&&['submitted','approved'].includes(r.status)).slice(0,3).map(r=><Text key={r.id} style={styles.cardSubText}>{formatMoney(r.amount)} · {r.status==='submitted'?l('Waiting for approval','অনুমোদনের অপেক্ষায়'):l('Approved · payment pending','অনুমোদিত · টাকা প্রদান বাকি')}</Text>)}
+        </View>}
         <View style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="wallet-outline" size={18} color={colors.primary} />

@@ -17,8 +17,8 @@ const supabase={rpc:async(name,args={})=>{
  }
  return {data:{},error:null};
 },storage:{from:()=>({createSignedUrls:async paths=>{photoRequests++;if(photoGate)await photoGate;return {data:paths.map(path=>({path,signedUrl:'signed:'+path+':'+photoRequests}))}}})},from:table=>{
- const filter={};const chain={in:(key,value)=>{filter[key]=value.join(',');return chain;},select:()=>chain,order:()=>chain,is:()=>chain,eq:(key,value)=>{filter[key]=value;return chain;},limit:n=>{filter.limit=n;return chain;},maybeSingle:()=>chain,range:(a,b)=>{filter.range=[a,b];return chain;},then:(resolve,reject)=>{
-   let data=table==='somiti_settings'?{info:{name:'Fixture'}}:table==='members'?memberRows:[];
+ const filter={};const chain={in:(key,value)=>{filter[key]=value.join(',');return chain;},select:()=>chain,order:()=>chain,is:()=>chain,eq:(key,value)=>{filter[key]=value;return chain;},limit:n=>{filter.limit=n;return chain;},maybeSingle:()=>{filter.single=true;return chain;},range:(a,b)=>{filter.range=[a,b];return chain;},then:(resolve,reject)=>{
+   let data=table==='somiti_settings'?{info:{name:'Fixture'}}:table==='members'?(filter.single?memberRows.find(m=>m.id===filter.id)||null:memberRows):[];
    requests.push({table,...filter});return Promise.resolve({data,error:null}).then(resolve,reject);
  }};return chain;
 }};
@@ -33,6 +33,12 @@ async function main(){
  assert.equal(history.length,1001);assert.equal(new Set(history.map(t=>t.id)).size,1001);assert.equal(requests.filter(r=>r.name==='get_transaction_page').length,6);
  assert.ok(requests.filter(r=>r.name==='get_transaction_page').every(r=>r.args.p_limit===200&&r.args.p_from==='2026-10-01'));
  const own=await out.fetchTransactionHistory({memberId:'member-a'});assert.equal(own.length,500);assert.ok(own.every(t=>t.memberId==='member-a'));
+ memberRows=[{id:'member-a',name:'Fresh member',code:'M-01',total_deposit:6000,profit_balance:100,months_status:{},avatar_path:'private/avatar'}];
+ const photosBeforeStatement=photoRequests;requests=[];
+ const statement=await out.fetchMemberStatementSnapshot('member-a');assert.equal(statement.member.totalDeposit,6000);assert.equal(statement.transactions.length,500);assert.equal(photoRequests,photosBeforeStatement);assert.ok(requests.some(r=>r.table==='members'&&r.id==='member-a'&&r.single));
+ assert.equal((await out.fetchMemberBalancesSnapshot())[0].totalDeposit,6000);
+ await assert.rejects(()=>out.fetchMemberStatementSnapshot('missing'));
+ changing=true;await assert.rejects(()=>out.fetchMemberStatementSnapshot('member-a'));await assert.rejects(()=>out.fetchMemberBalancesSnapshot());changing=false;memberRows=[];
  changing=true;await assert.rejects(()=>out.fetchTransactionHistory(),/পরিবর্তন/);changing=false;
  const first=await out.signedPhotoUrls(['a','a'],'owner');assert.equal(photoRequests,1);
  const cached=await out.signedPhotoUrls(['a'],'owner');assert.equal(photoRequests,1);assert.equal(cached.get('a'),first.get('a'));

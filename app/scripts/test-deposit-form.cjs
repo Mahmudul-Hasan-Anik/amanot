@@ -1,0 +1,25 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+function load(file,deps={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,requestAnimationFrame:fn=>fn(),require:n=>{if(n in deps)return deps[n];throw Error(n)}});return exports;}
+const digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c))),toBengaliDigits:String,BENGALI_MONTHS_FULL:[]};
+const investment=load('src/lib/investment.ts',{'./bengali':digits}),months=load('src/lib/months.ts',{'./bengali':digits});
+let cursor=0,counter=0;const slots=[],writes=[],routes=[],scrolls=[];
+const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useMemo:fn=>fn(),useEffect:()=>{},useRef:v=>{const i=cursor++;return slots[i]??(slots[i]={current:v})},useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=typeof v==='function'?v():v;return[slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]}};
+const native={View:'View',Text:'Text',ScrollView:'Scroll',TouchableOpacity:'Touch',TextInput:'Input',StatusBar:'Status',StyleSheet:{create:s=>s},Keyboard:{dismiss:()=>{}},Alert:{alert:()=>{throw Error('Unexpected native alert')}}};
+let finish;const gate=new Promise(resolve=>finish=resolve);const state={members:[{id:'m',name:'Member',code:'M-001',status:'paid',totalDeposit:100}],somitiInfo:{},recordDeposit:async p=>{writes.push(p);await gate;return{id:p.id}}};
+const theme={colors:{},typography:{fontFamily:{},size:{},lineHeight:{}}};
+const Screen=load('app/(admin)/deposit/new.tsx',{'react':{__esModule:true,default:React,...React},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useRouter:()=>({replace:p=>routes.push(p)}),useLocalSearchParams:()=>({memberId:'m'})},'@expo/vector-icons/Ionicons':{default:'Icon'},'../../../src/lib/investment':investment,'../../../src/hooks/useFormValidation':load('src/hooks/useFormValidation.ts',{react:React,'react-native':native}),'../../../src/components/MemberPicker':{MemberPicker:'Picker'},'../../../src/components/Button':{Button:'Button'},'../../../src/store/somitiStore':{useSomitiStore:()=>state},'../../../src/mocks/mockData':{},'../../../src/i18n/useLanguage':{useLanguage:()=>({l:en=>en,isBengali:false,formatMoney:String,formatNum:String})},'../../../src/utils/navigation':{},'../../../src/components/AppModal':{AppModal:'Modal'},'../../../src/components/Avatar':{Avatar:'Avatar'},'../../../src/components/Checkbox':{Checkbox:'Check'},'../../../src/lib/money':digits,'../../../src/lib/bengali':digits,'../../../src/theme/colors':theme,'../../../src/theme/typography':theme,'../../../src/lib/months':months,'../../../src/lib/api':{uuid:()=>String(++counter)}}).default;
+const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
+const render=()=>{cursor=0;const tree=nodes(Screen());for(const n of tree){if(n.type==='Scroll'&&n.props.ref)n.props.ref.current={scrollTo:p=>scrolls.push(p)};if(n.type==='View'&&n.props.ref){if(typeof n.props.ref==='function')n.props.ref({measureLayout:(_parent,ok)=>ok(0,100)});else n.props.ref.current={};}}return tree;};
+const button=()=>render().find(n=>n.props.testID==='confirm-deposit-btn');
+const amount=()=>render().find(n=>n.props.accessibilityLabel==='Deposit Amount');
+const errors=()=>render().filter(n=>n.props.accessibilityRole==='alert').map(n=>n.props.children.join(''));
+async function main(){
+ const submits=button().props.onPress;await submits();assert.equal(writes.length,0);assert.equal(errors().length,2);assert.ok(scrolls.some(s=>s.y===84),'First invalid field revealed');
+ for(const bad of ['1x2','1.234','0','-1']){amount().props.onChangeText(bad);await button().props.onPress();assert.equal(writes.length,0);assert.ok(errors().some(e=>e.includes('positive amount')));}
+ amount().props.onChangeText('১,২০০.৫০');render().find(n=>n.props.placeholder==='BK7X29QM4L').props.onChangeText('TX1');
+ render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText('31/02/2026');await button().props.onPress();assert.ok(errors().some(e=>e.includes('valid DD/MM/YYYY')));
+ render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText(months.todayDMY());const submit=button().props.onPress;const pending=submit();await submit();assert.equal(writes.length,1,'Synchronous duplicate tap blocked');assert.equal(button().props.loading,true);assert.equal(writes[0].totalAmount,1200.5);assert.equal(writes[0].lateFee,0);assert.equal(writes[0].months.length,0);
+ finish();await pending;assert.equal(routes.length,1);assert.equal(button().props.loading,false);
+ console.log('PASS deposit form: visible anchored errors, strict Bengali currency parsing, invalid calendar date, loading and duplicate-submit guard.');
+}
+main().catch(e=>{console.error(e);process.exitCode=1});

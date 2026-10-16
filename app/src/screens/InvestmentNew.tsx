@@ -4,6 +4,7 @@ import {View,Text,ScrollView,StyleSheet,Alert,KeyboardAvoidingView,Platform} fro
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useRouter,useLocalSearchParams} from 'expo-router';
 import {Button,Card,Input,SelectModal} from '../components';
+import {MemberPicker} from '../components/MemberPicker';
 import {useLanguage} from '../i18n/useLanguage';
 import {useSomitiStore} from '../store/somitiStore';
 import {useAuthStore} from '../features/auth/authStore';
@@ -95,7 +96,7 @@ export default function InvestmentNew(){
       </>}
       </View>
     </ScrollView></KeyboardAvoidingView>
-    <SelectModal visible={selector==='member'} title={l('Select active member','সক্রিয় সদস্য নির্বাচন')} value={memberId} options={members.filter(m=>m.status!=='inactive').map(m=>({value:m.id,label:`${m.code} · ${m.name} · ${m.phone}`}))} onClose={()=>setSelector('')} onSelect={id=>{const m=members.find(m=>m.id===id);if(!m)return;request.current=uuid();validation.clear();setError('');setMemberId(id);setFields(s=>({...s,recipientName:m.name,phone:m.phone,whatsapp:m.whatsapp||'',address:m.address,nid:m.nid||'',fatherName:m.fatherName||'',motherName:m.motherName||''}));}}/>
+    <MemberPicker visible={selector==='member'} title={l('Select active member','সক্রিয় সদস্য নির্বাচন')} value={memberId} members={members} activeOnly onClose={()=>setSelector('')} onSelect={id=>{const m=members.find(m=>m.id===id);if(!m)return;request.current=uuid();validation.clear();setError('');setMemberId(id);setFields(s=>({...s,recipientName:m.name,phone:m.phone,whatsapp:m.whatsapp||'',address:m.address,nid:m.nid||'',fatherName:m.fatherName||'',motherName:m.motherName||''}));}}/>
     <SelectModal visible={selector==='account'} title={l('Funding account','টাকা দেওয়ার হিসাব')} value={method} options={accounts.filter(a=>['bank','cashier','bkash','nagad'].includes(a.type||'')).map(a=>({value:a.type==='cashier'?'cash':a.type!,label:`${a.name} · ${formatMoney(a.amount)}`}))} onClose={()=>setSelector('')} onSelect={v=>{request.current=uuid();setMethod(v as NewInvestment['paymentMethod']);}}/>
   </SafeAreaView>;
 }

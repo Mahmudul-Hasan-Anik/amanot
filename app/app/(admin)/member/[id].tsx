@@ -33,12 +33,15 @@ import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
 import {signedTransactionAmount} from '../../../src/lib/ledger';
 import {financeNote} from '../../../src/i18n/financeLabels';
+import {MemberBalanceSummary} from '../../../src/components/MemberBalanceSummary';
+import {MemberLoginPin} from '../../../src/components/MemberLoginPin';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { getMemberById, members, updateMember, deleteMember } = useSomitiStore();
+  const withdrawalRequests=useSomitiStore(s=>s.withdrawalRequests);
   const { resetMemberPin, customPins, actualRole, currentUser } = useAuthStore();
   const isAdminUser = actualRole === 'super_admin' || actualRole === 'admin';
 
@@ -47,6 +50,7 @@ export default function MemberProfileScreen() {
 
   // Edit Member Modal State
   const [showActions,setShowActions]=useState(false);
+  const [showLoginPin,setShowLoginPin]=useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editNumber,setEditNumber]=useState('');
   const [editCategory,setEditCategory]=useState<MemberCategory|''>(member?.memberCategory || '');
@@ -134,34 +138,8 @@ export default function MemberProfileScreen() {
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
-  const handleResetPin = () => {
-    Alert.alert(
-      l('Identity verified?', 'সদস্যের পরিচয় যাচাই করেছেন?'),
-      l(
-        `Are you sure you want to reset PIN for ${member.name}? Confirm the member’s identity before issuing a temporary PIN.`,
-        `আপনি কি নিশ্চিত যে ${member.name}-এর পরিচয় যাচাই করে temporary PIN দিতে চান?`
-      ),
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('Yes, Reset', 'হ্যাঁ, রিসেট করুন'),
-          onPress: async () => {
-            try {
-            const temporaryPin = await resetMemberPin(member.id);
-            Alert.alert(
-              l('PIN Reset Done', 'পিন রিসেট সফল'),
-              l(
-                `Temporary PIN for ${member.name}: ${temporaryPin}. Share privately after identity verification. Expires in 72 hours; the member must change it at login.`,
-                `${member.name}-এর temporary PIN: ${temporaryPin}। পরিচয় যাচাই করে ব্যক্তিগতভাবে দিন। মেয়াদ ৭২ ঘণ্টা; login-এর পর বদলাতে হবে।`
-              )
-            );
-            } catch (e: any) { Alert.alert(l('Reset failed', 'রিসেট ব্যর্থ'), e.message); }
-          },
-        },
-      ]
-    );
-  };
-
+  const canIssueLoginPin=isAdminUser&&member?.id!==currentUser?.id;
+  const handleResetPin=()=>{if(canIssueLoginPin)setShowLoginPin(true);};
   const displayName = isBengali ? member.name : (member.nameEn || member.name);
   const displayNominee = isBengali ? member.nomineeName : (member.nomineeNameEn || member.nomineeName);
 
@@ -213,10 +191,10 @@ export default function MemberProfileScreen() {
           text: l('Share login instructions', 'লগইনের নির্দেশনা শেয়ার করুন'),
           onPress: handleSendWhatsAppLoginInfo,
         },
-        {
+        ...(canIssueLoginPin?[{
           text: l('Issue temporary PIN', 'Temporary PIN দিন'),
           onPress: handleResetPin,
-        },
+        }]:[]),
         {
           text: l('Edit Member Info', 'সদস্যের তথ্য সংশোধন'),
           onPress: openEditModal,
@@ -450,16 +428,15 @@ export default function MemberProfileScreen() {
         </View>
 
         {/* Card: মোট জমা */}
+        {canIssueLoginPin&&<Card style={styles.card}>
+          <Text style={styles.cardSmallTitle}>{l('Member app login','সদস্যের অ্যাপ লগইন')}</Text>
+          <Text style={[styles.cardSmallTitle,{marginBottom:12}]}>{l('Give this member a temporary PIN to log in with their mobile number.','মোবাইল নম্বর দিয়ে লগইনের জন্য এই সদস্যকে অস্থায়ী PIN দিন।')}</Text>
+          <Button testID="member-login-pin-btn" title={l('Give login PIN','লগইন PIN দিন')} variant="outline" onPress={handleResetPin}/>
+        </Card>}
+        <Button title={l('Withdrawal requests','উত্তোলনের আবেদন')} variant="outline" onPress={()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id}})} style={{marginBottom:16}}/>
+        <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
         <Card style={styles.card}>
-          <Text style={styles.cardSmallTitle}>{l('Remaining balance', 'অবশিষ্ট ব্যালেন্স')}</Text>
-          <Text style={styles.cardLargeAmount}>
-            {formatMoney(member.totalDeposit)}
-          </Text>
-          <Text style={styles.cardSubText}>
-            {l('Voluntary savings · No fixed monthly amount','ইচ্ছামতো সঞ্চয় · নির্দিষ্ট মাসিক অঙ্ক নেই')}
-          </Text>
-          <Text style={styles.cardSubText}>{l('Net withdrawals','নিট উত্তোলন')}: {formatMoney(member.totalWithdrawn||0)}</Text>
-          <Button title={l('Withdrawal requests','উত্তোলনের আবেদন')} variant="outline" onPress={()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id}})}/>
+          <Text style={styles.cardSmallTitle}>{l('Profit history','লাভের ইতিহাস')}</Text>
 
           {/* Overdue Banner */}
 
@@ -582,6 +559,7 @@ export default function MemberProfileScreen() {
       </StickyCTA>
 
       {/* Edit Member Modal */}
+      {showLoginPin&&canIssueLoginPin&&<MemberLoginPin member={member} onIssue={()=>resetMemberPin(member.id)} onClose={()=>setShowLoginPin(false)}/>}
       <ActionMenu visible={showActions} title={displayName} actions={memberActions} onClose={()=>setShowActions(false)}/>
       <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)} contentContainerStyle={{maxHeight:'90%'}}>
         <ScrollView keyboardShouldPersistTaps="handled" style={{flexShrink:1}}>

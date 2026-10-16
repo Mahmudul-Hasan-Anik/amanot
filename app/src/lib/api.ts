@@ -305,6 +305,22 @@ export async function fetchTransactionByReference(reference:string):Promise<Tran
   const result=unwrap(await supabase.from('transactions').select('*').eq(column,ref).maybeSingle());
   return result ? mapTransaction(result) : null;
 }
+export async function fetchMemberStatementSnapshot(memberId:string){
+ const revision=await fetchSyncRevision();
+ const [row,transactions]=await Promise.all([
+  memberRead(columns=>supabase.from('members').select(columns).eq('id',memberId).maybeSingle()),
+  fetchTransactionHistory({memberId}),
+ ]);
+ if(!row)throw new Error('সদস্য পাওয়া যায়নি / Member unavailable');
+ if(revision!==await fetchSyncRevision())throw new Error('হিসাব পরিবর্তন হয়েছে। আবার চেষ্টা করুন। / Account changed; please retry.');
+ return {member:mapMember(row),transactions};
+}
+export async function fetchMemberBalancesSnapshot(){
+ const revision=await fetchSyncRevision();
+ const rows=await allRows('members',MEMBER_COLUMNS,'code');
+ if(revision!==await fetchSyncRevision())throw new Error('হিসাব পরিবর্তন হয়েছে। আবার চেষ্টা করুন। / Account changed; please retry.');
+ return rows.map(m=>mapMember(m));
+}
 
 const allRows = async (table:string, columns='*', order='created_at', since?:string, statuses?:string[]) => {
     const rows:any[]=[];

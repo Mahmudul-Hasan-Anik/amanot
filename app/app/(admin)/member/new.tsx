@@ -1,7 +1,8 @@
 import { MemberIdentityFields } from '../../../src/components/MemberIdentityFields';
 import { MemberCategory, memberCode, legacyMemberNumber, normalizeMemberNumber } from '../../../src/lib/memberIdentity';
 import { generateTemporaryPin } from '../../../src/lib/pinPolicy';
-import React, { useState } from 'react';
+import React, { useState,useRef } from 'react';
+import {useFormValidation} from '../../../src/hooks/useFormValidation';
 import {
   View,
   Text,
@@ -28,6 +29,8 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
 import { StickyCTA } from '../../../src/components/StickyCTA';
+import { Button } from '../../../src/components/Button';
+import { LoginPinCard } from '../../../src/components/MemberLoginPin';
 import { Checkbox } from '../../../src/components/Checkbox';
 import { toBengaliDigits, toEnglishDigits } from '../../../src/lib/bengali';
 import { todayDMY, parseDMY } from '../../../src/lib/months';
@@ -36,6 +39,7 @@ export default function NewMemberScreen() {
   const router = useRouter();
   const { l, isBengali, formatNum } = useLanguage();
   const { addMember, members } = useSomitiStore();
+  const validation=useFormValidation(),submitLock=useRef(false);
 
   const [memberCategory,setMemberCategory]=useState<MemberCategory|''>('');
   const [memberNumber,setMemberNumber]=useState('');
@@ -148,30 +152,20 @@ export default function NewMemberScreen() {
 
   const [saving,setSaving] = useState(false);
   const handleSubmit = async () => {
-    if (saving) return;
-    if (!name.trim()) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member full name', 'অনুগ্রহ করে সদস্যের পূর্ণ নাম লিখুন'));
-      return;
-    }
-    if (!phone.trim()) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter member mobile number', 'অনুগ্রহ করে সদস্যের মোবাইল নম্বর লিখুন'));
-      return;
-    }
-
-    if (phone.replace(/\D/g, '').length !== 10) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Mobile number must be 11 digits (01XXXXXXXXX)', 'মোবাইল নম্বর ১১ সংখ্যার হতে হবে (০১XXXXXXXXX)'));
-      return;
-    }
+    if (submitLock.current) return;
+    const errors:Record<string,string>={};
+    if(!name.trim())errors.name=l('Enter the full name.','পূর্ণ নাম লিখুন।');
+    if(!/^1[3-9][0-9]{8}$/.test(phone))errors.phone=l('Enter a valid Bangladeshi mobile number.','সঠিক বাংলাদেশি মোবাইল নম্বর দিন।');
     const formattedPhone = phone.startsWith('0') ? phone : `0${phone}`;
     const joinISO = parseDMY(toEnglishDigits(joinDate));
-    if (!joinISO) {
-      Alert.alert(l('Error', 'ত্রুটি'), l('Join date must be DD/MM/YYYY', 'যোগদানের তারিখ DD/MM/YYYY আকারে দিন'));
-      return;
-    }
+    if(!joinISO)errors.joinDate=l('Use a valid DD/MM/YYYY date.','DD/MM/YYYY আকারে সঠিক তারিখ দিন।');
+    if(!sameAsPhone&&!/^1[3-9][0-9]{8}$/.test(whatsappPhone))errors.whatsapp=l('Enter a valid WhatsApp number.','সঠিক WhatsApp নম্বর দিন।');
     const waDigits = !sameAsPhone && whatsappPhone ? `0${whatsappPhone.replace(/^0/, '')}` : formattedPhone;
 
-    try{memberCode(memberCategory,memberNumber)}catch{Alert.alert(l('Invalid member ID','সদস্য ID সঠিক নয়'),l('Select category and enter a digits-only member number.','ক্যাটাগরি নির্বাচন করে শুধু সংখ্যায় সদস্য নম্বর লিখুন।'));return;}
-    if(members.some(member=>(member.memberNumber || legacyMemberNumber(member.code))===normalizeMemberNumber(memberNumber))){Alert.alert(l('Duplicate number','নম্বর ব্যবহৃত হয়েছে'),l('This member number already belongs to a member.','এই নম্বর অন্য সদস্যের জন্য ব্যবহৃত হয়েছে।'));return;}
+    try{memberCode(memberCategory,memberNumber)}catch{errors.identity=l('Select category and enter a digits-only member number.','ক্যাটাগরি নির্বাচন করে শুধু সংখ্যায় সদস্য নম্বর লিখুন।');}
+    if(!errors.identity&&members.some(member=>(member.memberNumber || legacyMemberNumber(member.code))===normalizeMemberNumber(memberNumber)))errors.identity=l('This member number is already used.','এই সদস্য নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে।');
+    if(Object.keys(errors).length){validation.show(errors);return;}
+    validation.clear();submitLock.current=true;
     setSaving(true);
     try {
     const initialPin = REMOTE ? generateTemporaryPin() : '1234';
@@ -183,7 +177,7 @@ export default function NewMemberScreen() {
       memberCategory:memberCategory as MemberCategory,
       memberNumber:normalizeMemberNumber(memberNumber),
       initialPin,
-      joinDate: joinISO,
+      joinDate: joinISO!,
       whatsapp: waDigits,
       nid: nid.trim(),
       address: address.trim() || l('Address not provided', 'ঠিকানা দেওয়া হয়নি'),
@@ -199,7 +193,7 @@ export default function NewMemberScreen() {
     setTemporaryPin(initialPin);
     setCreatedMember(newMember);
     setShowSuccessModal(true);
-    } catch(e:any) { Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message); } finally {setSaving(false);}
+    } catch(e:any) { validation.show({_form:e.message}); } finally {submitLock.current=false;setSaving(false);}
   };
 
   return (
@@ -219,9 +213,12 @@ export default function NewMemberScreen() {
       </View>
 
       <ScrollView
+        ref={validation.scrollRef} keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View ref={validation.contentRef} collapsable={false}>
+        {!!validation.errors._form&&<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{validation.errors._form}</Text>}
         {/* Photo Upload Row (Page 6 Design: horizontal avatar + copy) */}
         <View style={styles.photoRow}>
           <TouchableOpacity
@@ -247,13 +244,14 @@ export default function NewMemberScreen() {
         {/* 1. ব্যক্তিগত তথ্য */}
         <Text style={styles.sectionTitle}>{l('Personal Information', 'ব্যক্তিগত তথ্য')}</Text>
 
-        <View style={styles.inputGroup}>
+        <View style={styles.inputGroup} {...validation.fieldProps('name')}>
           <Text style={styles.fieldLabel}>{l('Full Name *', 'পূর্ণ নাম *')}</Text>
+          {!!validation.errors.name&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.name}</Text>}
           <TextInput
             testID="input-member-name"
             style={styles.input}
             value={name}
-            onChangeText={setName}
+            onChangeText={v=>{setName(v);validation.clear('name');}}
             placeholder={l('e.g. Md. Abdul Karim', 'যেমন: মোঃ আব্দুল করিম')}
             placeholderTextColor={colors.textSecondary}
           />
@@ -269,10 +267,11 @@ export default function NewMemberScreen() {
           <TextInput testID="input-member-mother-name" style={styles.input} value={motherName} onChangeText={setMotherName} placeholder={l("Mother's full name", 'মাতার নাম')} placeholderTextColor={colors.textSecondary} />
         </View>
 
-        <MemberIdentityFields category={memberCategory} number={memberNumber} onCategory={setMemberCategory} onNumber={setMemberNumber}/>
+        <View {...validation.fieldProps('identity')}><MemberIdentityFields category={memberCategory} number={memberNumber} onCategory={v=>{setMemberCategory(v);validation.clear('identity');}} onNumber={v=>{setMemberNumber(v);validation.clear('identity');}}/>
+        {!!validation.errors.identity&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.identity}</Text>}</View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('National ID Number *', 'জাতীয় পরিচয়পত্র নম্বর *')}</Text>
+          <Text style={styles.fieldLabel}>{l('National ID Number (optional)', 'জাতীয় পরিচয়পত্র নম্বর (ঐচ্ছিক)')}</Text>
           <TextInput
             style={styles.input}
             value={nid}
@@ -310,15 +309,16 @@ export default function NewMemberScreen() {
         {/* 2. যোগাযোগ */}
         <Text style={styles.sectionTitle}>{l('Contact Details', 'যোগাযোগ')}</Text>
 
-        <View style={styles.inputGroup}>
+        <View style={styles.inputGroup} {...validation.fieldProps('phone')}>
           <Text style={styles.fieldLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
+          {!!validation.errors.phone&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.phone}</Text>}
           <View style={styles.phoneInputContainer}>
             <Text style={styles.phonePrefixText}>{isBengali ? '+৮৮০' : '+880'}</Text>
             <TextInput
               testID="input-member-phone"
               style={styles.phoneInput}
               value={isBengali ? toBengaliDigits(phone) : phone}
-              onChangeText={handlePhoneChange}
+              onChangeText={v=>{handlePhoneChange(v);validation.clear('phone');}}
               placeholder={isBengali ? '১৭১XX XXXXXX' : '17XX XXXXXX'}
               placeholderTextColor={colors.textSecondary}
               keyboardType="phone-pad"
@@ -335,7 +335,8 @@ export default function NewMemberScreen() {
 
         {!sameAsPhone && (
           <View style={styles.inputGroup}>
-            <Text style={styles.fieldLabel}>{l('WhatsApp Number *', 'হোয়াটসঅ্যাপ নম্বর *')}</Text>
+            <View {...validation.fieldProps('whatsapp')}><Text style={styles.fieldLabel}>{l('WhatsApp Number *', 'হোয়াটসঅ্যাপ নম্বর *')}</Text>
+            {!!validation.errors.whatsapp&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.whatsapp}</Text>}</View>
             <View style={styles.phoneInputContainer}>
               <Text style={styles.phonePrefixText}>{isBengali ? '+৮৮০' : '+880'}</Text>
               <TextInput
@@ -352,7 +353,7 @@ export default function NewMemberScreen() {
         )}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Address *', 'ঠিকানা *')}</Text>
+          <Text style={styles.fieldLabel}>{l('Address (optional)', 'ঠিকানা (ঐচ্ছিক)')}</Text>
           <TextInput
             testID="input-member-address"
             style={styles.input}
@@ -367,7 +368,7 @@ export default function NewMemberScreen() {
         <Text style={styles.sectionTitle}>{l('Nominee', 'নমিনি')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Nominee Name *', 'নমিনির নাম *')}</Text>
+          <Text style={styles.fieldLabel}>{l('Nominee Name (optional)', 'নমিনির নাম (ঐচ্ছিক)')}</Text>
           <TextInput
             testID="input-nominee-name"
             style={styles.input}
@@ -408,7 +409,8 @@ export default function NewMemberScreen() {
         <Text style={styles.sectionTitle}>{l('Somiti Details', 'সমিতির তথ্য')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
+          <View {...validation.fieldProps('joinDate')}><Text style={styles.fieldLabel}>{l('Join Date', 'যোগদানের তারিখ')}</Text>
+          {!!validation.errors.joinDate&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.joinDate}</Text>}</View>
           <View style={styles.inputWithIcon}>
             <TextInput
               testID="input-join-date"
@@ -440,19 +442,13 @@ export default function NewMemberScreen() {
         </View>
 
         <View style={styles.bottomSpacer} />
+        </View>
       </ScrollView>
 
       {/* Sticky Bottom CTA */}
       <StickyCTA backgroundColor={colors.bg}>
-        <TouchableOpacity
-          testID="submit-new-member-btn"
-          style={styles.submitBtn}
-          onPress={handleSubmit} disabled={saving}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="checkmark" size={20} color={colors.textWhite} />
-          <Text style={styles.submitBtnText}>{l('Add Member', 'সদস্য যোগ করুন')}</Text>
-        </TouchableOpacity>
+        <Button testID="submit-new-member-btn" title={l('Add Member', 'সদস্য যোগ করুন')} style={styles.submitBtn}
+          onPress={handleSubmit} loading={saving} icon={<Ionicons name="checkmark" size={20} color={colors.textWhite} />} />
       </StickyCTA>
 
       {/* Date Picker Modal */}
@@ -600,10 +596,10 @@ export default function NewMemberScreen() {
           </Text>
           <Text style={styles.successModalSub}>
             {createdMember?.name} ({createdMember?.code})
-            {temporaryPin ? `\nTemporary PIN: ${temporaryPin}\nপ্রথম login-এ পিন বদলাতে হবে।` : ''}
           </Text>
         </View>
 
+        {createdMember&&temporaryPin&&<LoginPinCard member={createdMember} pin={temporaryPin}/>}
         <TouchableOpacity
           testID="modal-send-whatsapp-btn"
           style={styles.whatsappSendModalBtn}

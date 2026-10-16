@@ -8,9 +8,12 @@ import {SelectModal} from '../components/SelectModal';
 import {useSomitiStore} from '../store/somitiStore';
 import {useAuthStore} from '../features/auth/authStore';
 import {useLanguage} from '../i18n/useLanguage';
-import {Withdrawal,WithdrawalMethod,withdrawalAvailable} from '../lib/withdrawal';
+import {Withdrawal,WithdrawalMethod,withdrawalAvailable,pendingDays} from '../lib/withdrawal';
+import {MemberPicker} from '../components/MemberPicker';
+import {MemberBalanceSummary} from '../components/MemberBalanceSummary';
 import {isoToday,parseInvestmentAmount,validISODate} from '../lib/investment';
-import {uuid} from '../lib/api';
+import {uuid,fetchTransactionByReference} from '../lib/api';
+import {REMOTE} from '../store/somitiStore';
 import {exportReport} from '../utils/reportExport';
 import {colors} from '../theme/colors';
 
@@ -44,10 +47,17 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
   if(locked.current)return;locked.current=true;setBusy(true);setError('');
   try{
    const reversed=r.status==='reversed';
+   const auth=useAuthStore.getState(),identity=`${auth.currentUser?.id}:${auth.actualRole}`;
+   const lookup=async(id:string|undefined)=>id?(useSomitiStore.getState().transactions.find(t=>t.id===id)||(REMOTE?await fetchTransactionByReference(id):null)):null;
+   const [paid,reversal]=await Promise.all([lookup(r.paid_transaction_id),reversed?lookup(r.reversal_transaction_id):Promise.resolve(null)]);
+   const currentAuth=useAuthStore.getState();
+   if(REMOTE&&(!currentAuth.isPinVerified||`${currentAuth.currentUser?.id}:${currentAuth.actualRole}`!==identity))return;
+   if(!paid||(reversed&&!reversal))throw new Error(l('Receipt details unavailable. Refresh and try again.','রসিদের তথ্য পাওয়া যায়নি। আপডেট করে আবার চেষ্টা করুন।'));
    await exportReport({language:isBengali?'bn':'en',title:reversed?l('Withdrawal and reversal receipt','উত্তোলন ও সংশোধনের রসিদ'):l('Savings withdrawal receipt','সঞ্চয় উত্তোলনের রসিদ'),columns:[l('Item','বিবরণ'),l('Value','তথ্য')],rows:[
+    [l('Receipt number','রসিদ নম্বর'),paid.receiptNo],
     [l('Request ID','আবেদন আইডি'),r.id],[l('Member','সদস্য'),r.member_name],[l('Member ID','সদস্য আইডি'),r.member_code],[l('Amount paid','প্রদান করা টাকা'),r.amount],
     [l('Date','তারিখ'),r.payment_date||''],[l('Method','মাধ্যম'),r.payment_method||''],[l('Reference','reference'),r.payment_reference||''],[l('Status','অবস্থা'),status(r.status)],
-    ...(reversed?[[l('Reversal ID','সংশোধনের আইডি'),r.reversal_transaction_id||''],[l('Reversal reason','সংশোধনের কারণ'),r.reversal_reason]]:[])
+    ...(reversed?[[l('Reversal receipt','সংশোধনের রসিদ'),reversal!.receiptNo],[l('Reversal date','সংশোধনের তারিখ'),reversal!.dateISO||reversal!.date],[l('Reversal ID','সংশোধনের আইডি'),r.reversal_transaction_id||''],[l('Reversal reason','সংশোধনের কারণ'),r.reversal_reason]]:[])
    ]},society.name,r.payment_date||isoToday(),'PDF');
   }catch(e:any){setError(e.message);}finally{locked.current=false;setBusy(false);}
  };
@@ -73,11 +83,13 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
   {success?<Text accessibilityLiveRegion="polite" style={[s.text,{color:colors.primary,marginBottom:12}]}>{success}</Text>:null}
   {error&&!modal?<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{error}</Text>:null}
   <View style={s.card}><Text style={s.text}>{l('Approved savings reserved','অনুমোদিত আবেদনে সংরক্ষিত জমা')}</Text><Text style={s.value}>{money(reserved)}</Text><Text style={s.text}>{l('Approval does not deduct money. Cash/bank availability is checked when payment is recorded.','অনুমোদনে টাকা কাটা হয় না। টাকা প্রদানের সময় cash/bank balance যাচাই হয়।')}</Text></View>
+  {memberView&&member&&<MemberBalanceSummary member={member} requests={rows}/>}
   <Button title={l('New withdrawal request','নতুন উত্তোলনের আবেদন')} disabled={busy||(!canChoose&&!current?.id)} onPress={()=>open('new')}/>
   <View style={[s.chips,{marginTop:16}]}>{[['all',l('All','সব')],['pending',l('Pending','অপেক্ষমাণ')],['paid',l('Paid','প্রদত্ত')],['reversed',l('Reversed','সংশোধিত')]].map(([value,label])=><Button key={value} size="sm" variant={filter===value?'primary':'outline'} title={label} onPress={()=>setFilter(value)}/>)}</View>
   {!visible.length&&<Text style={s.text}>{l('No withdrawal requests for this selection.','এই তালিকায় উত্তোলনের আবেদন নেই।')}</Text>}
   {visible.map(r=><View key={r.id} style={s.card}>
    <Text style={s.title}>{r.member_name}</Text><Text style={s.text}>{r.member_code} · {r.created_at.slice(0,10)}</Text><Text style={s.value}>{money(r.amount)}</Text><Text style={[s.text,{color:colors.primary}]}>{status(r.status)}</Text>
+   {['submitted','approved'].includes(r.status)&&<Text style={s.text}>{l('Waiting','অপেক্ষায়')}: {pendingDays(r.created_at)} {l('days','দিন')}</Text>}
    {r.reason?<Text style={s.text}>{l('Reason','কারণ')}: {r.reason}</Text>:null}{r.decision_note?<Text style={s.text}>{l('Decision note','সিদ্ধান্তের মন্তব্য')}: {r.decision_note}</Text>:null}
    {r.status==='submitted'&&admin&&<View style={styles.actions}><Button title={l('Approve','অনুমোদন')} size="sm" disabled={busy} onPress={()=>open('approve',r)}/><Button title={l('Reject','প্রত্যাখ্যান')} size="sm" variant="outline" disabled={busy} onPress={()=>open('reject',r)}/></View>}
    {r.status==='approved'&&canPay&&<Button title={l('Record money paid','টাকা প্রদান রেকর্ড করুন')} disabled={busy} onPress={()=>open('pay',r)}/>}
@@ -104,9 +116,9 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
     <View style={styles.actions}><Button title={l('Back','ফিরুন')} variant="outline" disabled={busy} onPress={close}/><Button title={modal==='pay'?l('Confirm payment','টাকা প্রদান নিশ্চিত'):modal==='reverse'?l('Confirm reversal','সংশোধন নিশ্চিত'):l('Confirm','নিশ্চিত করুন')} loading={busy} onPress={save}/></View>
    </View></KeyboardAvoidingView>
   </Modal>
-  <SelectModal visible={!!picker} title={picker==='member'?l('Choose member','সদস্য নির্বাচন'):l('Choose method','মাধ্যম নির্বাচন')} value={picker==='member'?memberId:method}
-   options={picker==='member'?members.filter(m=>m.status!=='inactive').map(m=>({value:m.id,label:m.name+' · '+m.code})):methods.map(([value,label])=>({value,label}))}
-   onSelect={value=>{if(picker==='member')setMemberId(value);else setMethod(value as WithdrawalMethod);setError('');}} onClose={()=>setPicker('')}/>
+  <MemberPicker visible={picker==='member'} activeOnly members={members} value={memberId} onSelect={value=>{setMemberId(value);setError('');}} onClose={()=>setPicker('')}/>
+  <SelectModal visible={picker==='method'} title={l('Choose method','মাধ্যম নির্বাচন')} value={method} options={methods.map(([value,label])=>({value,label}))}
+   onSelect={value=>{setMethod(value as WithdrawalMethod);setError('');}} onClose={()=>setPicker('')}/>
  </Page>;
 }
 const styles=StyleSheet.create({overlay:{flex:1,backgroundColor:colors.overlay,justifyContent:'center',padding:16},panel:{width:'100%',maxWidth:480,maxHeight:'90%',alignSelf:'center',backgroundColor:colors.surface,borderRadius:20,padding:20},actions:{flexDirection:'row',flexWrap:'wrap',gap:12,marginTop:12},error:{color:colors.danger,marginVertical:12}});

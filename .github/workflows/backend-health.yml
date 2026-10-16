@@ -31,5 +31,10 @@ jobs:
             --header "apikey: $SUPABASE_ANON_KEY" \
             --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
             --header 'Content-Type: application/json' --data '{}')
-          test "$response" = 'true' || { echo 'Database unavailable or association not initialized'; exit 1; }
+          # Initialization is caller-scoped: anonymous requests return false on
+          # the multi-society backend. Both boolean replies prove the RPC worked.
+          case "$response" in
+            true|false) ;;
+            *) echo 'Database health RPC returned an invalid response'; exit 1 ;;
+          esac
           echo 'Database query succeeded.'

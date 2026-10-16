@@ -21,7 +21,7 @@ function fixture(role='super_admin',source){
   const native={View:'View',Text:'Text',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',StyleSheet:{create:s=>s},Platform:{OS:'web'},Keyboard:{dismiss:()=>{}}};
   const Screen=load('src/screens/InvestmentNew.tsx',{
     react:React,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useLocalSearchParams:()=>({source:source?'source':undefined}),useRouter:()=>({replace:r=>routes.push(r)})},
-    '../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatMoneyPrecise:String,formatNum:String})},
+    '../components/MemberPicker':{MemberPicker:'Select'},'../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatMoneyPrecise:String,formatNum:String})},
     '../store/somitiStore':{useSomitiStore:s=>s(state)},'../features/auth/authStore':{useAuthStore:s=>s({actualRole:role})},'../theme/colors':{colors:{}},'../theme/typography':{typography:{fontFamily:{}}},
     '../hooks/useFormValidation':load('src/hooks/useFormValidation.ts',{react:React,'react-native':native}),'../lib/api':{uuid:()=>`request-${++counter}`},'../utils/navigation':{safeBack:()=>{}},'../lib/investment':domain,
   }).default;

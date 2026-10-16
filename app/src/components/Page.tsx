@@ -7,14 +7,14 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { safeBack } from '../utils/navigation';
 
-export function Page({title,subtitle,children,actions,backTo='/(admin)/(tabs)'}: {title:string;subtitle?:string;children:React.ReactNode;actions?:React.ReactNode;backTo?:string}) {
+export function Page({title,subtitle,children,actions,backTo='/(admin)/(tabs)',scrollRef}: {title:string;subtitle?:string;children:React.ReactNode;actions?:React.ReactNode;backTo?:string;scrollRef?:React.Ref<ScrollView>}) {
   const router=useRouter();const wide=useWindowDimensions().width>720;
   return <SafeAreaView style={styles.page}>
     <View style={[styles.header,{paddingHorizontal:wide?32:16}]}>
       <TouchableOpacity onPress={()=>safeBack(router,backTo)} accessibilityLabel="Back" accessibilityRole="button" style={styles.back}><Ionicons name="arrow-back" size={24} color={colors.text}/></TouchableOpacity>
       <View style={{flex:1}}><Text style={styles.title}>{title}</Text>{subtitle&&<Text style={styles.subtitle}>{subtitle}</Text>}</View>{actions}
     </View>
-    <ScrollView contentContainerStyle={[styles.content,{padding:wide?32:16}]}>{children}</ScrollView>
+    <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content,{padding:wide?32:16}]}>{children}</ScrollView>
   </SafeAreaView>;
 }
 export const pageStyles=StyleSheet.create({

@@ -1,0 +1,31 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+function load(file,deps={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)}});return exports;}
+const {savingsBreakdown,pendingDays}=load('src/lib/withdrawal.ts');
+const member={id:'m',name:'Member',code:'M-001',totalDeposit:950.25,profitBalance:100.10,totalWithdrawn:150.50};
+const breakdown=savingsBreakdown(member,[{member_id:'m',status:'approved',amount:200.05},{member_id:'other',status:'approved',amount:9999},{member_id:'m',status:'submitted',amount:100}]);
+assert.equal(breakdown.principal,850.15);assert.equal(breakdown.paidIn,1000.65);assert.equal(breakdown.available,650.10);assert.equal(breakdown.profit,100.10);
+assert.equal(savingsBreakdown({...member,totalDeposit:0,profitBalance:0},[{member_id:'m',status:'approved',amount:100}]).available,0);
+assert.equal(pendingDays('2026-10-10T12:00:00Z',new Date('2026-10-13T11:00:00Z')),2);assert.equal(pendingDays('bad'),0);assert.equal(pendingDays('2099-01-01'),0);
+const {buildMemberStatement}=load('src/lib/memberStatement.ts',{'../i18n/financeLabels':{financeNote:n=>n}});
+const tx=(id,type,amount,dateISO)=>({id,type,amount,dateISO,memberId:'m',receiptNo:id,note:''});
+const history=[tx('3','withdrawal_reversal',49.5,'2026-10-12'),tx('2','withdrawal',200,'2026-10-11'),tx('1','deposit',1000.65,'2026-10-10'),{...tx('other','deposit',5000,'2026-10-10'),memberId:'other'}];
+const report=buildMemberStatement(member,history,'en');
+assert.equal(report.rows.length,7);assert.equal(report.rows[0][6],0);assert.equal(report.rows[1][6],1000.65);assert.equal(report.rows[2][6],800.65);assert.equal(report.rows[3][6],850.15);assert.equal(report.rows[4][6],850.15);assert.equal(report.rows[5][6],100.10);assert.equal(report.rows[6][6],950.25);
+const opening=buildMemberStatement(member,history.slice(0,2),'en');assert.equal(opening.rows[0][6],1000.65);
+assert.throws(()=>buildMemberStatement({...member,totalDeposit:50,profitBalance:0},[tx('1','deposit',100,'2026-10-10')],'en'),/reconcile/);
+assert.ok(buildMemberStatement(member,history,'bn').columns[0].includes('তারিখ'));
+function hooks(){let cursor=0;const slots=[];const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return[slots[i],v=>slots[i]=v]}};return{React,reset:()=>cursor=0};}
+const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
+const h=hooks(),digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c)))},theme={colors:{},typography:{fontFamily:{},size:{},lineHeight:{}}};
+const native={View:'View',Text:'Text',Pressable:'Press',Modal:'Modal',FlatList:'List',TextInput:'Input',StyleSheet:{create:s=>s}};
+const Select=load('src/components/SelectModal.tsx',{'react':{__esModule:true,default:h.React,...h.React},'react-native':native,'@expo/vector-icons/Ionicons':{default:'Icon'},'../theme/colors':theme,'../theme/typography':theme,'../i18n/useLanguage':{useLanguage:()=>({l:en=>en})},'../lib/money':digits}).SelectModal;
+let selected='',closed=0;const props={visible:true,title:'Members',value:'',searchable:true,options:Array.from({length:500},(_,i)=>({value:String(i),label:'Member '+i,searchText:'M-'+i+' 01700000000'})),onSelect:id=>selected=id,onClose:()=>closed++};
+const render=()=>{h.reset();return nodes(Select(props));},list=()=>render().find(n=>n.type==='List');
+assert.equal(list().props.data.length,500);assert.equal(list().props.initialNumToRender,12);
+render().find(n=>n.type==='Input').props.onChangeText('M-৪৯৯');assert.equal(list().props.data.length,1);
+list().props.renderItem({item:list().props.data[0]}).props.onPress();assert.equal(selected,'499');assert.equal(closed,1);assert.equal(list().props.data.length,500);
+render().find(n=>n.type==='Input').props.onChangeText('unknown');assert.equal(list().props.data.length,0);
+const mh=hooks();const Picker=load('src/components/MemberPicker.tsx',{'react':{__esModule:true,default:mh.React,...mh.React},'react-native':native,'../lib/memberIdentity':{MEMBER_CATEGORIES:[{value:'general',en:'General',bn:''},{value:'director',en:'Director',bn:''}]},'./SelectModal':{SelectModal:'Select'},'../theme/colors':theme,'../i18n/useLanguage':{useLanguage:()=>({l:en=>en})}}).MemberPicker;
+const pickerProps={visible:true,members:[{id:'a',status:'paid',memberCategory:'general'},{id:'b',status:'paid',memberCategory:'director'},{id:'c',status:'inactive',memberCategory:'director'}],activeOnly:true,value:'',onSelect:()=>{},onClose:()=>{}};
+const picker=()=>{mh.reset();return Picker(pickerProps);};assert.equal(picker().props.options.length,2);nodes(picker().props.header).filter(n=>n.type==='Press')[2].props.onPress();assert.equal(picker().props.options.length,1);assert.equal(picker().props.options[0].value,'b');picker().props.onClose();assert.equal(picker().props.options.length,2);
+console.log('PASS savings presentation: exact cents, reserved scope, elapsed age, running statements, separate profit, reconciliation, 500-member virtual list, Bengali search and category/active filters.');

@@ -1,4 +1,7 @@
-import {isoToday} from '../../../src/lib/investment';
+import {isoToday,parseInvestmentAmount} from '../../../src/lib/investment';
+import {useFormValidation} from '../../../src/hooks/useFormValidation';
+import {MemberPicker} from '../../../src/components/MemberPicker';
+import {Button} from '../../../src/components/Button';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
@@ -8,7 +11,6 @@ import {
   TextInput,
   StyleSheet,
   StatusBar,
-  FlatList,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +37,7 @@ export default function RecordDepositScreen() {
   const params = useLocalSearchParams();
   const { members, recordDeposit, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
+  const validation=useFormValidation(),submitLock=useRef(false);
 
   const displayMembers = useMemo(() => (members), [members]);
 
@@ -46,7 +49,6 @@ export default function RecordDepositScreen() {
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>(initialMemberId);
   const [showMemberModal, setShowMemberModal] = useState(false);
-  const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
   const currentMember: Member | undefined = useMemo(() => {
     return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
@@ -117,43 +119,34 @@ export default function RecordDepositScreen() {
   ];
 
   // Numeric total amount for calculation
-  const numericAmount = Number(toEnglishDigits(customAmount).replace(/[^0-9.]/g, ''));
-  const newTotalDeposit = (currentMember?.totalDeposit || 0) + numericAmount;
+  const numericAmount = parseInvestmentAmount(customAmount);
+  const newTotalDeposit = (currentMember?.totalDeposit || 0) + (Number.isFinite(numericAmount)?numericAmount:0);
 
   const methodNameText = paymentMethodsList.find((p) => p.id === paymentMethod)?.label || l('bKash', 'বিকাশ');
 
   const handleConfirmDeposit = async () => {
-    if (saving || !currentMember) return;
+    if (submitLock.current) return;
+    const errors:Record<string,string>={};
+    if(!currentMember||currentMember.status==='inactive')errors.member=l('Select an active member.','সক্রিয় সদস্য নির্বাচন করুন।');
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      Alert.alert(
-        l('Invalid Amount', 'ভুল টাকার পরিমাণ'),
-        l('Please enter a valid deposit amount.', 'অনুগ্রহ করে সঠিক জমার টাকার পরিমাণ লিখুন।')
-      );
-      return;
+      errors.amount=l('Enter a positive amount with at most two decimal places.','দশমিকের পরে সর্বোচ্চ দুই ঘরসহ সঠিক পরিমাণ দিন।');
     }
 
     if (paymentMethod !== 'cash' && !trxId.trim()) {
-      Alert.alert(
-        l('Transaction ID Needed', 'ট্রানজ্যাকশন আইডি দিন'),
-        l('Please enter transaction ID.', 'অনুগ্রহ করে ট্রানজ্যাকশন আইডি লিখুন।')
-      );
-      return;
+      errors.reference=l('Enter the transaction ID.','ট্রানজ্যাকশন আইডি লিখুন।');
     }
 
     const depositISO = parseDMY(toEnglishDigits(depositDate));
     if (!depositISO || depositISO>isoToday()) {
-      Alert.alert(
-        l('Invalid Date', 'ভুল তারিখ'),
-        l('Enter a valid date in DD/MM/YYYY format, no later than today.', 'DD/MM/YYYY ফরম্যাটে সঠিক তারিখ দিন; ভবিষ্যতের তারিখ নয়।')
-      );
-      return;
+      errors.date=l('Enter a valid DD/MM/YYYY date, no later than today.','DD/MM/YYYY আকারে সঠিক তারিখ দিন; ভবিষ্যতের তারিখ নয়।');
     }
 
-    setSaving(true);
+    if(Object.keys(errors).length){validation.show(errors);return;}
+    validation.clear();submitLock.current=true;setSaving(true);
     try {
       const newTxn = await recordDeposit({
         id: requestId.current,
-        memberId: currentMember.id,
+        memberId: currentMember!.id,
         months: [],
         baseAmount: numericAmount,
         lateFee: 0,
@@ -161,21 +154,14 @@ export default function RecordDepositScreen() {
         paymentMethod,
         trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
         note: comment.trim() || l('Deposit', 'জমা'),
-        date: depositISO,
+        date: depositISO!,
         sendSMS,
       });
 
       router.replace(`/(admin)/receipt/${newTxn.id}`);
-    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
+    } catch (e: any) { validation.show({_form:e.message}); } finally { submitLock.current=false;setSaving(false); }
   };
 
-  const filteredMembersForModal = useMemo(() => {
-    if (!memberSearchQuery.trim()) return displayMembers;
-    const q = memberSearchQuery.toLowerCase().trim();
-    return displayMembers.filter(
-      (m) => (m.name || '').toLowerCase().includes(q) || (m.code || '').toLowerCase().includes(q)
-    );
-  }, [displayMembers, memberSearchQuery]);
 
   if (!currentMember) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
@@ -197,11 +183,15 @@ export default function RecordDepositScreen() {
       </View>
 
       <ScrollView
+        ref={validation.scrollRef} keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <View ref={validation.contentRef} collapsable={false}>
+        {!!validation.errors._form&&<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{validation.errors._form}</Text>}
         {/* Member Selector Card */}
-        <View style={styles.memberCard}>
+        <View style={styles.memberCard} {...validation.fieldProps('member')}>
+          {!!validation.errors.member&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.member}</Text>}
           <Avatar
             name={currentMember?.name || 'ক'}
             size="md"
@@ -225,7 +215,8 @@ export default function RecordDepositScreen() {
         {/* 1. Month Selection */}
         {/* 2. Amount Card with Green Underline & Breakdown */}
         <View style={styles.amountCard}>
-          <Text style={styles.amountSectionLabel}>{l('Deposit Amount', 'পরিমাণ')}</Text>
+          <View {...validation.fieldProps('amount')}><Text style={styles.amountSectionLabel}>{l('Deposit Amount', 'পরিমাণ')}</Text>
+          {!!validation.errors.amount&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.amount}</Text>}</View>
           <Text style={styles.amountHint}>{l('Enter the amount received. No fixed rate or late fee.', 'যত টাকা জমা দিয়েছেন লিখুন। নির্দিষ্ট হার বা বিলম্ব ফি নেই।')}</Text>
 
           {/* Large Amount Input Container */}
@@ -235,7 +226,7 @@ export default function RecordDepositScreen() {
               style={styles.largeAmountInput}
               accessibilityLabel={l('Deposit Amount', 'পরিমাণ')}
               value={isBengali ? toBengaliDigits(customAmount) : customAmount}
-              onChangeText={(t) => setCustomAmount(toEnglishDigits(t))}
+              onChangeText={(t) => {setCustomAmount(toEnglishDigits(t));validation.clear('amount');}}
               keyboardType="numeric"
               placeholder="০"
               placeholderTextColor={colors.textSecondary}
@@ -274,13 +265,14 @@ export default function RecordDepositScreen() {
 
         {/* 4. 2-Column Row for TrxID and Date */}
         <View style={styles.twoColRow}>
-          <View style={styles.colLeft}>
+          <View style={styles.colLeft} {...validation.fieldProps('reference')}>
             <Text style={styles.fieldLabel}>{l('Transaction ID', 'লেনদেন নম্বর')}</Text>
+            {!!validation.errors.reference&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.reference}</Text>}
             <View style={styles.inputBox}>
               <TextInput
                 style={styles.inputText}
                 value={trxId}
-                onChangeText={setTrxId}
+                onChangeText={v=>{setTrxId(v);validation.clear('reference');}}
                 placeholder="BK7X29QM4L"
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="characters"
@@ -288,8 +280,9 @@ export default function RecordDepositScreen() {
             </View>
           </View>
 
-          <View style={styles.colRight}>
+          <View style={styles.colRight} {...validation.fieldProps('date')}>
             <Text style={styles.fieldLabel}>{l('Date', 'তারিখ')}</Text>
+            {!!validation.errors.date&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.date}</Text>}
             <View style={styles.dateInputWithIcon}>
               <TextInput
                 testID="input-deposit-date"
@@ -368,69 +361,10 @@ export default function RecordDepositScreen() {
         </View>
 
         <View style={{ height: 100 }} />
+        </View>
       </ScrollView>
 
-      {/* Member Selection Modal */}
-      <AppModal
-        visible={showMemberModal}
-        onClose={() => setShowMemberModal(false)}
-      >
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{l('Select Member', 'সদস্য নির্বাচন করুন')}</Text>
-          <TouchableOpacity
-            onPress={() => setShowMemberModal(false)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.modalSearchBox}>
-          <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
-          <TextInput
-            style={styles.modalSearchInput}
-            placeholder={l('Search by name or code...', 'নাম বা কোড দিয়ে খুঁজুন...')}
-            placeholderTextColor={colors.textSecondary}
-            value={memberSearchQuery}
-            onChangeText={setMemberSearchQuery}
-          />
-        </View>
-
-        <FlatList
-          data={filteredMembersForModal}
-          keyExtractor={(item) => item.id}
-          style={{ maxHeight: 360 }}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              style={[
-                styles.modalMemberItem,
-                item.id === selectedMemberId && styles.modalMemberItemActive,
-              ]}
-              onPress={() => handleSelectMember(item.id)}
-              activeOpacity={0.7}
-            >
-              <Avatar
-                name={item.name}
-                size="md"
-                index={index}
-              />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.memberName}>{l(item.nameEn || item.name, item.name)}</Text>
-                <Text style={styles.memberSub}>
-                  {item.code}
-                </Text>
-              </View>
-              {item.dueAmount > 0 && (
-                <View style={styles.duePill}>
-                  <Text style={styles.duePillText}>
-                    {l('Due', 'বকেয়া')} {formatMoney(item.dueAmount)}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-        />
-      </AppModal>
+      <MemberPicker visible={showMemberModal} activeOnly members={displayMembers} value={selectedMemberId} onSelect={handleSelectMember} onClose={()=>setShowMemberModal(false)}/>
 
       {/* Date Picker Modal */}
       <AppModal
@@ -560,14 +494,8 @@ export default function RecordDepositScreen() {
 
       {/* Pinned Bottom CTA */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.confirmBtn}
-          onPress={handleConfirmDeposit} disabled={saving}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="checkmark" size={20} color={colors.surface} />
-          <Text style={styles.confirmBtnText}>{l('Confirm Deposit', 'জমা নিশ্চিত করুন')}</Text>
-        </TouchableOpacity>
+        <Button testID="confirm-deposit-btn" title={l('Confirm Deposit', 'জমা নিশ্চিত করুন')} style={styles.confirmBtn}
+          onPress={handleConfirmDeposit} loading={saving} icon={<Ionicons name="checkmark" size={20} color={colors.surface} />} />
       </View>
     </SafeAreaView>
   );
@@ -796,9 +724,11 @@ const styles = StyleSheet.create({
   },
   colLeft: {
     flex: 1,
+    minWidth: 0,
   },
   colRight: {
     flex: 1,
+    minWidth: 0,
   },
   fieldLabel: {
     fontFamily: typography.fontFamily.medium,
@@ -835,6 +765,7 @@ const styles = StyleSheet.create({
   },
   dateInputText: {
     flex: 1,
+    minWidth: 0,
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.size.subhead,
     lineHeight: typography.lineHeight.subhead,
@@ -843,6 +774,7 @@ const styles = StyleSheet.create({
     outlineStyle: 'none' as any,
   },
   calendarIconBtn: {
+    flexShrink: 0,
     padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
