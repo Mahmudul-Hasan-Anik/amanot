@@ -298,7 +298,7 @@ export default function HomeDashboardScreen() {
           </Card>
         </TouchableOpacity>
 
-        <InvestmentApprovalQueue />
+        <InvestmentApprovalQueue compact />
         <WithdrawalApprovalQueue hideEmpty />
         {/* 7. অনুমোদন অপেক্ষমাণ */}
         <Card style={styles.sectionCard}>

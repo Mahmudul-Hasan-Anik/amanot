@@ -14,4 +14,13 @@ deps['../../src/components/WithdrawalApprovalQueue']={WithdrawalApprovalQueue:'W
 const Screen=load('app/(admin)/approvals.tsx',deps).default;let screen=Screen();assert.match(text(screen),/Pending\s+1/);assert.ok(!text(screen).includes('No pending requests'));const queue=nodes(screen).find(n=>n.type==='Queue');assert.equal(queue.props.tab,'pending');assert.equal(queue.props.hideEmpty,true);
 state.investmentProposals=[];screen=Screen();assert.ok(text(screen).includes('No pending requests'));
 state.withdrawalRequests=[{status:'approved'}];screen=Screen();assert.match(text(screen),/Pending\s+1/);assert.ok(!text(screen).includes('No pending requests'));
-console.log('PASS approval/menu UI: unified pending count, consistent empty state, menu closes before action without number prompts.');
+const routes=[];
+const InvestmentQueue=load('src/components/InvestmentApprovalQueue.tsx',{react:React,'react-native':native,'expo-router':{useRouter:()=>({push:p=>routes.push(p)})},'@expo/vector-icons/Ionicons':{default:'Icon'},'./Card':{Card:'Card'},'../store/somitiStore':{useSomitiStore:f=>f(state)},'../i18n/useLanguage':{useLanguage:()=>language},'../theme/colors':theme,'../theme/typography':theme}).InvestmentApprovalQueue;
+state.investmentProposals=Array.from({length:6},(_,i)=>({id:String(i),status:i%2?'approved':'submitted',payload:{recipientName:'Fixture '+i,principal:100000}}));
+const compact=InvestmentQueue({compact:true});const requestRows=t=>nodes(t).filter(n=>n.props.testID?.startsWith('investment-request-'));
+assert.equal(requestRows(compact).length,3);assert.ok(text(compact).includes('Approval needed'));assert.ok(text(compact).includes('Payment pending'));
+requestRows(compact)[1].props.onPress();assert.equal(routes.at(-1),'/(admin)/investment/proposal/1');
+nodes(compact).find(n=>n.props.accessibilityLabel==='View all investment requests').props.onPress();assert.equal(routes.at(-1),'/(admin)/approvals');
+assert.equal(requestRows(InvestmentQueue({})).length,6);
+state.investmentProposals=[{id:'paid',status:'disbursed',payload:{recipientName:'Paid',principal:200}}];assert.equal(requestRows(InvestmentQueue({tab:'approved'})).length,1);assert.equal(InvestmentQueue({hideEmpty:true}),null);
+console.log('PASS approval/menu UI: unified count/empty state, action menu, compact investment cards limited to three, complete approval list, status labels and detail navigation.');
