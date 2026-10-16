@@ -73,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="projects"
         options={{
-          title: l('Projects', 'প্রজেক্ট'),
+          title: l('Investments', 'বিনিয়োগ'),
           tabBarIcon: ({ color, focused }) => renderIcon('business', 'business-outline', focused, color),
         }}
       />

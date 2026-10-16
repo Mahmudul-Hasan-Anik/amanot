@@ -288,7 +288,7 @@ export default function ProfitDistributionScreen() {
 
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>
-              {l('Total Project Profit', 'মোট প্রজেক্ট লাভ')}
+              {l('Total Investment Profit', 'মোট বিনিয়োগ লাভ')}
             </Text>
             <Text style={styles.calcValueBold}>
               +{formatMoney(totalProjectProfit)}

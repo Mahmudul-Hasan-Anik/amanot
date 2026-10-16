@@ -191,7 +191,7 @@ export default function SomitiProfileScreen() {
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>{l('Projects', 'প্রজেক্ট')}</Text>
+            <Text style={styles.statLabel}>{l('Investments', 'বিনিয়োগ')}</Text>
             <Text style={styles.statValue}>
               {isBengali ? `${toBengaliDigits(projectCountDisplay)}টি` : `${projectCountDisplay}`}
             </Text>

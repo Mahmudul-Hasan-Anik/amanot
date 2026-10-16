@@ -1,0 +1,129 @@
+Function<bookedInvestmentProfit>(3 params, 15 registers, 1 numbers, 1 non-pointers):
+    CreateFunctionEnvironment r2, 1
+    LoadParam         r3, 2
+    StoreToEnvironment r2, 0, r3
+    LoadParam         r3, 1
+    GetById           r4, r3, 0, "investments"
+    GetByIdShort      r3, r4, 1, "filter"
+    CreateClosure     r2, r2, NCFunction<>
+    Call2             r4, r3, r4, r2
+    GetByIdShort      r3, r4, 2, "reduce"
+    LoadConstZero     r0
+    LoadConstUndefined r1
+    CreateClosure     r2, r1, NCFunction<>
+    Call3             r2, r3, r4, r2, r0
+    Ret               r2
+
+Function<realizedInvestmentProfit>(3 params, 15 registers, 1 numbers, 1 non-pointers):
+    CreateFunctionEnvironment r2, 2
+    LoadParam         r3, 1
+    StoreToEnvironment r2, 0, r3
+    LoadParam         r4, 2
+    StoreToEnvironment r2, 1, r4
+    GetById           r4, r3, 0, "investments"
+    GetByIdShort      r3, r4, 1, "filter"
+    CreateClosure     r2, r2, NCFunction<>
+    Call2             r4, r3, r4, r2
+    GetByIdShort      r3, r4, 2, "reduce"
+    LoadConstZero     r0
+    LoadConstUndefined r1
+    CreateClosure     r2, r1, NCFunction<>
+    Call3             r2, r3, r4, r2, r0
+    Ret               r2
+
+Function<fieldInvestmentProfit>(3 params, 17 registers, 1 numbers, 1 non-pointers):
+    LoadParam         r4, 1
+    LoadParam         r5, 2
+    CreateTopLevelEnvironment r2, 1
+    StoreToEnvironment r2, 0, r5
+    GetById           r6, r4, 0, "investments"
+    GetByIdShort      r3, r6, 1, "filter"
+    CreateClosure     r2, r2, NCFunction<>
+    Call2             r6, r3, r6, r2
+    GetByIdShort      r3, r6, 2, "reduce"
+    LoadConstZero     r0
+    LoadConstUndefined r1
+    CreateClosure     r2, r1, NCFunction<>
+    Call3             r3, r3, r6, r2, r0
+    CreateFunctionEnvironment r2, 2
+    StoreToEnvironment r2, 0, r4
+    StoreToEnvironment r2, 1, r5
+    GetById           r5, r4, 0, "investments"
+    GetByIdShort      r4, r5, 1, "filter"
+    CreateClosure     r2, r2, NCFunction<>
+    Call2             r5, r4, r5, r2
+    GetByIdShort      r4, r5, 2, "reduce"
+    CreateClosure     r2, r1, NCFunction<>
+    Call3             r2, r4, r5, r2, r0
+    Sub               r2, r3, r2
+    Ret               r2
+
+Function<investmentProfit>(3 params, 15 registers, 1 numbers, 1 non-pointers):
+    LoadParam         r3, 1
+    CreateFunctionEnvironment r2, 2
+    StoreToEnvironment r2, 0, r3
+    LoadParam         r4, 2
+    StoreToEnvironment r2, 1, r4
+    GetById           r4, r3, 0, "investments"
+    GetByIdShort      r3, r4, 1, "filter"
+    CreateClosure     r2, r2, NCFunction<>
+    Call2             r4, r3, r4, r2
+    GetByIdShort      r3, r4, 2, "reduce"
+    LoadConstZero     r0
+    LoadConstUndefined r1
+    CreateClosure     r2, r1, NCFunction<>
+    Call3             r2, r3, r4, r2, r0
+    Ret               r2
+
+Function<lastSavingsDate>(3 params, 15 registers, 0 numbers, 2 non-pointers):
+    CreateFunctionEnvironment r2, 1
+    LoadParam         r3, 2
+    StoreToEnvironment r2, 0, r3
+
+Anonymous accounting callbacks:
+NCFunction<>(3 params, 2 registers, 0 numbers, 0 non-pointers):
+    LoadParam         r0, 2
+    GetByIdShort      r1, r0, 0, "amount"
+    LoadParam         r0, 1
+    Add               r0, r0, r1
+    Ret               r0
+
+NCFunction<>(2 params, 3 registers, 0 numbers, 1 non-pointers):
+    LoadParam         r1, 1
+    GetByIdShort      r2, r1, 0, "organizationId"
+    GetParentEnvironment r1, 0
+    LoadFromEnvironment r1, r1, 0
+    StrictEq          r0, r2, r1
+    Ret               r0
+
+NCFunction<>(3 params, 2 registers, 0 numbers, 0 non-pointers):
+    LoadParam         r0, 2
+    GetById           r1, r0, 0, "profitAmount"
+    LoadParam         r0, 1
+    Add               r0, r0, r1
+    Ret               r0
+
+NCFunction<>(2 params, 17 registers, 1 numbers, 2 non-pointers):
+    GetParentEnvironment r3, 0
+    LoadParam         r5, 1
+    GetByIdShort      r6, r5, 0, "organizationId"
+    LoadFromEnvironment r4, r3, 1
+    StrictEq          r1, r6, r4
+    JmpFalse          L1, r1
+    GetParentEnvironment r4, 1
+    LoadFromEnvironment r4, r4, 6
+    LoadFromEnvironment r3, r3, 0
+    LoadConstUndefined r2
+    Call3             r3, r4, r2, r3, r5
+    GetById           r3, r3, 1, "remaining"
+    LoadConstZero     r0
+    LessEq            r1, r3, r0
+L1:
+    Ret               r1
+
+NCFunction<>(3 params, 2 registers, 0 numbers, 0 non-pointers):
+    LoadParam         r0, 2
+    GetById           r1, r0, 0, "profitAmount"
+    LoadParam         r0, 1
+    Add               r0, r0, r1
+    Ret               r0

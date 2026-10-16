@@ -147,13 +147,13 @@ export default function FinanceScreen() {
   const periodExpenses = expenses.filter(e=>e.status==='approved' && inMonth((e as any).dateISO,selectedMonthKey));
   const totals=ledgerSummary.months.find(m=>m.month===selectedMonthKey);
   const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
-  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.filter(t=>t.type==='deposit'||t.type==='profit').reduce((sum,t)=>sum+t.amount,0);
+  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.reduce((sum,t)=>sum+(t.type==='deposit'?t.amount:t.profitPart!==undefined?(t.investmentReversal?-t.profitPart:t.profitPart):t.type==='profit'?t.amount:0),0);
   const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
   const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:financeLabel(name,true),nameEn:financeLabel(name,false),amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:t.type==='expense'?-t.amount:t.amount,isIncome:t.type!=='expense'}));
+  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:t.type==='expense'||t.investmentReversal||t.investmentDisbursement?-t.amount:t.amount,isIncome:t.type!=='expense'&&!t.investmentReversal&&!t.investmentDisbursement}));
 
   const handleTransferSubmit = async () => {
     try {

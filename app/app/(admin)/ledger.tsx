@@ -28,7 +28,7 @@ export default function LedgerScreen(){
     <FlatList data={ledger.rows} keyExtractor={t=>t.id} initialNumToRender={10} windowSize={7} contentContainerStyle={{padding:20}}
       renderItem={({item:t})=><TouchableOpacity style={s.card} disabled={t.type!=='deposit'} accessibilityRole={t.type==='deposit'?'button':undefined} onPress={()=>router.push(`/(admin)/receipt/${t.id}`)}>
         <Text style={s.title}>{t.memberName}</Text><Text style={s.text}>{t.receiptNo} · {t.date}</Text>
-        <Text style={s.text}>{t.note||t.type} · {t.paymentMethod}</Text><Text style={s.value}>{t.type==='expense'?'−':''}{formatMoney(t.amount)}</Text>
+        <Text style={s.text}>{t.note||t.type} · {t.paymentMethod}</Text><Text style={s.value}>{t.type==='expense'||t.investmentReversal||t.investmentDisbursement?'−':''}{formatMoney(t.amount)}</Text>
       </TouchableOpacity>}
       ListEmptyComponent={!ledger.loading&&!ledger.error?<Text style={s.text}>{l('No transactions in this selection','এই সময়ে কোনো লেনদেন নেই')}</Text>:null}
       ListFooterComponent={<LedgerPaging {...ledger}/>}/>

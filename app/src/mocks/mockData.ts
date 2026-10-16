@@ -39,6 +39,7 @@ export interface Member {
 }
 
 export interface Project {
+  contract?: import('../lib/investment').InvestmentContract;
   id: string;
   name: string;
   type: string; // জমি, ভাড়া, কৃষি, নির্মাণ

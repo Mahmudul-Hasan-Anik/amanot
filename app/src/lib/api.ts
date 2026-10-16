@@ -70,7 +70,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 function unwrap<T>(res: { data: T | null; error: any }): T {
-  if (res.error) throw new Error(res.error.message || 'সার্ভার ত্রুটি');
+  if (res.error) throw Object.assign(new Error(res.error.message || 'সার্ভার ত্রুটি'),{code:res.error.code});
   return res.data as T;
 }
 
@@ -103,6 +103,12 @@ async function memberRead<T>(load:(columns:string)=>PromiseLike<{data:T|null;err
 
 export function mapTransaction(r: any): Transaction {
   return {
+    projectId: r.project_id || undefined,
+    principalPart: r.principal_part == null ? undefined : num(r.principal_part),
+    profitPart: r.profit_part == null ? undefined : num(r.profit_part),
+    investmentReversal: r.investment_reversal || false,
+    investmentDisbursement: r.type==='transfer' && !!r.project_id && r.party_code==='INV',
+    investmentPaymentReversed: r.investment_payment_reversed || false,
     id: r.id,
     receiptNo: r.receipt_no,
     memberId: r.member_id || r.project_id || (r.type === 'transfer' ? 'internal' : 'org'),
@@ -182,6 +188,7 @@ export function mapMember(r: any, txns: any[] = []): Member {
 
 export function mapProject(r: any): Project {
   return {
+    contract: r.contract ? mapInvestmentContract(r.contract) : undefined,
     id: r.id,
     name: r.name,
     type: r.type,
@@ -343,7 +350,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     await supabase.rpc('refresh_dues').then(() => {}, () => {});
   }
 
-  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices] = await Promise.all([
+  const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
     allRows('members',MEMBER_COLUMNS,'code'),
@@ -353,6 +360,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     isStaff ? q(supabase.from('expenses').select('*').order('created_at',{ascending:false}).limit(50)) : empty,
     isStaff ? allRows('approvals','*','created_at',undefined,['pending']) : empty,
     Promise.resolve(q(supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(50))).catch(() => []),
+    isStaff ? fetchInvestmentContracts() : empty,
   ]);
 
   const ledger = ledgerPage.rows;
@@ -373,7 +381,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
   return {
     somitiInfo: { ...((settings as any)?.info || {}), ...((summary as any) || {}) },
     members: memberRows.map((m) => mapMember(m, recentByMember.get(m.id)||[])),
-    projects: ((projects as any[]) || []).map(mapProject),
+    projects: ((projects as any[]) || []).map(p => mapProject({...p,contract:contracts.find((c:any)=>c.id===p.id)})),
     cashAccounts: ((cash as any[]) || []).map(mapCash),
     transactions: ledger,
     ledgerSummary: emptyLedgerSummary,
@@ -627,6 +635,28 @@ export const deleteNotice = (id: string) => rpc('delete_notice', { p_id: id });
 export const setMemberRole = (memberId: string, role: string, title?: string) =>
   rpc('set_member_app_role', { p_id: memberId, p_role: role, p_title: title ?? null });
 export const upsertProject = (p: Record<string, any>) => rpc('upsert_project', { p });
+export function mapInvestmentContract(r:any): import('./investment').InvestmentContract {
+  return {id:r.id,memberId:r.member_id||undefined,number:r.contract_no,recipientName:r.recipient_name,
+    phone:r.phone,whatsapp:r.whatsapp||'',address:r.address||'',nid:r.nid||'',fatherName:r.father_name||'',motherName:r.mother_name||'',
+    contacts:r.emergency_contacts||[],principal:num(r.principal),profitPct:num(r.profit_pct),profitAmount:num(r.profit_amount),
+    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||''};
+}
+async function fetchInvestmentContracts():Promise<any[]> {
+  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose'); }
+  catch(e:any) {
+    // Read-only compatibility until the additive contract migration is deployed.
+    if(e.code==='42P01'||e.code==='PGRST205'||/Could not find the table.*investment_contracts/.test(e.message||''))return [];
+    throw e;
+  }
+}
+export const createInvestment = (p:import('./investment').NewInvestment) => rpc('create_investment_contract',{p});
+export const collectInvestment = async(p:import('./investment').InvestmentPayment):Promise<Transaction> =>
+  mapTransaction(await rpc('collect_investment_payment',{p}));
+export const reverseInvestment = (id:string,paymentId:string,reason:string) => rpc('reverse_investment_payment',{p_id:id,p_payment_id:paymentId,p_reason:reason});
+export const recordInvestmentReminder = (id:string,investmentId:string) => rpc('record_investment_reminder',{p_id:id,p_investment_id:investmentId});
+export const recordInvestmentExpense = (p:{id:string;projectId:string;amount:number;paymentMethod:string;note:string}) => rpc('record_investment_expense',{p});
+export const fetchLastInvestmentReminder = async(investmentId:string):Promise<{created_at:string}|null> =>
+  unwrap(await supabase.from('investment_reminder_attempts').select('created_at').eq('investment_id',investmentId).order('created_at',{ascending:false}).limit(1).maybeSingle());
 export const profitPreview = (year: number) => rpc('profit_preview', { p_year: year });
 export const distributeProfit = (year: number, reservePct: number, managementPct: number) =>
   rpc('distribute_profit', { p_year: year, p_reserve_pct: reservePct, p_management_pct: managementPct });

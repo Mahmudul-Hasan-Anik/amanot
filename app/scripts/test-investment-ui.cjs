@@ -1,0 +1,46 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,require:n=>{if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return out;}
+const digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c)))};
+const domain=load('src/lib/investment.ts',{'./bengali':digits});
+const {contractAmounts,allocateInvestmentPayment,investmentSchedule,investmentReminder,parseInvestmentAmount}=domain;
+const c={id:'c',number:'INV-001',recipientName:'Recipient',phone:'01733000001',whatsapp:'',principal:100000,profitPct:20,profitAmount:20000,termMonths:12,firstDueDate:'2026-01-31',contacts:[{name:'Private contact'}],nid:'PRIVATE-NID'};
+assert.equal(contractAmounts(100000,20).total,120000);
+assert.equal(allocateInvestmentPayment(100000,20000,10000,100000).profitPart,10000);
+assert.throws(()=>allocateInvestmentPayment(100000,20000,119999,2));
+assert.equal(investmentSchedule(c,15000,'2026-03-01')[1].paid,5000);
+assert.equal(investmentSchedule(c,15000,'2026-03-01')[1].remaining,5000);
+assert.equal(investmentSchedule(c,0)[1].dueDate,'2026-02-28');assert.equal(investmentSchedule(c,0)[2].dueDate,'2026-03-31');
+const pennies=investmentSchedule({...c,principal:100,profitAmount:0,termMonths:3},0);
+assert.equal(pennies[2].amount,33.34);assert.equal(pennies.reduce((s,i)=>s+Math.round(i.amount*100),0),10000);
+const reminder=investmentReminder(c,0,'Society',false,'2026-02-01');assert.ok(reminder.url.startsWith('https://wa.me/8801733000001?text='));assert.ok(!reminder.text.includes('PRIVATE'));assert.equal(investmentReminder(c,120000,'Society',false),null);
+assert.equal(parseInvestmentAmount('১,২০০.৫০'),1200.5);for(const bad of ['abc','1x2','1.234','-1','Infinity'])assert.ok(Number.isNaN(parseInvestmentAmount(bad)));
+function fixture(role='super_admin'){
+  const slots=[];let cursor=0,counter=0;const writes=[],routes=[];
+  const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=typeof v==='function'?v():v;return[slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]},useRef:v=>{const i=cursor++;if(!(i in slots))slots[i]={current:v};return slots[i]}};
+  const state={members:[{id:'m',code:'M-001',name:'Member',phone:'01733000001',address:'Dhaka',fatherName:'Father',motherName:'Mother',status:'paid'}],cashAccounts:[{id:'bank',type:'bank',name:'Bank',amount:1000000}],createInvestment:async p=>writes.push(p)};
+  const native={View:'View',Text:'Text',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',StyleSheet:{create:s=>s},Platform:{OS:'web'}};
+  const Screen=load('src/screens/InvestmentNew.tsx',{
+    react:React,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useRouter:()=>({replace:r=>routes.push(r)})},
+    '../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatNum:String})},
+    '../store/somitiStore':{useSomitiStore:s=>s(state)},'../features/auth/authStore':{useAuthStore:s=>s({actualRole:role})},'../theme/colors':{colors:{}},'../theme/typography':{typography:{fontFamily:{}}},
+    '../lib/api':{uuid:()=>`request-${++counter}`},'../utils/navigation':{safeBack:()=>{}},'../lib/investment':domain,
+  }).default;
+  const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
+  const render=()=>{cursor=0;return nodes(Screen())};const button=title=>render().find(n=>n.type==='Button'&&n.props.title===title);
+  const input=label=>render().find(n=>n.type==='Input'&&n.props.label===label);
+  return{render,button,input,writes,routes};
+}
+async function main(){
+ const f=fixture();f.button('Review investment').props.onPress();assert.equal(f.writes.length,0);
+ f.button('External person').props.onPress();f.input('Full name').props.onChangeText('External');f.input('Phone').props.onChangeText('01733000001');
+ f.input('Principal to disburse').props.onChangeText('100000');f.input('Profit % for the whole contract').props.onChangeText('20');
+ const contacts=()=>f.render().filter(n=>n.type==='Input'&&n.props.label==='Name');assert.equal(contacts().length,3);contacts()[0].props.onChangeText('Contact');
+ f.render().filter(n=>n.type==='Input'&&n.props.label==='Relationship')[0].props.onChangeText('Brother');
+ f.render().filter(n=>n.type==='Input'&&n.props.label==='Phone')[1].props.onChangeText('01733000002');
+ f.button('Review investment').props.onPress();assert.equal(f.writes.length,0,'review cannot disburse');assert.ok(f.button('Confirm and disburse'));
+ await f.button('Confirm and disburse').props.onPress();assert.equal(f.writes.length,1);assert.equal(f.writes[0].contacts.length,1);assert.equal(f.writes[0].memberId,undefined);assert.equal(f.writes[0].profitPct,20);assert.ok(f.routes[0].includes(f.writes[0].id));
+ const member=fixture();member.render().find(n=>n.type==='Select'&&n.props.title==='Select active member').props.onSelect('m');assert.equal(member.input('Full name').props.value,'Member');assert.equal(member.input("Father's name (optional)").props.value,'Father');
+ assert.equal(fixture('cashier').button('Review investment'),undefined);
+ console.log('PASS investment domain/UI: principal-first allocation, precise totals/rounding, month-end dates, partial installments, private reminder content, strict amount parsing, external/member form, one required contact, explicit review and admin-only disbursement.');
+}
+main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,95 @@
+import React,{useRef,useState} from 'react';
+import {View,Text,ScrollView,StyleSheet,Alert,KeyboardAvoidingView,Platform} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useRouter} from 'expo-router';
+import {Button,Card,Input,SelectModal} from '../components';
+import {useLanguage} from '../i18n/useLanguage';
+import {useSomitiStore} from '../store/somitiStore';
+import {useAuthStore} from '../features/auth/authStore';
+import {colors} from '../theme/colors';
+import {typography} from '../theme/typography';
+import {uuid} from '../lib/api';
+import {safeBack} from '../utils/navigation';
+import {EmergencyContact,NewInvestment,contractAmounts,investmentSchedule,isoToday,monthDate,parseInvestmentAmount,validateNewInvestment} from '../lib/investment';
+
+export default function InvestmentNew(){
+  const {l,formatMoney,formatNum}=useLanguage();const router=useRouter();
+  const members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts),create=useSomitiStore(s=>s.createInvestment);
+  const role=useAuthStore(s=>s.actualRole);const allowed=role==='admin'||role==='super_admin';
+  const request=useRef(uuid());
+  const [kind,setKind]=useState('member'),[memberId,setMemberId]=useState(''),[selector,setSelector]=useState('');
+  const [fields,setFields]=useState({recipientName:'',phone:'',whatsapp:'',address:'',nid:'',fatherName:'',motherName:'',purpose:'',principal:'',profitPct:'',termMonths:'12',disbursedDate:isoToday(),firstDueDate:monthDate(isoToday(),1)});
+  const [contacts,setContacts]=useState<EmergencyContact[]>(Array.from({length:3},()=>({name:'',relation:'',phone:''})));
+  const [method,setMethod]=useState<NewInvestment['paymentMethod']>('bank');
+  const [review,setReview]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const change=(key:keyof typeof fields)=>(value:string)=>{request.current=uuid();setFields(s=>({...s,[key]:value}));setError('');};
+  const principal=parseInvestmentAmount(fields.principal),pct=parseInvestmentAmount(fields.profitPct),term=parseInvestmentAmount(fields.termMonths);
+  const amounts=contractAmounts(principal||0,pct||0);
+  const payload=():NewInvestment=>({id:request.current,memberId:kind==='member'?memberId:undefined,...fields,principal,profitPct:pct,termMonths:term,paymentMethod:method,
+    contacts:contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim()).map(c=>({name:c.name.trim(),relation:c.relation.trim(),phone:c.phone.trim()}))});
+  const preview=()=>{
+    const code=kind==='member'&&!memberId?'recipient':validateNewInvestment(payload());
+    const messages:Record<string,string>={recipient:l('Select a member or enter recipient name and valid phone.','সদস্য নির্বাচন করুন অথবা গ্রহীতার নাম ও সঠিক ফোন দিন।'),
+      whatsapp:l('Enter a valid WhatsApp number.','সঠিক WhatsApp নম্বর দিন।'),terms:l('Enter a positive principal, 0–100% contract profit and 1–120 whole months.','মূলধন, ০–১০০% চুক্তির প্রফিট ও ১–১২০ পূর্ণ মাস দিন।'),
+      dates:l('Use valid YYYY-MM-DD dates. First installment cannot precede disbursement.','YYYY-MM-DD ফরম্যাটে সঠিক তারিখ দিন। প্রথম কিস্তি বিনিয়োগ প্রদানের আগে হতে পারবে না।'),
+      contacts:l('Complete name, relationship and phone for at least one emergency contact; partially filled contacts must be completed.','অন্তত একজনের নাম, সম্পর্ক ও সঠিক ফোন দিন। অন্য কারও তথ্য শুরু করলে সেটিও সম্পূর্ণ করুন।')};
+    if(code){setError(messages[code]||code);return;}
+    setError('');setReview(true);
+  };
+  const save=async()=>{
+    if(busy)return;setBusy(true);setError('');
+    try{await create(payload());router.replace(`/(admin)/project/${request.current}` as any);}
+    catch(e:any){const missing=/Could not find the function|does not exist/.test(e.message||'');setError(missing?l('Investment backend update is not deployed yet. No money was posted.','বিনিয়োগের backend update এখনো deploy হয়নি। কোনো টাকা রেকর্ড হয়নি।'):e.message);}
+    finally{setBusy(false);}
+  };
+  if(!allowed)return <SafeAreaView style={styles.root}><Text style={styles.body}>{l('Only an administrator can disburse investments.','শুধু admin বিনিয়োগ প্রদান করতে পারবেন।')}</Text><Button title={l('Back','ফিরুন')} onPress={()=>safeBack(router)}/></SafeAreaView>;
+  const schedule=review?investmentSchedule({...payload(),profitAmount:amounts.profit,number:''},0):[];
+  return <SafeAreaView style={styles.root} edges={['top','left','right','bottom']}>
+    <View style={styles.header}><Button variant="ghost" title={l('Back','ফিরুন')} onPress={()=>review?setReview(false):safeBack(router)}/><Text style={styles.title}>{review?l('Review investment','বিনিয়োগ যাচাই'):l('New investment','নতুন বিনিয়োগ')}</Text></View>
+    <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      {error?<Text accessibilityRole="alert" style={styles.error}>{error}</Text>:null}
+      {review?<>
+        <Card><Text style={styles.heading}>{fields.recipientName}</Text><Text style={styles.body}>{fields.phone} · {kind==='member'?l('Society member','সমিতির সদস্য'):l('External recipient','বাইরের ব্যক্তি')}</Text>
+          <Text style={styles.body}>{l('Emergency contacts:','জরুরি যোগাযোগ:')} {formatNum(payload().contacts.length)}</Text>{payload().contacts.map((c,i)=><Text style={styles.body} key={i}>{c.name} · {c.relation} · {c.phone}</Text>)}</Card>
+        <Card><Text style={styles.heading}>{l('Contract terms','চুক্তির শর্ত')}</Text>
+          {[[l('Principal disbursed','প্রদত্ত মূলধন'),formatMoney(principal)],[l('Whole-contract profit','পুরো চুক্তির প্রফিট'),`${formatNum(pct)}% · ${formatMoney(amounts.profit)}`],
+            [l('Total receivable','মোট ফেরতযোগ্য'),formatMoney(amounts.total)],[l('Duration','মেয়াদ'),`${formatNum(term)} ${l('months','মাস')}`],
+            [l('Disbursement date','টাকা প্রদানের তারিখ'),fields.disbursedDate],[l('Funding account','টাকা দেওয়ার হিসাব'),accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method]].map(([label,value])=><View style={styles.row} key={label}><Text style={styles.body}>{label}</Text><Text style={styles.value}>{value}</Text></View>)}
+          <Text style={styles.hint}>{l('Principal is recovered first, then profit. No automatic late fee or compounding.','আগে মূলধন ফেরত, তারপর প্রফিট। স্বয়ংক্রিয় বিলম্ব ফি বা চক্রবৃদ্ধি নেই।')}</Text></Card>
+        <Card><Text style={styles.heading}>{l('Monthly installments','মাসিক কিস্তি')}</Text>{schedule.map(s=><View key={s.number} style={styles.row}><Text style={styles.body}>{formatNum(s.number)} · {s.dueDate}</Text><Text style={styles.value}>{formatMoney(s.amount)}</Text></View>)}</Card>
+        <Button testID="confirm-investment" title={l('Confirm and disburse','নিশ্চিত করে টাকা প্রদান')} loading={busy} onPress={save}/>
+      </>:<>
+        <Card><Text style={styles.heading}>{l('Recipient','বিনিয়োগগ্রহীতা')}</Text>
+          <View style={styles.actions}>{['member','external'].map(k=><Button key={k} size="sm" variant={kind===k?'primary':'outline'} title={k==='member'?l('Society member','সমিতির সদস্য'):l('External person','বাইরের ব্যক্তি')} onPress={()=>{setKind(k);setMemberId('');setFields(s=>({...s,recipientName:'',phone:'',whatsapp:'',address:'',nid:'',fatherName:'',motherName:''}));request.current=uuid();}}/>)}</View>
+          {kind==='member'?<Button variant="outline" title={memberId?`${fields.recipientName} · ${members.find(m=>m.id===memberId)?.code}`:l('Select member','সদস্য নির্বাচন')} onPress={()=>setSelector('member')}/>:null}
+          <Input label={l('Full name','পূর্ণ নাম')} value={fields.recipientName} editable={kind==='external'} onChangeText={change('recipientName')}/>
+          <Input label={l('Phone','মোবাইল নম্বর')} keyboardType="phone-pad" value={fields.phone} onChangeText={change('phone')}/>
+          <Input label={l('WhatsApp number (optional)','WhatsApp নম্বর (ঐচ্ছিক)')} keyboardType="phone-pad" value={fields.whatsapp} onChangeText={change('whatsapp')}/>
+          <Input label={l('Address','ঠিকানা')} value={fields.address} multiline onChangeText={change('address')}/>
+          <Input label={l('NID number (optional)','NID নম্বর (ঐচ্ছিক)')} value={fields.nid} keyboardType="number-pad" onChangeText={change('nid')}/>
+          <Input label={l("Father's name (optional)",'বাবার নাম (ঐচ্ছিক)')} value={fields.fatherName} onChangeText={change('fatherName')}/>
+          <Input label={l("Mother's name (optional)",'মায়ের নাম (ঐচ্ছিক)')} value={fields.motherName} onChangeText={change('motherName')}/>
+        </Card>
+        <Card><Text style={styles.heading}>{l('Emergency contacts','জরুরি যোগাযোগ')}</Text><Text style={styles.hint}>{l('At least one required. These contacts are not guarantors.','অন্তত একজন আবশ্যক। এরা জামিনদার নন।')}</Text>
+          {contacts.map((contact,index)=><View key={index} style={styles.contact}><Text style={styles.value}>{l('Person','ব্যক্তি')} {formatNum(index+1)} {index>0?l('(optional)','(ঐচ্ছিক)'):''}</Text>
+            {(['name','relation','phone'] as const).map(key=><Input key={key} label={key==='name'?l('Name','নাম'):key==='relation'?l('Relationship','সম্পর্ক'):l('Phone','ফোন')} value={contact[key]} keyboardType={key==='phone'?'phone-pad':'default'} onChangeText={v=>{request.current=uuid();setContacts(c=>c.map((x,i)=>i===index?{...x,[key]:v}:x));}}/>)}</View>)}
+        </Card>
+        <Card><Text style={styles.heading}>{l('Investment terms','বিনিয়োগের শর্ত')}</Text>
+          <Input label={l('Purpose','উদ্দেশ্য')} value={fields.purpose} onChangeText={change('purpose')}/>
+          <Input testID="investment-principal" label={l('Principal to disburse','প্রদানের মূলধন')} keyboardType="decimal-pad" value={fields.principal} onChangeText={change('principal')}/>
+          <Input testID="investment-profit-pct" label={l('Profit % for the whole contract','পুরো চুক্তির প্রফিট %')} helper={l('This is not an annual or monthly rate.','এটি বার্ষিক বা মাসিক হার নয়।')} keyboardType="decimal-pad" value={fields.profitPct} onChangeText={change('profitPct')}/>
+          <Input label={l('Duration in months','মেয়াদ (মাস)')} keyboardType="number-pad" value={fields.termMonths} onChangeText={change('termMonths')}/>
+          <Input label={l('Disbursement date (YYYY-MM-DD)','প্রদানের তারিখ (YYYY-MM-DD)')} value={fields.disbursedDate} onChangeText={change('disbursedDate')}/>
+          <Input label={l('First installment date (YYYY-MM-DD)','প্রথম কিস্তির তারিখ (YYYY-MM-DD)')} value={fields.firstDueDate} onChangeText={change('firstDueDate')}/>
+          <Button variant="outline" title={`${l('Funding account','টাকা দেওয়ার হিসাব')}: ${accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method}`} onPress={()=>setSelector('account')}/>
+          <Text style={styles.hint}>{l('Agreed profit','চুক্তির প্রফিট')}: {formatMoney(amounts.profit)} · {l('Total receivable','মোট ফেরতযোগ্য')}: {formatMoney(amounts.total)}</Text>
+        </Card>
+        <Button title={l('Review investment','বিনিয়োগ যাচাই করুন')} onPress={preview}/>
+      </>}
+    </ScrollView></KeyboardAvoidingView>
+    <SelectModal visible={selector==='member'} title={l('Select active member','সক্রিয় সদস্য নির্বাচন')} value={memberId} options={members.filter(m=>m.status!=='inactive').map(m=>({value:m.id,label:`${m.code} · ${m.name} · ${m.phone}`}))} onClose={()=>setSelector('')} onSelect={id=>{const m=members.find(m=>m.id===id);if(!m)return;request.current=uuid();setMemberId(id);setFields(s=>({...s,recipientName:m.name,phone:m.phone,whatsapp:m.whatsapp||'',address:m.address,nid:m.nid||'',fatherName:m.fatherName||'',motherName:m.motherName||''}));}}/>
+    <SelectModal visible={selector==='account'} title={l('Funding account','টাকা দেওয়ার হিসাব')} value={method} options={accounts.filter(a=>['bank','cashier','bkash','nagad'].includes(a.type||'')).map(a=>({value:a.type==='cashier'?'cash':a.type!,label:`${a.name} · ${formatMoney(a.amount)}`}))} onClose={()=>setSelector('')} onSelect={v=>{request.current=uuid();setMethod(v as NewInvestment['paymentMethod']);}}/>
+  </SafeAreaView>;
+}
+const styles=StyleSheet.create({root:{flex:1,backgroundColor:colors.bg},header:{paddingHorizontal:12,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:8},title:{flex:1,fontSize:21,fontFamily:typography.fontFamily.bold,color:colors.text},content:{padding:16,paddingBottom:32},heading:{fontFamily:typography.fontFamily.bold,fontSize:18,color:colors.text,marginBottom:12},body:{fontFamily:typography.fontFamily.regular,fontSize:14,color:colors.text,flexShrink:1},value:{fontFamily:typography.fontFamily.semiBold,fontSize:15,color:colors.primary,flexShrink:1,textAlign:'right'},row:{flexDirection:'row',justifyContent:'space-between',gap:12,paddingVertical:9},actions:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:16},hint:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:21,color:colors.textSecondary,marginVertical:10},contact:{paddingTop:12,marginTop:8,borderTopWidth:1,borderTopColor:colors.border},error:{fontFamily:typography.fontFamily.regular,color:colors.warning,padding:12,marginBottom:10,backgroundColor:colors.warningSoft,borderRadius:12}});

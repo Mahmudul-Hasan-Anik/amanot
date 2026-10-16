@@ -275,7 +275,7 @@ export default function HomeDashboardScreen() {
           {/* Allocation Details */}
           <View style={styles.heroFooter}>
             <View style={styles.heroFooterCol}>
-              <Text style={styles.heroFooterLabel}>{l('Invested in Projects', 'প্রজেক্টে বিনিয়োগ')}</Text>
+              <Text style={styles.heroFooterLabel}>{l('Invested capital', 'বিনিয়োগে থাকা মূলধন')}</Text>
               <Text style={styles.heroFooterValue}>
                 {formatMoney(projectInvested)} · {formatNum(projectInvestedPct)}%
               </Text>
@@ -361,7 +361,7 @@ export default function HomeDashboardScreen() {
           </Card>
         </TouchableOpacity>
 
-        {/* 4. Two-Column Cards: বকেয়া & প্রজেক্ট */}
+        {/* 4. Two-Column Cards: বকেয়া & বিনিয়োগ */}
         <View style={styles.twoColumnRow}>
           {/* Due Card (Peach Warning Soft) */}
           
@@ -375,7 +375,7 @@ export default function HomeDashboardScreen() {
             <Card style={styles.projectHalfCard}>
               <View style={styles.halfCardHeader}>
                 <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
-                <Text style={styles.projectHalfCardTitle}>{l('Active Projects', 'চলমান প্রজেক্ট')}</Text>
+                <Text style={styles.projectHalfCardTitle}>{l('Active Investments', 'চলমান বিনিয়োগ')}</Text>
               </View>
               <Text style={styles.projectHalfCardAmount}>
                 {formatNum(activeProjectsCount)}{l(' items', 'টি')}

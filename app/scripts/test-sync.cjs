@@ -12,6 +12,7 @@ const api={__esModule:true,clearPhotoCache:()=>{},fetchSyncRevision:async()=>{if
 const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/store/somitiStore.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promise,require:n=>{
   if(n==='../lib/memberIdentity')return identity;
+  if(n==='../lib/investment')return {};
   if(n==='../lib/queryCache')return queryCache;
   if(n==='zustand'||n==='zustand/middleware')return require(n);
   if(n==='@react-native-async-storage/async-storage')return {__esModule:true,default:storage};

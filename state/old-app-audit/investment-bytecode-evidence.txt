@@ -1,0 +1,2742 @@
+Function<investmentPrincipal>(2 params, 15 registers, 1 numbers, 0 non-pointers):
+    LoadParam         r1, 1
+    GetGlobalObject   r2
+    TryGetById        r3, r2, 0, "Math"
+    GetByIdShort      r2, r3, 1, "max"
+    GetById           r4, r1, 2, "totalAmount"
+    GetById           r1, r1, 3, "profitAmount"
+    JmpTrue           L1, r1
+    LoadConstZero     r1
+L1:
+    Sub               r1, r4, r1
+    LoadConstZero     r0
+    Call3             r1, r2, r3, r0, r1
+    Ret               r1
+
+
+Function<splitInstallments>(3 params, 15 registers, 1 numbers, 0 non-pointers):
+    LoadParam         r1, 2
+    LoadConstUInt8    r0, 1
+    JLess             L1, r1, r0
+    LoadParam         r2, 1
+    GetGlobalObject   r3
+    TryGetById        r5, r3, 0, "Math"
+    GetByIdShort      r4, r5, 1, "floor"
+    Div               r3, r2, r1
+    Call2             r3, r4, r5, r3
+    Mul               r1, r3, r1
+    Sub               r2, r2, r1
+    NewObjectWithBuffer r1, 1493, 15273
+    PutOwnBySlotIdx   r1, r3, 0
+    Add               r2, r3, r2
+    PutOwnBySlotIdx   r1, r2, 1
+    Ret               r1
+L1:
+    NewObjectWithBuffer r1, 1493, 33071
+    Ret               r1
+
+
+Function<investmentStatus>(3 params, 31 registers, 6 numbers, 3 non-pointers):
+    GetParentEnvironment r11, 0
+    LoadParam         r14, 1
+    LoadParam         r13, 2
+    GetByIdShort      r9, r13, 0, "memberId"
+    JmpTrue           L1, r9
+    LoadFromEnvironment r10, r11, 5
+    GetByIdShort      r9, r13, 1, "id"
+    LoadConstZero     r0
+    Call3             r10, r10, r0, r14, r9
+    Jmp               L2
+L1:
+    LoadFromEnvironment r12, r11, 4
+    GetByIdShort      r9, r13, 0, "memberId"
+    LoadConstZero     r0
+    Call3             r14, r12, r0, r14, r9
+    GetByIdShort      r12, r14, 2, "get"
+    GetByIdShort      r9, r13, 1, "id"
+    Call2             r9, r12, r14, r9
+    LoadConstNull     r6
+    JNotEqual         L3, r9, r6
+    NewObjectWithBuffer r9, 1495, 42712
+L3:
+    Mov               r10, r9
+L2:
+    GetGlobalObject   r9
+    TryGetById        r15, r9, 3, "Math"
+    GetByIdShort      r14, r15, 4, "max"
+    GetById           r16, r13, 5, "totalAmount"
+    GetById           r12, r10, 6, "paid"
+    Sub               r12, r16, r12
+    LoadConstZero     r0
+    Call3             r12, r14, r15, r0, r12
+    TryGetById        r14, r9, 7, "Date"
+    CreateThisForNew  r15, r14, 8
+    Mov               r23, r15
+    Construct         r14, r14, 1
+    SelectObject      r15, r15, r14
+    GetById           r14, r15, 9, "toISOString"
+    Call1             r15, r14, r15
+    GetByIdShort      r14, r15, 10, "slice"
+    LoadConstUInt8    r2, 10
+    Call3             r15, r14, r15, r0, r2
+    LoadFromEnvironment r11, r11, 3
+    LoadConstUndefined r7
+    Call2             r13, r11, r7, r13
+    GetByIdShort      r11, r15, 10, "slice"
+    Call3             r14, r11, r15, r0, r2
+    GetByIdShort      r11, r14, 11, "split"
+    LoadConstString   r16, "-"
+    Call2             r17, r11, r14, r16
+    GetByIdShort      r14, r17, 12, "map"
+    TryGetById        r11, r9, 13, "Number"
+    Call2             r11, r14, r17, r11
+    Mov               r18, r11
+    IteratorBegin     r17, r18
+    Mov               r11, r18
+    IteratorNext      r11, r17, r11
+    Mov               r14, r17
+    StrictEq          r6, r14, r7
+    LoadConstUndefined r14
+    JmpTrue           L4, r6
+    Mov               r14, r11
+L4:
+    LoadConstUndefined r11
+    JmpTrue           L5, r6
+    IteratorNext      r18, r17, r18
+    Mov               r19, r17
+    StrictEq          r8, r19, r7
+    LoadConstUndefined r11
+    Mov               r6, r8
+    JmpTrue           L5, r8
+    Mov               r11, r18
+    Mov               r6, r8
+L5:
+    JmpTrue           L6, r6
+    IteratorClose     r17, 0
+L6:
+    JmpTrue           L7, r14
+    LoadConstZero     r14
+L7:
+    LoadConstUInt8    r1, 12
+    Mul               r3, r14, r1
+    JmpTrue           L8, r11
+    LoadConstUInt8    r11, 1
+L8:
+    Add               r14, r3, r11
+    GetByIdShort      r11, r13, 10, "slice"
+    Call3             r17, r11, r13, r0, r2
+    GetByIdShort      r11, r17, 11, "split"
+    Call2             r18, r11, r17, r16
+    GetByIdShort      r17, r18, 12, "map"
+    TryGetById        r11, r9, 13, "Number"
+    Call2             r11, r17, r18, r11
+    Mov               r19, r11
+    IteratorBegin     r18, r19
+    Mov               r11, r19
+    IteratorNext      r11, r18, r11
+    Mov               r17, r18
+    StrictEq          r6, r17, r7
+    LoadConstUndefined r17
+    JmpTrue           L9, r6
+    Mov               r17, r11
+L9:
+    LoadConstUndefined r11
+    JmpTrue           L10, r6
+    IteratorNext      r19, r18, r19
+    Mov               r20, r18
+    StrictEq          r8, r20, r7
+    LoadConstUndefined r11
+    Mov               r6, r8
+    JmpTrue           L10, r8
+    Mov               r11, r19
+    Mov               r6, r8
+L10:
+    JmpTrue           L11, r6
+    IteratorClose     r18, 0
+L11:
+    JmpTrue           L12, r17
+    LoadConstZero     r17
+L12:
+    Mul               r3, r17, r1
+    JmpTrue           L13, r11
+    LoadConstUInt8    r11, 1
+L13:
+    Add               r11, r3, r11
+    Sub               r3, r14, r11
+    JLessNLong        L14, r0, r3
+    GetByIdShort      r11, r13, 10, "slice"
+    Call3             r14, r11, r13, r0, r2
+    GetByIdShort      r11, r14, 11, "split"
+    Call2             r17, r11, r14, r16
+    GetByIdShort      r14, r17, 12, "map"
+    TryGetById        r11, r9, 13, "Number"
+    Call2             r11, r14, r17, r11
+    Mov               r18, r11
+    IteratorBegin     r17, r18
+    Mov               r11, r18
+    IteratorNext      r11, r17, r11
+    Mov               r14, r17
+    StrictEq          r6, r14, r7
+    LoadConstUndefined r14
+    JmpTrue           L15, r6
+    Mov               r14, r11
+L15:
+    LoadConstUndefined r11
+    JmpTrue           L16, r6
+    IteratorNext      r18, r17, r18
+    Mov               r19, r17
+    StrictEq          r8, r19, r7
+    LoadConstUndefined r11
+    Mov               r6, r8
+    JmpTrue           L16, r8
+    Mov               r11, r18
+    Mov               r6, r8
+L16:
+    JmpTrue           L17, r6
+    IteratorClose     r17, 0
+L17:
+    JmpTrue           L18, r14
+    LoadConstZero     r14
+L18:
+    Mul               r4, r14, r1
+    JmpTrue           L19, r11
+    LoadConstUInt8    r11, 1
+L19:
+    Add               r14, r4, r11
+    GetByIdShort      r11, r15, 10, "slice"
+    Call3             r15, r11, r15, r0, r2
+    GetByIdShort      r11, r15, 11, "split"
+    Call2             r15, r11, r15, r16
+    GetByIdShort      r11, r15, 12, "map"
+    TryGetById        r9, r9, 13, "Number"
+    Call2             r9, r11, r15, r9
+    Mov               r16, r9
+    IteratorBegin     r15, r16
+    Mov               r9, r16
+    IteratorNext      r9, r15, r9
+    Mov               r11, r15
+    StrictEq          r6, r11, r7
+    LoadConstUndefined r11
+    JmpTrue           L20, r6
+    Mov               r11, r9
+L20:
+    LoadConstUndefined r9
+    JmpTrue           L21, r6
+    IteratorNext      r16, r15, r16
+    Mov               r17, r15
+    StrictEq          r8, r17, r7
+    LoadConstUndefined r9
+    Mov               r6, r8
+    JmpTrue           L21, r8
+    Mov               r9, r16
+    Mov               r6, r8
+L21:
+    JmpTrue           L22, r6
+    IteratorClose     r15, 0
+L22:
+    JmpTrue           L23, r11
+    LoadConstZero     r11
+L23:
+    Mul               r1, r11, r1
+    JmpTrue           L24, r9
+    LoadConstUInt8    r9, 1
+L24:
+    NewObjectWithBuffer r11, 1497, 41252
+    Add               r9, r1, r9
+    Sub               r1, r14, r9
+    PutOwnBySlotIdx   r11, r1, 1
+    PutOwnBySlotIdx   r11, r13, 2
+    Jmp               L25
+L14:
+    NewObjectWithBuffer r9, 1497, 15415
+    PutOwnBySlotIdx   r9, r3, 0
+    PutOwnBySlotIdx   r9, r13, 2
+    Mov               r11, r9
+L25:
+    NewObjectWithBuffer r9, 1496, 15487
+    GetById           r13, r10, 6, "paid"
+    PutOwnBySlotIdx   r9, r13, 0
+    PutOwnBySlotIdx   r9, r12, 1
+    Greater           r6, r12, r0
+    LoadConstZero     r13
+    JmpFalse          L26, r6
+    GetById           r13, r11, 14, "remainingMonths"
+L26:
+    PutOwnBySlotIdx   r9, r13, 2
+    Greater           r6, r12, r0
+    LoadConstZero     r12
+    JmpFalse          L27, r6
+    GetById           r12, r11, 15, "overdueMonths"
+L27:
+    PutOwnBySlotIdx   r9, r12, 3
+    GetByIdShort      r11, r11, 16, "end"
+    PutOwnBySlotIdx   r9, r11, 4
+    GetById           r11, r10, 17, "lastPaymentDate"
+    PutOwnBySlotIdx   r9, r11, 5
+    GetById           r10, r10, 18, "lastPaidAmount"
+    PutOwnBySlotIdx   r9, r10, 6
+    Ret               r9
+
+
+Function<NewInvestment>(1 params, 50 registers, 1 numbers, 3 non-pointers):
+    GetParentEnvironment r30, 0
+    CreateFunctionEnvironment r15, 12
+    LoadFromEnvironment r4, r30, 3
+    GetById           r4, r4, 0, "useStore"
+    LoadConstUndefined r2
+    Call1             r4, r4, r2
+    GetById           r4, r4, 1, "addInvestment"
+    StoreToEnvironment r15, 0, r4
+    LoadFromEnvironment r7, r30, 0
+    GetByIdShort      r4, r7, 2, "useState"
+    LoadConstString   r5, ""
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r39
+    JmpTrue           L1, r1
+    Mov               r39, r8
+L1:
+    StoreToEnvironment r15, 1, r39
+    LoadConstUndefined r17
+    JmpTrue           L2, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r17
+    Mov               r1, r3
+    JmpTrue           L2, r3
+    Mov               r17, r6
+    Mov               r1, r3
+L2:
+    JmpTrue           L3, r1
+    IteratorClose     r4, 0
+L3:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r38
+    JmpTrue           L4, r1
+    Mov               r38, r8
+L4:
+    StoreToEnvironment r15, 2, r38
+    LoadConstUndefined r37
+    JmpTrue           L5, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r37
+    Mov               r1, r3
+    JmpTrue           L5, r3
+    Mov               r37, r6
+    Mov               r1, r3
+L5:
+    JmpTrue           L6, r1
+    IteratorClose     r4, 0
+L6:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r36
+    JmpTrue           L7, r1
+    Mov               r36, r8
+L7:
+    StoreToEnvironment r15, 3, r36
+    LoadConstUndefined r35
+    JmpTrue           L8, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r35
+    Mov               r1, r3
+    JmpTrue           L8, r3
+    Mov               r35, r6
+    Mov               r1, r3
+L8:
+    JmpTrue           L9, r1
+    IteratorClose     r4, 0
+L9:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r33
+    JmpTrue           L10, r1
+    Mov               r33, r8
+L10:
+    StoreToEnvironment r15, 4, r33
+    LoadConstUndefined r31
+    JmpTrue           L11, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r31
+    Mov               r1, r3
+    JmpTrue           L11, r3
+    Mov               r31, r6
+    Mov               r1, r3
+L11:
+    JmpTrue           L12, r1
+    IteratorClose     r4, 0
+L12:
+    GetByIdShort      r6, r7, 2, "useState"
+    LoadConstString   r4, "12"
+    Call2             r8, r6, r2, r4
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r29
+    JmpTrue           L13, r1
+    Mov               r29, r8
+L13:
+    StoreToEnvironment r15, 5, r29
+    LoadConstUndefined r28
+    JmpTrue           L14, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r28
+    Mov               r1, r3
+    JmpTrue           L14, r3
+    Mov               r28, r6
+    Mov               r1, r3
+L14:
+    JmpTrue           L15, r1
+    IteratorClose     r4, 0
+L15:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r27
+    JmpTrue           L16, r1
+    Mov               r27, r8
+L16:
+    LoadConstUndefined r26
+    JmpTrue           L17, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r26
+    Mov               r1, r3
+    JmpTrue           L17, r3
+    Mov               r26, r6
+    Mov               r1, r3
+L17:
+    JmpTrue           L18, r1
+    IteratorClose     r4, 0
+L18:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r25
+    JmpTrue           L19, r1
+    Mov               r25, r8
+L19:
+    LoadConstUndefined r24
+    JmpTrue           L20, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r24
+    Mov               r1, r3
+    JmpTrue           L20, r3
+    Mov               r24, r6
+    Mov               r1, r3
+L20:
+    JmpTrue           L21, r1
+    IteratorClose     r4, 0
+L21:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r23
+    JmpTrue           L22, r1
+    Mov               r23, r8
+L22:
+    StoreToEnvironment r15, 6, r23
+    LoadConstUndefined r22
+    JmpTrue           L23, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r22
+    Mov               r1, r3
+    JmpTrue           L23, r3
+    Mov               r22, r6
+    Mov               r1, r3
+L23:
+    JmpTrue           L24, r1
+    IteratorClose     r4, 0
+L24:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r8, r4, r2, r5
+    Mov               r6, r8
+    IteratorBegin     r4, r6
+    Mov               r8, r6
+    IteratorNext      r8, r4, r8
+    Mov               r9, r4
+    StrictEq          r1, r9, r2
+    LoadConstUndefined r21
+    JmpTrue           L25, r1
+    Mov               r21, r8
+L25:
+    StoreToEnvironment r15, 7, r21
+    LoadConstUndefined r20
+    JmpTrue           L26, r1
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r3, r8, r2
+    LoadConstUndefined r20
+    Mov               r1, r3
+    JmpTrue           L26, r3
+    Mov               r20, r6
+    Mov               r1, r3
+L26:
+    JmpTrue           L27, r1
+    IteratorClose     r4, 0
+L27:
+    GetByIdShort      r4, r7, 2, "useState"
+    Call2             r6, r4, r2, r5
+    Mov               r5, r6
+    IteratorBegin     r4, r5
+    Mov               r6, r5
+    IteratorNext      r6, r4, r6
+    Mov               r8, r4
+    StrictEq          r1, r8, r2
+    LoadConstUndefined r19
+    JmpTrue           L28, r1
+    Mov               r19, r6
+L28:
+    StoreToEnvironment r15, 8, r19
+    LoadConstUndefined r18
+    JmpTrue           L29, r1
+    IteratorNext      r5, r4, r5
+    Mov               r6, r4
+    StrictEq          r3, r6, r2
+    LoadConstUndefined r18
+    Mov               r1, r3
+    JmpTrue           L29, r3
+    Mov               r18, r5
+    Mov               r1, r3
+L29:
+    JmpTrue           L30, r1
+    IteratorClose     r4, 0
+L30:
+    GetGlobalObject   r4
+    TryGetById        r5, r4, 3, "Number"
+    Call2             r6, r5, r2, r27
+    JmpTrue           L31, r6
+    LoadConstZero     r6
+L31:
+    StoreToEnvironment r15, 9, r6
+    TryGetById        r5, r4, 3, "Number"
+    Call2             r5, r5, r2, r25
+    JmpTrue           L32, r5
+    LoadConstZero     r5
+L32:
+    StoreToEnvironment r15, 10, r5
+    TryGetById        r10, r4, 4, "Math"
+    GetByIdShort      r9, r10, 5, "max"
+    Sub               r8, r6, r5
+    LoadConstZero     r0
+    Call3             r34, r9, r10, r0, r8
+    GetByIdShort      r9, r7, 6, "useMemo"
+    NewArray          r8, 2
+    DefineOwnInDenseArray r8, r6, 0
+    DefineOwnInDenseArray r8, r29, 1
+    CreateClosure     r7, r15, NCFunction<>
+    Call3             r32, r9, r2, r7, r8
+    GetByIdShort      r7, r39, 7, "trim"
+    Call1             r7, r7, r39
+    GetByIdShort      r7, r7, 8, "length"
+    Greater           r1, r7, r0
+    JmpFalse          L33, r1
+    Greater           r1, r6, r0
+L33:
+    JmpFalse          L34, r1
+    GreaterEq         r1, r5, r0
+L34:
+    JmpFalse          L35, r1
+    LessEq            r1, r5, r6
+L35:
+    JmpFalse          L36, r1
+    TryGetById        r4, r4, 3, "Number"
+    Call2             r4, r4, r2, r29
+    JmpTrue           L37, r4
+    LoadConstZero     r4
+L37:
+    LoadConstUInt8    r0, 1
+    GreaterEq         r1, r4, r0
+L36:
+    CreateClosure     r4, r2, NCFunction<parseContact>
+    StoreToEnvironment r15, 11, r4
+    LoadFromEnvironment r13, r30, 7
+    GetByIdShort      r6, r13, 9, "jsxs"
+    LoadFromEnvironment r12, r30, 4
+    GetByIdShort      r5, r12, 10, "Screen"
+    NewObjectWithBuffer r4, 893, 31
+    GetByIdShort      r9, r13, 11, "jsx"
+    GetById           r8, r12, 12, "Header"
+    NewObjectWithBuffer r7, 1747, 44916
+    Call3             r8, r9, r2, r8, r7
+    NewArray          r7, 2
+    DefineOwnInDenseArray r7, r8, 0
+    GetByIdShort      r10, r13, 9, "jsxs"
+    GetById           r9, r12, 13, "Card"
+    NewObjectWithBuffer r8, 893, 31
+    GetByIdShort      r16, r13, 11, "jsx"
+    GetById           r14, r12, 14, "Field"
+    NewObjectWithBuffer r11, 1800, 2015
+    PutOwnBySlotIdx   r11, r39, 1
+    PutOwnBySlotIdx   r11, r17, 2
+    Call3             r14, r16, r2, r14, r11
+    NewArray          r11, 13
+    DefineOwnInDenseArray r11, r14, 0
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1800, 44921
+    PutOwnBySlotIdx   r14, r38, 1
+    PutOwnBySlotIdx   r14, r37, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 1
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1742, 44815
+    PutOwnBySlotIdx   r14, r36, 1
+    PutOwnBySlotIdx   r14, r35, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 2
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1742, 44819
+    PutOwnBySlotIdx   r14, r33, 1
+    PutOwnBySlotIdx   r14, r31, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 3
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1764, 44823
+    PutOwnBySlotIdx   r14, r29, 1
+    PutOwnBySlotIdx   r14, r28, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 4
+    GetByIdShort      r17, r13, 11, "jsx"
+    LoadFromEnvironment r28, r30, 1
+    GetByIdShort      r16, r28, 15, "Text"
+    NewObjectWithBuffer r14, 794, 42877
+    NewObjectWithBuffer r29, 1783, 42884
+    LoadFromEnvironment r33, r30, 6
+    GetByIdShort      r30, r33, 16, "theme"
+    GetByIdShort      r30, r30, 17, "muted"
+    PutOwnBySlotIdx   r29, r30, 0
+    PutOwnBySlotIdx   r14, r29, 0
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 5
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1780, 44930
+    PutOwnBySlotIdx   r14, r27, 1
+    PutOwnBySlotIdx   r14, r26, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 6
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1780, 44939
+    PutOwnBySlotIdx   r14, r25, 1
+    PutOwnBySlotIdx   r14, r24, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 7
+    GetByIdShort      r17, r13, 9, "jsxs"
+    GetByIdShort      r16, r28, 18, "View"
+    NewObjectWithBuffer r14, 794, 15273
+    NewObjectWithBuffer r24, 1760, 44844
+    PutOwnBySlotIdx   r14, r24, 0
+    GetByIdShort      r26, r13, 9, "jsxs"
+    GetByIdShort      r25, r28, 18, "View"
+    NewObjectWithBuffer r24, 794, 15273
+    NewObjectWithBuffer r27, 1761, 44859
+    PutOwnBySlotIdx   r24, r27, 0
+    GetByIdShort      r30, r13, 11, "jsx"
+    GetByIdShort      r29, r28, 15, "Text"
+    NewObjectWithBuffer r27, 794, 34401
+    NewObjectWithBuffer r31, 470, 2659
+    GetByIdShort      r35, r33, 16, "theme"
+    GetByIdShort      r35, r35, 17, "muted"
+    PutOwnBySlotIdx   r31, r35, 0
+    PutOwnBySlotIdx   r27, r31, 0
+    Call3             r29, r30, r2, r29, r27
+    NewArray          r27, 2
+    DefineOwnInDenseArray r27, r29, 0
+    GetByIdShort      r31, r13, 11, "jsx"
+    GetById           r30, r12, 19, "Money"
+    NewObjectWithBuffer r29, 1762, 37866
+    PutOwnBySlotIdx   r29, r34, 0
+    Call3             r29, r31, r2, r30, r29
+    DefineOwnInDenseArray r27, r29, 1
+    PutOwnBySlotIdx   r24, r27, 1
+    Call3             r25, r26, r2, r25, r24
+    NewArray          r24, 3
+    DefineOwnInDenseArray r24, r25, 0
+    GetByIdShort      r27, r13, 9, "jsxs"
+    GetByIdShort      r26, r28, 18, "View"
+    NewObjectWithBuffer r25, 794, 15273
+    NewObjectWithBuffer r29, 1761, 44859
+    PutOwnBySlotIdx   r25, r29, 0
+    GetByIdShort      r31, r13, 11, "jsx"
+    GetByIdShort      r30, r28, 15, "Text"
+    NewObjectWithBuffer r29, 794, 42822
+    NewObjectWithBuffer r34, 470, 2659
+    GetByIdShort      r35, r33, 16, "theme"
+    GetByIdShort      r35, r35, 17, "muted"
+    PutOwnBySlotIdx   r34, r35, 0
+    PutOwnBySlotIdx   r29, r34, 0
+    Call3             r30, r31, r2, r30, r29
+    NewArray          r29, 2
+    DefineOwnInDenseArray r29, r30, 0
+    GetByIdShort      r34, r13, 11, "jsx"
+    GetById           r31, r12, 19, "Money"
+    NewObjectWithBuffer r30, 1735, 15328
+    GetById           r35, r32, 20, "monthlyInstallmen"...
+    PutOwnBySlotIdx   r30, r35, 0
+    Call3             r30, r34, r2, r31, r30
+    DefineOwnInDenseArray r29, r30, 1
+    PutOwnBySlotIdx   r25, r29, 1
+    Call3             r25, r27, r2, r26, r25
+    DefineOwnInDenseArray r24, r25, 1
+    GetByIdShort      r27, r13, 9, "jsxs"
+    GetByIdShort      r26, r28, 18, "View"
+    NewObjectWithBuffer r25, 794, 15273
+    NewObjectWithBuffer r29, 1761, 44859
+    PutOwnBySlotIdx   r25, r29, 0
+    GetByIdShort      r30, r13, 11, "jsx"
+    GetByIdShort      r29, r28, 15, "Text"
+    NewObjectWithBuffer r28, 794, 37090
+    NewObjectWithBuffer r31, 470, 2659
+    GetByIdShort      r33, r33, 16, "theme"
+    GetByIdShort      r33, r33, 17, "muted"
+    PutOwnBySlotIdx   r31, r33, 0
+    PutOwnBySlotIdx   r28, r31, 0
+    Call3             r29, r30, r2, r29, r28
+    NewArray          r28, 2
+    DefineOwnInDenseArray r28, r29, 0
+    GetByIdShort      r31, r13, 11, "jsx"
+    GetById           r30, r12, 19, "Money"
+    NewObjectWithBuffer r29, 1762, 37866
+    GetById           r32, r32, 21, "lastInstallment"
+    PutOwnBySlotIdx   r29, r32, 0
+    Call3             r29, r31, r2, r30, r29
+    DefineOwnInDenseArray r28, r29, 1
+    PutOwnBySlotIdx   r25, r28, 1
+    Call3             r25, r27, r2, r26, r25
+    DefineOwnInDenseArray r24, r25, 2
+    PutOwnBySlotIdx   r14, r24, 1
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 8
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1781, 44868
+    PutOwnBySlotIdx   r14, r23, 1
+    PutOwnBySlotIdx   r14, r22, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 9
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1781, 44875
+    PutOwnBySlotIdx   r14, r21, 1
+    PutOwnBySlotIdx   r14, r20, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 10
+    GetByIdShort      r17, r13, 11, "jsx"
+    GetById           r16, r12, 14, "Field"
+    NewObjectWithBuffer r14, 1781, 44882
+    PutOwnBySlotIdx   r14, r19, 1
+    PutOwnBySlotIdx   r14, r18, 2
+    Call3             r14, r17, r2, r16, r14
+    DefineOwnInDenseArray r11, r14, 11
+    GetByIdShort      r14, r13, 11, "jsx"
+    GetById           r13, r12, 22, "PrimaryButton"
+    NewObjectWithBuffer r12, 1758, 44948
+    Not               r1, r1
+    PutOwnBySlotIdx   r12, r1, 1
+    CreateClosure     r15, r15, NCFunction<onPress>
+    PutOwnBySlotIdx   r12, r15, 2
+    Call3             r12, r14, r2, r13, r12
+    DefineOwnInDenseArray r11, r12, 12
+    PutOwnBySlotIdx   r8, r11, 0
+    Call3             r8, r10, r2, r9, r8
+    DefineOwnInDenseArray r7, r8, 1
+    PutOwnBySlotIdx   r4, r7, 0
+    Call3             r4, r6, r2, r5, r4
+    Ret               r4
+
+
+Function<InvestmentDetail>(1 params, 73 registers, 2 numbers, 4 non-pointers):
+    GetParentEnvironment r10, 0
+    CreateFunctionEnvironment r22, 35
+    LoadFromEnvironment r6, r10, 2
+    GetById           r6, r6, 0, "useLocalSearchPar"...
+    LoadConstUndefined r3
+    Call1             r6, r6, r3
+    GetByIdShort      r6, r6, 1, "id"
+    StoreToEnvironment r22, 0, r6
+    LoadFromEnvironment r6, r10, 3
+    GetById           r6, r6, 2, "useStore"
+    Call1             r6, r6, r3
+    GetById           r7, r6, 3, "org"
+    StoreToEnvironment r22, 1, r7
+    GetByIdShort      r7, r6, 4, "data"
+    GetById           r8, r6, 5, "addFollowUp"
+    StoreToEnvironment r22, 2, r8
+    GetById           r6, r6, 6, "updateInvestment"
+    StoreToEnvironment r22, 3, r6
+    GetById           r9, r7, 7, "investments"
+    GetByIdShort      r8, r9, 8, "find"
+    CreateClosure     r6, r22, NCFunction<>
+    Call2             r11, r8, r9, r6
+    StoreToEnvironment r22, 4, r11
+    GetByIdShort      r9, r7, 9, "members"
+    GetByIdShort      r8, r9, 8, "find"
+    CreateClosure     r6, r22, NCFunction<>
+    Call2             r17, r8, r9, r6
+    StoreToEnvironment r22, 5, r17
+    LoadFromEnvironment r9, r10, 0
+    GetByIdShort      r8, r9, 10, "useState"
+    GetGlobalObject   r15
+    TryGetById        r6, r15, 11, "Date"
+    CreateThisForNew  r12, r6, 12
+    Mov               r65, r12
+    Construct         r6, r6, 1
+    SelectObject      r12, r12, r6
+    GetById           r6, r12, 13, "toISOString"
+    Call1             r12, r6, r12
+    GetByIdShort      r6, r12, 14, "slice"
+    LoadConstUInt8    r1, 10
+    LoadConstZero     r0
+    Call3             r6, r6, r12, r0, r1
+    Call2             r12, r8, r3, r6
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r13, r6
+    StrictEq          r2, r13, r3
+    LoadConstUndefined r23
+    JmpTrue           L1, r2
+    Mov               r23, r12
+L1:
+    StoreToEnvironment r22, 6, r23
+    LoadConstUndefined r27
+    JmpTrue           L2, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r27
+    Mov               r2, r4
+    JmpTrue           L2, r4
+    Mov               r27, r8
+    Mov               r2, r4
+L2:
+    JmpTrue           L3, r2
+    IteratorClose     r6, 0
+L3:
+    GetByIdShort      r6, r9, 10, "useState"
+    LoadConstString   r57, ""
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r13, r6
+    StrictEq          r2, r13, r3
+    LoadConstUndefined r26
+    JmpTrue           L4, r2
+    Mov               r26, r12
+L4:
+    StoreToEnvironment r22, 7, r26
+    LoadConstUndefined r25
+    JmpTrue           L5, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r25
+    Mov               r2, r4
+    JmpTrue           L5, r4
+    Mov               r25, r8
+    Mov               r2, r4
+L5:
+    StoreToEnvironment r22, 8, r25
+    JmpTrue           L6, r2
+    IteratorClose     r6, 0
+L6:
+    GetByIdShort      r6, r9, 10, "useState"
+    LoadConstFalse    r2
+    Call2             r8, r6, r3, r2
+    Mov               r12, r8
+    IteratorBegin     r6, r12
+    Mov               r8, r12
+    IteratorNext      r8, r6, r8
+    Mov               r13, r6
+    StrictEq          r4, r13, r3
+    LoadConstUndefined r13
+    JmpTrue           L7, r4
+    Mov               r13, r8
+L7:
+    LoadConstUndefined r8
+    JmpTrue           L8, r4
+    IteratorNext      r12, r6, r12
+    Mov               r14, r6
+    StrictEq          r5, r14, r3
+    LoadConstUndefined r8
+    Mov               r4, r5
+    JmpTrue           L8, r5
+    Mov               r8, r12
+    Mov               r4, r5
+L8:
+    StoreToEnvironment r22, 9, r8
+    JmpTrue           L9, r4
+    IteratorClose     r6, 0
+L9:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r8, r6, r3, r2
+    Mov               r12, r8
+    IteratorBegin     r6, r12
+    Mov               r8, r12
+    IteratorNext      r8, r6, r8
+    Mov               r14, r6
+    StrictEq          r2, r14, r3
+    LoadConstUndefined r14
+    JmpTrue           L10, r2
+    Mov               r14, r8
+L10:
+    StoreToEnvironment r22, 10, r14
+    LoadConstUndefined r8
+    JmpTrue           L11, r2
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r4, r16, r3
+    LoadConstUndefined r8
+    Mov               r2, r4
+    JmpTrue           L11, r4
+    Mov               r8, r12
+    Mov               r2, r4
+L11:
+    StoreToEnvironment r22, 11, r8
+    JmpTrue           L12, r2
+    IteratorClose     r6, 0
+L12:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r51
+    JmpTrue           L13, r2
+    Mov               r51, r12
+L13:
+    StoreToEnvironment r22, 12, r51
+    LoadConstUndefined r50
+    JmpTrue           L14, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r50
+    Mov               r2, r4
+    JmpTrue           L14, r4
+    Mov               r50, r8
+    Mov               r2, r4
+L14:
+    StoreToEnvironment r22, 13, r50
+    JmpTrue           L15, r2
+    IteratorClose     r6, 0
+L15:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r49
+    JmpTrue           L16, r2
+    Mov               r49, r12
+L16:
+    StoreToEnvironment r22, 14, r49
+    LoadConstUndefined r48
+    JmpTrue           L17, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r48
+    Mov               r2, r4
+    JmpTrue           L17, r4
+    Mov               r48, r8
+    Mov               r2, r4
+L17:
+    StoreToEnvironment r22, 15, r48
+    JmpTrue           L18, r2
+    IteratorClose     r6, 0
+L18:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r47
+    JmpTrue           L19, r2
+    Mov               r47, r12
+L19:
+    StoreToEnvironment r22, 16, r47
+    LoadConstUndefined r46
+    JmpTrue           L20, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r46
+    Mov               r2, r4
+    JmpTrue           L20, r4
+    Mov               r46, r8
+    Mov               r2, r4
+L20:
+    StoreToEnvironment r22, 17, r46
+    JmpTrue           L21, r2
+    IteratorClose     r6, 0
+L21:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r45
+    JmpTrue           L22, r2
+    Mov               r45, r12
+L22:
+    StoreToEnvironment r22, 18, r45
+    LoadConstUndefined r42
+    JmpTrue           L23, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r42
+    Mov               r2, r4
+    JmpTrue           L23, r4
+    Mov               r42, r8
+    Mov               r2, r4
+L23:
+    StoreToEnvironment r22, 19, r42
+    JmpTrue           L24, r2
+    IteratorClose     r6, 0
+L24:
+    GetByIdShort      r8, r9, 10, "useState"
+    LoadConstString   r6, "12"
+    Call2             r12, r8, r3, r6
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r41
+    JmpTrue           L25, r2
+    Mov               r41, r12
+L25:
+    StoreToEnvironment r22, 20, r41
+    LoadConstUndefined r40
+    JmpTrue           L26, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r40
+    Mov               r2, r4
+    JmpTrue           L26, r4
+    Mov               r40, r8
+    Mov               r2, r4
+L26:
+    StoreToEnvironment r22, 21, r40
+    JmpTrue           L27, r2
+    IteratorClose     r6, 0
+L27:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r39
+    JmpTrue           L28, r2
+    Mov               r39, r12
+L28:
+    LoadConstUndefined r38
+    JmpTrue           L29, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r38
+    Mov               r2, r4
+    JmpTrue           L29, r4
+    Mov               r38, r8
+    Mov               r2, r4
+L29:
+    StoreToEnvironment r22, 22, r38
+    JmpTrue           L30, r2
+    IteratorClose     r6, 0
+L30:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r37
+    JmpTrue           L31, r2
+    Mov               r37, r12
+L31:
+    LoadConstUndefined r36
+    JmpTrue           L32, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r36
+    Mov               r2, r4
+    JmpTrue           L32, r4
+    Mov               r36, r8
+    Mov               r2, r4
+L32:
+    StoreToEnvironment r22, 23, r36
+    JmpTrue           L33, r2
+    IteratorClose     r6, 0
+L33:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r35
+    JmpTrue           L34, r2
+    Mov               r35, r12
+L34:
+    StoreToEnvironment r22, 24, r35
+    LoadConstUndefined r34
+    JmpTrue           L35, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r34
+    Mov               r2, r4
+    JmpTrue           L35, r4
+    Mov               r34, r8
+    Mov               r2, r4
+L35:
+    StoreToEnvironment r22, 25, r34
+    JmpTrue           L36, r2
+    IteratorClose     r6, 0
+L36:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r33
+    JmpTrue           L37, r2
+    Mov               r33, r12
+L37:
+    StoreToEnvironment r22, 26, r33
+    LoadConstUndefined r32
+    JmpTrue           L38, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r32
+    Mov               r2, r4
+    JmpTrue           L38, r4
+    Mov               r32, r8
+    Mov               r2, r4
+L38:
+    StoreToEnvironment r22, 27, r32
+    JmpTrue           L39, r2
+    IteratorClose     r6, 0
+L39:
+    GetByIdShort      r6, r9, 10, "useState"
+    Call2             r12, r6, r3, r57
+    Mov               r8, r12
+    IteratorBegin     r6, r8
+    Mov               r12, r8
+    IteratorNext      r12, r6, r12
+    Mov               r16, r6
+    StrictEq          r2, r16, r3
+    LoadConstUndefined r31
+    JmpTrue           L40, r2
+    Mov               r31, r12
+L40:
+    StoreToEnvironment r22, 28, r31
+    LoadConstUndefined r30
+    JmpTrue           L41, r2
+    IteratorNext      r8, r6, r8
+    Mov               r12, r6
+    StrictEq          r4, r12, r3
+    LoadConstUndefined r30
+    Mov               r2, r4
+    JmpTrue           L41, r4
+    Mov               r30, r8
+    Mov               r2, r4
+L41:
+    StoreToEnvironment r22, 29, r30
+    JmpTrue           L42, r2
+    IteratorClose     r6, 0
+L42:
+    GetByIdShort      r12, r9, 15, "useEffect"
+    LoadConstNull     r16
+    Eq                r2, r11, r16
+    LoadConstUndefined r18
+    JmpTrue           L43, r2
+    GetByIdShort      r18, r11, 1, "id"
+L43:
+    CreateClosure     r8, r22, NCFunction<>
+    NewArray          r6, 2
+    DefineOwnInDenseArray r6, r18, 0
+    DefineOwnInDenseArray r6, r13, 1
+    Call3             r6, r12, r3, r8, r6
+    TryGetById        r6, r15, 16, "Number"
+    Call2             r8, r6, r3, r39
+    JmpTrue           L44, r8
+    LoadConstZero     r8
+L44:
+    StoreToEnvironment r22, 30, r8
+    TryGetById        r6, r15, 16, "Number"
+    Call2             r6, r6, r3, r37
+    JmpTrue           L45, r6
+    LoadConstZero     r6
+L45:
+    StoreToEnvironment r22, 31, r6
+    TryGetById        r19, r15, 17, "Math"
+    GetByIdShort      r18, r19, 18, "max"
+    Sub               r12, r8, r6
+    Call3             r43, r18, r19, r0, r12
+    GetByIdShort      r18, r9, 19, "useMemo"
+    NewArray          r12, 2
+    DefineOwnInDenseArray r12, r8, 0
+    DefineOwnInDenseArray r12, r41, 1
+    CreateClosure     r9, r22, NCFunction<>
+    Call3             r44, r18, r3, r9, r12
+    GetByIdShort      r9, r51, 20, "trim"
+    Call1             r9, r9, r51
+    GetByIdShort      r9, r9, 21, "length"
+    Greater           r2, r9, r0
+    JmpFalse          L46, r2
+    Greater           r2, r8, r0
+L46:
+    JmpFalse          L47, r2
+    GreaterEq         r2, r6, r0
+L47:
+    JmpFalse          L48, r2
+    LessEq            r2, r6, r8
+L48:
+    JmpFalse          L49, r2
+    TryGetById        r6, r15, 16, "Number"
+    Call2             r6, r6, r3, r41
+    JmpTrue           L50, r6
+    LoadConstZero     r6
+L50:
+    LoadConstUInt8    r1, 1
+    GreaterEq         r2, r6, r1
+L49:
+    StoreNPToEnvironment r22, 32, r2
+    JmpTrue           L51, r11
+    LoadFromEnvironment r18, r10, 10
+    GetByIdShort      r9, r18, 22, "jsx"
+    LoadFromEnvironment r12, r10, 4
+    GetByIdShort      r8, r12, 23, "Screen"
+    NewObjectWithBuffer r6, 893, 31
+    GetByIdShort      r19, r18, 22, "jsx"
+    GetById           r18, r12, 24, "Header"
+    NewObjectWithBuffer r12, 388, 44529
+    Call3             r12, r19, r3, r18, r12
+    PutOwnBySlotIdx   r6, r12, 0
+    Call3             r6, r9, r3, r8, r6
+    Ret               r6
+L51:
+    LoadFromEnvironment r6, r10, 5
+    GetById           r6, r6, 25, "investmentStatus"
+    Call3             r55, r6, r3, r7, r11
+    StoreToEnvironment r22, 33, r55
+    Eq                r4, r17, r16
+    LoadConstUndefined r6
+    JmpTrue           L52, r4
+    GetById           r6, r17, 26, "whatsappNumber"
+L52:
+    JmpTrue           L53, r6
+    GetById           r9, r11, 27, "emergencyContacts"
+    GetByIdShort      r8, r9, 8, "find"
+    CreateClosure     r7, r3, NCFunction<>
+    Call2             r8, r8, r9, r7
+    Eq                r4, r8, r16
+    LoadConstUndefined r7
+    JmpTrue           L54, r4
+    GetById           r7, r8, 28, "phone"
+L54:
+    Mov               r6, r7
+L53:
+    JmpTrue           L55, r6
+    Mov               r6, r57
+L55:
+    StoreToEnvironment r22, 34, r6
+    LoadFromEnvironment r12, r10, 10
+    GetByIdShort      r8, r12, 29, "jsxs"
+    LoadFromEnvironment r18, r10, 4
+    GetByIdShort      r7, r18, 23, "Screen"
+    GetByIdShort      r19, r12, 22, "jsx"
+    GetById           r9, r18, 24, "Header"
+    NewObjectWithBuffer r6, 1747, 15273
+    GetById           r20, r11, 30, "investorName"
+    PutOwnBySlotIdx   r6, r20, 0
+    GetById           r28, r11, 31, "tenureMonths"
+    GetById           r20, r11, 32, "permanentAddress"
+    Mov               r24, r57
+    JmpFalse          L56, r20
+    GetById           r29, r11, 32, "permanentAddress"
+    TryGetById        r20, r15, 33, "HermesInternal"
+    GetByIdShort      r21, r20, 34, "concat"
+    LoadConstString   r20, " \u00b7"
+    Call2             r24, r21, r20, r29
+L56:
+    TryGetById        r20, r15, 33, "HermesInternal"
+    GetByIdShort      r21, r20, 34, "concat"
+    LoadConstString   r20, " \u09ae\u09be\u09b8"...
+    Call4             r20, r21, r57, r28, r20, r24
+    PutOwnBySlotIdx   r6, r20, 1
+    Call3             r6, r19, r3, r9, r6
+    NewArray          r9, 8
+    DefineOwnInDenseArray r9, r6, 0
+    GetByIdShort      r24, r12, 29, "jsxs"
+    LoadFromEnvironment r6, r10, 1
+    GetByIdShort      r21, r6, 35, "View"
+    NewObjectWithBuffer r20, 794, 15273
+    NewObjectWithBuffer r19, 1760, 44421
+    PutOwnBySlotIdx   r20, r19, 0
+    GetByIdShort      r52, r12, 29, "jsxs"
+    GetById           r29, r18, 36, "Card"
+    NewObjectWithBuffer r28, 794, 15273
+    NewObjectWithBuffer r19, 1761, 44532
+    PutOwnBySlotIdx   r28, r19, 0
+    GetByIdShort      r56, r12, 22, "jsx"
+    GetByIdShort      r54, r6, 37, "Text"
+    NewObjectWithBuffer r53, 794, 42354
+    NewObjectWithBuffer r58, 470, 2659
+    LoadFromEnvironment r19, r10, 9
+    GetByIdShort      r59, r19, 38, "theme"
+    GetByIdShort      r59, r59, 39, "muted"
+    PutOwnBySlotIdx   r58, r59, 0
+    PutOwnBySlotIdx   r53, r58, 0
+    Call3             r54, r56, r3, r54, r53
+    NewArray          r53, 2
+    DefineOwnInDenseArray r53, r54, 0
+    GetByIdShort      r58, r12, 22, "jsx"
+    GetById           r56, r18, 40, "Money"
+    NewObjectWithBuffer r54, 1762, 38745
+    GetById           r59, r11, 41, "totalAmount"
+    PutOwnBySlotIdx   r54, r59, 0
+    Call3             r54, r58, r3, r56, r54
+    DefineOwnInDenseArray r53, r54, 1
+    PutOwnBySlotIdx   r28, r53, 1
+    Call3             r29, r52, r3, r29, r28
+    NewArray          r28, 2
+    DefineOwnInDenseArray r28, r29, 0
+    GetByIdShort      r53, r12, 29, "jsxs"
+    GetById           r52, r18, 36, "Card"
+    GetById           r29, r55, 42, "overdueMonths"
+    JGreater          L57, r29, r0
+    NewObject         r56
+    Jmp               L58
+L57:
+    NewObjectWithBuffer r29, 227, 31
+    GetByIdShort      r54, r19, 38, "theme"
+    GetById           r54, r54, 43, "debitSoft"
+    PutOwnBySlotIdx   r29, r54, 0
+    Mov               r56, r29
+L58:
+    NewObjectWithBuffer r29, 794, 15273
+    NewObjectWithBuffer r54, 1761, 44532
+    Mov               r64, r54
+    Mov               r63, r56
+    CallBuiltin       r56, "HermesBuiltin.copyDataProperties", 3
+    PutOwnBySlotIdx   r29, r54, 0
+    GetByIdShort      r58, r12, 22, "jsx"
+    GetByIdShort      r56, r6, 37, "Text"
+    NewObjectWithBuffer r54, 794, 37930
+    NewObjectWithBuffer r59, 470, 2659
+    GetByIdShort      r60, r19, 38, "theme"
+    GetByIdShort      r60, r60, 39, "muted"
+    PutOwnBySlotIdx   r59, r60, 0
+    PutOwnBySlotIdx   r54, r59, 0
+    Call3             r56, r58, r3, r56, r54
+    NewArray          r54, 2
+    DefineOwnInDenseArray r54, r56, 0
+    GetByIdShort      r59, r12, 22, "jsx"
+    GetById           r58, r18, 40, "Money"
+    NewObjectWithBuffer r56, 1735, 34822
+    GetById           r60, r55, 44, "remaining"
+    PutOwnBySlotIdx   r56, r60, 0
+    GetById           r60, r55, 42, "overdueMonths"
+    Greater           r4, r60, r0
+    LoadConstString   r60, "pending"
+    JmpFalse          L59, r4
+    LoadConstString   r60, "debit"
+L59:
+    PutOwnBySlotIdx   r56, r60, 1
+    Call3             r56, r59, r3, r58, r56
+    DefineOwnInDenseArray r54, r56, 1
+    PutOwnBySlotIdx   r29, r54, 1
+    Call3             r29, r53, r3, r52, r29
+    DefineOwnInDenseArray r28, r29, 1
+    PutOwnBySlotIdx   r20, r28, 1
+    Call3             r20, r24, r3, r21, r20
+    DefineOwnInDenseArray r9, r20, 1
+    GetByIdShort      r21, r12, 29, "jsxs"
+    GetById           r20, r18, 36, "Card"
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 45, "Chip"
+    NewObjectWithBuffer r24, 1795, 44793
+    Call3             r28, r29, r3, r28, r24
+    NewArray          r24, 8
+    DefineOwnInDenseArray r24, r28, 0
+    GetByIdShort      r52, r12, 22, "jsx"
+    GetByIdShort      r29, r6, 35, "View"
+    NewObjectWithBuffer r28, 794, 15273
+    NewObjectWithBuffer r53, 1757, 34269
+    PutOwnBySlotIdx   r28, r53, 0
+    GetByIdShort      r56, r12, 22, "jsx"
+    GetById           r54, r18, 40, "Money"
+    NewObjectWithBuffer r53, 1735, 40760
+    GetById           r58, r11, 46, "monthlyInstallmen"...
+    PutOwnBySlotIdx   r53, r58, 0
+    Call3             r53, r56, r3, r54, r53
+    PutOwnBySlotIdx   r28, r53, 1
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 1
+    GetByIdShort      r52, r12, 29, "jsxs"
+    GetByIdShort      r29, r6, 37, "Text"
+    NewObjectWithBuffer r28, 794, 15273
+    NewObjectWithBuffer r53, 1796, 42370
+    GetByIdShort      r54, r19, 38, "theme"
+    GetById           r54, r54, 47, "credit"
+    PutOwnBySlotIdx   r53, r54, 0
+    PutOwnBySlotIdx   r28, r53, 0
+    GetById           r54, r11, 48, "profitAmount"
+    NewArrayWithBuffer r53, 2, 1, 44798
+    DefineOwnInDenseArray r53, r54, 1
+    PutOwnBySlotIdx   r28, r53, 1
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 2
+    GetByIdShort      r52, r12, 22, "jsx"
+    GetByIdShort      r29, r6, 37, "Text"
+    NewObjectWithBuffer r28, 794, 15467
+    NewObjectWithBuffer r53, 1772, 40839
+    GetByIdShort      r54, r19, 38, "theme"
+    GetByIdShort      r54, r54, 39, "muted"
+    PutOwnBySlotIdx   r53, r54, 0
+    PutOwnBySlotIdx   r28, r53, 0
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 3
+    GetByIdShort      r52, r12, 22, "jsx"
+    GetById           r29, r18, 40, "Money"
+    NewObjectWithBuffer r28, 1762, 37866
+    GetById           r53, r11, 49, "lastInstallment"
+    PutOwnBySlotIdx   r28, r53, 0
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 4
+    GetByIdShort      r52, r12, 22, "jsx"
+    GetByIdShort      r29, r6, 37, "Text"
+    NewObjectWithBuffer r28, 794, 15479
+    NewObjectWithBuffer r53, 1797, 31827
+    GetByIdShort      r54, r19, 38, "theme"
+    GetByIdShort      r54, r54, 39, "muted"
+    PutOwnBySlotIdx   r53, r54, 0
+    PutOwnBySlotIdx   r28, r53, 0
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 5
+    GetByIdShort      r52, r12, 22, "jsx"
+    GetById           r29, r18, 40, "Money"
+    NewObjectWithBuffer r28, 1735, 41382
+    GetById           r53, r55, 50, "lastPaidAmount"
+    PutOwnBySlotIdx   r28, r53, 0
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 6
+    GetByIdShort      r52, r12, 29, "jsxs"
+    GetByIdShort      r29, r6, 37, "Text"
+    NewObjectWithBuffer r28, 794, 15273
+    NewObjectWithBuffer r53, 1790, 43357
+    GetByIdShort      r54, r19, 38, "theme"
+    GetByIdShort      r54, r54, 39, "muted"
+    PutOwnBySlotIdx   r53, r54, 0
+    PutOwnBySlotIdx   r28, r53, 0
+    GetById           r53, r55, 51, "lastPaymentDate"
+    LoadConstString   r54, "\u098f\u0996\u09a8"...
+    JmpFalse          L60, r53
+    LoadFromEnvironment r53, r10, 7
+    GetById           r56, r53, 52, "formatDisplayDate"
+    GetById           r53, r55, 51, "lastPaymentDate"
+    Call2             r54, r56, r3, r53
+L60:
+    NewArray          r53, 4
+    DefineOwnInDenseArray r53, r54, 0
+    LoadConstString   r54, " "
+    DefineOwnInDenseArray r53, r54, 1
+    LoadConstString   r54, " "
+    DefineOwnInDenseArray r53, r54, 2
+    GetById           r54, r55, 42, "overdueMonths"
+    JGreater          L61, r54, r0
+    GetById           r59, r55, 53, "remainingMonths"
+    TryGetById        r54, r15, 33, "HermesInternal"
+    GetByIdShort      r58, r54, 34, "concat"
+    LoadConstString   r56, " \u09ae\u09be\u09b8"...
+    LoadConstString   r54, "\u0986\u09b0"
+    Call3             r54, r58, r54, r59, r56
+    Jmp               L62
+L61:
+    GetById           r56, r55, 42, "overdueMonths"
+    TryGetById        r15, r15, 33, "HermesInternal"
+    GetByIdShort      r55, r15, 34, "concat"
+    LoadConstString   r15, " \u09ae\u09be\u09b8"...
+    Call3             r54, r55, r57, r56, r15
+L62:
+    NewObjectWithBuffer r15, 893, 31
+    DefineOwnInDenseArray r53, r54, 3
+    PutOwnBySlotIdx   r28, r53, 1
+    Call3             r28, r52, r3, r29, r28
+    DefineOwnInDenseArray r24, r28, 7
+    PutOwnBySlotIdx   r15, r24, 0
+    Call3             r15, r21, r3, r20, r15
+    DefineOwnInDenseArray r9, r15, 2
+    JmpTrue           L63, r13
+    GetByIdShort      r20, r12, 22, "jsx"
+    GetById           r15, r18, 54, "PrimaryButton"
+    NewObjectWithBuffer r13, 1478, 44889
+    CreateClosure     r21, r22, NCFunction<onPress>
+    PutOwnBySlotIdx   r13, r21, 1
+    Call3             r13, r20, r3, r15, r13
+    JmpLong           L64
+L63:
+    GetByIdShort      r20, r12, 29, "jsxs"
+    GetById           r15, r18, 36, "Card"
+    GetByIdShort      r28, r12, 22, "jsx"
+    GetByIdShort      r24, r6, 37, "Text"
+    NewObjectWithBuffer r21, 794, 15426
+    NewObjectWithBuffer r29, 1763, 40845
+    GetByIdShort      r52, r19, 38, "theme"
+    GetByIdShort      r52, r52, 55, "text"
+    PutOwnBySlotIdx   r29, r52, 1
+    PutOwnBySlotIdx   r21, r29, 0
+    Call3             r24, r28, r3, r24, r21
+    NewArray          r21, 14
+    DefineOwnInDenseArray r21, r24, 0
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1798, 44801
+    PutOwnBySlotIdx   r24, r51, 1
+    PutOwnBySlotIdx   r24, r50, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 1
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1798, 44808
+    PutOwnBySlotIdx   r24, r49, 1
+    PutOwnBySlotIdx   r24, r48, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 2
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1742, 44815
+    PutOwnBySlotIdx   r24, r47, 1
+    PutOwnBySlotIdx   r24, r46, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 3
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1742, 44819
+    PutOwnBySlotIdx   r24, r45, 1
+    PutOwnBySlotIdx   r24, r42, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 4
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1764, 44823
+    PutOwnBySlotIdx   r24, r41, 1
+    PutOwnBySlotIdx   r24, r40, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 5
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1764, 44830
+    PutOwnBySlotIdx   r24, r39, 1
+    PutOwnBySlotIdx   r24, r38, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 6
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1764, 44837
+    PutOwnBySlotIdx   r24, r37, 1
+    PutOwnBySlotIdx   r24, r36, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 7
+    GetByIdShort      r29, r12, 29, "jsxs"
+    GetByIdShort      r28, r6, 35, "View"
+    NewObjectWithBuffer r24, 794, 15273
+    NewObjectWithBuffer r36, 1760, 44844
+    PutOwnBySlotIdx   r24, r36, 0
+    GetByIdShort      r38, r12, 29, "jsxs"
+    GetByIdShort      r37, r6, 35, "View"
+    NewObjectWithBuffer r36, 794, 15273
+    NewObjectWithBuffer r39, 1761, 44859
+    PutOwnBySlotIdx   r36, r39, 0
+    GetByIdShort      r41, r12, 22, "jsx"
+    GetByIdShort      r40, r6, 37, "Text"
+    NewObjectWithBuffer r39, 794, 34401
+    NewObjectWithBuffer r42, 470, 2659
+    GetByIdShort      r45, r19, 38, "theme"
+    GetByIdShort      r45, r45, 39, "muted"
+    PutOwnBySlotIdx   r42, r45, 0
+    PutOwnBySlotIdx   r39, r42, 0
+    Call3             r40, r41, r3, r40, r39
+    NewArray          r39, 2
+    DefineOwnInDenseArray r39, r40, 0
+    GetByIdShort      r42, r12, 22, "jsx"
+    GetById           r41, r18, 40, "Money"
+    NewObjectWithBuffer r40, 1762, 37866
+    PutOwnBySlotIdx   r40, r43, 0
+    Call3             r40, r42, r3, r41, r40
+    DefineOwnInDenseArray r39, r40, 1
+    PutOwnBySlotIdx   r36, r39, 1
+    Call3             r37, r38, r3, r37, r36
+    NewArray          r36, 3
+    DefineOwnInDenseArray r36, r37, 0
+    GetByIdShort      r39, r12, 29, "jsxs"
+    GetByIdShort      r38, r6, 35, "View"
+    NewObjectWithBuffer r37, 794, 15273
+    NewObjectWithBuffer r40, 1761, 44859
+    PutOwnBySlotIdx   r37, r40, 0
+    GetByIdShort      r42, r12, 22, "jsx"
+    GetByIdShort      r41, r6, 37, "Text"
+    NewObjectWithBuffer r40, 794, 42822
+    NewObjectWithBuffer r43, 470, 2659
+    GetByIdShort      r45, r19, 38, "theme"
+    GetByIdShort      r45, r45, 39, "muted"
+    PutOwnBySlotIdx   r43, r45, 0
+    PutOwnBySlotIdx   r40, r43, 0
+    Call3             r41, r42, r3, r41, r40
+    NewArray          r40, 2
+    DefineOwnInDenseArray r40, r41, 0
+    GetByIdShort      r43, r12, 22, "jsx"
+    GetById           r42, r18, 40, "Money"
+    NewObjectWithBuffer r41, 1735, 15328
+    GetById           r45, r44, 46, "monthlyInstallmen"...
+    PutOwnBySlotIdx   r41, r45, 0
+    Call3             r41, r43, r3, r42, r41
+    DefineOwnInDenseArray r40, r41, 1
+    PutOwnBySlotIdx   r37, r40, 1
+    Call3             r37, r39, r3, r38, r37
+    DefineOwnInDenseArray r36, r37, 1
+    GetByIdShort      r39, r12, 29, "jsxs"
+    GetByIdShort      r38, r6, 35, "View"
+    NewObjectWithBuffer r37, 794, 15273
+    NewObjectWithBuffer r40, 1761, 44859
+    PutOwnBySlotIdx   r37, r40, 0
+    GetByIdShort      r42, r12, 22, "jsx"
+    GetByIdShort      r41, r6, 37, "Text"
+    NewObjectWithBuffer r40, 794, 37090
+    NewObjectWithBuffer r43, 470, 2659
+    GetByIdShort      r45, r19, 38, "theme"
+    GetByIdShort      r45, r45, 39, "muted"
+    PutOwnBySlotIdx   r43, r45, 0
+    PutOwnBySlotIdx   r40, r43, 0
+    Call3             r41, r42, r3, r41, r40
+    NewArray          r40, 2
+    DefineOwnInDenseArray r40, r41, 0
+    GetByIdShort      r43, r12, 22, "jsx"
+    GetById           r42, r18, 40, "Money"
+    NewObjectWithBuffer r41, 1762, 37866
+    GetById           r44, r44, 49, "lastInstallment"
+    PutOwnBySlotIdx   r41, r44, 0
+    Call3             r41, r43, r3, r42, r41
+    DefineOwnInDenseArray r40, r41, 1
+    PutOwnBySlotIdx   r37, r40, 1
+    Call3             r37, r39, r3, r38, r37
+    DefineOwnInDenseArray r36, r37, 2
+    PutOwnBySlotIdx   r24, r36, 1
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 8
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1781, 44868
+    PutOwnBySlotIdx   r24, r35, 1
+    PutOwnBySlotIdx   r24, r34, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 9
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1781, 44875
+    PutOwnBySlotIdx   r24, r33, 1
+    PutOwnBySlotIdx   r24, r32, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 10
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 56, "Field"
+    NewObjectWithBuffer r24, 1781, 44882
+    PutOwnBySlotIdx   r24, r31, 1
+    PutOwnBySlotIdx   r24, r30, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 11
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 54, "PrimaryButton"
+    LoadConstString   r30, "\u09b8\u0982\u09b6"...
+    JmpFalse          L65, r14
+    LoadConstString   r30, "\u09b8\u09c7\u09ad"...
+L65:
+    NewObjectWithBuffer r24, 1758, 15315
+    PutOwnBySlotIdx   r24, r30, 0
+    Not               r31, r2
+    JmpFalse          L66, r2
+    Mov               r31, r14
+L66:
+    CreateClosure     r30, r22, NCFunction<onSaveEdit>
+    NewObjectWithBuffer r14, 893, 31
+    PutOwnBySlotIdx   r24, r31, 1
+    PutOwnBySlotIdx   r24, r30, 2
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 12
+    GetByIdShort      r29, r12, 22, "jsx"
+    GetById           r28, r18, 57, "GhostButton"
+    NewObjectWithBuffer r24, 1478, 44477
+    CreateClosure     r30, r22, NCFunction<onPress>
+    PutOwnBySlotIdx   r24, r30, 1
+    Call3             r24, r29, r3, r28, r24
+    DefineOwnInDenseArray r21, r24, 13
+    PutOwnBySlotIdx   r14, r21, 0
+    Call3             r13, r20, r3, r15, r14
+L64:
+    DefineOwnInDenseArray r9, r13, 3
+    GetByIdShort      r15, r12, 22, "jsx"
+    GetById           r14, r18, 54, "PrimaryButton"
+    NewObjectWithBuffer r13, 1478, 44893
+    CreateClosure     r20, r22, NCFunction<onPress>
+    PutOwnBySlotIdx   r13, r20, 1
+    Call3             r13, r15, r3, r14, r13
+    DefineOwnInDenseArray r9, r13, 4
+    GetByIdShort      r15, r12, 22, "jsx"
+    GetById           r14, r18, 54, "PrimaryButton"
+    NewObjectWithBuffer r13, 1478, 44897
+    CreateClosure     r20, r22, NCFunction<onPress>
+    PutOwnBySlotIdx   r13, r20, 1
+    Call3             r13, r15, r3, r14, r13
+    DefineOwnInDenseArray r9, r13, 5
+    GetByIdShort      r14, r12, 29, "jsxs"
+    GetById           r13, r18, 36, "Card"
+    GetByIdShort      r21, r12, 22, "jsx"
+    GetByIdShort      r20, r6, 37, "Text"
+    NewObjectWithBuffer r15, 794, 42855
+    NewObjectWithBuffer r24, 1799, 39356
+    GetByIdShort      r28, r19, 38, "theme"
+    GetByIdShort      r28, r28, 55, "text"
+    PutOwnBySlotIdx   r24, r28, 2
+    PutOwnBySlotIdx   r15, r24, 0
+    Call3             r20, r21, r3, r20, r15
+    NewArray          r15, 5
+    DefineOwnInDenseArray r15, r20, 0
+    GetByIdShort      r24, r12, 22, "jsx"
+    GetById           r21, r18, 58, "DateField"
+    NewObjectWithBuffer r20, 1742, 44901
+    PutOwnBySlotIdx   r20, r23, 1
+    PutOwnBySlotIdx   r20, r27, 2
+    Call3             r20, r24, r3, r21, r20
+    DefineOwnInDenseArray r15, r20, 1
+    GetByIdShort      r24, r12, 22, "jsx"
+    GetById           r21, r18, 56, "Field"
+    NewObjectWithBuffer r20, 1742, 44905
+    PutOwnBySlotIdx   r20, r26, 1
+    PutOwnBySlotIdx   r20, r25, 2
+    Call3             r20, r24, r3, r21, r20
+    DefineOwnInDenseArray r15, r20, 2
+    GetByIdShort      r21, r12, 22, "jsx"
+    GetById           r20, r18, 54, "PrimaryButton"
+    GetByIdShort      r18, r23, 20, "trim"
+    Call1             r18, r18, r23
+    Not               r2, r18
+    JmpFalse          L67, r18
+    Not               r2, r17
+L67:
+    NewObjectWithBuffer r18, 1758, 44909
+    PutOwnBySlotIdx   r18, r2, 1
+    CreateClosure     r22, r22, NCFunction<onPress>
+    PutOwnBySlotIdx   r18, r22, 2
+    Call3             r18, r21, r3, r20, r18
+    DefineOwnInDenseArray r15, r18, 3
+    LoadConstNull     r16
+    JmpTrue           L68, r17
+    GetByIdShort      r17, r12, 22, "jsx"
+    GetByIdShort      r12, r6, 37, "Text"
+    NewObjectWithBuffer r6, 794, 34431
+    NewObjectWithBuffer r18, 327, 40848
+    GetByIdShort      r19, r19, 38, "theme"
+    GetByIdShort      r19, r19, 39, "muted"
+    PutOwnBySlotIdx   r18, r19, 0
+    PutOwnBySlotIdx   r6, r18, 0
+    Call3             r16, r17, r3, r12, r6
+L68:
+    NewObjectWithBuffer r6, 893, 31
+    NewObjectWithBuffer r12, 893, 31
+    DefineOwnInDenseArray r15, r16, 4
+    PutOwnBySlotIdx   r12, r15, 0
+    Call3             r12, r14, r3, r13, r12
+    DefineOwnInDenseArray r9, r12, 6
+    GetById           r12, r11, 27, "emergencyContacts"
+    GetByIdShort      r11, r12, 59, "map"
+    CreateClosure     r10, r10, NCFunction<>
+    Call2             r10, r11, r12, r10
+    DefineOwnInDenseArray r9, r10, 7
+    PutOwnBySlotIdx   r6, r9, 0
+    Call3             r6, r8, r3, r7, r6
+    Ret               r6
+
+
+Function<InstallmentForm>(1 params, 48 registers, 2 numbers, 4 non-pointers):
+    GetParentEnvironment r15, 0
+    CreateFunctionEnvironment r13, 24
+    LoadFromEnvironment r6, r15, 2
+    GetById           r6, r6, 0, "useStore"
+    LoadConstUndefined r3
+    Call1             r7, r6, r3
+    GetById           r8, r7, 1, "org"
+    StoreToEnvironment r13, 0, r8
+    GetByIdShort      r10, r7, 2, "members"
+    StoreToEnvironment r13, 1, r10
+    GetByIdShort      r6, r7, 3, "data"
+    StoreToEnvironment r13, 2, r6
+    GetById           r9, r7, 4, "addInstallment"
+    StoreToEnvironment r13, 3, r9
+    GetById           r9, r7, 5, "nextInstallmentRe"...
+    StoreToEnvironment r13, 4, r9
+    GetById           r7, r7, 6, "receiptTaken"
+    StoreToEnvironment r13, 5, r7
+    LoadFromEnvironment r7, r15, 0
+    GetByIdShort      r9, r7, 7, "useState"
+    LoadConstString   r17, ""
+    Call2             r12, r9, r3, r17
+    Mov               r11, r12
+    IteratorBegin     r9, r11
+    Mov               r12, r11
+    IteratorNext      r12, r9, r12
+    Mov               r14, r9
+    StrictEq          r4, r14, r3
+    LoadConstUndefined r34
+    JmpTrue           L1, r4
+    Mov               r34, r12
+L1:
+    StoreToEnvironment r13, 6, r34
+    LoadConstUndefined r33
+    JmpTrue           L2, r4
+    IteratorNext      r11, r9, r11
+    Mov               r12, r9
+    StrictEq          r2, r12, r3
+    LoadConstUndefined r33
+    Mov               r4, r2
+    JmpTrue           L2, r2
+    Mov               r33, r11
+    Mov               r4, r2
+L2:
+    JmpTrue           L3, r4
+    IteratorClose     r9, 0
+L3:
+    GetByIdShort      r11, r7, 8, "useMemo"
+    NewArray          r9, 2
+    DefineOwnInDenseArray r9, r6, 0
+    LoadConstNull     r4
+    Eq                r2, r8, r4
+    LoadConstUndefined r12
+    JmpTrue           L4, r2
+    GetByIdShort      r12, r8, 9, "id"
+L4:
+    CreateClosure     r8, r13, NCFunction<>
+    DefineOwnInDenseArray r9, r12, 1
+    Call3             r8, r11, r3, r8, r9
+    StoreToEnvironment r13, 7, r8
+    GetByIdShort      r11, r7, 8, "useMemo"
+    NewArray          r9, 3
+    DefineOwnInDenseArray r9, r8, 0
+    DefineOwnInDenseArray r9, r10, 1
+    DefineOwnInDenseArray r9, r34, 2
+    CreateClosure     r8, r13, NCFunction<>
+    Call3             r14, r11, r3, r8, r9
+    GetByIdShort      r8, r7, 7, "useState"
+    Call2             r9, r8, r3, r4
+    Mov               r11, r9
+    IteratorBegin     r8, r11
+    Mov               r9, r11
+    IteratorNext      r9, r8, r9
+    Mov               r12, r8
+    StrictEq          r2, r12, r3
+    LoadConstUndefined r32
+    JmpTrue           L5, r2
+    Mov               r32, r9
+L5:
+    StoreToEnvironment r13, 8, r32
+    LoadConstUndefined r9
+    JmpTrue           L6, r2
+    IteratorNext      r11, r8, r11
+    Mov               r12, r8
+    StrictEq          r5, r12, r3
+    LoadConstUndefined r9
+    Mov               r2, r5
+    JmpTrue           L6, r5
+    Mov               r9, r11
+    Mov               r2, r5
+L6:
+    StoreToEnvironment r13, 9, r9
+    JmpTrue           L7, r2
+    IteratorClose     r8, 0
+L7:
+    GetByIdShort      r9, r10, 10, "find"
+    CreateClosure     r8, r13, NCFunction<>
+    Call2             r30, r9, r10, r8
+    StoreToEnvironment r13, 10, r30
+    GetByIdShort      r9, r7, 7, "useState"
+    GetGlobalObject   r29
+    TryGetById        r8, r29, 11, "Date"
+    CreateThisForNew  r10, r8, 12
+    Mov               r40, r10
+    Construct         r8, r8, 1
+    SelectObject      r10, r10, r8
+    GetById           r8, r10, 13, "toISOString"
+    Call1             r10, r8, r10
+    GetByIdShort      r8, r10, 14, "slice"
+    LoadConstUInt8    r1, 10
+    LoadConstZero     r0
+    Call3             r8, r8, r10, r0, r1
+    Call2             r10, r9, r3, r8
+    Mov               r9, r10
+    IteratorBegin     r8, r9
+    Mov               r10, r9
+    IteratorNext      r10, r8, r10
+    Mov               r11, r8
+    StrictEq          r2, r11, r3
+    LoadConstUndefined r25
+    JmpTrue           L8, r2
+    Mov               r25, r10
+L8:
+    StoreToEnvironment r13, 11, r25
+    LoadConstUndefined r24
+    JmpTrue           L9, r2
+    IteratorNext      r9, r8, r9
+    Mov               r10, r8
+    StrictEq          r5, r10, r3
+    LoadConstUndefined r24
+    Mov               r2, r5
+    JmpTrue           L9, r5
+    Mov               r24, r9
+    Mov               r2, r5
+L9:
+    StoreToEnvironment r13, 12, r24
+    JmpTrue           L10, r2
+    IteratorClose     r8, 0
+L10:
+    GetByIdShort      r8, r7, 7, "useState"
+    Call2             r10, r8, r3, r17
+    Mov               r9, r10
+    IteratorBegin     r8, r9
+    Mov               r10, r9
+    IteratorNext      r10, r8, r10
+    Mov               r11, r8
+    StrictEq          r2, r11, r3
+    LoadConstUndefined r27
+    JmpTrue           L11, r2
+    Mov               r27, r10
+L11:
+    StoreToEnvironment r13, 13, r27
+    LoadConstUndefined r26
+    JmpTrue           L12, r2
+    IteratorNext      r9, r8, r9
+    Mov               r10, r8
+    StrictEq          r5, r10, r3
+    LoadConstUndefined r26
+    Mov               r2, r5
+    JmpTrue           L12, r5
+    Mov               r26, r9
+    Mov               r2, r5
+L12:
+    StoreToEnvironment r13, 14, r26
+    JmpTrue           L13, r2
+    IteratorClose     r8, 0
+L13:
+    GetByIdShort      r8, r7, 7, "useState"
+    Call2             r10, r8, r3, r17
+    Mov               r9, r10
+    IteratorBegin     r8, r9
+    Mov               r10, r9
+    IteratorNext      r10, r8, r10
+    Mov               r11, r8
+    StrictEq          r2, r11, r3
+    LoadConstUndefined r23
+    JmpTrue           L14, r2
+    Mov               r23, r10
+L14:
+    StoreToEnvironment r13, 15, r23
+    LoadConstUndefined r22
+    JmpTrue           L15, r2
+    IteratorNext      r9, r8, r9
+    Mov               r10, r8
+    StrictEq          r5, r10, r3
+    LoadConstUndefined r22
+    Mov               r2, r5
+    JmpTrue           L15, r5
+    Mov               r22, r9
+    Mov               r2, r5
+L15:
+    StoreToEnvironment r13, 16, r22
+    JmpTrue           L16, r2
+    IteratorClose     r8, 0
+L16:
+    GetByIdShort      r8, r7, 7, "useState"
+    Call2             r10, r8, r3, r17
+    Mov               r9, r10
+    IteratorBegin     r8, r9
+    Mov               r10, r9
+    IteratorNext      r10, r8, r10
+    Mov               r11, r8
+    StrictEq          r2, r11, r3
+    LoadConstUndefined r21
+    JmpTrue           L17, r2
+    Mov               r21, r10
+L17:
+    StoreToEnvironment r13, 17, r21
+    LoadConstUndefined r20
+    JmpTrue           L18, r2
+    IteratorNext      r9, r8, r9
+    Mov               r10, r8
+    StrictEq          r5, r10, r3
+    LoadConstUndefined r20
+    Mov               r2, r5
+    JmpTrue           L18, r5
+    Mov               r20, r9
+    Mov               r2, r5
+L18:
+    StoreToEnvironment r13, 18, r20
+    JmpTrue           L19, r2
+    IteratorClose     r8, 0
+L19:
+    GetByIdShort      r8, r7, 7, "useState"
+    LoadConstFalse    r2
+    Call2             r9, r8, r3, r2
+    Mov               r10, r9
+    IteratorBegin     r8, r10
+    Mov               r9, r10
+    IteratorNext      r9, r8, r9
+    Mov               r11, r8
+    StrictEq          r2, r11, r3
+    LoadConstUndefined r19
+    JmpTrue           L20, r2
+    Mov               r19, r9
+L20:
+    StoreToEnvironment r13, 19, r19
+    LoadConstUndefined r9
+    JmpTrue           L21, r2
+    IteratorNext      r10, r8, r10
+    Mov               r11, r8
+    StrictEq          r5, r11, r3
+    LoadConstUndefined r9
+    Mov               r2, r5
+    JmpTrue           L21, r5
+    Mov               r9, r10
+    Mov               r2, r5
+L21:
+    StoreToEnvironment r13, 20, r9
+    JmpTrue           L22, r2
+    IteratorClose     r8, 0
+L22:
+    GetByIdShort      r7, r7, 7, "useState"
+    Call2             r8, r7, r3, r4
+    Mov               r9, r8
+    IteratorBegin     r7, r9
+    Mov               r8, r9
+    IteratorNext      r8, r7, r8
+    Mov               r10, r7
+    StrictEq          r2, r10, r3
+    LoadConstUndefined r16
+    JmpTrue           L23, r2
+    Mov               r16, r8
+L23:
+    StoreToEnvironment r13, 21, r16
+    LoadConstUndefined r8
+    JmpTrue           L24, r2
+    IteratorNext      r9, r7, r9
+    Mov               r10, r7
+    StrictEq          r5, r10, r3
+    LoadConstUndefined r8
+    Mov               r2, r5
+    JmpTrue           L24, r5
+    Mov               r8, r9
+    Mov               r2, r5
+L24:
+    StoreToEnvironment r13, 22, r8
+    JmpTrue           L25, r2
+    IteratorClose     r7, 0
+L25:
+    LoadConstNull     r31
+    JmpFalse          L26, r32
+    LoadFromEnvironment r7, r15, 4
+    GetById           r7, r7, 15, "investmentStatus"
+    Call3             r31, r7, r3, r6, r32
+L26:
+    Eq                r2, r31, r4
+    LoadConstUndefined r7
+    JmpTrue           L27, r2
+    GetById           r7, r31, 16, "paid"
+L27:
+    Eq                r2, r7, r4
+    CreateClosure     r7, r13, NCFunction<openFor>
+    StoreToEnvironment r13, 23, r7
+    LoadFromEnvironment r11, r15, 11
+    GetByIdShort      r8, r11, 17, "jsxs"
+    LoadFromEnvironment r12, r15, 7
+    GetByIdShort      r7, r12, 18, "Screen"
+    GetByIdShort      r18, r11, 19, "jsx"
+    GetById           r10, r12, 20, "Header"
+    NewObjectWithBuffer r9, 1747, 45420
+    Call3             r10, r18, r3, r10, r9
+    NewArray          r9, 6
+    DefineOwnInDenseArray r9, r10, 0
+    GetByIdShort      r28, r11, 19, "jsx"
+    GetById           r18, r12, 21, "Field"
+    NewObjectWithBuffer r10, 1742, 44525
+    PutOwnBySlotIdx   r10, r34, 1
+    PutOwnBySlotIdx   r10, r33, 2
+    Call3             r10, r28, r3, r18, r10
+    DefineOwnInDenseArray r9, r10, 1
+    GetByIdShort      r18, r14, 22, "length"
+    LoadConstNull     r10
+    JStrictNotEqual   L28, r18, r0
+    GetByIdShort      r28, r11, 19, "jsx"
+    GetById           r18, r12, 23, "Sub"
+    NewObjectWithBuffer r12, 893, 45425
+    Call3             r10, r28, r3, r18, r12
+L28:
+    DefineOwnInDenseArray r9, r10, 2
+    GetByIdShort      r12, r14, 24, "map"
+    CreateClosure     r10, r13, NCFunction<>
+    Call2             r10, r12, r14, r10
+    DefineOwnInDenseArray r9, r10, 3
+    GetByIdShort      r18, r11, 19, "jsx"
+    LoadFromEnvironment r10, r15, 6
+    GetById           r14, r10, 25, "PaymentSheet"
+    Not               r2, r32
+    Not               r2, r2
+    JmpFalse          L29, r2
+    Not               r2, r16
+L29:
+    NewObjectWithBuffer r12, 1823, 43022
+    PutOwnBySlotIdx   r12, r2, 0
+    Eq                r2, r30, r4
+    LoadConstUndefined r28
+    JmpTrue           L30, r2
+    GetByIdShort      r28, r30, 26, "name"
+L30:
+    JNotEqual         L31, r28, r4
+    Eq                r2, r32, r4
+    LoadConstUndefined r33
+    JmpTrue           L32, r2
+    GetById           r33, r32, 27, "investorName"
+L32:
+    Mov               r28, r33
+L31:
+    JNotEqual         L33, r28, r4
+    Mov               r28, r17
+L33:
+    PutOwnBySlotIdx   r12, r28, 2
+    Mov               r28, r17
+    JmpFalse          L34, r30
+    LoadFromEnvironment r33, r15, 9
+    GetById           r33, r33, 28, "displayMemberId"
+    Call2             r28, r33, r3, r30
+L34:
+    PutOwnBySlotIdx   r12, r28, 3
+    Eq                r2, r30, r4
+    LoadConstUndefined r28
+    JmpTrue           L35, r2
+    GetById           r28, r30, 29, "whatsappNumber"
+L35:
+    JNotEqual         L36, r28, r4
+    Mov               r28, r17
+L36:
+    PutOwnBySlotIdx   r12, r28, 4
+    LoadConstUndefined r28
+    JmpFalseLong      L37, r32
+    LoadFromEnvironment r30, r15, 8
+    GetById           r33, r30, 30, "taka"
+    GetById           r32, r32, 31, "monthlyInstallmen"...
+    Call2             r34, r33, r3, r32
+    GetById           r32, r30, 30, "taka"
+    Eq                r2, r31, r4
+    LoadConstUndefined r30
+    JmpTrue           L38, r2
+    GetById           r30, r31, 32, "remaining"
+L38:
+    JNotEqual         L39, r30, r4
+    LoadConstZero     r30
+L39:
+    Call2             r33, r32, r3, r30
+    Mov               r32, r17
+    JmpFalse          L40, r31
+    LoadFromEnvironment r30, r15, 4
+    GetById           r30, r30, 33, "scheduleCaption"
+    Call2             r35, r30, r3, r31
+    TryGetById        r30, r29, 34, "HermesInternal"
+    GetByIdShort      r31, r30, 35, "concat"
+    LoadConstString   r30, " \u00b7"
+    Call2             r32, r31, r30, r35
+L40:
+    TryGetById        r29, r29, 34, "HermesInternal"
+    GetByIdShort      r31, r29, 35, "concat"
+    LoadConstString   r38, " \u00b7 \u09ac"
+    LoadConstString   r40, "\u09ae\u09be\u09b8"...
+    Mov               r39, r34
+    Mov               r37, r33
+    Mov               r36, r32
+    Call              r28, r31, 5
+L37:
+    PutOwnBySlotIdx   r12, r28, 5
+    PutOwnBySlotIdx   r12, r27, 6
+    PutOwnBySlotIdx   r12, r26, 7
+    PutOwnBySlotIdx   r12, r25, 8
+    PutOwnBySlotIdx   r12, r24, 9
+    PutOwnBySlotIdx   r12, r23, 10
+    PutOwnBySlotIdx   r12, r22, 11
+    PutOwnBySlotIdx   r12, r21, 12
+    PutOwnBySlotIdx   r12, r20, 13
+    PutOwnBySlotIdx   r12, r19, 14
+    CreateClosure     r19, r13, NCFunction<onCancel>
+    PutOwnBySlotIdx   r12, r19, 15
+    CreateClosure     r19, r13, NCFunction<onSave>
+    PutOwnBySlotIdx   r12, r19, 16
+    Call3             r12, r18, r3, r14, r12
+    DefineOwnInDenseArray r9, r12, 4
+    GetByIdShort      r12, r11, 19, "jsx"
+    GetById           r11, r10, 36, "ReceiptShareSheet"
+    NewObjectWithBuffer r10, 1824, 15433
+    Not               r2, r16
+    Not               r2, r2
+    PutOwnBySlotIdx   r10, r2, 0
+    Eq                r2, r16, r4
+    LoadConstUndefined r14
+    JmpTrue           L41, r2
+    GetById           r14, r16, 37, "receiptNumber"
+L41:
+    JNotEqual         L42, r14, r4
+    Mov               r14, r17
+L42:
+    PutOwnBySlotIdx   r10, r14, 1
+    LoadConstUndefined r14
+    JmpFalse          L43, r16
+    LoadFromEnvironment r15, r15, 8
+    GetById           r15, r15, 30, "taka"
+    GetById           r18, r6, 38, "installments"
+    GetByIdShort      r17, r18, 39, "filter"
+    CreateClosure     r6, r13, NCFunction<>
+    Call2             r18, r17, r18, r6
+    GetByIdShort      r17, r18, 40, "reduce"
+    CreateClosure     r6, r3, NCFunction<>
+    Call3             r6, r17, r18, r6, r0
+    JmpTrue           L44, r6
+    GetByIdShort      r6, r16, 41, "amount"
+L44:
+    Call2             r14, r15, r3, r6
+L43:
+    NewObjectWithBuffer r6, 893, 31
+    PutOwnBySlotIdx   r10, r14, 2
+    CreateClosure     r14, r13, NCFunction<onWhatsApp>
+    PutOwnBySlotIdx   r10, r14, 3
+    CreateClosure     r13, r13, NCFunction<onSkip>
+    PutOwnBySlotIdx   r10, r13, 4
+    Call3             r10, r12, r3, r11, r10
+    DefineOwnInDenseArray r9, r10, 5
+    PutOwnBySlotIdx   r6, r9, 0
+    Call3             r6, r8, r3, r7, r6
+    Ret               r6
+
+
+Function<?anon_0_addInvestment>(2 params, 28 registers, 0 numbers, 0 non-pointers):
+    GetParentEnvironment r1, 0
+    LoadFromEnvironment r0, r1, 4
+    Mov               r2, r0
+    LoadConstUInt8    r4, 2
+    JStrictEqualLong  L1, r0, r4
+    LoadParam         r0, 2
+    LoadParam         r3, 1
+    Mov               r5, r2
+    LoadConstUInt8    r6, 3
+    JStrictEqualLong  L2, r5, r6
+L12:
+    Mov               r2, r4
+    StoreNPToEnvironment r1, 4, r4
+    LoadFromEnvironment r5, r1, 3
+    LoadConstZero     r13
+    JStrictEqual      L3, r13, r5
+    LoadConstUInt8    r5, 1
+    JStrictEqual      L4, r3, r5
+    JStrictNotEqualLong L5, r3, r4
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+L13:
+    NewObjectWithBuffer r5, 785, 32227
+    PutOwnBySlotIdx   r5, r0, 0
+    Ret               r5
+L4:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+    Throw             r0
+L3:
+    GetParentEnvironment r10, 1
+    StoreToEnvironment r1, 2, r10
+    CreateEnvironment r7, r10, 1
+    StoreToEnvironment r1, 1, r7
+    LoadFromEnvironment r12, r1, 0
+    LoadConstUndefined r8
+    StoreNPToEnvironment r7, 0, r8
+    LoadFromEnvironment r5, r10, 10
+    JmpTrue           L6, r5
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+L14:
+    NewObjectWithBuffer r5, 785, 32227
+    Ret               r5
+L6:
+    GetByIdShort      r5, r12, 0, "memberId"
+    JmpFalse          L7, r5
+    GetEnvironment    r5, r10, 1
+    LoadFromEnvironment r5, r5, 6
+    GetById           r11, r5, 1, "memberHasOpenInve"...
+    LoadFromEnvironment r5, r10, 8
+    GetByIdShort      r9, r5, 2, "current"
+    GetByIdShort      r5, r12, 0, "memberId"
+    Call3             r5, r11, r8, r9, r5
+    JmpTrueLong       L8, r5
+L7:
+    GetEnvironment    r9, r10, 1
+    LoadFromEnvironment r5, r9, 5
+    GetById           r14, r5, 3, "splitInstallments"
+    GetById           r11, r12, 4, "totalAmount"
+    GetById           r5, r12, 5, "tenureMonths"
+    Call3             r11, r14, r8, r11, r5
+    NewObject         r5
+    Mov               r19, r5
+    Mov               r18, r12
+    CallBuiltin       r12, "HermesBuiltin.copyDataProperties", 3
+    Mov               r19, r5
+    Mov               r18, r11
+    CallBuiltin       r11, "HermesBuiltin.copyDataProperties", 3
+    LoadFromEnvironment r11, r9, 16
+    LoadConstString   r9, "inv"
+    Call2             r9, r11, r13, r9
+    DefineOwnById     r5, r9, 0, 33
+    LoadFromEnvironment r9, r10, 10
+    GetByIdShort      r9, r9, 6, "id"
+    DefineOwnById     r5, r9, 1, 193
+    GetGlobalObject   r9
+    TryGetById        r9, r9, 7, "Date"
+    CreateThisForNew  r11, r9, 8
+    Mov               r20, r11
+    Construct         r9, r9, 1
+    SelectObject      r11, r11, r9
+    GetById           r9, r11, 9, "toISOString"
+    Call1             r9, r9, r11
+    DefineOwnById     r5, r9, 2, 113
+    StoreToEnvironment r7, 0, r5
+    LoadFromEnvironment r7, r10, 13
+    Call1             r7, r7, r13
+    JmpTrue           L5, r7
+    LoadFromEnvironment r7, r10, 14
+    NewObjectWithBuffer r9, 2030, 43705
+    LoadFromEnvironment r10, r10, 10
+    GetByIdShort      r10, r10, 6, "id"
+    PutOwnBySlotIdx   r9, r10, 0
+    GetByIdShort      r5, r5, 6, "id"
+    PutOwnBySlotIdx   r9, r5, 2
+    NewArray          r5, 1
+    DefineOwnInDenseArray r5, r9, 0
+    Call2             r7, r7, r8, r5
+    LoadConstUInt8    r5, 1
+    StoreNPToEnvironment r1, 3, r5
+    Mov               r2, r5
+    StoreNPToEnvironment r1, 4, r5
+L15:
+    NewObjectWithBuffer r5, 785, 32239
+    PutOwnBySlotIdx   r5, r7, 0
+    Ret               r5
+L5:
+    LoadFromEnvironment r5, r1, 1
+    LoadFromEnvironment r7, r1, 2
+    LoadFromEnvironment r9, r7, 12
+    CreateClosure     r8, r5, NCFunction<>
+    Call2             r8, r9, r13, r8
+    LoadFromEnvironment r12, r7, 15
+    LoadFromEnvironment r7, r7, 10
+    GetByIdShort      r19, r7, 6, "id"
+    LoadFromEnvironment r7, r5, 0
+    GetByIdShort      r17, r7, 6, "id"
+    LoadConstString   r15, "\u09ac\u09bf\u09a8"...
+    LoadConstString   r18, "investments"
+    CreateClosure     r16, r5, NCFunction<>
+    LoadConstZero     r20
+    Call              r7, r12, 6
+    LoadFromEnvironment r7, r5, 0
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+L16:
+    NewObjectWithBuffer r5, 785, 32227
+    PutOwnBySlotIdx   r5, r7, 0
+    Ret               r5
+L8:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+L17:
+    NewObjectWithBuffer r5, 785, 32227
+    Ret               r5
+L9:
+    Catch             r5
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 4, r6
+    Throw             r5
+L2:
+    LoadConstUInt8    r5, 1
+    JStrictEqual      L10, r3, r5
+    JStrictEqual      L11, r3, r4
+    NewObjectWithBuffer r3, 785, 33080
+    Ret               r3
+L11:
+    NewObjectWithBuffer r3, 785, 32227
+    PutOwnBySlotIdx   r3, r0, 0
+    Ret               r3
+L10:
+    Throw             r0
+L1:
+    LoadConstUInt8    r0, 3
+    Mov               r2, r0
+    StoreNPToEnvironment r1, 4, r0
+    LoadConstString   r19, "Generator functio"...
+    CallBuiltin       r0, "HermesBuiltin.throwTypeError", 2
+
+Exception Handlers:
+0: start = L12, end = L13, target = L9
+1: start = L4, end = L14, target = L9
+2: start = L6, end = L15, target = L9
+3: start = L5, end = L16, target = L9
+4: start = L8, end = L17, target = L9
+
+
+Function<?anon_0_updateInvestment>(3 params, 35 registers, 0 numbers, 0 non-pointers):
+    GetParentEnvironment r1, 0
+    LoadFromEnvironment r0, r1, 6
+    Mov               r2, r0
+    LoadConstUInt8    r4, 2
+    JStrictEqualLong  L1, r0, r4
+    LoadParam         r0, 2
+    LoadParam         r3, 1
+    Mov               r5, r2
+    LoadConstUInt8    r6, 3
+    JStrictEqualLong  L2, r5, r6
+L17:
+    Mov               r2, r4
+    StoreNPToEnvironment r1, 6, r4
+    LoadFromEnvironment r5, r1, 5
+    LoadConstZero     r14
+    JStrictEqual      L3, r14, r5
+    LoadConstUInt8    r5, 1
+    JStrictEqual      L4, r3, r5
+    JStrictNotEqualLong L5, r3, r4
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L18:
+    NewObjectWithBuffer r5, 785, 32227
+    PutOwnBySlotIdx   r5, r0, 0
+    Ret               r5
+L4:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+    Throw             r0
+L3:
+    GetParentEnvironment r13, 1
+    StoreToEnvironment r1, 4, r13
+    CreateEnvironment r12, r13, 2
+    StoreToEnvironment r1, 3, r12
+    LoadFromEnvironment r8, r1, 0
+    StoreToEnvironment r12, 0, r8
+    LoadFromEnvironment r15, r1, 1
+    LoadConstUndefined r11
+    StoreNPToEnvironment r12, 1, r11
+    LoadFromEnvironment r5, r13, 10
+    JmpTrue           L6, r5
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L19:
+    NewObjectWithBuffer r5, 785, 46141
+    Ret               r5
+L6:
+    GetGlobalObject   r5
+    TryGetById        r10, r5, 0, "Math"
+    GetByIdShort      r9, r10, 1, "floor"
+    TryGetById        r16, r5, 2, "Number"
+    GetById           r7, r15, 3, "tenureMonths"
+    Call2             r7, r16, r11, r7
+    Call2             r19, r9, r10, r7
+    TryGetById        r9, r5, 2, "Number"
+    GetById           r7, r15, 4, "totalAmount"
+    Call2             r18, r9, r11, r7
+    TryGetById        r9, r5, 2, "Number"
+    GetById           r7, r15, 5, "profitAmount"
+    Call2             r17, r9, r11, r7
+    GetById           r9, r15, 6, "investorName"
+    GetByIdShort      r7, r9, 7, "trim"
+    Call1             r7, r7, r9
+    JmpTrue           L7, r7
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L20:
+    NewObjectWithBuffer r7, 785, 46145
+    Ret               r7
+L7:
+    TryGetById        r9, r5, 2, "Number"
+    GetById           r7, r9, 8, "isFinite"
+    Call2             r7, r7, r9, r19
+    JmpFalseLong      L8, r7
+    LoadConstUInt8    r7, 1
+    JLessLong         L8, r19, r7
+    TryGetById        r10, r5, 2, "Number"
+    GetById           r9, r10, 8, "isFinite"
+    Call2             r9, r9, r10, r18
+    JmpFalseLong      L9, r9
+    JLessEqualLong    L9, r18, r14
+    TryGetById        r10, r5, 2, "Number"
+    GetById           r9, r10, 8, "isFinite"
+    Call2             r9, r9, r10, r17
+    JmpFalseLong      L10, r9
+    JLessLong         L10, r17, r14
+    JGreaterLong      L10, r17, r18
+    LoadFromEnvironment r9, r13, 8
+    GetByIdShort      r10, r9, 9, "current"
+    GetById           r20, r10, 10, "investments"
+    GetByIdShort      r16, r20, 11, "find"
+    CreateClosure     r10, r12, NCFunction<>
+    Call2             r20, r16, r20, r10
+    JmpTrue           L11, r20
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L21:
+    NewObjectWithBuffer r10, 785, 46161
+    Ret               r10
+L11:
+    GetByIdShort      r9, r9, 9, "current"
+    GetById           r16, r9, 12, "installments"
+    GetByIdShort      r10, r16, 13, "filter"
+    CreateClosure     r9, r12, NCFunction<>
+    Call2             r16, r10, r16, r9
+    GetByIdShort      r10, r16, 14, "reduce"
+    CreateClosure     r9, r11, NCFunction<>
+    Call3             r9, r10, r16, r9, r14
+    JLessLong         L12, r18, r9
+    GetEnvironment    r10, r13, 1
+    LoadFromEnvironment r10, r10, 5
+    GetById           r10, r10, 15, "splitInstallments"
+    Call3             r16, r10, r11, r18, r19
+    NewObject         r10
+    Mov               r26, r10
+    Mov               r25, r20
+    CallBuiltin       r20, "HermesBuiltin.copyDataProperties", 3
+    GetById           r21, r15, 6, "investorName"
+    GetByIdShort      r20, r21, 7, "trim"
+    Call1             r20, r20, r21
+    DefineOwnById     r10, r20, 0, 21513
+    GetById           r21, r15, 16, "permanentAddress"
+    StoreToEnvironment r1, 2, r21
+    LoadConstNull     r20
+    JNotEqual         L13, r21, r20
+    LoadConstString   r20, ""
+    StoreToEnvironment r1, 2, r20
+L13:
+    LoadFromEnvironment r21, r1, 2
+    GetByIdShort      r20, r21, 7, "trim"
+    Call1             r20, r20, r21
+    DefineOwnById     r10, r20, 1, 18710
+    GetById           r21, r15, 17, "nidNumber"
+    GetByIdShort      r20, r21, 7, "trim"
+    Call1             r20, r20, r21
+    DefineOwnById     r10, r20, 2, 15273
+    GetById           r21, r15, 18, "parentNames"
+    GetByIdShort      r20, r21, 7, "trim"
+    Call1             r20, r20, r21
+    DefineOwnById     r10, r20, 3, 18996
+    DefineOwnById     r10, r19, 4, 9694
+    DefineOwnById     r10, r18, 5, 17811
+    DefineOwnById     r10, r17, 6, 22012
+    GetById           r17, r16, 19, "monthlyInstallmen"...
+    DefineOwnById     r10, r17, 7, 20105
+    GetById           r16, r16, 20, "lastInstallment"
+    DefineOwnById     r10, r16, 8, 15007
+    GetById           r15, r15, 21, "emergencyContacts"
+    DefineOwnById     r10, r15, 9, 12082
+    StoreToEnvironment r12, 1, r10
+    LoadFromEnvironment r10, r13, 13
+    Call1             r10, r10, r14
+    JmpTrue           L5, r10
+    LoadFromEnvironment r10, r13, 14
+    NewObjectWithBuffer r12, 2030, 43705
+    LoadFromEnvironment r13, r13, 10
+    GetByIdShort      r13, r13, 22, "id"
+    PutOwnBySlotIdx   r12, r13, 0
+    PutOwnBySlotIdx   r12, r8, 2
+    NewArray          r8, 1
+    DefineOwnInDenseArray r8, r12, 0
+    Call2             r8, r10, r11, r8
+    StoreNPToEnvironment r1, 5, r7
+    Mov               r2, r7
+    StoreNPToEnvironment r1, 6, r7
+L22:
+    NewObjectWithBuffer r7, 785, 32239
+    PutOwnBySlotIdx   r7, r8, 0
+    Ret               r7
+L5:
+    LoadFromEnvironment r7, r1, 3
+    LoadFromEnvironment r8, r1, 4
+    LoadFromEnvironment r11, r8, 12
+    CreateClosure     r10, r7, NCFunction<>
+    Call2             r10, r11, r14, r10
+    LoadFromEnvironment r13, r8, 15
+    LoadFromEnvironment r8, r8, 10
+    GetByIdShort      r26, r8, 22, "id"
+    LoadFromEnvironment r24, r7, 0
+    LoadConstString   r22, "\u09ac\u09bf\u09a8"...
+    LoadConstString   r25, "investments"
+    CreateClosure     r23, r7, NCFunction<>
+    LoadConstZero     r27
+    Call              r7, r13, 6
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L23:
+    NewObjectWithBuffer r7, 785, 32227
+    Ret               r7
+L12:
+    TryGetById        r5, r5, 23, "HermesInternal"
+    GetByIdShort      r8, r5, 24, "concat"
+    LoadConstString   r7, ") \u098f\u09b0 \u099a"...
+    LoadConstString   r5, "\u09ae\u09cb\u099f"...
+    Call3             r7, r8, r5, r9, r7
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L24:
+    NewObjectWithBuffer r5, 785, 32227
+    PutOwnBySlotIdx   r5, r7, 0
+    Ret               r5
+L10:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L25:
+    NewObjectWithBuffer r5, 785, 46157
+    Ret               r5
+L9:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L26:
+    NewObjectWithBuffer r5, 785, 46153
+    Ret               r5
+L8:
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+L27:
+    NewObjectWithBuffer r5, 785, 46149
+    Ret               r5
+L14:
+    Catch             r5
+    Mov               r2, r6
+    StoreNPToEnvironment r1, 6, r6
+    Throw             r5
+L2:
+    LoadConstUInt8    r5, 1
+    JStrictEqual      L15, r3, r5
+    JStrictEqual      L16, r3, r4
+    NewObjectWithBuffer r3, 785, 33080
+    Ret               r3
+L16:
+    NewObjectWithBuffer r3, 785, 32227
+    PutOwnBySlotIdx   r3, r0, 0
+    Ret               r3
+L15:
+    Throw             r0
+L1:
+    LoadConstUInt8    r0, 3
+    Mov               r2, r0
+    StoreNPToEnvironment r1, 6, r0
+    LoadConstString   r26, "Generator functio"...
+    CallBuiltin       r0, "HermesBuiltin.throwTypeError", 2
+
+Exception Handlers:
+0: start = L17, end = L18, target = L14
+1: start = L4, end = L19, target = L14
+2: start = L6, end = L20, target = L14
+3: start = L7, end = L21, target = L14
+4: start = L11, end = L22, target = L14
+5: start = L5, end = L23, target = L14
+6: start = L12, end = L24, target = L14
+7: start = L10, end = L25, target = L14
+8: start = L9, end = L26, target = L14
+9: start = L8, end = L27, target = L14
+

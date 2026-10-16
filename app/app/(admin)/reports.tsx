@@ -65,7 +65,7 @@ const REPORTS_LIST: ReportItem[] = [
   {
     id: '5',
     icon: 'briefcase-outline',
-    titleBn: 'প্রজেক্ট রিপোর্ট',
+    titleBn: 'বিনিয়োগ রিপোর্ট',
     titleEn: 'Project Report',
     subBn: 'বিনিয়োগ, ফেরত, লাভ-ক্ষতি',
     subEn: 'Investment, return, profit-loss',

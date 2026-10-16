@@ -1,5 +1,6 @@
 // Translate app-defined labels only. Member names and custom notes stay intact.
 const pairs = [
+  ['Investment disbursement','বিনিয়োগ প্রদান'], ['Investment repayment','বিনিয়োগের কিস্তি আদায়'], ['Investment expense','বিনিয়োগ খরচ'], ['Payment reversal','আদায় বাতিল'],
   ['Bank Account','ব্যাংক হিসাব'], ['Cash','নগদ'], ['Nagad','নগদ মোবাইল হিসাব'],
   ['bKash','বিকাশ'], ['Cash with Treasurer','কোষাধ্যক্ষের হাতে'], ['Cash with Field Worker','মাঠকর্মীর হাতে'],
   ['Meeting & Refreshment','সভা ও আপ্যায়ন'], ['Travel','যাতায়াত'], ['Office Rent','অফিস ভাড়া'],

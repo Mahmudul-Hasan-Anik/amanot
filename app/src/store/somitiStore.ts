@@ -22,6 +22,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import * as api from '../lib/api';
 import { smsGateway } from '../services/smsGateway';
 import { LedgerSummary, emptyLedgerSummary } from '../lib/ledger';
+import { validateNewInvestment, contractAmounts, allocateInvestmentPayment, roundMoney, investmentSchedule, isoToday } from '../lib/investment';
 
 /** true = real Supabase backend, false = local demo data */
 export const REMOTE = isSupabaseConfigured();
@@ -57,6 +58,12 @@ function remote(label: string, call: () => Promise<any>) {
 }
 
 export interface Transaction {
+  projectId?: string;
+  principalPart?: number;
+  profitPart?: number;
+  investmentReversal?: boolean;
+  investmentDisbursement?: boolean;
+  investmentPaymentReversed?: boolean;
   id: string;
   receiptNo: string;
   memberId: string;
@@ -104,6 +111,9 @@ export interface AuditLog {
 }
 
 export interface SomitiState {
+  createInvestment: (data: import('../lib/investment').NewInvestment) => Promise<void>;
+  collectInvestment: (data: import('../lib/investment').InvestmentPayment) => Promise<Transaction>;
+  reverseInvestment: (id: string, paymentId: string, reason: string) => Promise<void>;
   notices: Notice[];
   auditLogs: AuditLog[];
   addNotice: (title: string, body: string) => Promise<void>;
@@ -164,6 +174,7 @@ export interface SomitiState {
 
   // Expense Actions
   addExpense: (data: {
+    projectId?: string;
     title: string;
     category: string;
     amount: number;
@@ -270,6 +281,50 @@ export const useSomitiStore = create<SomitiState>()(
         remote('রোল পরিবর্তন', () => api.setMemberRole(memberId, role, title));
       },
 
+      createInvestment: async (data) => {
+        if(validateNewInvestment(data))throw new Error('বিনিয়োগের তথ্য সঠিকভাবে পূরণ করুন');
+        if(REMOTE){await api.createInvestment(data);await get().syncFromServer();return;}
+        if(get().projects.some(p=>p.id===data.id))return;
+        const account=get().cashAccounts.find(a=>a.type===(data.paymentMethod==='cash'?'cashier':data.paymentMethod));
+        if(!account||account.amount<data.principal)throw new Error('পর্যাপ্ত ব্যালেন্স নেই');
+        const amounts=contractAmounts(data.principal,data.profitPct);
+        const contract={...data,profitAmount:amounts.profit,number:'INV-'+data.id.slice(0,8)};
+        const schedule=investmentSchedule(contract,0);
+        const project:Project={id:data.id,name:data.recipientName,type:'বিনিয়োগ',location:data.address,manager:'',status:'ongoing',
+          investedAmount:data.principal,returnedAmount:0,netProfit:0,roiPct:0,startDate:data.disbursedDate,
+          expectedEnd:schedule[schedule.length-1].dueDate,recoveryPct:0,remainingAmount:data.principal,contract};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount-data.principal)}:a);
+        const projects=[project,...get().projects];const cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        const transaction:Transaction={id:api.uuid(),projectId:project.id,receiptNo:contract.number+'-OUT',memberId:project.id,
+          memberName:project.name,memberCode:contract.number,date:api.bnDate(data.disbursedDate),dateISO:data.disbursedDate,
+          amount:data.principal,type:'transfer',paymentMethod:data.paymentMethod,note:'বিনিয়োগ প্রদান',investmentDisbursement:true};
+        set({projects,cashAccounts,transactions:[transaction,...get().transactions],dataVersion:get().dataVersion+1,
+          somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:cashAndBank+projects.reduce((s,p)=>s+p.remainingAmount,0)}});
+      },
+      collectInvestment: async(data)=>{
+        if(REMOTE){const transaction=await api.collectInvestment(data);await get().syncFromServer();return transaction;}
+        const existing=get().transactions.find(t=>t.id===data.id);if(existing)return existing;
+        const project=get().projects.find(p=>p.id===data.projectId);const c=project?.contract;
+        if(!project||!c)throw new Error('বিনিয়োগ পাওয়া যায়নি');
+        const account=get().cashAccounts.find(a=>a.type===(data.paymentMethod==='cash'?'cashier':data.paymentMethod));
+        if(!account)throw new Error('হিসাব পাওয়া যায়নি');
+        const allocation=allocateInvestmentPayment(c.principal,c.profitAmount,project.returnedAmount,data.amount);
+        const received=roundMoney(project.returnedAmount+data.amount);
+        const projects=get().projects.map(p=>p.id!==project.id?p:{...p,returnedAmount:received,remainingAmount:Math.max(0,c.principal-received),
+          netProfit:Math.max(0,received-c.principal),roiPct:Math.round(Math.max(0,received-c.principal)/c.principal*100),
+          recoveryPct:Math.min(100,Math.round(received/c.principal*100)),status:(received===roundMoney(c.principal+c.profitAmount)?'completed':'ongoing') as Project['status']});
+        const transaction:Transaction={...data,...allocation,receiptNo:'INV-PAY-'+data.id.slice(0,8),memberId:project.id,memberName:c.recipientName,
+          memberCode:c.number,type:'profit',date:api.bnDate(data.date),dateISO:data.date,createdAt:new Date().toISOString()};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount+data.amount)}:a);
+        const cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({projects,cashAccounts,transactions:[transaction,...get().transactions],dataVersion:get().dataVersion+1,
+          somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:cashAndBank+projects.reduce((s,p)=>s+p.remainingAmount,0),yearlyProjectProfit:get().somitiInfo.yearlyProjectProfit+allocation.profitPart}});
+        return transaction;
+      },
+      reverseInvestment: async(id,paymentId,reason)=>{
+        if(REMOTE){await api.reverseInvestment(id,paymentId,reason);await get().syncFromServer();return;}
+        throw new Error('আদায় সংশোধনের জন্য live backend প্রয়োজন');
+      },
       addProject: async (data) => {
         if (!data.name.trim() || !Number.isFinite(data.investedAmount) || data.investedAmount<0) throw new Error('প্রজেক্টের তথ্য সঠিক নয়');
         if (REMOTE) { await api.upsertProject({...data,id:api.uuid()}); await get().syncFromServer(); return; }
@@ -698,14 +753,15 @@ export const useSomitiStore = create<SomitiState>()(
         const newTxn: Transaction = {
           id: `tx-${Date.now()}`,
           receiptNo: data.voucherNo,
-          memberId: 'org',
+          memberId: data.projectId || 'org',
+          projectId: data.projectId,
           memberName: 'সমিতি খরচ',
           memberCode: 'EXP',
           date: api.bnDate(new Date().toISOString()),
           dateISO: new Date().toISOString().slice(0,10),
           amount: data.amount,
           type: 'expense',
-          paymentMethod: data.paymentSource?.toLowerCase().includes('ব্যাংক') ? 'bank' : data.paymentSource?.toLowerCase().includes('বিকাশ') ? 'bkash' : 'cash',
+          paymentMethod: /bank|ব্যাংক/i.test(data.paymentSource) ? 'bank' : /bkash|বিকাশ/i.test(data.paymentSource) ? 'bkash' : /nagad|নগদ মোবাইল/i.test(data.paymentSource) ? 'nagad' : 'cash',
           note: `${data.category}: ${data.title}`,
         };
 

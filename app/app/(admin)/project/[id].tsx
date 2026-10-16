@@ -23,6 +23,7 @@ import { typography } from '../../../src/theme/typography';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
 import {LedgerPaging} from '../../../src/components/LedgerPaging';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
+import InvestmentDetail from '../../../src/screens/InvestmentDetail';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function ProjectDetailScreen() {
   const project = allProjects.find(
     (p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id
   );
-  const history=useLedgerPage({projectId:project?.id},!!project);
+  const history=useLedgerPage({projectId:project?.id},!!project&&!project.contract);
 
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -65,7 +66,7 @@ export default function ProjectDetailScreen() {
       projectId: project.id,
       amount: cleanAmount,
       paymentSource: returnSource === 'bank' ? 'ব্যাংক হিসাব' : 'হাতে নগদ',
-      note: returnNote.trim() || 'প্রজেক্ট কিস্তি / মুনাফা আদায়',
+      note: returnNote.trim() || 'বিনিয়োগ কিস্তি / মুনাফা আদায়',
     });
 
     setShowIncomeModal(false);
@@ -88,7 +89,7 @@ export default function ProjectDetailScreen() {
     }
     if (!project) return;
 
-    await addExpense({title:project.name+': '+(expenseNote.trim()||l('Project expense','প্রজেক্ট খরচ')),category:l('Project expense','প্রজেক্ট খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
+    await addExpense({title:project.name+': '+(expenseNote.trim()||l('Investment expense','বিনিয়োগ খরচ')),category:l('Investment expense','বিনিয়োগ খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
     setShowExpenseModal(false);
     setExpenseAmount('');
     setExpenseNote('');
@@ -100,10 +101,12 @@ export default function ProjectDetailScreen() {
     } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
+  if(project?.contract) return <InvestmentDetail project={project}/>;
+
   // Project ledger
   const sampleTransactions = (isSupabaseConfigured()?history.rows:transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':')))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
 
-  if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Project not found','প্রজেক্ট পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to projects','প্রজেক্ট তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
+  if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Investment not found','বিনিয়োগ পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to investments','বিনিয়োগ তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   const projectTitle = isBengali
     ? project.name
     : project.id === 'p1'
@@ -142,11 +145,11 @@ export default function ProjectDetailScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{l('Projects', 'প্রজেক্ট')}</Text>
+        <Text style={styles.headerTitle}>{l('Investments', 'বিনিয়োগ')}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit project details', 'প্রজেক্টের বিবরণ সম্পাদনা করুন'))}
+            onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit investment details', 'বিনিয়োগের বিবরণ সম্পাদনা করুন'))}
             activeOpacity={0.7}
           >
             <Ionicons name="pencil-outline" size={20} color={colors.text} />
@@ -251,7 +254,7 @@ export default function ProjectDetailScreen() {
           </View>
 
           <Text style={styles.recoverySub}>
-            {l('Remaining in project:', 'প্রজেক্টে এখনো আছে')} {formatMoney(project.remainingAmount)}
+            {l('Remaining in investment:', 'বিনিয়োগে এখনো আছে')} {formatMoney(project.remainingAmount)}
           </Text>
         </View>
 
@@ -364,7 +367,7 @@ export default function ProjectDetailScreen() {
       <AppModal
         visible={showIncomeModal}
         onClose={() => setShowIncomeModal(false)}
-        title={l('Record Project Income / Return', 'প্রজেক্ট আয় / ফেরত লিখুন')}
+        title={l('Record Investment Income / Return', 'বিনিয়োগ আয় / ফেরত লিখুন')}
       >
         <View style={styles.modalContent}>
           <Text style={styles.modalProjectName}>{projectTitle}</Text>
@@ -424,7 +427,7 @@ export default function ProjectDetailScreen() {
       <AppModal
         visible={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
-        title={l('Record Project Expense', 'প্রজেক্টের খরচ লিখুন')}
+        title={l('Record Investment Expense', 'বিনিয়োগের খরচ লিখুন')}
       >
         <View style={styles.modalContent}>
           <Text style={styles.modalProjectName}>{projectTitle}</Text>
