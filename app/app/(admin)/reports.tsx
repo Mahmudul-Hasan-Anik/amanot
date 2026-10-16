@@ -41,10 +41,10 @@ const REPORTS_LIST: ReportItem[] = [
   {
     id: '2',
     icon: 'warning-outline',
-    titleBn: 'বকেয়া তালিকা',
-    titleEn: 'Overdue List',
-    subBn: 'সদস্য, মাস, টাকা ও ফোন নম্বর',
-    subEn: 'Members, months, amount & phone',
+    titleBn: 'বিনিয়োগের বকেয়া কিস্তি',
+    titleEn: 'Overdue Investment Installments',
+    subBn: 'চুক্তি, গ্রহীতা, কিস্তির তারিখ ও বাকি',
+    subEn: 'Contract, recipient, due date and balance',
   },
   {
     id: '3',
@@ -66,25 +66,25 @@ const REPORTS_LIST: ReportItem[] = [
     id: '5',
     icon: 'briefcase-outline',
     titleBn: 'বিনিয়োগ রিপোর্ট',
-    titleEn: 'Project Report',
+    titleEn: 'Investment Report',
     subBn: 'বিনিয়োগ, ফেরত, লাভ-ক্ষতি',
     subEn: 'Investment, return, profit-loss',
   },
   {
     id: '6',
     icon: 'wallet-outline',
-    titleBn: 'নগদ ও ব্যাংক বই',
-    titleEn: 'Cash & Bank Book',
-    subBn: 'হিসাবভিত্তিক জমা-খরচ',
-    subEn: 'Account-wise transactions',
+    titleBn: 'মাধ্যমভিত্তিক টাকা আসা-যাওয়া',
+    titleEn: 'Cash Movements by Method',
+    subBn: 'নির্বাচিত মাসের টাকা আসা-যাওয়া',
+    subEn: 'Recorded cash movements in the selected month',
   },
   {
     id: '7',
     icon: 'people-outline',
-    titleBn: 'মাঠকর্মী রিপোর্ট',
-    titleEn: 'Field Officer Report',
-    subBn: 'আদায় ও নগদ জমার অবস্থা',
-    subEn: 'Collection & cash deposit status',
+    titleBn: 'জমার রসিদসমূহ',
+    titleEn: 'Deposit Receipts',
+    subBn: 'তারিখ, সদস্য, পরিমাণ ও মাধ্যম',
+    subEn: 'Date, member, amount and payment method',
   },
   {
     id: '8',
@@ -108,12 +108,12 @@ export default function ReportsScreen() {
   const handleDownload = async (id:string,format:'PDF'|'CSV') => {
     if(exporting) return;
     setExporting(true);
-    try { await exportReport(await buildReportForExport(state,id,month),state.somitiInfo.name,month,format); }
+    try { await exportReport(await buildReportForExport(state,id,month,isBengali?'bn':'en'),state.somitiInfo.name,month,format); }
     catch(e:any) { Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message); }
     finally {setExporting(false);}
   };
   const handleExportAll = async () => {
-    await handleDownload('4','CSV');
+    await handleDownload('all','CSV');
   };
   return (
     <SafeAreaView style={styles.container}>

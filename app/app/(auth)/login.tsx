@@ -1,3 +1,5 @@
+import {MemberIdentityFields} from '../../src/components/MemberIdentityFields';
+import {MemberCategory,memberCode,normalizeMemberNumber} from '../../src/lib/memberIdentity';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -54,6 +56,7 @@ export default function LoginScreen() {
   const [regSomitiName, setRegSomitiName] = useState('');
   const [regAdminName, setRegAdminName] = useState('');
   const [regAdminPhone, setRegAdminPhone] = useState('');
+  const [regCategory,setRegCategory]=useState<MemberCategory|''>('');const [regNumber,setRegNumber]=useState('');
   const [regAdminPin, setRegAdminPin] = useState(REMOTE ? '' : '1234');
 
   // Format phone display with South Asian phone space (e.g. "১৭১২ ৩৪৫৬৭৮" or "1712 345678")
@@ -169,10 +172,11 @@ export default function LoginScreen() {
       );
       return;
     }
+    try{memberCode(regCategory,regNumber)}catch{Alert.alert(l('Member ID required','সদস্য ID প্রয়োজন'),l('Select the owner category and enter a permanent member number.','অ্যাডমিনের ক্যাটাগরি ও স্থায়ী সদস্য নম্বর দিন।'));return;}
     const cleanPin = toEnglishDigits(regAdminPin).trim() || (REMOTE ? '' : '1234');
     if (REMOTE) {
       setBusy(true);
-      registerSomitiRemote(regSomitiName, regAdminName, regAdminPhone, cleanPin).then((res) => {
+      registerSomitiRemote(regSomitiName, regAdminName, regAdminPhone, cleanPin, regCategory, normalizeMemberNumber(regNumber)).then((res) => {
         setBusy(false);
         if (!res.ok) {
           Alert.alert(l('Registration failed', 'নিবন্ধন ব্যর্থ'), res.error || '');
@@ -183,7 +187,7 @@ export default function LoginScreen() {
       });
       return;
     }
-    registerSomiti(regSomitiName, regAdminName, regAdminPhone, cleanPin);
+    registerSomiti(regSomitiName, regAdminName, regAdminPhone, cleanPin, regCategory, normalizeMemberNumber(regNumber));
     setShowRegisterModal(false);
     router.replace('/(admin)/(tabs)');
   };
@@ -500,6 +504,7 @@ export default function LoginScreen() {
             placeholderTextColor={colors.textSecondary}
           />
 
+          <MemberIdentityFields category={regCategory} number={regNumber} onCategory={setRegCategory} onNumber={setRegNumber}/>
           <Text style={styles.modalInputLabel}>{l('Mobile Number *', 'মোবাইল নম্বর *')}</Text>
           <TextInput
             style={styles.modalInput}

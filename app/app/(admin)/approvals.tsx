@@ -1,3 +1,4 @@
+import {InvestmentApprovalQueue} from '../../src/components/InvestmentApprovalQueue';
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchApprovalHistory } from '../../src/lib/api';
@@ -50,6 +51,8 @@ export default function ApprovalsScreen() {
     autoApproveAllPending,
   } = useSomitiStore();
 
+  const proposals=useSomitiStore(s=>s.investmentProposals);
+  const proposalCount=(tab:string)=>proposals.filter(p=>tab==='pending'?['submitted','approved'].includes(p.status):tab==='approved'?p.status==='disbursed':['rejected','withdrawn'].includes(p.status)).length;
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const history=useRemoteQuery('approval-history',fetchApprovalHistory,activeTab!=='pending');
   const [selectedAttachment, setSelectedAttachment] = useState<{
@@ -180,7 +183,7 @@ export default function ApprovalsScreen() {
                 activeTab === 'pending' && styles.segmentTextActive,
               ]}
             >
-              {l('Pending', 'অপেক্ষমাণ')} {formatNum(approvals.length)}
+              {l('Pending', 'অপেক্ষমাণ')} {formatNum(approvals.length+proposalCount('pending'))}
             </Text>
           </TouchableOpacity>
 
@@ -195,7 +198,7 @@ export default function ApprovalsScreen() {
                 activeTab === 'approved' && styles.segmentTextActive,
               ]}
             >
-              {l('Approved', 'অনুমোদিত')}
+              {l('Approved', 'অনুমোদিত')} {formatNum(approvedList.length+proposalCount('approved'))}
             </Text>
           </TouchableOpacity>
 
@@ -210,11 +213,13 @@ export default function ApprovalsScreen() {
                 activeTab === 'rejected' && styles.segmentTextActive,
               ]}
             >
-              {l('Rejected', 'প্রত্যাখ্যাত')}
+              {l('Rejected', 'প্রত্যাখ্যাত')} {formatNum(rejectedList.length+proposalCount('rejected'))}
             </Text>
           </TouchableOpacity>
         </View>
 
+        <InvestmentApprovalQueue tab={activeTab} hideEmpty />
+        {currentList.length>0?<Text style={{fontFamily:typography.fontFamily.semiBold,color:colors.text,marginBottom:12}}>{l('Expenses and other requests','ব্যয় ও অন্যান্য অনুরোধ')} · {formatNum(currentList.length)}</Text>:null}
         {/* Auto Approve Quick Action Banner */}
         <RemoteDataState query={history} enabled={activeTab!=='pending'}>
         {activeTab === 'pending' && approvals.length > 0 && (
@@ -245,7 +250,7 @@ export default function ApprovalsScreen() {
         )}
 
         {/* Approvals Cards List */}
-        {currentList.length === 0 ? (
+        {currentList.length === 0 ? (proposalCount(activeTab)>0 ? null : (
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-done-circle-outline" size={54} color={colors.primary} />
             <Text style={styles.emptyTitle}>
@@ -259,7 +264,7 @@ export default function ApprovalsScreen() {
               {l('All requests are up to date.', 'সব অনুরোধ হালনাগাদ রয়েছে।')}
             </Text>
           </View>
-        ) : (
+        )) : (
           currentList.map((item) => {
             const displayTitle = cleanTitle(item.title);
             const badgeText = getBadgeLabel(item.type);

@@ -58,7 +58,7 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
   data = Object.fromEntries(Object.entries(data).map(([key,value]) => [key, typeof value === 'string' ? escapeHtml(value) : Array.isArray(value) ? value.map(escapeHtml) : value])) as unknown as DepositReceiptData;
   const somiti = data.somitiName || 'আমানত সঞ্চয় ও ঋণদান সমবায় সমিতি';
   const reg = data.somitiReg ? `রেজিঃ নং ${data.somitiReg}` : 'ডিজিটাল হিসাব ও রসিদ';
-  const bnAmount = toBengaliDigits(data.amount);
+  const bnAmount = toBengaliDigits(new Intl.NumberFormat('en-IN',{maximumFractionDigits:2}).format(data.amount));
   const bnLateFee = data.lateFee ? toBengaliDigits(data.lateFee) : '০';
   const bnDue = data.dueAmount !== undefined ? toBengaliDigits(data.dueAmount) : '০';
   const methodLabel =
@@ -216,10 +216,10 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
       <div class="amount-number">৳${bnAmount}</div>
     </div>
 
-    <div class="info-row">
+    ${data.months?.length ? `<div class="info-row">
       <div><span class="label">অবশিষ্ট বকেয়া:</span> <span class="value">৳${bnDue}</span></div>
       <div><span class="label">স্ট্যাটাস:</span> <span class="value" style="color: #0F5E4A;">পরিশোধিত ✓</span></div>
-    </div>
+    </div>` : ''}
 
     <div class="footer-signatures">
       <div class="signature-line">সদস্যের স্বাক্ষর</div>

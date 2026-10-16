@@ -345,11 +345,6 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
   const q = <T,>(p: PromiseLike<{ data: T | null; error: any }>) => p.then(unwrap);
   const empty = Promise.resolve([] as any[]);
 
-  // bring every member's due status up to today before reading (cheap, server-side)
-  if (isStaff) {
-    await supabase.rpc('refresh_dues').then(() => {}, () => {});
-  }
-
   const [settings, summary, members, projects, cash, ledgerPage, expenses, approvals, notices, contracts, proposals] = await Promise.all([
     q(supabase.from('somiti_settings').select('info').eq('id', 1).maybeSingle()),
     q(supabase.rpc('get_somiti_summary')),
@@ -364,6 +359,7 @@ export async function fetchAll(isStaff: boolean, photoScope = '') {
     isStaff ? fetchInvestmentProposals() : empty,
   ]);
 
+  if(Number((summary as any)?.backendVersion||0)<22)throw new Error('Backend update required. / সার্ভারের নতুন update প্রয়োজন।');
   const ledger = ledgerPage.rows;
   const txRows = ledger.map(t=>({member_id:t.memberId,date:t.dateISO,receipt_no:t.receiptNo,note:t.note,months:t.months,amount:t.amount,payment_method:t.paymentMethod}));
   const recentByMember=new Map<string,typeof txRows>();
@@ -445,11 +441,11 @@ export async function activateWithPin(phone: string, pin: string) {
 }
 
 /** Creates a separate society; its registering owner becomes that society's super admin. */
-export async function bootstrapSomiti(somitiName: string, adminName: string, phone: string, pin: string) {
+export async function bootstrapSomiti(somitiName: string, adminName: string, phone: string, pin: string, memberCategory?:string, memberNumber?:string) {
   const res = await supabase.auth.signUp({
     email: phoneToEmail(phone),
     password: pinToPassword(pin),
-    options: { data: { phone: normalizePhone(phone), pin, name: adminName, somiti_name: somitiName, bootstrap: true } },
+    options: { data: { phone: normalizePhone(phone), pin, name: adminName, somiti_name: somitiName, bootstrap: true, member_category:memberCategory, member_number:memberNumber } },
   });
   if (res.error) throw new Error(friendlyAuthError(res.error.message));
   if (!res.data.session) {
@@ -698,3 +694,8 @@ export async function fetchInvestmentProposals():Promise<import('./investment').
 }
 export const decideInvestmentProposal=(id:string,approve:boolean,note:string)=>rpc('decide_investment_proposal',{p_id:id,p_approve:approve,p_note:note});
 export const disburseInvestmentProposal=(id:string,date:string,firstDue:string,method:string)=>rpc('disburse_investment_proposal',{p_id:id,p_date:date,p_first_due:firstDue,p_method:method});
+
+export const withdrawInvestmentProposal=(id:string,note:string)=>rpc('withdraw_investment_proposal',{p_id:id,p_note:note});
+export const mapLegacyMemberIdentity=(id:string,category:string,number:string)=>rpc('map_legacy_member_identity',{p_id:id,p_category:category,p_number:number});
+export const fetchCapabilities=()=>rpc('app_capabilities');
+export async function fetchDistributionShares(year:number){return unwrap(await supabase.from('profit_shares').select('member_id,year,base_deposit,share').eq('year',year));}

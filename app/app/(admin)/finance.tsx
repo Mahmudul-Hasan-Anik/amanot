@@ -95,7 +95,7 @@ export default function FinanceScreen() {
   const [exporting,setExporting]=useState(false);
   const handleExport=async(format:'PDF'|'CSV')=>{
     if(exporting)return;setExporting(true);setShowExportModal(false);
-    try{await exportReport(await buildReportForExport(useSomitiStore.getState(),format==='CSV'?'9':'3',selectedMonthKey),somitiInfo.name,selectedMonthKey,format);}
+    try{await exportReport(await buildReportForExport(useSomitiStore.getState(),format==='CSV'?'9':'3',selectedMonthKey,isBengali?'bn':'en'),somitiInfo.name,selectedMonthKey,format);}
     catch(e:any){Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message);}
     finally{setExporting(false);}
   };

@@ -54,11 +54,19 @@ async function photosFromStorage(env) {
   return photos;
 }
 async function businessMetrics(env) {
-  const query="select json_build_object('members',(select count(*)::text from public.members),'profiles',(select count(*)::text from public.profiles),'transactions',(select count(*)::text from public.transactions),'transactionAmount',(select coalesce(sum(amount),0)::text from public.transactions),'cashAmount',(select coalesce(sum(amount),0)::text from public.cash_accounts))";
+  const query=`select json_build_object('members',(select count(*)::text from public.members),'profiles',(select count(*)::text from public.profiles),'transactions',(select count(*)::text from public.transactions),'transactionAmount',(select coalesce(sum(amount),0)::text from public.transactions),'cashAmount',(select coalesce(sum(amount),0)::text from public.cash_accounts),
+'contracts',(select count(*)::text from public.investment_contracts),
+'proposals',(select count(*)::text from public.investment_proposals),
+'paymentEvents',(select count(*)::text from public.investment_payment_events),
+'investmentFingerprint',(select md5(coalesce(string_agg(to_jsonb(c)::text,',' order by id),'')) from public.investment_contracts c),
+'proposalFingerprint',(select md5(coalesce(string_agg(to_jsonb(p)::text,',' order by id),'')) from public.investment_proposals p),
+'paymentFingerprint',(select md5(coalesce(string_agg(to_jsonb(e)::text,',' order by id),'')) from public.investment_payment_events e),
+'principal',(select coalesce(sum(case when reverses is null then principal_part else -principal_part end),0)::text from public.investment_payment_events),
+'profit',(select coalesce(sum(case when reverses is null then profit_part else -profit_part end),0)::text from public.investment_payment_events))`;
   return JSON.parse((await run('psql',['-X','-A','-t','--set','ON_ERROR_STOP=1','--command',query],env)).toString().trim());
 }
 function verifyMetrics(expected,actual) {
-  const keys=['members','profiles','transactions','transactionAmount','cashAmount'];
+  const keys=['members','profiles','transactions','transactionAmount','cashAmount',...['contracts','proposals','paymentEvents','investmentFingerprint','proposalFingerprint','paymentFingerprint','principal','profit'].filter(k=>expected && k in expected)];
   if(!expected||keys.some(k=>typeof expected[k]!=='string'||expected[k]!==actual[k])) throw Error('Restored business counts or totals differ from the source snapshot.');
 }
 async function main(argv=process.argv.slice(2)) {
@@ -106,7 +114,7 @@ async function main(argv=process.argv.slice(2)) {
     if(!destination.startsWith(photosOutput+path.sep)) throw Error('Unsafe profile file path.');
     fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,Buffer.from(photo.data,'base64'),{mode:0o600,flag:'wx'});
   }
-  console.log(JSON.stringify({status:'local_restore_completed',metricsVerified:true,...summary}));
+  console.log(JSON.stringify({status:'local_restore_completed',metricsVerified:true,investmentMetricsVerified:['contracts','proposals','paymentEvents','investmentFingerprint','proposalFingerprint','paymentFingerprint','principal','profit'].every(k=>k in (bundle.metrics||{})),...summary}));
 }
 if(require.main===module) main().catch(error=>{console.error(formatDiagnostic(error));process.exitCode=1;});
 module.exports={main,pgEnvironment,argumentsFor,verifyMetrics,run};

@@ -333,54 +333,6 @@ export default function SomitiProfileScreen() {
           </Text>
         </View>
 
-        {/* Section 4: ডকুমেন্ট (Documents) */}
-        <Text style={styles.sectionTitle}>{l('Documents', 'ডকুমেন্ট')}</Text>
-        <View style={styles.card}>
-          {/* গঠনতন্ত্র */}
-          <View style={styles.docRow}>
-            <View style={styles.docIconBox}>
-              <Ionicons name="document-text-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.docDetails}>
-              <Text style={styles.docTitle}>{l('Constitution', 'গঠনতন্ত্র')}</Text>
-              <Text style={styles.docSub}>
-                {l('PDF • Updated [Date]', 'PDF • হালনাগাদ [তারিখ]')}
-              </Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() =>
-                Alert.alert(l('Download', 'ডাউনলোড'), l('Downloading Constitution PDF...', 'গঠনতন্ত্র PDF ডাউনলোড হচ্ছে...'))
-              }
-            >
-              <Ionicons name="download-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* নিবন্ধন সনদ */}
-          <View style={styles.docRow}>
-            <View style={styles.docIconBox}>
-              <Ionicons name="ribbon-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.docDetails}>
-              <Text style={styles.docTitle}>
-                {l('Registration Certificate', 'নিবন্ধন সনদ')}
-              </Text>
-              <Text style={styles.docSub}>{l('PDF', 'PDF')}</Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() =>
-                Alert.alert(l('Download', 'ডাউনলোড'), l('Downloading Registration Certificate PDF...', 'নিবন্ধন সনদ PDF ডাউনলোড হচ্ছে...'))
-              }
-            >
-              <Ionicons name="download-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
 

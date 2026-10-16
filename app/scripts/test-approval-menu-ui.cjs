@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict'),path=require('path');
+function load(file,deps){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)}});return exports;}
+const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>[v,()=>{}]};
+const native={View:'View',Text:'Text',Pressable:'Press',ScrollView:'Scroll',Modal:'Modal',TouchableOpacity:'Touch',StyleSheet:{create:s=>s},Alert:{alert:()=>{throw Error('Native alert must not select actions')}}};
+const theme={colors:{},typography:{fontFamily:{},size:{},lineHeight:{}}},language={l:en=>en,formatMoney:String,formatNum:String};
+function nodes(t){return !t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)]}
+function text(t){return typeof t==='string'||typeof t==='number'?String(t):Array.isArray(t)?t.map(text).join(' '):text(t?.props?.children||[])}
+const menu=load('src/components/ActionMenu.tsx',{react:React,'react-native':native,'@expo/vector-icons/Ionicons':{default:'Icon'},'../theme/colors':theme,'../theme/typography':theme,'../i18n/useLanguage':{useLanguage:()=>language}}).ActionMenu;
+const calls=[],tree=menu({visible:true,title:'Member',onClose:()=>calls.push('close'),actions:[{text:'Edit',onPress:()=>calls.push('edit')},{text:'Remove',style:'destructive',onPress:()=>calls.push('remove')}]});
+nodes(tree).find(n=>n.type==='Press'&&text(n).includes('Edit')).props.onPress();assert.deepEqual(calls,['close','edit']);assert.ok(text(tree).includes('Cancel'));
+const state={approvals:[],approvedApprovals:[],rejectedApprovals:[],investmentProposals:[{status:'approved'}]};
+const deps={react:React,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useRouter:()=>({})},'@expo/vector-icons/Ionicons':{default:'Icon'},'../../src/hooks/useRemoteQuery':{useRemoteQuery:()=>({})},'../../src/components/RemoteDataState':{RemoteDataState:'Remote'},'../../src/components/InvestmentApprovalQueue':{InvestmentApprovalQueue:'Queue'},'../../src/lib/api':{},'../../src/store/somitiStore':{REMOTE:false,useSomitiStore:f=>f?f(state):state},'../../src/i18n/useLanguage':{useLanguage:()=>language},'../../src/mocks/mockData':{},'../../src/features/auth/authStore':{},'../../src/utils/navigation':{},'../../src/theme/colors':theme,'../../src/theme/typography':theme};
+const Screen=load('app/(admin)/approvals.tsx',deps).default;let screen=Screen();assert.match(text(screen),/Pending\s+1/);assert.ok(!text(screen).includes('No pending requests'));const queue=nodes(screen).find(n=>n.type==='Queue');assert.equal(queue.props.tab,'pending');assert.equal(queue.props.hideEmpty,true);
+state.investmentProposals=[];screen=Screen();assert.ok(text(screen).includes('No pending requests'));
+console.log('PASS approval/menu UI: unified pending count, consistent empty state, menu closes before action without number prompts.');

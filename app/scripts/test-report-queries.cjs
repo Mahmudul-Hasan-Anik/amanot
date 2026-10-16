@@ -7,7 +7,9 @@ const out={};vm.runInNewContext(compile('utils/reportExport.ts'),{exports:out,Ma
  if(n==='react-native')return {Platform:{OS:'web'}};
  if(n.startsWith('expo-'))return {};if(n==='./pdfExport')return {escapeHtml:String};if(n==='../theme/colors')return {colors:{}};
  if(n==='../lib/supabase')return {isSupabaseConfigured:()=>remote};if(n==='../lib/ledger')return ledger;
- if(n==='../lib/api')return {fetchLedgerSummary:async(from,to)=>{calls.push({from,to,summary:true});return {collections:{m:10250}};},fetchTransactionHistory:async filter=>{calls.push(filter);return full;}};
+ if(n==='../i18n/financeLabels')return {financeNote:v=>v};
+ if(n==='../lib/investment')return {investmentSchedule:()=>[]};
+ if(n==='../lib/api')return {fetchDistributionShares:async year=>[{member_id:'m',year,base_deposit:100,share:10.25}],fetchLedgerSummary:async(from,to)=>{calls.push({from,to,summary:true});return {collections:{m:10250}};},fetchTransactionHistory:async filter=>{calls.push(filter);return full;}};
  throw Error(n);
 }});
 async function main(){
@@ -19,6 +21,11 @@ async function main(){
  const before=calls.length;await out.buildReportForExport(state,'4','2026-10');assert.equal(calls.length,before);
  assert.ok(out.reportCsv({columns:['x'],rows:[['=formula']]}).includes("'=formula"));
  remote=false;const demo=await out.buildReportForExport(state,'1','2026-10');assert.equal(demo.rows[0][2],512.5);
+ remote=true;const english=await out.buildReportForExport(state,'8','2025-10','en');assert.equal(english.rows[0][2],2025);assert.equal(english.rows[0][4],10.25);assert.equal(english.columns[4],'Allocated profit');
+ const signed=out.buildReport({...state,transactions:[{...full[0],amount:100,investmentDisbursement:true,type:'transfer'}]},'9','2026-10','en');assert.equal(signed.rows[0][4],-100);
+ assert.equal(out.buildReport(state,'2','2026-10').rows.length,0,'Savings balances do not create installment dues');
+ assert.ok(!out.buildReport(state,'1','2026-10','en').columns.includes('বকেয়া'));
+ const bundle=await out.buildReportForExport(state,'all','2026-10','en');assert.ok(bundle.rows.some(r=>String(r[0]).includes('Investment report')));assert.ok(bundle.rows.some(r=>String(r[0]).includes('Monthly ledger')));
  console.log('PASS reports: authoritative collection totals, full scoped exports beyond login cache, transfers retained in ledger CSV, balance-only reports avoid ledger downloads, CSV escaping and demo fallback.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

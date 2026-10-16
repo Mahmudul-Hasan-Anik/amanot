@@ -59,11 +59,7 @@ export default function ReceiptScreen() {
   const memberName = l(member?.nameEn || txn?.memberName || member?.name || 'করিম উদ্দিন', txn?.memberName || member?.name || 'করিম উদ্দিন');
   const memberCode = member?.code || txn?.memberCode || 'SM-042';
 
-  const defaultMonthsBn = 'আগস্ট, সেপ্টেম্বর ২০২৬';
-  const defaultMonthsEn = 'August, September 2026';
-  const monthsStr = txn?.months && txn.months.length > 0
-    ? txn.months.join(', ')
-    : l(defaultMonthsEn, defaultMonthsBn);
+  const monthsStr = txn.months?.join(', ') || '';
 
   const lateFee = txn?.lateFee ?? 0;
   const baseDeposit = amount - lateFee;
@@ -134,7 +130,7 @@ export default function ReceiptScreen() {
         ? `${l('Note:', 'মন্তব্য:')} ${txn.note}\n`
         : '';
       await Share.share({
-        message: `${somitiTitle}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${l('Month:', 'মাস:')} ${monthsStr}\n${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${noteLine}${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(totalDepositNow)}\n--------------------\n${l('Thank you for your payment.', 'আপনার কিস্তির টাকা সঠিকভাবে জমা হয়েছে। ধন্যবাদ।')}`,
+        message: `${somitiTitle}\n${l('Deposit Receipt', 'জমা রসিদ')} ${receiptNo}\n--------------------\n${l('Member:', 'সদস্য:')} ${memberName} (${memberCode})\n${monthsStr ? `${l('Month:', 'মাস:')} ${monthsStr}\n` : ''}${l('Deposit:', 'জমা:')} ${formatMoney(baseDeposit)}\n${lateFee > 0 ? `${l('Late Fee:', 'বিলম্ব ফি:')} ${formatMoney(lateFee)}\n` : ''}${l('Total Collection:', 'মোট আদায়:')} ${formatMoney(amount)}\n${l('Method:', 'মাধ্যম:')} ${methodStr}\n${l('Date:', 'তারিখ:')} ${dateStr}\n${noteLine}${l('Total Deposit Now:', 'এখন মোট জমা:')} ${formatMoney(totalDepositNow)}\n--------------------\n${l('Thank you for your payment.', 'আপনার জমার টাকা গৃহীত হয়েছে। ধন্যবাদ।')}`,
       });
     } catch (e) {}
   };
@@ -177,10 +173,7 @@ export default function ReceiptScreen() {
               <Text style={styles.value}>{memberName} ({memberCode})</Text>
             </View>
 
-            <View style={styles.row}>
-              <Text style={styles.label}>{l('Month', 'মাস')}</Text>
-              <Text style={styles.value}>{monthsStr}</Text>
-            </View>
+            {monthsStr ? <View style={styles.row}><Text style={styles.label}>{l('Month','মাস')}</Text><Text style={styles.value}>{monthsStr}</Text></View> : null}
 
             <View style={styles.row}>
               <Text style={styles.label}>{l('Deposit', 'জমা')}</Text>

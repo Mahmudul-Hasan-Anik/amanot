@@ -11,7 +11,7 @@ export type InvestmentContract = {
 export type NewInvestment = Omit<InvestmentContract, 'number' | 'profitAmount'> & {
   paymentMethod: 'cash' | 'bank' | 'bkash' | 'nagad';
 };
-export type InvestmentProposal = {id:string; status:'submitted'|'approved'|'rejected'|'disbursed'; payload:NewInvestment; created_at:string; approved_at?:string; disbursed_at?:string; decision_note:string};
+export type InvestmentProposal = {id:string; status:'submitted'|'approved'|'rejected'|'withdrawn'|'disbursed'; payload:NewInvestment; created_at:string; approved_at?:string; disbursed_at?:string; decision_note:string};
 export type InvestmentPayment = {
   id: string; projectId: string; amount: number; paymentMethod: NewInvestment['paymentMethod'];
   date: string; note: string;

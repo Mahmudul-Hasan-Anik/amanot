@@ -79,6 +79,28 @@ async function main(){
  assert.deepEqual(await one('select (select sum(amount) from cash_accounts) cash,(select count(*) from transactions) ledger,(select sum(total_deposit) from members) savings'),before);
  assert.equal((await one("select has_schema_privilege('amanot_rpc','public','CREATE') allowed")).allowed,false);await as('authenticated',owner);
  });
+ await pass('feedback migration repeatable; dashboard equals recognized ledger profit',async()=>{
+ await as('postgres');const migration=fs.readFileSync(path.join(root,'supabase/migrations/022_feedback_consistency.sql'),'utf8');await db.exec(migration);await db.exec(migration);
+ assert.equal((await one("select has_schema_privilege('amanot_rpc','public','CREATE') allowed")).allowed,false);
+ await as('authenticated',owner);const summary=(await one('select get_somiti_summary() s')).s;
+ const ledger=(await one("select get_ledger_summary(date_trunc('month',current_date)::date,(current_date+1)) s")).s;
+ assert.equal(summary.backendVersion,22);assert.equal(Number(summary.monthlyIncome),ledger.months.reduce((n,m)=>n+Number(m.deposits)+Number(m.profit),0));
+ assert.equal((await one('select app_capabilities() s')).s.depositDateGuard,true);
+ });
+ await pass('one-time explicit legacy mapping preserves money and tenant scope',async()=>{
+ const m=await one('select member_id from profiles where id=$1',[owner]);const before=await one('select total_deposit,profit_balance from members where id=$1',[m.member_id]);
+ await one('select map_legacy_member_identity($1,$2,$3)',[m.member_id,'director','900001']);
+ assert.deepEqual(await one('select total_deposit,profit_balance from members where id=$1',[m.member_id]),before);
+ assert.equal((await one('select code from members where id=$1',[m.member_id])).code,'D-900001');
+ await assert.rejects(()=>one('select map_legacy_member_identity($1,$2,$3)',[m.member_id,'director','900002']),/permanent/);
+ await as('authenticated',other);await assert.rejects(()=>one('select map_legacy_member_identity($1,$2,$3)',[m.member_id,'general','800001']));await as('authenticated',owner);
+ });
+ await pass('new society owner identity is manual and validated',async()=>{
+ await as('postgres');const id='00000000-0000-4000-8000-000000000799',phone='01711000009';
+ const register=meta=>sql('insert into auth.users(id,email,raw_user_meta_data,encrypted_password) values($1,$2,$3::jsonb,md5($4))',[id,phone+'@member.amanot.app',JSON.stringify({phone,pin:'983725',name:'Owner fixture',somiti_name:'New fixture',bootstrap:true,...meta}),'amanot:983725']);
+ await assert.rejects(()=>register({}));await register({member_category:'shareholder',member_number:'000909'});
+ assert.equal((await one('select code from members where user_id=$1',[id])).code,'S-000909');await as('authenticated',owner);
+ });
  const proposed={...contract,id:'00000000-0000-4000-8000-000000000750',principal:100};
  const submit=p=>one('select * from submit_investment_proposal($1::jsonb)',[JSON.stringify(p)]);
  const decide=(id,approve,note='')=>one('select * from decide_investment_proposal($1,$2,$3)',[id,approve,note]);
@@ -113,8 +135,26 @@ async function main(){
  await sql("update profiles set role='cashier' where id=$1",[owner]);await as('authenticated',owner);await assert.rejects(()=>submit({...proposed,id:'00000000-0000-4000-8000-000000000753'}));await assert.rejects(()=>decide(rejected.id,true));await assert.rejects(()=>disburse(proposed.id));
  await assert.rejects(()=>sql("update investment_proposals set status='approved'"));await as('postgres');await sql("update profiles set role='super_admin' where id=$1",[owner]);await as('authenticated',owner);
  });
+ await pass('proposal withdrawal preserves cash; correction uses new identity and approval',async()=>{
+ const request={...proposed,id:'00000000-0000-4000-8000-000000000778'};await submit(request);await decide(request.id,true);
+ const before=await one("select amount from cash_accounts where type='bank'");
+ await assert.rejects(()=>one('select withdraw_investment_proposal($1,$2)',[request.id,'']));
+ await one('select withdraw_investment_proposal($1,$2)',[request.id,'Correct amount']);await one('select withdraw_investment_proposal($1,$2)',[request.id,'Correct amount']);
+ await assert.rejects(()=>disburse(request.id));assert.deepEqual(await one("select amount from cash_accounts where type='bank'"),before);
+ await submit({...request,id:'00000000-0000-4000-8000-000000000779',principal:105});
+ await as('authenticated',other);await assert.rejects(()=>one('select withdraw_investment_proposal($1,$2)',[request.id,'Foreign']));await as('authenticated',owner);
+ });
+ await pass('future deposit is rejected before cash changes',async()=>{
+ const member=(await one('select member_id from profiles where id=$1',[owner])).member_id;
+ await assert.rejects(()=>one('select record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9,$10::date)',[member,[],1,0,1,'cash',null,'future','00000000-0000-4000-8000-000000000780','2099-01-01']));
+ });
  await pass('closed distribution years block new postings',async()=>{await as('postgres');await sql('insert into profit_distributions(somiti_id,year,project_profit,expenses,net_profit,reserve_pct,management_pct,distributed,approved_by_name) values((select somiti_id from profiles where id=$1),extract(year from current_date)::int,0,0,0,0,0,0,$2)',[owner,'fixture']);await as('authenticated',owner);await assert.rejects(()=>pay({...first,id:'00000000-0000-4000-8000-000000000725',amount:1}),/বন্ধ/);});
  await pass('production workflow deployment guard preserves financial data',async()=>{await as('postgres');await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_021_investments.sql'),'utf8'));});
+ await pass('closed year also blocks savings deposits; guarded feedback deployment preserves finances',async()=>{
+ const member=(await one('select member_id from profiles where id=$1',[owner])).member_id;
+ await assert.rejects(()=>one('select record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9,$10::date)',[member,[],1,0,1,'cash',null,'closed','00000000-0000-4000-8000-000000000781',today]));
+ await as('postgres');await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_022_investments.sql'),'utf8'));
+ });
  console.log(checks+' investment database checks passed');
  }finally{await db.close();}
 }

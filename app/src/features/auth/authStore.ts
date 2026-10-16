@@ -44,7 +44,7 @@ interface AuthState {
   mustChangePin: boolean;
   continueWithPhone: (rawPhone: string) => Promise<{ found: boolean; error?: string }>;
   loginWithPin: (pin: string) => Promise<{ ok: boolean; error?: string }>;
-  registerSomitiRemote: (somitiName: string, adminName: string, adminPhone: string, adminPin: string) => Promise<{ ok: boolean; error?: string }>;
+  registerSomitiRemote: (somitiName: string, adminName: string, adminPhone: string, adminPin: string, memberCategory?:string, memberNumber?:string) => Promise<{ ok: boolean; error?: string }>;
   refreshProfile: () => Promise<boolean>;
   lockApp: () => void;
 
@@ -67,7 +67,7 @@ interface AuthState {
     somitiName: string,
     adminName: string,
     adminPhone: string,
-    adminPin: string
+    adminPin: string, memberCategory?:string, memberNumber?:string
   ) => void;
   logout: () => void;
 }
@@ -166,7 +166,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin) => {
+      registerSomitiRemote: async (somitiName, adminName, adminPhone, adminPin, memberCategory, memberNumber) => {
         if (somitiName.trim().length<2 || adminName.trim().length<2) return {ok:false,error:'সমিতি ও অ্যাডমিনের নাম কমপক্ষে ২ অক্ষরে লিখুন।'};
         const phone = normalizePhone(adminPhone);
         if (!isValidPhone(phone)) return {ok:false,error:'সঠিক মোবাইল নম্বর দিন।'};
@@ -177,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
           const existing = await api.checkPhone(phone);
           if (revision !== authRevision) return {ok:false,error:'নিবন্ধন বাতিল হয়েছে। আবার শুরু করুন।'};
           if (existing.exists) return {ok:false,error:'এই নম্বরটি ইতিমধ্যে একটি সমিতিতে আছে। লগইন করুন অথবা নতুন সমিতির জন্য আলাদা নম্বর দিন।'};
-          await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin);
+          await api.bootstrapSomiti(somitiName.trim(), adminName.trim(), phone, pin, memberCategory, memberNumber);
           if (revision !== authRevision) return {ok:false,error:'নিবন্ধন বাতিল হয়েছে। লগইন দিয়ে আবার শুরু করুন।'};
           somiti().clearLocalData();
           set({ phone, phoneRegistered: true });
@@ -338,21 +338,22 @@ export const useAuthStore = create<AuthState>()(
         somitiName: string,
         adminName: string,
         adminPhone: string,
-        adminPin: string
+        adminPin: string, memberCategory?:string, memberNumber?:string
       ) => {
         if (REMOTE) return;
         const cleanPhone = toEnglishDigits(adminPhone).replace(/\D/g, '');
         const cleanPin = toEnglishDigits(adminPin).replace(/\D/g, '');
         const newAdmin: Member = {
           id: 'admin_1',
-          code: 'SM-001',
+          code: (memberCategory==='director'?'D':memberCategory==='shareholder'?'S':'M')+'-'+memberNumber,
+          memberCategory:memberCategory as any,memberNumber,
           name: adminName,
           phone: cleanPhone,
           address: somitiName,
           nomineeName: '',
           nomineeRelation: '',
           joinDate: 'অক্টোবর ২০২৬',
-          monthlyAmount: 2000,
+          monthlyAmount: 0,
           totalDeposit: 0,
           dueAmount: 0,
           dueMonths: 0,

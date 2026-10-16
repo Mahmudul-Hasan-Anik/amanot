@@ -35,20 +35,11 @@ export default function SettingsScreen() {
     formatNum,
     setLanguage,
     setUseBengaliDigits,
-    dueDateDay: localDueDay,
-    setDueDateDay,
-    gracePeriodDays: localGrace,
-    setGracePeriodDays,
-    defaultMonthlyDeposit: localDefaultDeposit,
-    setDefaultMonthlyDeposit,
-    lateFeeAmount: localLateFee,
-    setLateFeeAmount,
     expenseApprovalLimit: localLimit,
     setExpenseApprovalLimit,
     accountingYear,
     setAccountingYear,
-    autoReminder,
-    setAutoReminder,
+
   } = useLanguage();
 
   // In live (Supabase) mode these settings belong to the somiti and are saved on the server
@@ -60,10 +51,6 @@ export default function SettingsScreen() {
     REMOTE && info?.[key] !== undefined && info?.[key] !== ''
       ? Number(info[key])
       : local;
-  const dueDateDay = pick('dueDay', localDueDay);
-  const gracePeriodDays = pick('graceDays', localGrace);
-  const defaultMonthlyDeposit = pick('defaultMonthly', localDefaultDeposit);
-  const lateFeeAmount = pick('lateFee', localLateFee);
   const expenseApprovalLimit = pick('expenseApprovalLimit', localLimit);
   const saveSetting = async (key: string, value: number) => {
     try { if (REMOTE) await updateSomitiInfo({ [key]: value } as any); }
@@ -79,8 +66,6 @@ export default function SettingsScreen() {
   };
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [numberSetting, setNumberSetting] = useState<null | { key: string; title: string; value: number; min: number; max: number; integer?: boolean; localSave: (n: number) => void }>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   const handleResetData = async () => {
@@ -138,8 +123,8 @@ export default function SettingsScreen() {
     Alert.alert(
       l('Backup Status', 'ব্যাকআপ অবস্থা'),
       l(
-        'Local data successfully backed up right now.',
-        'সকল তথ্য সফলভাবে ক্লাউড ও লোকাল মেমোরিতে ব্যাকআপ সম্পন্ন হয়েছে।'
+        'Backups are created by the owner using the encrypted backup tool. This button does not create or upload a backup.',
+        'পরিচালক encrypted backup tool দিয়ে ব্যাকআপ তৈরি করেন। এই বোতাম থেকে ব্যাকআপ তৈরি বা আপলোড হয় না।'
       )
     );
   };
@@ -272,7 +257,7 @@ export default function SettingsScreen() {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => router.push('/(admin)/(tabs)/projects')}>
             <Text style={styles.rowTitle}>{l('New Investment', 'নতুন বিনিয়োগ')}</Text>
             <View style={styles.rowRight}>
               <Text style={styles.valText}>
@@ -460,53 +445,6 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Due Date Picker Modal */}
-      <Modal visible={showDateModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {l('Set Monthly Due Date', 'জমার শেষ তারিখ নির্ধারণ')}
-            </Text>
-            {[1, 5, 7, 10, 15, 20, 25].map((day) => (
-              <TouchableOpacity
-                key={day}
-                style={[styles.modalOption, dueDateDay === day && styles.modalOptionActive]}
-                onPress={() => {
-                  setDueDateDay(day);
-                  saveSetting('dueDay', day);
-                  setShowDateModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.modalOptionText,
-                    dueDateDay === day && styles.modalOptionTextActive,
-                  ]}
-                >
-                  {isBengali
-                    ? `প্রতি মাসের ${formatNum(day)} তারিখ`
-                    : `${day}th of every month`}
-                </Text>
-                {dueDateDay === day && (
-                  <Ionicons name="checkmark" size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={styles.modalCancelBtn}
-              onPress={() => setShowDateModal(false)}
-            >
-              <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {numberSetting && <NumberSettingModal {...numberSetting} onClose={() => setNumberSetting(null)} onSave={async value => {
-        if (REMOTE) await updateSomitiInfo({[numberSetting.key]:value} as any);
-        numberSetting.localSave(value);
-      }} />}
-
       {/* Approval Limit Modal */}
       <Modal visible={showApprovalModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>

@@ -16,8 +16,8 @@ const suffix=`do $$ declare actual jsonb; begin
 end $$;
 select true as investment_schema_ready,true as existing_ledger_preserved,true as cash_balances_preserved,true as member_savings_preserved,true as previous_distributions_preserved;
 commit;`;
-const version=process.argv.includes('--workflow')?'021':'020';
-const source=fs.readFileSync(path.join(root,'supabase/migrations/'+(version==='021'?'021_investment_workflow.sql':'020_investment_contracts.sql')),'utf8');
+const version=process.argv.includes('--feedback')?'022':process.argv.includes('--workflow')?'021':'020';
+const source=fs.readFileSync(path.join(root,'supabase/migrations/'+(version==='022'?'022_feedback_consistency.sql':version==='021'?'021_investment_workflow.sql':'020_investment_contracts.sql')),'utf8');
 const deployment=source.replace('begin;',()=>`begin;\n${prefix}`).replace('commit;',()=>suffix);
 fs.writeFileSync(path.join(root,'supabase/deploy_'+version+'_investments.sql'),deployment);
 console.log('Prepared guarded investment migration; no database connection was made.');

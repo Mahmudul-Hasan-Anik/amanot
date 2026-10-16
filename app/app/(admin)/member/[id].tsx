@@ -1,3 +1,4 @@
+import {ActionMenu} from '../../../src/components/ActionMenu';
 import { MemberIdentityFields } from '../../../src/components/MemberIdentityFields';
 import { MemberCategory, MEMBER_CATEGORIES, legacyMemberNumber } from '../../../src/lib/memberIdentity';
 import React, { useState } from 'react';
@@ -39,11 +40,13 @@ export default function MemberProfileScreen() {
   const { resetMemberPin, customPins, actualRole, currentUser } = useAuthStore();
   const isAdminUser = actualRole === 'super_admin' || actualRole === 'admin';
 
-  const member = getMemberById(String(id)) || members.find((m) => m.id === id) || members[0];
+  const member = getMemberById(String(id)) || members.find((m) => m.id === id);
   const history=useLedgerPage({memberId:member?.id},!!member);
 
   // Edit Member Modal State
+  const [showActions,setShowActions]=useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editNumber,setEditNumber]=useState('');
   const [editCategory,setEditCategory]=useState<MemberCategory|''>(member?.memberCategory || '');
   const [editName, setEditName] = useState(member?.name || '');
   const [editFatherName,setEditFatherName] = useState(member?.fatherName || '');
@@ -62,8 +65,10 @@ export default function MemberProfileScreen() {
     member?.nextFollowup?.note || ''
   );
 
+  if(!member)return <SafeAreaView style={styles.container}><Text>{l('Member unavailable. Refresh the directory.','সদস্য পাওয়া যায়নি। তালিকা রিফ্রেশ করুন।')}</Text><Button title={l('Back','ফিরুন')} onPress={()=>safeBack(router,'/(admin)/(tabs)/members')}/></SafeAreaView>;
   const openEditModal = () => {
     if (member) {
+      setEditNumber(member.memberNumber||'');
       setEditCategory(member.memberCategory || '');
       setEditName(member.name);
       setEditFatherName(member.fatherName || '');
@@ -82,7 +87,12 @@ export default function MemberProfileScreen() {
       return;
     }
 
-    try { await updateMember(member.id, {
+    try {
+    if(!member.memberNumber && (editCategory||editNumber)){
+      if(!isAdminUser)throw new Error(l('Admin required','অ্যাডমিন প্রয়োজন'));
+      await useSomitiStore.getState().mapLegacyIdentity(member.id,editCategory as MemberCategory,editNumber);
+    }
+    await updateMember(member.id, {
       ...(editCategory && editCategory!==member.memberCategory ? {memberCategory:editCategory} : {}),
       name: editName.trim(),
       fatherName: editFatherName.trim(),
@@ -100,7 +110,7 @@ export default function MemberProfileScreen() {
 
   const handleSaveEdit = () => {
     if(editCategory && editCategory!==member.memberCategory){
-      Alert.alert(l('Change member category?','সদস্যের ক্যাটাগরি পরিবর্তন করবেন?'),l('Only the prefix changes. The member number and all account history stay the same.','শুধু prefix বদলাবে। সদস্য নম্বর ও সব হিসাব অপরিবর্তিত থাকবে।'),[{text:l('Cancel','বাতিল'),style:'cancel'},{text:l('Confirm','নিশ্চিত করুন'),onPress:()=>{void saveEdit()}}]);
+      Alert.alert(l('Change member category?','সদস্যের ক্যাটাগরি পরিবর্তন করবেন?'),member.memberNumber?l('Only the prefix changes. Member number and history remain unchanged.','শুধু prefix বদলাবে; নম্বর ও হিসাব অপরিবর্তিত থাকবে।'):l('Confirm this permanent member number. It cannot be edited later. All account history stays attached.','স্থায়ী সদস্য নম্বর নিশ্চিত করুন। পরে বদলানো যাবে না; সব হিসাব একই সদস্যের থাকবে।'),[{text:l('Cancel','বাতিল'),style:'cancel'},{text:l('Confirm','নিশ্চিত করুন'),onPress:()=>{void saveEdit()}}]);
     }else void saveEdit();
   };
 
@@ -196,13 +206,9 @@ export default function MemberProfileScreen() {
     Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`);
   };
 
-  const handleMoreOptions = () => {
-    Alert.alert(
-      displayName,
-      l('Member actions:', 'সদস্যের অ্যাকশন:'),
-      [
+  const memberActions = [
         {
-          text: l('Send Login PIN via WhatsApp', 'হোয়াটসঅ্যাপে লগইন পিন পাঠান'),
+          text: l('Share login instructions', 'লগইনের নির্দেশনা শেয়ার করুন'),
           onPress: handleSendWhatsAppLoginInfo,
         },
         {
@@ -252,9 +258,8 @@ export default function MemberProfileScreen() {
           text: l('Cancel', 'বাতিল'),
           style: 'cancel',
         },
-      ]
-    );
-  };
+      ];
+  const handleMoreOptions=()=>setShowActions(true);
 
   const formatJoinDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -309,29 +314,6 @@ export default function MemberProfileScreen() {
     }
     return relation;
   };
-
-  const SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const SHORT_BN = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
-  const thisYear = new Date().getFullYear();
-  const thisMonth = new Date().getMonth();
-  const monthsData = SHORT_EN.map((en, i) => ({
-    name: l(en, SHORT_BN[i]),
-    status: (member?.monthsStatus?.[i] === 'paid' ? 'paid' : member?.monthsStatus?.[i] === 'due' ? 'due' : 'upcoming') as
-      | 'paid'
-      | 'due'
-      | 'upcoming',
-  }));
-  const paidMonthsCount = monthsData.filter((m) => m.status === 'paid').length;
-  const dueMonthIdx = monthsData.map((m, i) => (m.status === 'due' ? i : -1)).filter((i) => i >= 0);
-  const dueMonthNames = dueMonthIdx.map((i) => l(ENGLISH_MONTHS[i], BENGALI_MONTHS_FULL[i])).join(', ');
-  const joinISO: string | undefined = (member as any)?.joinDateISO;
-  const monthsSinceJoin = joinISO
-    ? Math.max(
-        0,
-        (thisYear - Number(joinISO.slice(0, 4))) * 12 + (thisMonth - (Number(joinISO.slice(5, 7)) - 1)) + 1
-      )
-    : 0;
-  const elapsedThisYear = joinISO && Number(joinISO.slice(0, 4)) === thisYear ? thisMonth - (Number(joinISO.slice(5, 7)) - 1) + 1 : thisMonth + 1;
 
   const recentTransactions = isSupabaseConfigured() ? history.rows.slice(0,10).map(t=>({date:t.date,title:t.note||t.months?.join(', ')||t.type,amount:t.amount,receipt:t.receiptNo,type:t.paymentMethod})) : (member?.recentTxns || []).map((t) => ({
     date: t.date,
@@ -415,15 +397,9 @@ export default function MemberProfileScreen() {
             {member.memberCategory && <Text style={styles.memberSub}>{(()=>{const category=MEMBER_CATEGORIES.find(item=>item.value===member.memberCategory);return category?l(category.en,category.bn):''})()}</Text>}
             <View style={styles.badgeRow}>
               <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>{l('Active', 'সক্রিয়')}</Text>
+                <Text style={styles.activeBadgeText}>{member.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):l('Active', 'সক্রিয়')}</Text>
               </View>
-              <View style={styles.dueBadge}>
-                <Text style={styles.dueBadgeText}>
-                  {member.dueMonths
-                    ? `${formatNum(member.dueMonths)} ${l('Months Due', 'মাস বকেয়া')}`
-                    : l('No Due', 'কোনো বকেয়া নেই')}
-                </Text>
-              </View>
+
             </View>
           </View>
         </View>
@@ -478,26 +454,16 @@ export default function MemberProfileScreen() {
             {formatMoney(member.totalDeposit)}
           </Text>
           <Text style={styles.cardSubText}>
-            {l('Voluntary deposits', 'ইচ্ছামতো জমা')} · {formatNum(monthsSinceJoin)} {l('Months', 'মাস')}
+            {l('Voluntary savings · No fixed monthly amount','ইচ্ছামতো সঞ্চয় · নির্দিষ্ট মাসিক অঙ্ক নেই')}
           </Text>
 
           {/* Overdue Banner */}
-          {member.dueAmount > 0 && (
-            <View style={styles.overdueBanner}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.overdueTitle}>{l(`Due: ${dueMonthNames}`, `বকেয়া: ${dueMonthNames}`)}</Text>
-                <Text style={styles.overdueSub}>
-                  {formatNum(member.dueMonths)} {l('month(s) · incl. late fee if any', 'মাস · বিলম্ব ফি থাকলে সহ')}
-                </Text>
-              </View>
-              <Text style={styles.overdueAmount}>{formatMoney(member.dueAmount)}</Text>
-            </View>
-          )}
+
 
           {/* Profit 2-columns */}
           <View style={styles.profitGrid}>
             <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>{l(`${thisYear - 1} Profit`, `${toBengaliDigits(thisYear - 1)} সালের লাভ`)}</Text>
+              <Text style={styles.profitLabel}>{l('Last distributed profit','সর্বশেষ বণ্টিত লাভ')}</Text>
               <Text style={styles.profitVal}>
                 +{formatMoney(member.profit2025 || 0)}
               </Text>
@@ -612,6 +578,7 @@ export default function MemberProfileScreen() {
       </StickyCTA>
 
       {/* Edit Member Modal */}
+      <ActionMenu visible={showActions} title={displayName} actions={memberActions} onClose={()=>setShowActions(false)}/>
       <AppModal visible={showEditModal} onClose={() => setShowEditModal(false)} contentContainerStyle={{maxHeight:'90%'}}>
         <ScrollView keyboardShouldPersistTaps="handled" style={{flexShrink:1}}>
         <View style={styles.modalHeader}>
@@ -621,7 +588,7 @@ export default function MemberProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <MemberIdentityFields category={editCategory} number={member.memberNumber || legacyMemberNumber(member.code) || ''} onCategory={setEditCategory} existingCode={member.code} locked legacy={!member.memberNumber}/>
+        <MemberIdentityFields category={editCategory} number={member.memberNumber || editNumber} onCategory={setEditCategory} onNumber={setEditNumber} existingCode={member.code} locked={!!member.memberNumber || !isAdminUser} legacy={!member.memberNumber&&!isAdminUser}/>
         <Text style={styles.modalInputLabel}>{l('Member Name', 'সদস্যের পুরো নাম')}</Text>
         <TextInput
           testID="edit-name-input"

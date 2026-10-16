@@ -18,13 +18,14 @@ import { Card } from '../../../src/components/Card';
 import { Avatar } from '../../../src/components/Avatar';
 import { SearchBar } from '../../../src/components/SearchBar';
 import { FilterChip } from '../../../src/components/FilterChip';
+import {MEMBER_CATEGORIES} from '../../../src/lib/memberIdentity';
 import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { SelectModal } from '../../../src/components/SelectModal';
 import { toEnglishDigits } from '../../../src/lib/money';
 
-type FilterType = 'all' | 'active' | 'due' | 'inactive';
+type FilterType = 'all' | 'active' | 'general' | 'shareholder' | 'director' | 'inactive';
 
 export default function MembersScreen() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function MembersScreen() {
   const sortOptions = [
     { value: 'name', label: l('Name', 'নাম') },
     { value: 'code', label: l('Member ID', 'সদস্য আইডি') },
-    { value: 'due', label: l('Highest dues first', 'বেশি বকেয়া আগে') },
+    { value: 'savings', label: l('Highest savings first', 'বেশি সঞ্চয় আগে') },
   ];
 
   // Aggregated totals matching Somiti level counts
@@ -51,43 +52,28 @@ export default function MembersScreen() {
     const query = toEnglishDigits(searchQuery).toLowerCase().trim();
     return members.filter((m) => {
       if (activeFilter === 'active' && m.status === 'inactive') return false;
-      if (activeFilter === 'due' && m.dueAmount <= 0) return false;
+      if (['general','shareholder','director'].includes(activeFilter) && m.memberCategory!==activeFilter) return false;
       if (activeFilter === 'inactive' && m.status !== 'inactive') return false;
 
       if (query.length > 0) {
         return (
           toEnglishDigits(m.name).toLowerCase().includes(query) ||
           toEnglishDigits(m.code).toLowerCase().includes(query) ||
-          toEnglishDigits(m.phone).includes(query)
+          toEnglishDigits(m.phone).includes(query) || `${m.fatherName||''} ${m.motherName||''}`.toLowerCase().includes(query)
         );
       }
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'due' && a.dueAmount !== b.dueAmount) return b.dueAmount - a.dueAmount;
+      if (sortBy === 'savings') return b.totalDeposit-a.totalDeposit;
       if (sortBy === 'code') return a.code.localeCompare(b.code, 'en', { numeric: true });
       return a.name.localeCompare(b.name, language);
     });
   }, [members, searchQuery, activeFilter, sortBy, language]);
 
   const renderMemberItem = ({ item, index }: { item: Member; index: number }) => {
-    let tagBg = colors.primarySoft;
-    let tagColor = colors.primary;
-    let tagLabel = l('Paid ✓', 'জমা ✓');
-
-    if (item.status === 'due') {
-      tagBg = colors.warningSoft;
-      tagColor = colors.warning;
-      tagLabel = l(`${item.dueMonths || 1} mo due`, `${formatNum(item.dueMonths || 1)} মাস বকেয়া`);
-    } else if (item.status === 'partial') {
-      tagBg = colors.warningSoft;
-      tagColor = colors.warning;
-      tagLabel = l('Partial', 'আংশিক');
-    } else if (item.status === 'inactive') {
-      tagBg = colors.surfaceMuted;
-      tagColor = colors.textSecondary;
-      tagLabel = l('Inactive', 'নিষ্ক্রিয়');
-    }
-
+    const category=MEMBER_CATEGORIES.find(c=>c.value===item.memberCategory);
+    const tagBg=colors.primarySoft,tagColor=colors.primary;
+    const tagLabel=item.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):category?l(category.en,category.bn):l('Legacy ID','পুরোনো ID');
     return (
       <TouchableOpacity
         onPress={() => router.push(`/(admin)/member/${item.id}`)}
@@ -160,12 +146,7 @@ export default function MembersScreen() {
               selected={activeFilter === 'active'}
               onPress={() => setActiveFilter('active')}
             />
-            <FilterChip
-              label={l('Due', 'বকেয়া')}
-              count={formatNum(dueCount)}
-              selected={activeFilter === 'due'}
-              onPress={() => setActiveFilter('due')}
-            />
+            {MEMBER_CATEGORIES.map(c=><FilterChip key={c.value} label={l(c.en,c.bn)} count={formatNum(members.filter(m=>m.memberCategory===c.value).length)} selected={activeFilter===c.value} onPress={()=>setActiveFilter(c.value)}/>)}
             <FilterChip
               label={l('Inactive', 'নিষ্ক্রিয়')}
               count={formatNum(inactiveCount)}
@@ -205,7 +186,7 @@ export default function MembersScreen() {
       <FAB label={l('New Member', 'নতুন সদস্য')} onPress={() => router.push('/(admin)/member/new')} />
       <SelectModal visible={showSort} title={l('Sort members', 'সদস্য সাজান')} value={sortBy} options={sortOptions} onSelect={setSortBy} onClose={() => setShowSort(false)} />
       <SelectModal visible={showFilter} title={l('Filter members', 'সদস্য বাছাই করুন')} value={activeFilter}
-        options={[{value:'all',label:l('All','সব')},{value:'active',label:l('Active','সক্রিয়')},{value:'due',label:l('Due','বকেয়া')},{value:'inactive',label:l('Inactive','নিষ্ক্রিয়')}]}
+        options={[{value:'all',label:l('All','সব')},{value:'active',label:l('Active','সক্রিয়')},...MEMBER_CATEGORIES.map(c=>({value:c.value,label:l(c.en,c.bn)})),{value:'inactive',label:l('Inactive','নিষ্ক্রিয়')}]}
         onSelect={value => setActiveFilter(value as FilterType)} onClose={() => setShowFilter(false)} />
     </SafeAreaView>
   );

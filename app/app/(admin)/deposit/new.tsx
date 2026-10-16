@@ -1,3 +1,4 @@
+import {isoToday} from '../../../src/lib/investment';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
@@ -140,10 +141,10 @@ export default function RecordDepositScreen() {
     }
 
     const depositISO = parseDMY(toEnglishDigits(depositDate));
-    if (!depositISO) {
+    if (!depositISO || depositISO>isoToday()) {
       Alert.alert(
         l('Invalid Date', 'ভুল তারিখ'),
-        l('Deposit date must be in DD/MM/YYYY format.', 'জমার তারিখ DD/MM/YYYY ফরম্যাটে দিন।')
+        l('Enter a valid date in DD/MM/YYYY format, no later than today.', 'DD/MM/YYYY ফরম্যাটে সঠিক তারিখ দিন; ভবিষ্যতের তারিখ নয়।')
       );
       return;
     }

@@ -43,7 +43,6 @@ export default function MemberDashboardScreen() {
   const year = new Date().getFullYear();
   const { l, formatMoney, formatNum, language, isBengali } = useLanguage();
 
-  const [selectedVoucherMonth, setSelectedVoucherMonth] = useState<number | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
@@ -59,23 +58,6 @@ export default function MemberDashboardScreen() {
     status: 'paid',
   };
 
-  const voucher=useLedgerPage({memberId:member.id,paidMonth:`${year}-${String(selectedVoucherMonth||1).padStart(2,'0')}`},selectedVoucherMonth!==null&&!!member.id);
-  // Paid month is independent of posting date (advance/late payments).
-  const txnForMonth = (mNum: number) =>
-    (selectedVoucherMonth===mNum?voucher.rows[0]:undefined)||(transactions || []).find(
-      (t: any) =>
-        t.memberId === member.id &&
-        t.type === 'deposit' &&
-        (t.months || []).some((month:string) => month === `${year}-${String(mNum).padStart(2,'0')}` || month === BENGALI_MONTHS_FULL[mNum - 1])
-    );
-  useEffect(()=>{
-    if(selectedVoucherMonth!==null&&!voucher.loading&&(voucher.error||!txnForMonth(selectedVoucherMonth))) {
-      Alert.alert(l('Receipt unavailable','রসিদ পাওয়া যায়নি'),voucher.error||l('No saved receipt for this month','এই মাসের সংরক্ষিত রসিদ নেই'));
-      setSelectedVoucherMonth(null);
-    }
-  },[selectedVoucherMonth,voucher.loading,voucher.error,voucher.rows]);
-
-  const isDue = false;
   const history=useLedgerPage({memberId:member.id},!!member.id);
 
   const handleCopy = async (text: string, label: string) => {
@@ -180,18 +162,7 @@ export default function MemberDashboardScreen() {
             <View style={styles.metricSeparator} />
 
             <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Status', 'স্ট্যাটাস')}</Text>
-              {isDue ? (
-                <View style={styles.dueBadge}>
-                  <Text style={styles.dueBadgeText}>
-                    {l('Due: ', 'বকেয়া: ')}{formatMoney(member.dueAmount)}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>{l('Active', 'সক্রিয়')}</Text>
-                </View>
-              )}
+              <Text style={styles.metricSub}>{l('Status','স্ট্যাটাস')}</Text><Text style={styles.metricVal}>{member.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):l('Active','সক্রিয়')}</Text>
             </View>
 
             <View style={styles.metricSeparator} />
@@ -351,81 +322,6 @@ export default function MemberDashboardScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Voucher Modal */}
-      {selectedVoucherMonth!==null&&voucher.loading&&<View style={styles.webModalOverlay}><View style={styles.voucherCard}><Text style={styles.voucherLabel}>{l('Loading receipt…','রসিদ লোড হচ্ছে…')}</Text><TouchableOpacity onPress={()=>setSelectedVoucherMonth(null)}><Text style={styles.voucherLabel}>{l('Cancel','বাতিল')}</Text></TouchableOpacity></View></View>}
-      {selectedVoucherMonth !== null && txnForMonth(selectedVoucherMonth) && (
-        <View style={styles.webModalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setSelectedVoucherMonth(null)}
-          />
-          <View style={styles.voucherCard}>
-            <View style={styles.voucherHeader}>
-              <View>
-                <Text style={styles.voucherSomitiTitle}>
-                  {somitiInfo.name || (isBengali ? 'আমানত সমিতি' : 'Amanot Somiti')}
-                </Text>
-                <Text style={styles.voucherSubtitle}>
-                  {l('Official Money Receipt', 'অফিশিয়াল মানি রিসিট')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setSelectedVoucherMonth(null)}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.voucherBody}>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Voucher No:', 'ভাউচার নং:')}</Text>
-                <Text style={styles.voucherValBold}>
-                  {txnForMonth(selectedVoucherMonth)?.receiptNo || '—'}
-                </Text>
-              </View>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Member Name:', 'সদস্যের নাম:')}</Text>
-                <Text style={styles.voucherVal}>{member.name} ({member.code})</Text>
-              </View>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Month of Payment:', 'পরিশোধিত মাস:')}</Text>
-                <Text style={styles.voucherVal}>
-                  {BENGALI_MONTHS_FULL[selectedVoucherMonth - 1]} {toBengaliDigits(year)}
-                </Text>
-              </View>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Amount Paid:', 'জমার পরিমাণ:')}</Text>
-                <Text style={[styles.voucherValBold, { color: colors.primary }]}>
-                  {formatMoney(txnForMonth(selectedVoucherMonth)?.amount || 0)}
-                </Text>
-              </View>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Payment Method:', 'মাধ্যম:')}</Text>
-                <Text style={styles.voucherVal}>
-                  {({ cash: 'হাতে নগদ', bkash: 'বিকাশ', nagad: 'নগদ', bank: 'ব্যাংক' } as any)[
-                    txnForMonth(selectedVoucherMonth)?.paymentMethod || 'bkash'
-                  ]}
-                </Text>
-              </View>
-              <View style={styles.voucherRow}>
-                <Text style={styles.voucherLabel}>{l('Status:', 'অবস্থা:')}</Text>
-                <Text style={[styles.voucherValBold, { color: colors.primary }]}>
-                  {l('Approved & Recorded ✓', 'অনুমোদিত ও সংরক্ষিত ✓')}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.voucherCloseBtn}
-              onPress={() => setSelectedVoucherMonth(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.voucherCloseBtnText}>{l('Close Voucher', 'বন্ধ করুন')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }

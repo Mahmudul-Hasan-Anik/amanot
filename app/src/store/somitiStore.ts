@@ -112,6 +112,7 @@ export interface AuditLog {
 
 export interface SomitiState {
   investmentProposals: import('../lib/investment').InvestmentProposal[];
+  withdrawInvestmentProposal: (id:string,note:string)=>Promise<void>;
   decideInvestmentProposal: (id:string,approve:boolean,note:string)=>Promise<void>;
   disburseInvestmentProposal: (id:string,date:string,firstDue:string,method:import('../lib/investment').NewInvestment['paymentMethod'])=>Promise<void>;
   postDemoInvestment: (data:import('../lib/investment').NewInvestment)=>Promise<void>;
@@ -137,6 +138,7 @@ export interface SomitiState {
   ledgerSummary: LedgerSummary;
   expenses: ExpenseItem[];
 
+  mapLegacyIdentity:(id:string,category:MemberCategory,number:string)=>Promise<void>;
   // Members Actions
   addMember: (data: {
     name: string;
@@ -285,12 +287,25 @@ export const useSomitiStore = create<SomitiState>()(
         remote('রোল পরিবর্তন', () => api.setMemberRole(memberId, role, title));
       },
 
+      mapLegacyIdentity:async(id,category,number)=>{
+        const code=memberCode(category,number);number=normalizeMemberNumber(number);
+        if(REMOTE){await api.mapLegacyMemberIdentity(id,category,number);await get().syncFromServer();return;}
+        const old=get().members.find(m=>m.id===id);if(!old||old.memberNumber)throw new Error('Only legacy identities can be mapped');
+        if(get().members.some(m=>m.id!==id&&(m.memberNumber||legacyMemberNumber(m.code))===number))throw new Error('Member number already used');
+        set({members:get().members.map(m=>m.id===id?{...m,memberCategory:category,memberNumber:number,code}:m)});
+      },
       createInvestment: async (data) => {
         if(validateNewInvestment(data))throw new Error('বিনিয়োগের তথ্য সঠিকভাবে পূরণ করুন');
         if(REMOTE){await api.createInvestment(data);await get().syncFromServer();return;}
         const old=get().investmentProposals.find(p=>p.id===data.id);
         if(old){if(JSON.stringify(old.payload)!==JSON.stringify(data))throw new Error('Request differs');return;}
         set({investmentProposals:[{id:data.id,status:'submitted',payload:data,created_at:new Date().toISOString(),decision_note:''},...get().investmentProposals]});
+      },
+      withdrawInvestmentProposal: async(id,note)=>{
+        if(!note.trim())throw new Error('Withdrawal reason required');
+        if(REMOTE){await api.withdrawInvestmentProposal(id,note);await get().syncFromServer();return;}
+        const p=get().investmentProposals.find(p=>p.id===id);if(!p||!['submitted','approved'].includes(p.status))throw new Error('Only unposted proposals can be withdrawn');
+        set({investmentProposals:get().investmentProposals.map(p=>p.id===id?{...p,status:'withdrawn',decision_note:note,approved_at:new Date().toISOString()}:p)});
       },
       decideInvestmentProposal: async(id,approve,note)=>{
         if(REMOTE){await api.decideInvestmentProposal(id,approve,note);await get().syncFromServer();return;}
@@ -380,10 +395,10 @@ export const useSomitiStore = create<SomitiState>()(
       },
       syncError: null,
       somitiInfo: REMOTE ? { ...emptySomitiInfo } : { ...mockSomitiInfo },
-      members: REMOTE ? [] : [...mockMembers],
+      members: REMOTE ? [] : mockMembers.map(m=>({...m,monthlyAmount:0,dueAmount:0,dueMonths:0,status:m.status==='inactive'?'inactive' as const:'paid' as const})),
       investmentProposals: [],
       projects: REMOTE ? [] : [...mockProjects],
-      approvals: REMOTE ? [] : [...mockPendingApprovals],
+      approvals: REMOTE ? [] : mockPendingApprovals.filter(a=>a.type!=='investment'),
       approvedApprovals: REMOTE ? [] : [...mockApprovedApprovals],
       rejectedApprovals: REMOTE ? [] : [...mockRejectedApprovals],
       cashAccounts: REMOTE ? [] : [...mockCashAccounts],
@@ -1059,7 +1074,7 @@ export const useSomitiStore = create<SomitiState>()(
           members: [...mockMembers],
           investmentProposals: [],
           projects: [...mockProjects],
-          approvals: [...mockPendingApprovals],
+          approvals: mockPendingApprovals.filter(a=>a.type!=='investment'),
           approvedApprovals: [...mockApprovedApprovals],
           rejectedApprovals: [...mockRejectedApprovals],
           cashAccounts: [...mockCashAccounts],
@@ -1143,11 +1158,13 @@ export const useSomitiStore = create<SomitiState>()(
         const { isSyncing, syncError, ...rest } = state as any;
         return rest;
       },
-      version: 6,
+      version: 8,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: any, version: number) => {
         if (REMOTE) return {};
         if (!persistedState) return persistedState;
+        if(version<8)persistedState.approvals=(persistedState.approvals||[]).filter((a:any)=>a.type!=='investment');
+        if(version<7){persistedState.members=(persistedState.members||[]).map((m:any)=>({...m,monthlyAmount:0,dueAmount:0,dueMonths:0,status:m.status==='inactive'?'inactive':'paid'}));persistedState.somitiInfo={...persistedState.somitiInfo,monthlyTarget:0,monthlyRemaining:0,totalDueAmount:0,dueCount:0};}
         if (version < 5 && !REMOTE && persistedState.cashAccounts && !persistedState.cashAccounts.some((a:any)=>a.id==='ca5')) persistedState.cashAccounts.push({id:'ca5',type:'nagad',name:'নগদ মোবাইল হিসাব',amount:0});
         if (version < 4 || persistedState?.somitiInfo?.name?.includes('উত্তরা') || !persistedState?.somitiInfo?.name) {
           persistedState.somitiInfo = {

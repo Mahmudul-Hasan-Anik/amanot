@@ -13,7 +13,7 @@ export function useLanguage() {
 
   const formatMoney = (amount: number, options?: { showPlusSign?: boolean; exact?: boolean }): string => {
     const safeAmount = isNaN(amount) ? 0 : amount;
-    const formatted = options?.exact ? new Intl.NumberFormat('en-IN',{maximumFractionDigits:2}).format(Math.abs(safeAmount)) : formatSouthAsianNumber(Math.abs(safeAmount));
+    const formatted = options?.exact !== false ? new Intl.NumberFormat('en-IN',{maximumFractionDigits:2}).format(Math.abs(safeAmount)) : formatSouthAsianNumber(Math.abs(safeAmount));
     const prefix = options?.showPlusSign && safeAmount > 0 ? '+' : safeAmount < 0 ? '−' : '';
     const digitString = (store.useBengaliDigits || isBengali) ? toBengaliDigits(formatted) : formatted;
     return `${prefix}৳${digitString}`;

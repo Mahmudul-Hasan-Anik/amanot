@@ -25,17 +25,12 @@ async function main(){
  fail=false;await save();assert.equal(writes[1],123.5);assert.equal(closed,2);
  // Real settings handlers: opening does not save, server rejection keeps modal open.
  const sh=hooks(),routes=[],saved=[],locals=[];let reject=false;
- const state={somitiInfo:{graceDays:9,lateFee:75.5,defaultMonthly:3500},approvals:[],updateSomitiInfo:async p=>{if(reject)throw Error('server denied');saved.push(p)}};
+ const state={somitiInfo:{graceDays:9,lateFee:75.5,defaultMonthly:3500},approvals:[],investmentProposals:[],updateSomitiInfo:async p=>{if(reject)throw Error('server denied');saved.push(p)}};
  const store=f=>f?f(state):state;
  const useLang=()=>({...lang,setGracePeriodDays:v=>locals.push(v),setLateFeeAmount:v=>locals.push(v),setDefaultMonthlyDeposit:v=>locals.push(v)});
  const Settings=load('app/(admin)/settings.tsx',{'react':{__esModule:true,default:sh.React,...sh.React},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'SafeArea'},'expo-router':{useRouter:()=>({push:p=>routes.push(p)})},'@expo/vector-icons/Ionicons':{default:'Icon'},'../../src/features/auth/authStore':{useAuthStore:()=>({logout:()=>{}})},'../../src/store/somitiStore':{REMOTE:true,useSomitiStore:store},'../../src/i18n/useLanguage':{useLanguage:useLang},'../../src/utils/navigation':{},'../../src/components/NumberSettingModal':{NumberSettingModal:'Editor'},'../../src/theme/colors':theme['../theme/colors'],'../../src/theme/typography':theme['../theme/typography']}).default;
  const settings=()=>{sh.reset();return Settings()};
- for(const [label,key,value] of [['Grace Period','graceDays',9],['Late Fee','lateFee',75.5],['Default Monthly Deposit','defaultMonthly',3500]]){
-  nodes(settings()).find(n=>n.type==='Touch'&&texts(n).includes(label)).props.onPress();
-  const editor=nodes(settings()).find(n=>n.type==='Editor');assert.equal(editor.props.value,value);assert.equal(saved.length,locals.length);
-  reject=true;await assert.rejects(()=>editor.props.onSave(123),/server denied/);assert.equal(saved.length,locals.length);
-  reject=false;await editor.props.onSave(123);assert.equal(saved.at(-1)[key],123);assert.equal(locals.at(-1),123);editor.props.onClose();
- }
+ for(const label of ['Grace Period','Late Fee','Default Monthly Deposit'])assert.equal(nodes(settings()).some(n=>n.type==='Touch'&&texts(n).includes(label)),false,'Obsolete fixed-saving settings are hidden');
  nodes(settings()).find(n=>n.type==='Touch'&&texts(n).includes('Distribution Method')).props.onPress();assert.equal(routes.at(-1),'/(admin)/distribution');
  const More=load('app/(admin)/(tabs)/more.tsx',{'react':{__esModule:true,default:sh.React,...sh.React},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'SafeArea'},'expo-router':{useRouter:()=>({})},'@expo/vector-icons/Ionicons':{default:'Icon'},'../../../src/features/auth/authStore':{useAuthStore:()=>({currentUser:{name:'Fixture'}})},'../../../src/store/somitiStore':{useSomitiStore:store},'../../../src/i18n/useLanguage':{useLanguage:useLang},'../../../src/theme/colors':theme['../theme/colors'],'../../../src/theme/typography':theme['../theme/typography']}).default;
  const approvalRow=()=>nodes(More()).find(n=>n.type==='Touch'&&texts(n).includes('Approvals'));

@@ -1,3 +1,4 @@
+import {InvestmentApprovalQueue} from '../../../src/components/InvestmentApprovalQueue';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
@@ -27,12 +28,13 @@ export default function HomeDashboardScreen() {
   const router = useRouter();
   const somitiInfo=useSomitiStore(s=>s.somitiInfo);
   const approvals=useSomitiStore(s=>s.approvals);
+  const pendingCount=useSomitiStore(s=>s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length);
   const members=useSomitiStore(s=>s.members);
   const projects=useSomitiStore(s=>s.projects);
   const cashAccounts=useSomitiStore(s=>s.cashAccounts);
   const expenses=useSomitiStore(s=>s.expenses);
   const approveRequest=useSomitiStore(s=>s.approveRequest);
-  const { l, isBengali, formatMoney, formatNum, dueDateDay } = useLanguage();
+  const { l, isBengali, formatMoney, formatNum } = useLanguage();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -61,22 +63,8 @@ export default function HomeDashboardScreen() {
     return totalFundCalc > 0 ? Math.max(0, 100 - projectInvestedPct) : 0;
   }, [projectInvestedPct]);
 
-  // Active, Paid and Due members
-  const activeMembers = useMemo(() => members.filter((m) => m.status !== 'inactive'), [members]);
-  const paidMembers = useMemo(() => members.filter((m) => m.status === 'paid' && m.dueAmount === 0), [members]);
-  const dueMembers = useMemo(() => members.filter((m) => m.dueAmount > 0 || m.status === 'due' || m.status === 'partial'), [members]);
-
-  // Monthly collection metrics matching Somiti-level 100-member aggregates
-  const monthlyTarget = somitiInfo.monthlyTarget || 0;
   const monthlyCollected = somitiInfo.monthlyCollected || 0;
-  const monthlyRemaining = Math.max(0, monthlyTarget - monthlyCollected);
-  const monthlyCollectedPct = monthlyTarget > 0 ? Math.min(100, Math.round((monthlyCollected / monthlyTarget) * 100)) : 0;
-
   const totalMembersCount = members.length || somitiInfo.totalMembersCount || 0;
-  const paidCount = paidMembers.length;
-  const dueCount = dueMembers.length;
-  const totalDueAmount = dueMembers.reduce((s, m) => s + (m.dueAmount || 0), 0);
-
   const activeProjectsCount = projects.filter((p) => p.status === 'ongoing' || p.status === 'delayed').length;
   const yearlyProjectProfit = somitiInfo.yearlyProjectProfit || 0;
 
@@ -84,107 +72,10 @@ export default function HomeDashboardScreen() {
   const monthlyExpense = useMemo(() => somitiInfo.monthlyExpense || 0, [somitiInfo.monthlyExpense]);
   const monthlyNet = useMemo(() => monthlyIncome - monthlyExpense, [monthlyIncome, monthlyExpense]);
 
-  // Dynamic Follow-up list based on due members with late fees included
-  const followupList = useMemo(() => {
-    const activeDue = members.filter((m) => m.dueAmount > 0 || m.status === 'due' || m.status === 'partial');
-    if (activeDue.length > 0) {
-      const sorted = [...activeDue].sort((a, b) => b.dueAmount - a.dueAmount);
-
-      return sorted.slice(0, 3).map((m) => {
-        const noteText = m.status === 'partial'
-          ? `${l('Partial', 'আংশিক')} · ${formatMoney(m.dueAmount)} ${l('due', 'বাকি')}`
-          : `${formatNum(m.dueMonths)} ${l('months due', 'মাস বকেয়া')} · ${formatMoney(m.dueAmount)}`;
-        return {
-          id: m.id,
-          name: m.name,
-          phone: m.phone,
-          whatsapp: m.whatsapp || m.phone,
-          note: noteText,
-        };
-      });
-    }
-    return [];
-  }, [members, l, formatNum, formatMoney]);
-
   // Dynamic Somiti Initial Letter
   const somitiInitial = isBengali
     ? (somitiInfo.name?.trim().charAt(0) || 'আ')
     : (somitiInfo.nameEn?.trim().charAt(0) || 'A');
-
-  // Handlers
-  const handleCall = (name: string, phone: string) => {
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    Alert.alert(
-      l('Call Member', 'সদস্যকে কল করুন'),
-      `${name}\n${phone}`,
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('Call', 'কল দিন'),
-          onPress: () => {
-            Linking.openURL(`tel:${cleanPhone}`).catch(() => {
-              Alert.alert(l('Notice', 'বিজ্ঞপ্তি'), l('Phone dialer could not be opened', 'ফোন ডায়লার খোলা সম্ভব হয়নি'));
-            });
-          },
-        },
-      ]
-    );
-  };
-
-  const handleMessage = (name: string, phone: string, note: string, memberId: string) => {
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const fullPhone = cleanPhone.startsWith('88') ? cleanPhone : `88${cleanPhone}`;
-    const defaultMsg = `আসসালামু আলাইকুম ${name} ভাই, আপনার সমিতির কিস্তি বকেয়া রয়েছে (${note})। অনুগ্রহ করে দ্রুত পরিশোধ করবেন। ধন্যবাদ - ${somitiInfo.name}`;
-
-    Alert.alert(
-      l('Send Reminder', 'রিমাইন্ডার পাঠান'),
-      `${name} · ${note}`,
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('WhatsApp', 'হোয়াটসঅ্যাপ'),
-          onPress: () => {
-            const url = `whatsapp://send?phone=${fullPhone}&text=${encodeURIComponent(defaultMsg)}`;
-            Linking.openURL(url).catch(() => {
-              Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(defaultMsg)}`).catch(() => {
-                Alert.alert(l('Error', 'ত্রুটি'), l('WhatsApp could not be opened', 'হোয়াটসঅ্যাপ খোলা সম্ভব হয়নি'));
-              });
-            });
-          },
-        },
-        {
-          text: l('SMS', 'এসএমএস'),
-          onPress: () => {
-            Linking.openURL(`sms:${cleanPhone}?body=${encodeURIComponent(defaultMsg)}`).catch(() => {
-              Alert.alert(l('Error', 'ত্রুটি'), l('SMS app could not be opened', 'এসএমএস অ্যাপ খোলা সম্ভব হয়নি'));
-            });
-          },
-        },
-        {
-          text: l('Open Reminder Page', 'রিমাইন্ডার পেজ'),
-          onPress: () => router.push('/(admin)/reminder'),
-        },
-      ]
-    );
-  };
-
-  const handleFollowupPress = (item: { id: string; name: string }) => {
-    Alert.alert(
-      item.name,
-      l('Choose an action for this member:', 'এই সদস্যের জন্য অ্যাকশন নির্বাচন করুন:'),
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('Record Deposit', 'জমা নিন'),
-          onPress: () => router.push(`/(admin)/deposit/new?memberId=${item.id}`),
-        },
-        {
-          text: l('View Profile', 'প্রোফাইল দেখুন'),
-          onPress: () => router.push(`/(admin)/member/${item.id}`),
-        },
-      ]
-    );
-  };
 
   const handleQuickApprove = (item: { id: string; title: string; amount: number }) => {
     router.push('/(admin)/approvals');
@@ -220,10 +111,10 @@ export default function HomeDashboardScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="notifications-outline" size={20} color={colors.text} />
-          {approvals.length > 0 && (
+          {pendingCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                {formatNum(approvals.length)}
+                {formatNum(pendingCount)}
               </Text>
             </View>
           )}
@@ -418,10 +309,11 @@ export default function HomeDashboardScreen() {
           </Card>
         </TouchableOpacity>
 
+        <InvestmentApprovalQueue />
         {/* 7. অনুমোদন অপেক্ষমাণ */}
         <Card style={styles.sectionCard}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{l('Pending Approvals', 'অনুমোদন অপেক্ষমাণ')}</Text>
+            <Text style={styles.cardTitle}>{l('Expense approvals', 'ব্যয়ের অনুমোদন')}</Text>
             <TouchableOpacity onPress={() => router.push('/(admin)/approvals')}>
               <Text style={styles.viewLinkText}>{l('View All', 'সব দেখুন')}</Text>
             </TouchableOpacity>

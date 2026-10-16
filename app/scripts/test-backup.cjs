@@ -29,4 +29,7 @@ verifyMetrics(metrics,{...metrics});
 assert.throws(()=>verifyMetrics(metrics,{...metrics,transactions:'9999'}));
 assert.throws(()=>verifyMetrics(metrics,{...metrics,cashAmount:'899999.00'}));
 assert.throws(()=>verifyMetrics(null,metrics));
+const extended={...metrics,contracts:'3',proposals:'5',paymentEvents:'9',principal:'100',profit:'20',investmentFingerprint:'a',proposalFingerprint:'b',paymentFingerprint:'c'};
+verifyMetrics(extended,{...extended});
+for(const key of ['contracts','proposals','paymentEvents','principal','profit','investmentFingerprint','proposalFingerprint','paymentFingerprint'])assert.throws(()=>verifyMetrics(extended,{...extended,[key]:'changed'}));
 console.log('PASS backup: encrypted round trip, tamper/wrong-password rejection, integrity, traversal rejection, TLS and local-only restore guards (synthetic fixture; real restore pending).');
