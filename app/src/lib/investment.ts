@@ -65,16 +65,41 @@ export function normalizeContactPhone(value: string) {
   if (/^01[3-9]\d{8}$/.test(digits)) digits='88'+digits;
   return /^8801[3-9]\d{8}$/.test(digits) ? digits : '';
 }
+/** Ordered field errors follow the form, including original emergency-contact slots. */
+export function investmentFieldErrors(d: NewInvestment): Record<string,string> {
+  const errors:Record<string,string>={};
+  if(!d.recipientName.trim())errors.recipientName='required';
+  if(!normalizeContactPhone(d.phone))errors.phone='phone';
+  if(d.whatsapp&&!normalizeContactPhone(d.whatsapp))errors.whatsapp='phone';
+  if(!/^\d+$/.test(toEnglishDigits(d.nid).trim()))errors.nid='nid';
+  if(!d.fatherName.trim())errors.fatherName='required';
+  if(!d.motherName.trim())errors.motherName='required';
+  const active=d.contacts.some(c=>c.name.trim()||c.relation.trim()||c.phone.trim());
+  d.contacts.forEach((c,index)=>{
+    if(!(c.name.trim()||c.relation.trim()||c.phone.trim())&&(active||index>0))return;
+    if(!c.name.trim())errors['contact.'+index+'.name']='required';
+    if(!c.relation.trim())errors['contact.'+index+'.relation']='required';
+    if(!normalizeContactPhone(c.phone))errors['contact.'+index+'.phone']='phone';
+  });
+  if(!active&&!d.contacts.length)errors['contact.0.name']='required';
+  if(d.contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim()).length>3)errors['contact.0.name']='contacts';
+  if(!Number.isFinite(d.principal)||d.principal<=0)errors.principal='amount';
+  if(!Number.isFinite(d.profitPct)||d.profitPct<0||d.profitPct>100)errors.profitPct='rate';
+  if(!Number.isInteger(d.termMonths)||d.termMonths<1||d.termMonths>120||(d.principal+contractAmounts(d.principal,d.profitPct).profit)*100<d.termMonths)errors.termMonths='duration';
+  if(!validISODate(d.disbursedDate))errors.disbursedDate='date';
+  if(!validISODate(d.firstDueDate))errors.firstDueDate='date';
+  else if(validISODate(d.disbursedDate)&&d.firstDueDate<d.disbursedDate)errors.firstDueDate='dueDate';
+  return errors;
+}
 export function validateNewInvestment(d: NewInvestment): string | null {
-  if (!d.recipientName.trim() || !normalizeContactPhone(d.phone)) return 'recipient';
-  if (!/^\d+$/.test(toEnglishDigits(d.nid).trim()) || !d.fatherName.trim() || !d.motherName.trim()) return 'identity';
-  if (d.whatsapp && !normalizeContactPhone(d.whatsapp)) return 'whatsapp';
-  if (!Number.isFinite(d.principal)||d.principal<=0||!Number.isFinite(d.profitPct)||d.profitPct<0||d.profitPct>100) return 'terms';
-  if (!Number.isInteger(d.termMonths)||d.termMonths<1||d.termMonths>120||(d.principal+contractAmounts(d.principal,d.profitPct).profit)*100<d.termMonths) return 'terms';
-  if (!validISODate(d.disbursedDate)||!validISODate(d.firstDueDate)||d.firstDueDate<d.disbursedDate) return 'dates';
-  const contacts=d.contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim());
-  if (!contacts.length||contacts.length>3||contacts.some(c=>!c.name.trim()||!c.relation.trim()||!normalizeContactPhone(c.phone))) return 'contacts';
-  return null;
+  const key=Object.keys(investmentFieldErrors(d))[0];
+  if(!key)return null;
+  if(key==='recipientName'||key==='phone')return 'recipient';
+  if(key==='whatsapp')return 'whatsapp';
+  if(['nid','fatherName','motherName'].includes(key))return 'identity';
+  if(key.startsWith('contact.'))return 'contacts';
+  if(key==='disbursedDate'||key==='firstDueDate')return 'dates';
+  return 'terms';
 }
 export function investmentReminder(c: InvestmentContract,collected: number,society: string,bengali: boolean,today=isoToday()) {
   const schedule=investmentSchedule(c,collected,today);

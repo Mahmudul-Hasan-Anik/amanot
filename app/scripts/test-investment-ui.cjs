@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
-function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,require:n=>{if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return out;}
+function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,requestAnimationFrame:callback=>callback(),require:n=>{if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return out;}
 const digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c)))};
 const domain=load('src/lib/investment.ts',{'./bengali':digits});
 const {contractAmounts,allocateInvestmentPayment,investmentSchedule,investmentReminder,parseInvestmentAmount}=domain;
@@ -15,26 +15,28 @@ assert.equal(pennies[2].amount,33.34);assert.equal(pennies.reduce((s,i)=>s+Math.
 const reminder=investmentReminder(c,0,'Society',false,'2026-02-01');assert.ok(reminder.url.startsWith('https://wa.me/8801733000001?text='));assert.ok(!reminder.text.includes('PRIVATE'));assert.equal(investmentReminder(c,120000,'Society',false),null);
 assert.equal(parseInvestmentAmount('১,২০০.৫০'),1200.5);for(const bad of ['abc','1x2','1.234','-1','Infinity'])assert.ok(Number.isNaN(parseInvestmentAmount(bad)));
 function fixture(role='super_admin'){
-  const slots=[];let cursor=0,counter=0;const writes=[],routes=[];
+  const slots=[];let cursor=0,counter=0;const writes=[],routes=[],scrolls=[];
   const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=typeof v==='function'?v():v;return[slots[i],next=>slots[i]=typeof next==='function'?next(slots[i]):next]},useRef:v=>{const i=cursor++;if(!(i in slots))slots[i]={current:v};return slots[i]}};
   const state={members:[{id:'m',code:'M-001',name:'Member',phone:'01733000001',address:'Dhaka',fatherName:'Father',motherName:'Mother',status:'paid'}],cashAccounts:[{id:'bank',type:'bank',name:'Bank',amount:1000000}],createInvestment:async p=>writes.push(p)};
-  const native={View:'View',Text:'Text',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',StyleSheet:{create:s=>s},Platform:{OS:'web'}};
+  const native={View:'View',Text:'Text',ScrollView:'Scroll',KeyboardAvoidingView:'Keyboard',StyleSheet:{create:s=>s},Platform:{OS:'web'},Keyboard:{dismiss:()=>{}}};
   const Screen=load('src/screens/InvestmentNew.tsx',{
     react:React,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'Safe'},'expo-router':{useRouter:()=>({replace:r=>routes.push(r)})},
     '../components':{Button:'Button',Card:'Card',Input:'Input',SelectModal:'Select'},'../i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:String,formatMoneyPrecise:String,formatNum:String})},
     '../store/somitiStore':{useSomitiStore:s=>s(state)},'../features/auth/authStore':{useAuthStore:s=>s({actualRole:role})},'../theme/colors':{colors:{}},'../theme/typography':{typography:{fontFamily:{}}},
-    '../lib/api':{uuid:()=>`request-${++counter}`},'../utils/navigation':{safeBack:()=>{}},'../lib/investment':domain,
+    '../hooks/useFormValidation':load('src/hooks/useFormValidation.ts',{react:React,'react-native':native}),'../lib/api':{uuid:()=>`request-${++counter}`},'../utils/navigation':{safeBack:()=>{}},'../lib/investment':domain,
   }).default;
   const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
-  const render=()=>{cursor=0;return nodes(Screen())};const button=title=>render().find(n=>n.type==='Button'&&n.props.title===title);
+  const render=()=>{cursor=0;const tree=nodes(Screen());tree.forEach((n,index)=>{const ref=n.props?.ref;if(typeof ref==='function')ref({measureLayout:(_relative,done)=>done(0,index*100)});else if(ref)ref.current=n.type==='Scroll'?{scrollTo:p=>scrolls.push(p)}:{};});return tree;};const button=title=>render().find(n=>n.type==='Button'&&n.props.title===title);
   const input=label=>render().find(n=>n.type==='Input'&&n.props.label===label);
-  return{render,button,input,writes,routes};
+  return{render,button,input,writes,routes,scrolls};
 }
 const money=load('src/lib/money.ts');
 const lang=load('src/i18n/useLanguage.ts',{'./languageStore':{useLanguageStore:()=>({language:'en',useBengaliDigits:false})},'../lib/money':money}).useLanguage();
 assert.equal(lang.formatMoneyPrecise(91.66),'৳91.66');assert.equal(lang.formatMoneyPrecise(91.74),'৳91.74');
 async function main(){
- const f=fixture();f.button('Review investment').props.onPress();assert.equal(f.writes.length,0);
+ const f=fixture();f.button('Review investment').props.onPress();assert.equal(f.writes.length,0);assert.ok(f.scrolls.at(-1).y>0,'first invalid field should be revealed');assert.ok(f.input('NID number *').props.error);
+ f.button('External person').props.onPress();f.input('Full name').props.onChangeText('External');f.input('Phone').props.onChangeText('01733000001');f.button('Review investment').props.onPress();assert.ok(f.input('NID number *').props.error);const nidAnchor=f.render().find(n=>n.type==='View'&&n.props.children?.[0]?.props?.label==='NID number *');assert.ok(nidAnchor);assert.ok(f.scrolls.at(-1).y>0);
+ f.input('NID number *').props.onChangeText('1234567890');assert.equal(f.input('NID number *').props.error,undefined,'editing clears that field error');
  f.button('External person').props.onPress();f.input('Full name').props.onChangeText('External');f.input('Phone').props.onChangeText('01733000001');
  f.input('NID number *').props.onChangeText('1234567890');f.input("Father's name *").props.onChangeText('Father');f.input("Mother's name *").props.onChangeText('Mother');
  f.input('Principal to disburse').props.onChangeText('100000');f.input('Profit % for the whole contract').props.onChangeText('20');
@@ -43,6 +45,7 @@ async function main(){
  f.render().filter(n=>n.type==='Input'&&n.props.label==='Phone')[1].props.onChangeText('01733000002');
  f.button('Review investment').props.onPress();assert.equal(f.writes.length,0,'review cannot disburse');assert.ok(f.button('Submit proposal'));
  await f.button('Submit proposal').props.onPress();assert.equal(f.writes.length,1);assert.equal(f.writes[0].contacts.length,1);assert.equal(f.writes[0].memberId,undefined);assert.equal(f.writes[0].profitPct,20);assert.ok(f.routes[0].includes('/investment/proposal/'));assert.ok(f.routes[0].includes(f.writes[0].id));
+ const slotErrors=domain.investmentFieldErrors({...f.writes[0],contacts:[{name:'',relation:'',phone:''},{name:'Second',relation:'',phone:''},{name:'',relation:'',phone:''}]});assert.equal(slotErrors['contact.0.name'],undefined);assert.equal(slotErrors['contact.1.relation'],'required');assert.equal(slotErrors['contact.1.phone'],'phone');
  for(const key of ['nid','fatherName','motherName'])assert.equal(domain.validateNewInvestment({...f.writes[0],[key]:' '}),'identity');
  const member=fixture();member.render().find(n=>n.type==='Select'&&n.props.title==='Select active member').props.onSelect('m');assert.equal(member.input('Full name').props.value,'Member');assert.equal(member.input("Father's name *").props.value,'Father');
  assert.equal(fixture('cashier').button('Review investment'),undefined);

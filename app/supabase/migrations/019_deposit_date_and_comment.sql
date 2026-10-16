@@ -2,6 +2,13 @@
 -- If p_date is omitted or null, current_date is used.
 begin;
 
+do $$ begin
+ if not has_schema_privilege('amanot_rpc','public','CREATE') then
+  grant create on schema public to amanot_rpc;
+  perform set_config('amanot.m019_restore_create','true',true);
+ end if;
+end $$;
+
 create or replace function public.record_deposit(
   p_member_id uuid,
   p_months text[],
@@ -9,10 +16,10 @@ create or replace function public.record_deposit(
   p_late_fee numeric,
   p_total_amount numeric,
   p_payment_method text,
-  p_trx_id text default null,
-  p_note text default null,
-  p_id uuid default null,
-  p_date date default null
+  p_trx_id text,
+  p_note text,
+  p_id uuid,
+  p_date date
 )
 returns transactions language plpgsql security definer set search_path=public as $$
 declare
@@ -88,4 +95,12 @@ $$;
 
 grant execute on function public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid) to authenticated;
 
+-- Keep both entry points inside the existing tenant RLS boundary.
+alter function public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid,date) owner to amanot_rpc;
+alter function public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid) owner to amanot_rpc;
+revoke all on function public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid,date) from public,anon;
+revoke all on function public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid) from public,anon;
+do $$ begin
+ if current_setting('amanot.m019_restore_create',true)='true' then revoke create on schema public from amanot_rpc; end if;
+end $$;
 commit;

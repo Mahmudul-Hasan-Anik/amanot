@@ -49,7 +49,11 @@ do $$ declare definition text; first_pos int; last_pos int; begin
  definition:=replace(definition,'coalesce((p->>''monthlyAmount'')::numeric, monthly_amount)','0');
  execute definition;
  definition:=pg_get_functiondef('public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid)'::regprocedure);
- if position('Voluntary contributions' in definition)=0 then
+ -- Migration 019 replaces the legacy entry point with a dated-RPC wrapper.
+ if position('Voluntary contributions' in definition)=0 and not exists(
+  select 1 from pg_proc p join pg_language l on l.oid=p.prolang
+  where p.oid='public.record_deposit(uuid,text[],numeric,numeric,numeric,text,text,text,uuid)'::regprocedure and l.lanname='sql'
+ ) then
   first_pos:=strpos(definition,'  ms:=coalesce(m.months_status');
   last_pos:=strpos(definition,'  insert into transactions(id,receipt_no');
   if first_pos=0 or last_pos<=first_pos then raise exception 'Unexpected record_deposit source'; end if;

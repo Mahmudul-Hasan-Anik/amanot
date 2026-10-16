@@ -77,7 +77,7 @@ export const Input: React.FC<InputProps> = ({
           </TouchableOpacity>
         ) : null}
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{error}</Text> : null}
       {helper && !error ? <Text style={styles.helperText}>{helper}</Text> : null}
     </View>
   );

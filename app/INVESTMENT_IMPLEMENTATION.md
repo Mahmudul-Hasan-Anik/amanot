@@ -68,3 +68,9 @@ Proof: `../state/old-app-audit/investment-backend-deployed.png`.
 - APK has not been rebuilt. Physical Android verification is still needed after the user requests a new APK.
 
 Live verification: migration 021 deployed successfully; financial preservation guard returned true. Proposal table/RPC readiness, forced RLS and restored business-role privileges verified. Local demo browser completed proposal → approval → disbursement → contract, with cash deducted only at disbursement; latest preview confirmed fractional installment values (91.66). UI proof: state/old-app-audit/investment-required-identity.png. Backend proof: state/old-app-audit/investment-workflow-deployed.png.
+
+## Required-field error visibility
+
+Investment form now uses ordered field validation, inline errors and a shared scroll-to-first-error hook. The first invalid field is measured relative to the scroll content, so nested cards and optional emergency-contact slots work on web and native layouts. Keyboard is dismissed before scrolling; editing clears the corresponding field error. The short error banner stays outside the ScrollView, including backend errors on proposal/disbursement screens. No database change was required. APK has not been rebuilt; the installed app needs a later rebuild to receive these UI changes.
+
+Verified with domain/component regression tests, TypeScript, production web export and a 390px browser preview: Review pressed from the bottom automatically revealed missing NID and parent fields with inline errors. Screenshot: state/old-app-audit/investment-validation-scroll.png. Physical Android testing remains pending a requested APK rebuild.
