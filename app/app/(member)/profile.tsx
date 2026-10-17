@@ -286,7 +286,7 @@ export default function MemberProfileScreen() {
             </View>
 
             {REMOTE && <><Text style={styles.inputLabel}>{l('Current PIN','বর্তমান পিন')}</Text><TextInput style={styles.pinInput} keyboardType="numeric" maxLength={6} secureTextEntry value={currentPin} onChangeText={setCurrentPin} autoComplete="off" /></>}
-            <Text style={styles.inputLabel}>{REMOTE ? l('New 6-Digit PIN','নতুন ৬ সংখ্যার পিন') : l('New 4-Digit PIN', 'নতুন ৪ সংখ্যার পিন')}</Text>
+            <Text style={styles.inputLabel}>{l('New PIN','নতুন পিন')}</Text>
             <TextInput
               style={styles.pinInput}
               keyboardType="numeric"

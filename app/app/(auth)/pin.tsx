@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
+  Image,
   Text,
   TouchableOpacity,
   StyleSheet,
@@ -39,7 +40,7 @@ export default function PinScreen() {
     const timer = setTimeout(() => setSlow(true), 8000);
     return () => clearTimeout(timer);
   }, [checking]);
-  const [pinLength, setPinLength] = useState(REMOTE ? 6 : 4);
+  const pinLength = REMOTE ? 6 : 4;
 
   const goHome = () => {
     if (useAuthStore.getState().mustChangePin) { router.replace('/(auth)/change-pin'); return; }
@@ -143,10 +144,6 @@ export default function PinScreen() {
     );
   };
 
-  const userInitial = currentUser?.name
-    ? currentUser.name.trim().charAt(0)
-    : 'আ';
-
   return (
     <SafeAreaView style={styles.container}>
       {__DEV__ && (
@@ -156,10 +153,7 @@ export default function PinScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Top Avatar Circle in Mint Soft background */}
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{userInitial}</Text>
-        </View>
+        <Image source={require('../../assets/logo-transparent.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel={l('Amanot logo','আমানত লোগো')} />
 
         {/* User Info Header */}
         <Text style={styles.welcomeText}>
@@ -174,9 +168,9 @@ export default function PinScreen() {
         </Text>
 
         {/* PIN Title */}
-        <Text style={styles.pinPromptText}>{pinLength === 6 ? l('Enter 6-Digit PIN', '৬ সংখ্যার পিন দিন') : l('Enter old 4-Digit PIN', 'পুরোনো ৪ সংখ্যার পিন দিন')}</Text>
+        <Text style={styles.pinPromptText}>{l('Enter PIN', 'পিন দিন')}</Text>
 
-        {/* 4 PIN Dots Indicator */}
+        {/* PIN Dots Indicator */}
         <View style={styles.dotsRow}>
           {Array.from({length:pinLength}, (_,index)=>index).map((index) => {
             const isFilled = index < pinDigits.length;
@@ -197,7 +191,6 @@ export default function PinScreen() {
             ? l('This is taking longer than usual. Please keep your internet connected.', 'স্বাভাবিকের চেয়ে বেশি সময় লাগছে। ইন্টারনেট সংযোগ চালু রাখুন।')
             : l('Verifying PIN…', 'পিন যাচাই হচ্ছে…')}</Text>
         </View>}
-        {REMOTE && <TouchableOpacity disabled={checking} onPress={()=>{setPinLength(pinLength===6?4:6);setPinDigits([]);}}><Text style={styles.roleText}>{pinLength===6 ? l('I still have an old 4-digit PIN', 'আমার পুরোনো ৪ সংখ্যার পিন আছে') : l('Use a 6-digit PIN', '৬ সংখ্যার পিন ব্যবহার করুন')}</Text></TouchableOpacity>}
 
         {/* Hint (Dev-only, demo mode) */}
         {__DEV__ && !REMOTE && (
@@ -247,23 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 20,
   },
-  avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primarySoft,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.hero,
-    lineHeight: typography.lineHeight.hero,
-    fontWeight: '700',
-    color: colors.primary,
-    includeFontPadding: false,
-  },
+  brandLogo: {width: 96, height: 96, marginBottom: 16},
   welcomeText: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: typography.size.xl,

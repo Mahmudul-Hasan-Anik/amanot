@@ -16,6 +16,7 @@ try {
     const props = config.plugins.find(p => Array.isArray(p) && p[0] === 'expo-build-properties')[1];
     withBuildProperties({ name: config.name, slug: config.slug }, props);
     assert.equal(config.name, 'Amanot');
+    assert.ok(config.android.blockedPermissions.includes('android.permission.SYSTEM_ALERT_WINDOW'), 'Release must not request display-over-other-apps permission');
     assert.deepEqual(props.android.buildArchs, profile === 'release-arm64' ? ['arm64-v8a'] : ['arm64-v8a', 'armeabi-v7a']);
     assert.equal(props.android.enableMinifyInReleaseBuilds, true);
     assert.equal(props.android.enableShrinkResourcesInReleaseBuilds, true);

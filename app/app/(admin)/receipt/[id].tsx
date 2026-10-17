@@ -15,6 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { somitiName } from '../../../src/utils/somitiBranding';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
@@ -90,7 +91,7 @@ export default function ReceiptScreen() {
       ? l('Cash', 'হাতে নগদ')
       : `${l('bKash', 'বিকাশ')} · ${trxIdStr}`;
 
-  const somitiTitle = l((somitiInfo as any).nameEn || 'Amanot Somiti', somitiInfo.name || 'আমানত সমিতি');
+  const somitiTitle = somitiName(somitiInfo, l('Your society', 'আপনার সমিতি'));
   const totalDepositNow = member?.totalDeposit ?? 0;
 
   const receiptPayload = {

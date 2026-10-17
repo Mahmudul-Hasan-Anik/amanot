@@ -229,14 +229,11 @@ export default function LoginScreen() {
         {/* Brand Header */}
         <View style={styles.header}>
           <Image
-            source={require('../../assets/logo.png')}
+            source={require('../../assets/logo-transparent.png')}
             style={styles.logoTile}
             resizeMode="contain"
             accessibilityLabel={l('Amanot logo', 'আমানত লোগো')}
           />
-          <Text style={styles.brandTitle}>
-            {l('Amanot', 'আমানত')}
-          </Text>
           <Text style={styles.brandSubtitle}>
             {l('All society accounts, in one place', 'সমিতির সব হিসাব, এক জায়গায়')}
           </Text>
@@ -517,7 +514,7 @@ export default function LoginScreen() {
             placeholderTextColor={colors.textSecondary}
           />
 
-          <Text style={styles.modalInputLabel}>{REMOTE ? l('6-Digit PIN *', '৬ সংখ্যার পিন *') : l('4-Digit PIN *', '৪ সংখ্যার পিন *')}</Text>
+          <Text style={styles.modalInputLabel}>{l('PIN *', 'পিন *')}</Text>
           <TextInput
             style={styles.modalInput}
             value={regAdminPin}
@@ -575,17 +572,7 @@ const styles = StyleSheet.create({
   logoTile: {
     width: 104,
     height: 104,
-    borderRadius: 20,
     marginBottom: 16,
-  },
-  brandTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.otp,
-    lineHeight: typography.lineHeight.otp,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-    textAlign: 'center',
   },
   brandSubtitle: {
     fontFamily: 'HindSiliguri-Regular',

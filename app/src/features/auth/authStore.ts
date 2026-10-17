@@ -36,7 +36,7 @@ interface AuthState {
   pin: string;
   isPinVerified: boolean;
   lastGeneratedOtp: string;
-  customPins: Record<string, string>; // memberId -> 4 digit PIN
+  customPins: Record<string, string>; // Demo-only member PINs
 
   // Supabase backend
   actualRole: ServerRole;          // role stored on the server
@@ -137,7 +137,7 @@ export const useAuthStore = create<AuthState>()(
           get().logout();
           return { ok:false, error:'মোবাইল নম্বর দিয়ে আবার লগইন শুরু করুন।' };
         }
-        if (!/^(\d{4}|\d{6})$/.test(pin)) return { ok: false, error: '৬ সংখ্যার পিন দিন; পুরোনো অ্যাকাউন্টে ৪ সংখ্যার পিন গ্রহণ করা হয়।' };
+        if (!/^(\d{4}|\d{6})$/.test(pin)) return { ok: false, error: 'সঠিক ৬ সংখ্যার পিন দিন।' };
         const revision=++authRevision;
         set({ isPinVerified:false });
         try {

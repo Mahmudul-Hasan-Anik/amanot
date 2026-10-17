@@ -12,7 +12,8 @@ function fixture(remote,{ok=true,mustChangePin=false,phone='01700000000',isAuthe
   const exported={};
   vm.runInNewContext(code,{exports:exported,__DEV__:false,setTimeout:fn=>{timers.push(fn);return fn},clearTimeout:fn=>{const i=timers.indexOf(fn);if(i>=0)timers.splice(i,1)},require:name=>{
     if(name==='react')return {__esModule:true,default:React,...React};
-    if(name==='react-native')return {ActivityIndicator:'Spinner',View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',SafeAreaView:'SafeAreaView',StyleSheet:{create:s=>s},Alert:{alert:(...args)=>alerts.push(args)}};
+    if(name==='react-native')return {Image:'Image',ActivityIndicator:'Spinner',View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',SafeAreaView:'SafeAreaView',StyleSheet:{create:s=>s},Alert:{alert:(...args)=>alerts.push(args)}};
+    if(name.endsWith('/assets/logo-transparent.png'))return 'transparent-amanot-logo';
     if(name==='react-native-safe-area-context')return {SafeAreaView:'SafeAreaView'};
     if(name==='expo-router')return {Redirect:'Redirect',useRouter:()=>({replace:route=>routes.push(route)})};
     if(name.endsWith('/phoneAuth'))return {isValidPhone:s=>/^01[3-9]\d{8}$/.test(s)};
@@ -34,11 +35,11 @@ function fixture(remote,{ok=true,mustChangePin=false,phone='01700000000',isAuthe
 async function main(){
   for(const options of [{phone:''},{phone:'123'},{isAuthenticated:false}]) assert.equal(fixture(true,options).render().props.href,'/(auth)/login');
   const live=fixture(true);for(const digit of '5728')live.digit(digit);live.flush();
+  assert.equal(live.find(live.render(),n=>n.type==='Image').props.source,'transparent-amanot-logo','PIN screen uses the real Amanot logo');
   assert.equal(live.logins.length,0);assert.equal(live.verifications.length,0);assert.equal(live.alerts.length,0);
   for(const digit of '49')live.digit(digit);await Promise.resolve();live.flush();
   assert.deepEqual(live.logins,['572849']);assert.equal(live.verifications.length,0);assert.equal(live.alerts.length,0);assert.deepEqual(live.routes,['/(member)']);
-  const legacy=fixture(true);legacy.legacy();for(const digit of '5728')legacy.digit(digit);await Promise.resolve();legacy.flush();
-  assert.deepEqual(legacy.logins,['5728']);assert.equal(legacy.verifications.length,0);
+  assert.doesNotMatch(JSON.stringify(fixture(true).render()),/4-digit|4-Digit|old 4/,'No legacy four-digit prompt or toggle');
   const failed=fixture(true,{ok:false});for(const digit of '572849')failed.digit(digit);await Promise.resolve();failed.flush();assert.equal(failed.alerts.length,1);assert.equal(failed.alerts[0][1],'Synthetic invalid PIN');assert.equal(failed.verifications.length,0);
   const upgrade=fixture(true,{mustChangePin:true});for(const digit of '572849')upgrade.digit(digit);await Promise.resolve();assert.deepEqual(upgrade.routes,['/(auth)/change-pin']);
   const demo=fixture(false);for(const digit of '1234')demo.digit(digit);demo.flush();assert.deepEqual(demo.verifications,['1234']);assert.equal(demo.logins.length,0);
@@ -50,6 +51,6 @@ async function main(){
   busy.flush();assert.match(JSON.stringify(busy.render()),/longer than usual/);
   busy.unmount();finish();for(let i=0;i<8;i++)await Promise.resolve();assert.equal(busy.routes.length,0,'Unmounted screen cannot navigate after response');
   const thrown=fixture(true,{reject:true});for(const digit of '572849')thrown.digit(digit);for(let i=0;i<8;i++)await Promise.resolve();assert.equal(thrown.alerts.length,1);assert.equal(thrown.find(thrown.render(),n=>n.type==='Keypad').props.disabled,false,'Rejected request unlocks keypad');
-  console.log('PASS PIN screen: live waits for six digits, no demo alert/verification, explicit legacy four-digit login, backend error, forced upgrade and demo login.');
+  console.log('PASS PIN screen: six-digit live login, no legacy prompt/toggle, backend error, forced upgrade, pending/unmount guards and demo login.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1});

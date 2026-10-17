@@ -140,15 +140,24 @@ def manifest_info(data):
                 else:
                     n, pos = length(pos, 2)
                     strings.append(data[pos:pos+2*n].decode("utf-16le"))
-        elif kind == 0x102 and strings[uint(data, offset+20)] == "manifest":
+        elif kind == 0x102:
+            tag = strings[uint(data, offset+20)]
             attrs = offset+16+uint(data, offset+24, 2)
             stride, count = uint(data, offset+26, 2), uint(data, offset+28, 2)
             for index in range(count):
                 pos = attrs+index*stride
                 name = strings[uint(data, pos+4)]
-                if name in ("package", "versionName", "versionCode"):
+                allowed = {"manifest": ("package", "versionName", "versionCode"),
+                           "uses-sdk": ("minSdkVersion", "targetSdkVersion"),
+                           "application": ("debuggable", "usesCleartextTraffic", "allowBackup"),
+                           "uses-permission": ("name",)}
+                if name in allowed.get(tag, ()):
                     raw, value_type, value = uint(data, pos+8), data[pos+15], uint(data, pos+16)
-                    result[name] = strings[raw] if raw != 0xFFFFFFFF else strings[value] if value_type == 3 else value
+                    parsed = strings[raw] if raw != 0xFFFFFFFF else strings[value] if value_type == 3 else bool(value) if value_type == 0x12 else value
+                    if tag == "uses-permission":
+                        result.setdefault("permissions", []).append(parsed)
+                    else:
+                        result[name] = parsed
         offset += size
     return result
 

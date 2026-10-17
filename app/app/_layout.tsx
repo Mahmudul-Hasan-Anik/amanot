@@ -7,37 +7,11 @@ const HindSiliguri_400Regular=require('@expo-google-fonts/hind-siliguri/HindSili
 const HindSiliguri_500Medium=require('@expo-google-fonts/hind-siliguri/HindSiliguri_500Medium.ttf');
 const HindSiliguri_600SemiBold=require('@expo-google-fonts/hind-siliguri/HindSiliguri_600SemiBold.ttf');
 const HindSiliguri_700Bold=require('@expo-google-fonts/hind-siliguri/HindSiliguri_700Bold.ttf');
-import { View, ActivityIndicator, AppState, Alert, Platform } from 'react-native';
+import { View, ActivityIndicator, AppState, Platform } from 'react-native';
+import { WebAlertHost } from '../src/components/WebAlertHost';
 
 // react-native-web's Alert.alert does nothing, so errors/confirmations were invisible on web.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  (Alert as any).alert = (title: string, message?: string, buttons?: Array<{ text?: string; style?: string; onPress?: () => void }>) => {
-    const text = [title, message].filter(Boolean).join('\n\n');
-    if (!buttons || buttons.length === 0) {
-      window.alert(text);
-      return;
-    }
-    if (buttons.length === 1) {
-      window.alert(text);
-      buttons[0].onPress?.();
-      return;
-    }
-    const cancel = buttons.find((b) => b.style === 'cancel');
-    const actions = buttons.filter((b) => b !== cancel);
-    if (actions.length <= 1) {
-      const action = actions[0] || buttons[buttons.length - 1];
-      if (window.confirm(text)) action.onPress?.();
-      else cancel?.onPress?.();
-      return;
-    }
-    // several choices: let the user pick by number
-    const menu = actions.map((b, i) => `${i + 1}. ${b.text || ''}`).join('\n');
-    const answer = window.prompt(`${text}\n\n${menu}`, '1');
-    const idx = answer ? parseInt(answer.replace(/[০-৯]/g, (c) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))), 10) - 1 : -1;
-    if (idx >= 0 && idx < actions.length) actions[idx].onPress?.();
-    else cancel?.onPress?.();
-  };
-
   // Global reset on web to prevent black or colored browser focus rings and outlines across the entire app
   if (typeof document !== 'undefined') {
     const existing = document.getElementById('amanot-global-focus-reset');
@@ -178,6 +152,7 @@ export default function RootLayout() {
             <Stack.Screen name="(member)" options={{ headerShown: false }} />
           </Stack>
         )}
+        <WebAlertHost />
     </SafeAreaProvider>
   );
 }

@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { fetchLedgerSummary, fetchTransactionHistory, fetchDistributionShares } from '../lib/api';
 import { investmentSchedule } from '../lib/investment';
 import { monthRange, signedTransactionAmount } from '../lib/ledger';
+import { exportFilename } from './exportFilename';
 
 export type Report = { title:string; columns:string[]; rows:Array<Array<string|number>>; language?:'bn'|'en' };
 export async function buildReportForExport(state:SomitiState,id:string,month:string,language:'bn'|'en'='bn'):Promise<Report>{
@@ -46,8 +47,8 @@ export function buildReport(state:SomitiState,id:string,month:string,language:'b
  return make('Monthly savings collection','মাসিক সঞ্চয় আদায়',[['ID','আইডি'],['Member','সদস্য'],['Collected','জমা']],members.map(m=>[m.code,m.name,collected.get(m.id)||0]));
 }
 
-export function reportHtml(report: Report, somiti: string, period: string): string {
-  return `<!doctype html><html lang="${report.language||'bn'}"><head><meta charset="utf-8"><title>${escapeHtml(report.title)}</title><style>
+export function reportHtml(report: Report, somiti: string, period: string, documentTitle = report.title): string {
+  return `<!doctype html><html lang="${report.language||'bn'}"><head><meta charset="utf-8"><title>${escapeHtml(documentTitle)}</title><style>
   body{font-family:'Nirmala UI','Hind Siliguri',sans-serif;color:${colors.text};padding:24px;font-size:12px}h1{font-size:24px;margin-bottom:6px}h2{font-size:18px;color:${colors.primary}}table{border-collapse:collapse;width:100%;margin-top:20px}th,td{border:1px solid ${colors.border};padding:8px;text-align:left}th{background:${colors.primarySoft}}thead{display:table-header-group}tr{break-inside:avoid}footer{margin-top:20px;color:${colors.textSecondary}}@page{size:A4;margin:15mm}</style></head><body>
   <h1>${escapeHtml(somiti)}</h1><h2>${escapeHtml(report.title)}</h2><p>${escapeHtml(period)}</p>
   <table><thead><tr>${report.columns.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${report.rows.length?report.rows.map(row=>`<tr>${row.map(v=>`<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${report.columns.length}">${report.language==='en'?'No records for this selection':'এই সময়ের তথ্য নেই'}</td></tr>`}</tbody></table><footer>${report.language==='en'?'Amanot · Prepared:':'আমানত · প্রস্তুত:'} ${escapeHtml(new Date().toLocaleDateString(report.language==='en'?'en-GB':'bn-BD'))}</footer></body></html>`;
@@ -59,22 +60,26 @@ export function reportCsv(report: Report): string {
 }
 
 export async function exportReport(report: Report, somiti: string, period: string, format:'PDF'|'CSV'): Promise<void> {
-  const filename=`amanot-${period.replace(/[^0-9A-Za-z-]/g,'')}-${Date.now()}`;
+  const filename=exportFilename(['Amanot',somiti,report.title,period],format==='PDF'?'pdf':'csv');
   if (Platform.OS==='web') {
     if (format==='PDF') {
       const win=window.open('','_blank');
       if (!win) throw new Error('ব্রাউজারে popup অনুমতি দিন');
       win.onload=()=>{ win.document.fonts.ready.then(()=>win.print()); };
-      win.document.write(reportHtml(report,somiti,period));win.document.close();
+      win.document.write(reportHtml(report,somiti,period,filename.replace(/\.pdf$/, '')));win.document.close();
     } else {
       const url=URL.createObjectURL(new Blob([reportCsv(report)],{type:'text/csv;charset=utf-8'}));
-      const a=document.createElement('a');a.href=url;a.download=filename+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
     return;
   }
   let uri:string;
-  if (format==='PDF') uri=(await Print.printToFileAsync({html:reportHtml(report,somiti,period)})).uri;
-  else { uri=FileSystem.cacheDirectory+filename+'.csv';await FileSystem.writeAsStringAsync(uri,reportCsv(report)); }
+  if (!FileSystem.cacheDirectory) throw new Error('ফাইল সংরক্ষণের স্থান পাওয়া যায়নি');
+  uri=FileSystem.cacheDirectory+filename;
+  if (format==='PDF') {
+    const printed=await Print.printToFileAsync({html:reportHtml(report,somiti,period)});
+    await FileSystem.moveAsync({from:printed.uri,to:uri});
+  } else { await FileSystem.writeAsStringAsync(uri,reportCsv(report)); }
   if (!await Sharing.isAvailableAsync()) throw new Error('এই ডিভাইসে ফাইল শেয়ার করা যাচ্ছে না');
-  await Sharing.shareAsync(uri,{mimeType:format==='PDF'?'application/pdf':'text/csv'});
+  await Sharing.shareAsync(uri,{mimeType:format==='PDF'?'application/pdf':'text/csv',dialogTitle:filename});
 }

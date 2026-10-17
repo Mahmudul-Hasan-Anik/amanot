@@ -16,7 +16,7 @@ const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promis
   if(n==='../lib/queryCache')return queryCache;
   if(n==='zustand'||n==='zustand/middleware')return require(n);
   if(n==='@react-native-async-storage/async-storage')return {__esModule:true,default:storage};
-  if(n==='../mocks/mockData')return {mockSomitiInfo:{dueBreakdown:{}},mockMembers:[],mockProjects:[],mockPendingApprovals:[],mockApprovedApprovals:[],mockRejectedApprovals:[],mockCashAccounts:[]};
+  if(n==='../mocks/mockData')return {mockSomitiInfo:{name:'আমানত সমিতি',nameEn:'Amanot Somiti',dueBreakdown:{}},mockMembers:[],mockProjects:[],mockPendingApprovals:[],mockApprovedApprovals:[],mockRejectedApprovals:[],mockCashAccounts:[]};
   if(n==='../lib/bengali')return {toBengaliDigits:s=>s};
   if(n==='react-native')return {Alert:{alert:()=>{}}};
   if(n==='../lib/supabase')return {isSupabaseConfigured:()=>true};
@@ -28,7 +28,11 @@ const exported={};vm.runInNewContext(code,{exports:exported,Date:TestDate,Promis
 }});
 async function main(){
   const store=exported.useSomitiStore;await store.persist.rehydrate();
+  assert.equal(store.getState().somitiInfo.name,'','Live state starts without a demo society name');
+  assert.equal(store.getState().somitiInfo.nameEn,'','Live state starts without the demo English name');
   await store.getState().syncFromServer(false);assert.equal(calls,1);
+  assert.equal(store.getState().somitiInfo.name,'Fixture','Use the authenticated society name');
+  assert.equal(store.getState().somitiInfo.nameEn,'','Missing English translation must not inherit Amanot Somiti');
   await store.getState().syncFromServer(false);assert.equal(calls,1);
   revision='2026-10-09:2';await store.getState().syncFromServer(false);assert.equal(calls,2);
   await store.getState().syncFromServer();assert.equal(calls,3);

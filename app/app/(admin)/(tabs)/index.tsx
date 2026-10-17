@@ -2,7 +2,7 @@ import {InvestmentApprovalQueue} from '../../../src/components/InvestmentApprova
 import {WithdrawalApprovalQueue} from '../../../src/components/WithdrawalApprovalQueue';
 import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { View, Image, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,6 +14,7 @@ import { Card } from '../../../src/components/Card';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { somitiName } from '../../../src/utils/somitiBranding';
 
 export default function HomeDashboardScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function HomeDashboardScreen() {
   const members=useSomitiStore(s=>s.members);
   const projects=useSomitiStore(s=>s.projects);
   const cashAccounts=useSomitiStore(s=>s.cashAccounts);
-  const { l, isBengali, formatMoney, formatNum } = useLanguage();
+  const { l, formatMoney, formatNum } = useLanguage();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,9 +63,7 @@ export default function HomeDashboardScreen() {
   const monthlyNet = useMemo(() => monthlyIncome - monthlyExpense, [monthlyIncome, monthlyExpense]);
 
   // Dynamic Somiti Initial Letter
-  const somitiInitial = isBengali
-    ? (somitiInfo.name?.trim().charAt(0) || 'আ')
-    : (somitiInfo.nameEn?.trim().charAt(0) || 'A');
+  const somitiDisplayName = somitiName(somitiInfo, l('Your society', 'আপনার সমিতি'));
 
   const handleQuickApprove = () => {
     router.push('/(admin)/approvals');
@@ -81,12 +80,10 @@ export default function HomeDashboardScreen() {
           onPress={() => router.push('/(admin)/somiti')}
           activeOpacity={0.7}
         >
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>{somitiInitial}</Text>
-          </View>
-          <View>
-            <Text style={styles.somitiName}>
-              {l(somitiInfo.nameEn || 'Amanot Samity', somitiInfo.name || 'আমানত সমিতি')}
+          <Image source={require('../../../assets/logo-transparent.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel={l('Amanot logo','আমানত লোগো')} />
+          <View style={styles.headerIdentity}>
+            <Text style={styles.somitiName} numberOfLines={2}>
+              {somitiDisplayName}
             </Text>
             <Text style={styles.subHeader}>
               {l(new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), `${BENGALI_MONTHS_FULL[new Date().getMonth()]} ${toBengaliDigits(new Date().getFullYear())}`)} · {formatNum(totalMembersCount)} {l('Members', 'জন সদস্য')}
@@ -370,24 +367,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   headerLeft: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  logoBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xl,
-    lineHeight: typography.lineHeight.xl,
-    color: colors.surface,
-  },
+  headerIdentity: {flex: 1, minWidth: 0},
+  brandLogo: {width: 48, height: 48, flexShrink: 0},
   somitiName: {
     fontFamily: 'HindSiliguri-Bold',
     fontSize: typography.size.title,

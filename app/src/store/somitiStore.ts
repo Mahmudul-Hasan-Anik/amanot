@@ -21,7 +21,7 @@ let editRevision = 0;
 
 const emptySomitiInfo: typeof mockSomitiInfo = {
   ...mockSomitiInfo,
-  name: 'আমানত সমিতি', regNo: '', establishedYear: '', address: '', phone: '', email: '', authority: '',
+  name: '', nameEn: '', regNo: '', establishedYear: '', address: '', phone: '', email: '', authority: '',
   committeeTenure: '', bankName: '', bankAccountNo: '', bkashNo: '', nagadNo: '',
   totalMembersCount: 0, activeMembersCount: 0, dueMembersCount: 0, inactiveMembersCount: 0,
   totalFund: 0, monthlyFundGrowth: 0, projectInvested: 0, projectInvestedPct: 0, cashAndBank: 0, cashAndBankPct: 0,

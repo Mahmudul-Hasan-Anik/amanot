@@ -6,6 +6,8 @@
 import { Platform, Linking, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import { exportFilename } from './exportFilename';
 import { toBengaliDigits } from '../lib/money';
 
 export const escapeHtml = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]!));
@@ -238,7 +240,8 @@ export function buildDepositReceiptHtml(data: DepositReceiptData): string {
  * Generate PDF and trigger native share or web print dialog
  */
 export async function exportAndShareReceipt(data: DepositReceiptData): Promise<void> {
-  const html = buildDepositReceiptHtml(data);
+  const filename = exportFilename(['Amanot',data.somitiName,'Receipt',data.receiptNo,data.memberCode,data.date], 'pdf');
+  const html = buildDepositReceiptHtml(data).replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(filename.replace(/\.pdf$/, ''))}</title>`);
 
   if (Platform.OS === 'web') {
     // Open in print-friendly window
@@ -254,7 +257,10 @@ export async function exportAndShareReceipt(data: DepositReceiptData): Promise<v
   }
 
   try {
-    const { uri } = await Print.printToFileAsync({ html });
+    if (!FileSystem.cacheDirectory) throw new Error('ফাইল সংরক্ষণের স্থান পাওয়া যায়নি');
+    const printed = await Print.printToFileAsync({ html });
+    const uri = FileSystem.cacheDirectory + filename;
+    await FileSystem.moveAsync({from:printed.uri,to:uri});
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(uri, {
         UTI: '.pdf',

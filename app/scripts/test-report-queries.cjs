@@ -9,6 +9,7 @@ const out={};vm.runInNewContext(compile('utils/reportExport.ts'),{exports:out,Ma
  if(n==='../lib/supabase')return {isSupabaseConfigured:()=>remote};if(n==='../lib/ledger')return ledger;
  if(n==='../i18n/financeLabels')return {financeNote:v=>v};
  if(n==='../lib/investment')return {investmentSchedule:()=>[]};
+ if(n==='./exportFilename'){const result={};vm.runInNewContext(compile('utils/exportFilename.ts'),{exports:result});return result;}
  if(n==='../lib/api')return {fetchDistributionShares:async year=>[{member_id:'m',year,base_deposit:100,share:10.25}],fetchLedgerSummary:async(from,to)=>{calls.push({from,to,summary:true});return {collections:{m:10250}};},fetchTransactionHistory:async filter=>{calls.push(filter);return full;}};
  throw Error(n);
 }});

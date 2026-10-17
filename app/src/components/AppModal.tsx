@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, Pressable, StyleProp, ViewStyle, Modal, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 interface AppModalProps {
   visible: boolean;
@@ -13,22 +14,24 @@ export function AppModal({ visible, onClose, children, contentContainerStyle }: 
   if (!visible) return null;
 
   return (
-    <View style={styles.overlay}>
+    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
+    <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+    <SafeAreaView style={styles.overlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={[styles.contentCard, contentContainerStyle]}>
+      <View style={[styles.contentCard, contentContainerStyle]} accessibilityViewIsModal>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {children}
+        </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
+    </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -39,6 +42,7 @@ const styles = StyleSheet.create({
   contentCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '90%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,

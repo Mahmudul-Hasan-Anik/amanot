@@ -15,13 +15,14 @@ import {useLedgerPage} from '../../src/hooks/useLedgerPage';
 import {Button} from '../../src/components/Button';
 import {signedTransactionAmount} from '../../src/lib/ledger';
 import {MemberBalanceSummary} from '../../src/components/MemberBalanceSummary';
+import {somitiName} from '../../src/utils/somitiBranding';
 
 export default function MemberDashboardScreen() {
   const router = useRouter();
   const { currentUser, switchRole, actualRole } = useAuthStore();
   const { somitiInfo, members, notices,withdrawalRequests } = useSomitiStore();
   const canSwitchToAdmin = actualRole !== 'member';
-  const { l, formatMoney, isBengali } = useLanguage();
+  const { l, formatMoney } = useLanguage();
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
@@ -70,7 +71,7 @@ export default function MemberDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.somitiName}>
-            {somitiInfo.name || (isBengali ? 'আমানত সমিতি' : 'Amanot Somiti')}
+            {somitiName(somitiInfo, l('Your society', 'আপনার সমিতি'))}
           </Text>
           <Text style={styles.memberTag}>
             {member.name} • <Text style={styles.memberCode}>{member.code}</Text>
