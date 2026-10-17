@@ -1,5 +1,20 @@
 # Amanot Android release — 9 October 2026
 
+## Latest release — 1.0.8 / code 9 — 17 October 2026
+
+The user explicitly approved source upload to Expo EAS and the signed APK build.
+Build `5f06452f-1929-4720-be13-875e770559d8` FINISHED. Includes the new Amanot
+launcher/in-app logos, canonical society names, PIN-change feedback, mobile
+dialogs and readable PDF/CSV export names. The unused overlay permission is absent.
+
+[Download APK 1.0.8](https://expo.dev/artifacts/eas/FwdNBlF_aZcxcYUbs42iw9k3sCVQb3Hu_GhYurgCdyM.apk).
+Local copy: `app/releases/amanot-1.0.8-live.apk`; 24,974,250 bytes / 23.82 MiB.
+ZIP integrity, v2 signature/content digest, version/package, previous certificate,
+native modules and the packaged transparent logo verified. SHA-256:
+`cff03fe5ad790b5c42cc095d1fa067585767b94e9fad4daa1ec93e246285faf6`.
+See [release verification](app/RELEASE_1.0.8.md). Physical Android installation and
+runtime checks remain; no real credential or ledger was changed.
+
 ## Phone UI and icon rebuild — 1.0.4 / code 5
 
 User explicitly authorized an Expo source upload and APK rebuild on 10 October

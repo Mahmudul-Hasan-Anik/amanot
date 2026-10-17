@@ -26,4 +26,5 @@ Validation: TypeScript; PIN screen, mobile feedback, export files, live-auth,
 report-query and release-configuration tests; 11 security checks in a disposable
 database (hashing stubbed). The mobile browser preview visibly verified the
 registration form scrolling and an error dialog centered inside the phone frame.
-No real account PIN was changed. No new APK was built or installed.
+No real account PIN was changed. The changes are packaged in the verified 1.0.8
+APK; see RELEASE_1.0.8.md. Installation and runtime testing on a phone remain.
