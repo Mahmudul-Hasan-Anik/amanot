@@ -3,6 +3,7 @@ import {MemberCategory,memberCode,normalizeMemberNumber} from '../../src/lib/mem
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Image,
   Text,
   TextInput,
   TouchableOpacity,
@@ -209,8 +210,6 @@ export default function LoginScreen() {
     return `${formatNum(mins)}:${secs < 10 ? formatNum('0') : ''}${formatNum(secs)}`;
   };
 
-  const somitiInitial = isBengali ? 'আ' : 'A';
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -229,9 +228,12 @@ export default function LoginScreen() {
 
         {/* Brand Header */}
         <View style={styles.header}>
-          <View style={styles.logoTile}>
-            <Text style={styles.logoText}>{somitiInitial}</Text>
-          </View>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logoTile}
+            resizeMode="contain"
+            accessibilityLabel={l('Amanot logo', 'আমানত লোগো')}
+          />
           <Text style={styles.brandTitle}>
             {l('Amanot', 'আমানত')}
           </Text>
@@ -571,26 +573,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoTile: {
-    width: 72,
-    height: 72,
+    width: 104,
+    height: 104,
     borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.logo,
-    lineHeight: typography.lineHeight.logo,
-    fontWeight: '700',
-    color: colors.surface,
-    includeFontPadding: false,
   },
   brandTitle: {
     fontFamily: 'HindSiliguri-Bold',

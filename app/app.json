@@ -22,7 +22,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
-        "backgroundColor": "#0F5E4A"
+        "backgroundColor": "#FFFFFF"
       },
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -44,6 +44,7 @@
       ]
     ],
     "web": {
+      "favicon": "./assets/icon.png",
       "bundler": "metro",
       "output": "single"
     },

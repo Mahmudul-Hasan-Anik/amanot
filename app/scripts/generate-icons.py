@@ -1,29 +1,37 @@
-"""Render the existing Amanot Bengali lettermark for native launchers."""
+"""Generate launcher assets from the supplied Amanot logo (requires Pillow)."""
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets'
 OUT.mkdir(exist_ok=True)
 SIZE = 1024
-GREEN = '#0F5E4A'
-FONT = ROOT / 'node_modules/@expo-google-fonts/hind-siliguri/HindSiliguri_700Bold.ttf'
+SOURCE = OUT / 'logo.png'
 
 
-def lettermark(size, background, filename, color='white'):
-    image = Image.new('RGBA', (SIZE, SIZE), background)
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype(str(FONT), size)
-    left, top, right, bottom = draw.textbbox((0, 0), 'আ', font=font)
-    draw.text(((SIZE - (right - left)) / 2 - left,
-               (SIZE - (bottom - top)) / 2 - top), 'আ', font=font, fill=color)
-    if background != (0, 0, 0, 0):
-        image = image.convert('RGB')
-    image.save(OUT / filename, optimize=True)
+def centered(image, size, background):
+    resized = image.copy()
+    resized.thumbnail((size, size), Image.Resampling.LANCZOS)
+    canvas = Image.new('RGBA', (SIZE, SIZE), background)
+    canvas.alpha_composite(resized, ((SIZE - resized.width) // 2,
+                                     (SIZE - resized.height) // 2))
+    return canvas
 
 
-# Foreground stays inside the adaptive icon's central safe region.
-lettermark(620, GREEN, 'icon.png')
-lettermark(440, (0, 0, 0, 0), 'adaptive-icon.png')
-lettermark(440, (0, 0, 0, 0), 'monochrome-icon.png')
+with Image.open(SOURCE) as source:
+    logo = source.convert('RGBA')
+centered(logo, SIZE, 'white').convert('RGB').save(OUT / 'icon.png', optimize=True)
+# Keep the complete artwork inside Android's central safe region, including
+# circular launcher masks. Use white to match the supplied logo's background.
+centered(logo, 660, (0, 0, 0, 0)).save(OUT / 'adaptive-icon.png', optimize=True)
+# Themed icons use only alpha. Isolate the colored artwork from its neutral
+# white tile/shadow so Android can apply the user's chosen theme color.
+mask = Image.new('L', logo.size)
+mask.putdata([
+    round(a * min(1, max(0, (max(r, g, b) - min(r, g, b) - 12) / 24)))
+    for r, g, b, a in logo.getdata()
+])
+monochrome = Image.new('RGBA', logo.size, 'white')
+monochrome.putalpha(mask)
+centered(monochrome, 660, (0, 0, 0, 0)).save(OUT / 'monochrome-icon.png', optimize=True)
 print('Generated 1024px Amanot launcher icons.')
