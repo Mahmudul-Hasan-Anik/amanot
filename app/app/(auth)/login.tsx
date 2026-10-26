@@ -406,8 +406,8 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Public registration: each society gets its own isolated workspace. */}
-        {(
+        {/* One society uses this app: creating another is hidden unless EXPO_PUBLIC_ALLOW_NEW_SOMITI=true (first-time setup). */}
+        {process.env.EXPO_PUBLIC_ALLOW_NEW_SOMITI === 'true' && (
           <TouchableOpacity
             onPress={() => setShowRegisterModal(true)}
             style={styles.superAdminRegLink}

@@ -14,7 +14,7 @@ const button=()=>render().find(n=>n.props.testID==='confirm-deposit-btn');
 const amount=()=>render().find(n=>n.props.accessibilityLabel==='Deposit Amount');
 const errors=()=>render().filter(n=>n.props.accessibilityRole==='alert').map(n=>n.props.children.join(''));
 async function main(){
- const submits=button().props.onPress;await submits();assert.equal(writes.length,0);assert.equal(errors().length,2);assert.ok(scrolls.some(s=>s.y===84),'First invalid field revealed');
+ const submits=button().props.onPress;await submits();assert.equal(writes.length,0);assert.equal(errors().length,1,'Only the amount is required; transaction ID is optional');assert.ok(scrolls.some(s=>s.y===84),'First invalid field revealed');
  for(const bad of ['1x2','1.234','0','-1']){amount().props.onChangeText(bad);await button().props.onPress();assert.equal(writes.length,0);assert.ok(errors().some(e=>e.includes('positive amount')));}
  amount().props.onChangeText('১,২০০.৫০');render().find(n=>n.props.placeholder==='BK7X29QM4L').props.onChangeText('TX1');
  render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText('31/02/2026');await button().props.onPress();assert.ok(errors().some(e=>e.includes('valid DD/MM/YYYY')));

@@ -7,6 +7,8 @@ export type InvestmentContract = {
   fatherName: string; motherName: string; contacts: EmergencyContact[];
   principal: number; profitPct: number; profitAmount: number; termMonths: number;
   disbursedDate: string; firstDueDate: string; purpose: string;
+  /** Account the money left from (cash = cashier). */
+  paymentMethod?: 'cash' | 'bank' | 'bkash' | 'nagad';
 };
 export type NewInvestment = Omit<InvestmentContract, 'number' | 'profitAmount'> & {
   paymentMethod: 'cash' | 'bank' | 'bkash' | 'nagad';
@@ -65,23 +67,19 @@ export function normalizeContactPhone(value: string) {
   if (/^01[3-9]\d{8}$/.test(digits)) digits='88'+digits;
   return /^8801[3-9]\d{8}$/.test(digits) ? digits : '';
 }
-/** Ordered field errors follow the form, including original emergency-contact slots. */
+/** Ordered field errors follow the form. Identity and emergency contacts are optional (client decision). */
 export function investmentFieldErrors(d: NewInvestment): Record<string,string> {
   const errors:Record<string,string>={};
   if(!d.recipientName.trim())errors.recipientName='required';
   if(!normalizeContactPhone(d.phone))errors.phone='phone';
   if(d.whatsapp&&!normalizeContactPhone(d.whatsapp))errors.whatsapp='phone';
-  if(!/^\d+$/.test(toEnglishDigits(d.nid).trim()))errors.nid='nid';
-  if(!d.fatherName.trim())errors.fatherName='required';
-  if(!d.motherName.trim())errors.motherName='required';
-  const active=d.contacts.some(c=>c.name.trim()||c.relation.trim()||c.phone.trim());
+  const nid=toEnglishDigits(d.nid||'').trim();
+  if(nid&&!/^\d+$/.test(nid))errors.nid='nid';
   d.contacts.forEach((c,index)=>{
-    if(!(c.name.trim()||c.relation.trim()||c.phone.trim())&&(active||index>0))return;
+    if(!(c.name.trim()||c.relation.trim()||c.phone.trim()))return;
     if(!c.name.trim())errors['contact.'+index+'.name']='required';
-    if(!c.relation.trim())errors['contact.'+index+'.relation']='required';
     if(!normalizeContactPhone(c.phone))errors['contact.'+index+'.phone']='phone';
   });
-  if(!active&&!d.contacts.length)errors['contact.0.name']='required';
   if(d.contacts.filter(c=>c.name.trim()||c.relation.trim()||c.phone.trim()).length>3)errors['contact.0.name']='contacts';
   if(!Number.isFinite(d.principal)||d.principal<=0)errors.principal='amount';
   if(!Number.isFinite(d.profitPct)||d.profitPct<0||d.profitPct>100)errors.profitPct='rate';

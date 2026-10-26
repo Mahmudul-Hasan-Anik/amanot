@@ -13,7 +13,7 @@ import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import {useLedgerPage} from '../../src/hooks/useLedgerPage';
 import {Button} from '../../src/components/Button';
-import {signedTransactionAmount} from '../../src/lib/ledger';
+import {formatHumanDate} from '../../src/components/DateField';
 import {MemberBalanceSummary} from '../../src/components/MemberBalanceSummary';
 import {somitiName} from '../../src/utils/somitiBranding';
 
@@ -22,7 +22,9 @@ export default function MemberDashboardScreen() {
   const { currentUser, switchRole, actualRole } = useAuthStore();
   const { somitiInfo, members, notices,withdrawalRequests } = useSomitiStore();
   const canSwitchToAdmin = actualRole !== 'member';
-  const { l, formatMoney } = useLanguage();
+  const { l, isBengali, formatMoney } = useLanguage();
+  // Society setting: do members see their distributed profit?
+  const showProfit = (somitiInfo as any).memberSeesProfit !== false;
 
   const liveMember = members.find((m: any) => m.id === currentUser?.id);
   const member: any = liveMember || currentUser || {
@@ -117,103 +119,22 @@ export default function MemberDashboardScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* 1. Hero Financial Summary Card */}
+        {/* Members see only their profile, savings (deposits and withdrawals) and notices. */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>{l('My remaining balance', 'আমার অবশিষ্ট ব্যালেন্স')}</Text>
-          <Text style={styles.heroAmount}>{formatMoney(member.totalDeposit || 0)}</Text>
-          <Text style={styles.heroLabel}>{l('Net withdrawals','মোট নিট উত্তোলন')}: {formatMoney(member.totalWithdrawn||0)}</Text>
-
-          <View style={styles.heroDivider} />
-
-          <View style={styles.heroMetricsRow}>
-            <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Deposit rule', 'জমার নিয়ম')}</Text>
-              <Text style={styles.metricVal}>{l('Any amount', 'ইচ্ছামতো পরিমাণ')}</Text>
-            </View>
-
-            <View style={styles.metricSeparator} />
-
-            <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Status','স্ট্যাটাস')}</Text><Text style={styles.metricVal}>{member.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):l('Active','সক্রিয়')}</Text>
-            </View>
-
-            <View style={styles.metricSeparator} />
-
-            <View style={styles.heroMetricCol}>
-              <Text style={styles.metricSub}>{l('Estimated Profit', 'অর্জিত মুনাফা')}</Text>
-              <Text style={[styles.metricVal, { color: colors.surface }]}>
-                {formatMoney((member as any).profitBalance ?? (member as any).profit2025 ?? 0)}
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.heroLabel}>{l('My savings', 'আমার সঞ্চয়')}</Text>
+          <Text style={styles.heroAmount}>{formatMoney(showProfit ? (member.totalDeposit || 0) : Math.max(0, (member.totalDeposit || 0) - (member.profitBalance || 0)))}</Text>
+          <Text style={styles.heroLabel}>{member.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):l('Active','সক্রিয়')}</Text>
         </View>
-
-        {/* 2. Pay Due / Payment Accounts */}
-        <Button title={l('Request savings withdrawal','সঞ্চয় উত্তোলনের আবেদন')} onPress={()=>router.push('/(member)/withdrawals')} style={{marginBottom:16}}/>
-        <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
-        {withdrawalRequests.some(r=>r.member_id===member.id&&['submitted','approved'].includes(r.status))&&<View style={styles.sectionCard}>
-          <Text style={styles.cardSectionTitle}>{l('My withdrawal requests','আমার উত্তোলনের আবেদন')}</Text>
-          {withdrawalRequests.filter(r=>r.member_id===member.id&&['submitted','approved'].includes(r.status)).slice(0,3).map(r=><Text key={r.id} style={styles.cardSubText}>{formatMoney(r.amount)} · {r.status==='submitted'?l('Waiting for approval','অনুমোদনের অপেক্ষায়'):l('Approved · payment pending','অনুমোদিত · টাকা প্রদান বাকি')}</Text>)}
-        </View>}
+        <MemberBalanceSummary member={member} requests={withdrawalRequests} showProfit={showProfit}/>
         <View style={styles.sectionCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="wallet-outline" size={18} color={colors.primary} />
-            <Text style={styles.cardSectionTitle}>
-              {l('Somiti Payment Accounts', 'সমিতির পেমেন্ট অ্যাকাউন্ট')}
-            </Text>
-          </View>
-          <Text style={styles.cardSubText}>
-            {l(
-              'Deposit any amount and confirm with cashier.',
-              'নিচের নম্বরে কিস্তির টাকা পাঠিয়ে কোষাধ্যক্ষকে অবগত করুন।'
-            )}
-          </Text>
-
-          <View style={styles.accountRow}>
-            <View style={styles.accLeft}>
-              <Text style={styles.accTitle}>{l('bKash Merchant', 'বিকাশ মার্চেন্ট')}</Text>
-              <Text style={styles.accNumber}>{somitiInfo.bkashNo || l('Not configured', 'নম্বর দেওয়া নেই')}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.copyBtn}
-              disabled={!somitiInfo.bkashNo}
-              onPress={() => handleCopy(somitiInfo.bkashNo, 'বিকাশ নম্বর')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="copy-outline" size={15} color={colors.primary} />
-              <Text style={styles.copyBtnText}>{l('Share', 'শেয়ার')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.accountRow}>
-            <View style={styles.accLeft}>
-              <Text style={styles.accTitle}>
-                {somitiInfo.bankName || l('Bank account', 'ব্যাংক হিসাব')}
-              </Text>
-              <Text style={styles.accNumber}>
-                {somitiInfo.bankAccountNo || l('Not configured', 'হিসাব নম্বর দেওয়া নেই')}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.copyBtn}
-              disabled={!somitiInfo.bankAccountNo}
-              onPress={() => handleCopy(somitiInfo.bankAccountNo, 'ব্যাংক হিসাব')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="copy-outline" size={15} color={colors.primary} />
-              <Text style={styles.copyBtnText}>{l('Share', 'শেয়ার')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.cardSectionTitle}>{l('Deposit history', 'জমার ইতিহাস')}</Text>
-          <Button title={l('Withdrawal requests & receipts','উত্তোলনের আবেদন ও রসিদ')} variant="outline" onPress={()=>router.push('/(member)/withdrawals')}/>
-          {history.rows.filter(t=>['deposit','withdrawal','withdrawal_reversal'].includes(t.type)).map(t=><View key={t.id} style={{paddingVertical:12}}><Text>{t.receiptNo} · {t.date}</Text><Text>{t.type==='withdrawal'?l('Savings withdrawal','সঞ্চয় উত্তোলন'):t.type==='withdrawal_reversal'?l('Withdrawal reversal','উত্তোলন সংশোধন'):l('Deposit','জমা')}</Text><Text>{formatMoney(signedTransactionAmount(t))}</Text></View>)}
-          {history.loading && <Text>{l('Loading…','লোড হচ্ছে…')}</Text>}
-          {!!history.error && <TouchableOpacity onPress={history.reload}><Text>{l('Could not load history. Try again.','ইতিহাস পাওয়া যায়নি। আবার চেষ্টা করুন।')}</Text></TouchableOpacity>}
-          {!history.loading && !history.error && history.rows.length===0 && <Text>{l('No deposits yet','এখনো কোনো জমা নেই')}</Text>}
-          {history.hasMore && <TouchableOpacity onPress={history.loadMore}><Text>{l('Load more','আরও দেখুন')}</Text></TouchableOpacity>}
+          <Text style={styles.cardSectionTitle}>{l('Deposits and withdrawals', 'জমা ও উত্তোলন')}</Text>
+          {history.rows.filter(t=>['deposit','withdrawal','withdrawal_reversal'].includes(t.type)&&!t.voided).map(t=><View key={t.id} style={styles.passRow}>
+            <View style={{flex:1}}><Text style={styles.passTitle}>{t.type==='withdrawal'?l('Withdrawal','উত্তোলন'):t.type==='withdrawal_reversal'?l('Withdrawal cancelled','উত্তোলন বাতিল'):l('Deposit','জমা')}</Text><Text style={styles.cardSubText}>{t.dateISO?formatHumanDate(t.dateISO,isBengali):t.date} · {t.receiptNo}</Text></View>
+            <Text style={[styles.passAmount,{color:t.type==='withdrawal'?colors.warning:colors.primary}]}>{t.type==='withdrawal'?'−':'+'}{formatMoney(t.amount)}</Text></View>)}
+          {history.loading && <Text style={styles.cardSubText}>{l('Loading…','লোড হচ্ছে…')}</Text>}
+          {!!history.error && <TouchableOpacity onPress={history.reload}><Text style={styles.cardSubText}>{l('Could not load history. Try again.','ইতিহাস পাওয়া যায়নি। আবার চেষ্টা করুন।')}</Text></TouchableOpacity>}
+          {!history.loading && !history.error && history.rows.length===0 && <Text style={styles.cardSubText}>{l('No deposits yet','এখনো কোনো জমা নেই')}</Text>}
+          {history.hasMore && <TouchableOpacity onPress={history.loadMore}><Text style={[styles.cardSubText,{color:colors.primary}]}>{l('Load more','আরও দেখুন')}</Text></TouchableOpacity>}
         </View>
 
         {/* 4. Notice Board */}
@@ -265,40 +186,6 @@ export default function MemberDashboardScreen() {
           )}
         </View>
 
-        {/* 5. Helpline Support Bar */}
-        <View style={styles.helplineCard}>
-          <View style={styles.helpTextCol}>
-            <Text style={styles.helpTitle}>
-              {l('Need Help or Verification?', 'যেকোনো জিজ্ঞাসা বা সহায়তা?')}
-            </Text>
-            <Text style={styles.helpSub}>
-              {l(
-                'Contact Somiti Helpline directly',
-                'সমিতির কর্মকর্তাদের সাথে সরাসরি যোগাযোগ করুন'
-              )}
-            </Text>
-          </View>
-          <View style={styles.helpActionsRow}>
-            <TouchableOpacity
-              style={styles.helpBtn}
-              onPress={handleCallHelpline}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="call" size={16} color={colors.surface} />
-              <Text style={styles.helpBtnText}>{l('Call', 'কল')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.helpBtnWhatsApp}
-              onPress={handleWhatsAppHelpline}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="logo-whatsapp" size={16} color={colors.surface} />
-              <Text style={styles.helpBtnText}>{l('WhatsApp', 'হোয়াটসঅ্যাপ')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
     </SafeAreaView>
@@ -306,6 +193,9 @@ export default function MemberDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  passRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  passTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: 15, color: colors.text },
+  passAmount: { fontFamily: typography.fontFamily.bold, fontSize: 15 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

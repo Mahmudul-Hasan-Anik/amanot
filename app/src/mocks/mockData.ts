@@ -87,6 +87,12 @@ export interface CashAccount {
 }
 
 export const mockSomitiInfo = {
+  /** Month the society's year starts (7 = July, closing in June). */
+  fiscalYearStartMonth: 7,
+  /** Members see their distributed profit in the member app. */
+  memberSeesProfit: true,
+  profitMode: 'full' as 'full' | 'rate',
+  profitRatePct: 0,
   name: 'আমানত সমিতি',
   nameEn: 'Amanot Somiti',
   tagline: 'সমিতির সব হিসাব, এক জায়গায়',

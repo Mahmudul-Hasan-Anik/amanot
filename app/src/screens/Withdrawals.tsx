@@ -1,124 +1,137 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, Modal, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Modal, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Page, pageStyles as s } from '../components/Page';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { SelectModal } from '../components/SelectModal';
-import { useSomitiStore } from '../store/somitiStore';
+import { DateField, formatHumanDate } from '../components/DateField';
+import { useSomitiStore, REMOTE } from '../store/somitiStore';
 import { useAuthStore } from '../features/auth/authStore';
 import { useLanguage } from '../i18n/useLanguage';
-import { Withdrawal, WithdrawalMethod, withdrawalAvailable, pendingDays } from '../lib/withdrawal';
+import { Withdrawal, WithdrawalMethod } from '../lib/withdrawal';
 import { MemberPicker } from '../components/MemberPicker';
-import { MemberBalanceSummary } from '../components/MemberBalanceSummary';
-import { isoToday, parseInvestmentAmount, validISODate } from '../lib/investment';
+import { isoToday, parseInvestmentAmount } from '../lib/investment';
 import { uuid, fetchTransactionByReference } from '../lib/api';
-import { REMOTE } from '../store/somitiStore';
 import { exportReport } from '../utils/reportExport';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
+/**
+ * Savings returned to a member. The decision is taken outside the app, so the
+ * cashier records it in one step. Deposit and distributed profit can both be
+ * returned. A wrong entry is cancelled with a reason (kept in the audit log).
+ */
 export default function Withdrawals({memberView=false}:{memberView?:boolean}){
- const params=useLocalSearchParams<{memberId?:string;requestId?:string}>();
+ const params=useLocalSearchParams<{memberId?:string;requestId?:string;new?:string}>();
  const {l,isBengali,formatMoneyPrecise:money}=useLanguage();
  const rows=useSomitiStore(s=>s.withdrawalRequests),members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts),society=useSomitiStore(s=>s.somitiInfo);
  const current=useAuthStore(s=>s.currentUser),role=useAuthStore(s=>s.actualRole);
- const admin=!memberView&&['super_admin','admin'].includes(role),canPay=!memberView&&['super_admin','admin','cashier'].includes(role);
- const canChoose=!memberView&&['super_admin','admin','cashier'].includes(role);
- const [filter,setFilter]=useState('all'),[modal,setModal]=useState(''),[selected,setSelected]=useState<Withdrawal|null>(null);
- const [memberId,setMemberId]=useState(memberView?current?.id||'':String(params.memberId||current?.id||''));
- const [amount,setAmount]=useState(''),[reason,setReason]=useState(''),[method,setMethod]=useState<WithdrawalMethod>('cash'),[date,setDate]=useState(isoToday()),[reference,setReference]=useState('');
- const [picker,setPicker]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
- const locked=useRef(false),requestId=useRef(''),reversalId=useRef('');
- const formRef=useRef<ScrollView>(null);
- const showError=(message:string)=>{setError(message);formRef.current?.scrollTo({y:0,animated:true});};
- const syncing=useSomitiStore(s=>s.isSyncing);
+ const staff=!memberView&&['super_admin','admin','cashier'].includes(role||'');
+ const admin=!memberView&&['super_admin','admin'].includes(role||'');
+ const [modal,setModal]=useState(''),[selected,setSelected]=useState<Withdrawal|null>(null);
+ const [memberId,setMemberId]=useState(String(params.memberId||''));
+ const [amount,setAmount]=useState(''),[note,setNote]=useState(''),[method,setMethod]=useState<WithdrawalMethod>('cash'),[date,setDate]=useState(isoToday()),[reference,setReference]=useState('');
+ const [picker,setPicker]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState<Withdrawal|null>(null);
+ const locked=useRef(false),requestId=useRef(uuid()),reversalId=useRef(uuid());
  const own=rows.filter(r=>!memberView||r.member_id===current?.id);
- const visible=own.filter(r=>(!params.memberId||r.member_id===params.memberId)&&(!params.requestId||r.id===params.requestId||r.reversal_transaction_id===params.requestId)&&(filter==='all'||filter==='pending'&&['submitted','approved'].includes(r.status)||r.status===filter));
- const member=members.find(m=>m.id===memberId)||(memberView&&current?.id===memberId?current:null);
- const available=member?withdrawalAvailable(member,rows.filter(r=>r.member_id===memberId)):0;
- const reserved=own.filter(r=>r.status==='approved').reduce((sum,r)=>sum+r.amount,0);
+ const visible=own.filter(r=>(!params.memberId||r.member_id===params.memberId)&&(!params.requestId||r.id===params.requestId||r.reversal_transaction_id===params.requestId)&&(memberView?['paid','reversed'].includes(r.status):!['rejected','cancelled'].includes(r.status)));
+ const member=members.find(m=>m.id===memberId);
+ const savings=member?.totalDeposit||0;
+ const account=accounts.find(a=>a.type===(method==='cash'?'cashier':method));
  const methods:[WithdrawalMethod,string][]=[['cash',l('Cash','হাতে নগদ')],['bank',l('Bank','ব্যাংক')],['bkash','bKash'],['nagad',l('Nagad','নগদ')]];
- const status=(v:Withdrawal['status'])=>({submitted:l('Waiting for approval','অনুমোদনের অপেক্ষায়'),approved:l('Approved · payment pending','অনুমোদিত · টাকা প্রদান বাকি'),rejected:l('Rejected','প্রত্যাখ্যাত'),cancelled:l('Cancelled','বাতিল'),paid:l('Paid','প্রদান সম্পন্ন'),reversed:l('Reversed · savings restored','সংশোধিত · জমা ফেরত যুক্ত')}[v]);
- const open=(action:string,r:Withdrawal|null=null)=>{
-  if(locked.current)return;setSelected(r);setModal(action);setError('');setReason('');setDate(isoToday());setReference('');setAmount('');setMethod(r?.preferred_method||'cash');requestId.current=uuid();reversalId.current=uuid();
- };
+ const status=(v:Withdrawal['status'])=>({submitted:l('Old request · not paid','পুরনো আবেদন · টাকা দেওয়া হয়নি'),approved:l('Old request · not paid','পুরনো আবেদন · টাকা দেওয়া হয়নি'),rejected:l('Rejected','প্রত্যাখ্যাত'),cancelled:l('Cancelled','বাতিল'),paid:l('Paid','টাকা দেওয়া হয়েছে'),reversed:l('Cancelled · savings restored','বাতিল · সঞ্চয় ফেরত')}[v]);
+ const openNew=()=>{if(locked.current)return;setSelected(null);setModal('new');setError('');setNote('');setDate(isoToday());setReference('');setAmount('');requestId.current=uuid();};
+ useEffect(()=>{if(params.new&&staff)openNew();},[params.new]);// eslint-disable-line react-hooks/exhaustive-deps
  const close=()=>{if(!locked.current){setModal('');setError('');setPicker('');}};
  const receipt=async(r:Withdrawal)=>{
   if(locked.current)return;locked.current=true;setBusy(true);setError('');
   try{
    const reversed=r.status==='reversed';
-   const auth=useAuthStore.getState(),identity=`${auth.currentUser?.id}:${auth.actualRole}`;
    const lookup=async(id:string|undefined)=>id?(useSomitiStore.getState().transactions.find(t=>t.id===id)||(REMOTE?await fetchTransactionByReference(id):null)):null;
    const [paid,reversal]=await Promise.all([lookup(r.paid_transaction_id),reversed?lookup(r.reversal_transaction_id):Promise.resolve(null)]);
-   const currentAuth=useAuthStore.getState();
-   if(REMOTE&&(!currentAuth.isPinVerified||`${currentAuth.currentUser?.id}:${currentAuth.actualRole}`!==identity))return;
-   if(!paid||(reversed&&!reversal))throw new Error(l('Receipt details unavailable. Refresh and try again.','রসিদের তথ্য পাওয়া যায়নি। আপডেট করে আবার চেষ্টা করুন।'));
-   await exportReport({language:isBengali?'bn':'en',title:reversed?l('Withdrawal and reversal receipt','উত্তোলন ও সংশোধনের রসিদ'):l('Savings withdrawal receipt','সঞ্চয় উত্তোলনের রসিদ'),columns:[l('Item','বিবরণ'),l('Value','তথ্য')],rows:[
-    [l('Receipt number','রসিদ নম্বর'),paid.receiptNo],
-    [l('Request ID','আবেদন আইডি'),r.id],[l('Member','সদস্য'),r.member_name],[l('Member ID','সদস্য আইডি'),r.member_code],[l('Amount paid','প্রদান করা টাকা'),r.amount],
-    [l('Date','তারিখ'),r.payment_date||''],[l('Method','মাধ্যম'),r.payment_method||''],[l('Reference','reference'),r.payment_reference||''],[l('Status','অবস্থা'),status(r.status)],
-    ...(reversed?[[l('Reversal receipt','সংশোধনের রসিদ'),reversal!.receiptNo],[l('Reversal date','সংশোধনের তারিখ'),reversal!.dateISO||reversal!.date],[l('Reversal ID','সংশোধনের আইডি'),r.reversal_transaction_id||''],[l('Reversal reason','সংশোধনের কারণ'),r.reversal_reason]]:[])
+   if(!paid||(reversed&&!reversal))throw new Error(l('Receipt details unavailable. Refresh and try again.','রসিদের তথ্য পাওয়া যায়নি। আপডেট করে আবার চেষ্টা করুন।'));
+   await exportReport({language:isBengali?'bn':'en',title:l('Savings return receipt','সঞ্চয় ফেরতের রসিদ'),columns:[l('Item','বিবরণ'),l('Value','তথ্য')],rows:[
+    [l('Receipt number','রসিদ নম্বর'),paid.receiptNo],[l('Member','সদস্য'),r.member_name],[l('Member ID','সদস্য আইডি'),r.member_code],[l('Amount','টাকা'),r.amount],
+    [l('Date','তারিখ'),r.payment_date||''],[l('Method','মাধ্যম'),r.payment_method||''],[l('Reference','রেফারেন্স'),r.payment_reference||''],[l('Status','অবস্থা'),status(r.status)],
+    ...(reversed?[[l('Cancelled on','বাতিলের তারিখ'),reversal!.dateISO||reversal!.date],[l('Reason','কারণ'),r.reversal_reason]]:[])
    ]},society.name,r.payment_date||isoToday(),'PDF');
   }catch(e:any){setError(e.message);}finally{locked.current=false;setBusy(false);}
  };
  const save=async()=>{
   if(locked.current)return;setError('');
   const actions=useSomitiStore.getState(),value=parseInvestmentAmount(amount);
-  if(modal==='new'&&(!member||!Number.isFinite(value)||value<=0||value>available)){showError(l('Choose a member and enter an amount within available savings.','সদস্য নির্বাচন করে উত্তোলনযোগ্য জমার মধ্যে পরিমাণ লিখুন।'));return;}
-  if(['reject','cancel','reverse'].includes(modal)&&!reason.trim()){showError(l('Enter a reason.','কারণ লিখুন।'));return;}
-  if(['pay','reverse'].includes(modal)&&(!validISODate(date)||date>isoToday())){showError(l('Enter a valid date, not in the future.','সঠিক তারিখ দিন; ভবিষ্যতের তারিখ নয়।'));return;}
-  if(modal==='pay'&&method!=='cash'&&!reference.trim()){showError(l('Enter the payment reference.','টাকা প্রদানের reference দিন।'));return;}
+  if(modal==='new'){
+   if(!member){setError(l('Choose a member.','সদস্য বাছুন।'));return;}
+   if(!Number.isFinite(value)||value<=0){setError(l('Enter the amount you are giving back.','কত টাকা ফেরত দিচ্ছেন লিখুন।'));return;}
+   if(value>savings){setError(l(`${member.name} has ${money(savings)} in savings.`,`${member.name}-এর সঞ্চয়ে ${money(savings)} আছে।`));return;}
+   if(!account||account.amount<value){setError(l(`${account?.name||'This account'} has only ${money(account?.amount||0)}. Pick another account or add money.`,`${account?.name||'এই হিসাবে'} মাত্র ${money(account?.amount||0)} আছে। অন্য হিসাব বাছুন বা টাকা যোগ করুন।`));return;}
+  }
+  if(modal==='reverse'&&note.trim().length<3){setError(l('Write why this is being cancelled.','কেন বাতিল করছেন লিখুন।'));return;}
   locked.current=true;setBusy(true);
   try{
-   if(modal==='new')await actions.submitWithdrawal({id:requestId.current,memberId,amount:value!,method,reason:reason.trim()});
-   else if(modal==='pay')await actions.payWithdrawal(selected!.id,method,date,reference,reason);
-   else if(modal==='reverse')await actions.reverseWithdrawal(selected!.id,reversalId.current,date,reason);
-   else await actions.decideWithdrawal(selected!.id,modal as 'approve'|'reject'|'cancel',reason);
-   setSuccess(modal==='new'?l('Withdrawal request submitted. No money has been deducted.','উত্তোলনের আবেদন জমা হয়েছে। টাকা কাটা হয়নি।'):modal==='pay'?l('Payment recorded. Savings and account balances updated.','টাকা প্রদান রেকর্ড হয়েছে। জমা ও account balance সমন্বয় হয়েছে।'):modal==='reverse'?l('Reversal recorded. Confirm the money was returned to the same account.','সংশোধন রেকর্ড হয়েছে। টাকা একই হিসাবে ফেরত এসেছে নিশ্চিত করুন।'):l('Request updated.','আবেদন আপডেট হয়েছে।'));setModal('');
-  }catch(e:any){showError(e.message||l('Operation failed','কাজটি সম্পন্ন হয়নি'));}finally{locked.current=false;setBusy(false);}
+   if(modal==='new'){
+    await actions.recordWithdrawal({id:requestId.current,memberId,amount:value,method,date,reference:reference.trim(),note:note.trim()});
+    setDone(useSomitiStore.getState().withdrawalRequests.find(r=>r.id===requestId.current)||null);
+   }else if(modal==='reverse')await actions.reverseWithdrawal(selected!.id,reversalId.current,isoToday(),note.trim());
+   else if(modal==='legacy'){
+    // Older requests made before approvals moved outside the app.
+    if(selected!.status==='submitted')await actions.decideWithdrawal(selected!.id,'approve','');
+    await actions.payWithdrawal(selected!.id,method,date,reference.trim()||'-',note.trim());
+   }
+   setModal('');
+  }catch(e:any){setError(e.message||l('Could not save. Try again.','সংরক্ষণ হয়নি। আবার চেষ্টা করুন।'));}finally{locked.current=false;setBusy(false);}
  };
- const modalTitle=modal==='new'?l('Request withdrawal','উত্তোলনের আবেদন'):modal==='pay'?l('Confirm money paid','টাকা প্রদান নিশ্চিত করুন'):modal==='approve'?l('Approve withdrawal','উত্তোলন অনুমোদন'):modal==='reject'?l('Reject withdrawal','উত্তোলন প্রত্যাখ্যান'):modal==='reverse'?l('Reverse recorded payment','প্রদান করা টাকা সংশোধন'):l('Cancel request','আবেদন বাতিল');
- return <Page title={l('Savings withdrawals','সঞ্চয় উত্তোলন')} backTo={memberView?'/(member)':'/(admin)/(tabs)'} subtitle={l('Request → approval → payment','আবেদন → অনুমোদন → টাকা প্রদান')}
-  actions={<Button title={l('Refresh','আপডেট')} size="sm" variant="ghost" loading={syncing} disabled={busy} onPress={()=>{void useSomitiStore.getState().syncFromServer();}}/>}>
-  {success?<Text accessibilityLiveRegion="polite" style={[s.text,{color:colors.primary,marginBottom:12}]}>{success}</Text>:null}
+ const modalTitle=modal==='new'?l('Give savings back','টাকা ফেরত দিন'):modal==='reverse'?l('Cancel this return','এই ফেরত বাতিল'):l('Pay old request','পুরনো আবেদনের টাকা দিন');
+ return <Page title={memberView?l('My withdrawals','আমার উত্তোলন'):l('Savings returned','সঞ্চয় ফেরত')} backTo={memberView?'/(member)':'/(admin)/(tabs)'}>
   {error&&!modal?<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{error}</Text>:null}
-  <View style={s.card}><Text style={s.text}>{l('Approved savings reserved','অনুমোদিত আবেদনে সংরক্ষিত জমা')}</Text><Text style={s.value}>{money(reserved)}</Text><Text style={s.text}>{l('Approval does not deduct money. Cash/bank availability is checked when payment is recorded.','অনুমোদনে টাকা কাটা হয় না। টাকা প্রদানের সময় cash/bank balance যাচাই হয়।')}</Text></View>
-  {memberView&&member&&<MemberBalanceSummary member={member} requests={rows}/>}
-  <Button title={l('New withdrawal request','নতুন উত্তোলনের আবেদন')} disabled={busy||(!canChoose&&!current?.id)} onPress={()=>open('new')}/>
-  <View style={[s.chips,{marginTop:16}]}>{[['all',l('All','সব')],['pending',l('Pending','অপেক্ষমাণ')],['paid',l('Paid','প্রদত্ত')],['reversed',l('Reversed','সংশোধিত')]].map(([value,label])=><Button key={value} size="sm" variant={filter===value?'primary':'outline'} title={label} onPress={()=>setFilter(value)}/>)}</View>
-  {!visible.length&&<Text style={s.text}>{l('No withdrawal requests for this selection.','এই তালিকায় উত্তোলনের আবেদন নেই।')}</Text>}
-  {visible.map(r=><View key={r.id} style={s.card}>
-   <Text style={s.title}>{r.member_name}</Text><Text style={s.text}>{r.member_code} · {r.created_at.slice(0,10)}</Text><Text style={s.value}>{money(r.amount)}</Text><Text style={[s.text,{color:colors.primary}]}>{status(r.status)}</Text>
-   {['submitted','approved'].includes(r.status)&&<Text style={s.text}>{l('Waiting','অপেক্ষায়')}: {pendingDays(r.created_at)} {l('days','দিন')}</Text>}
-   {r.reason?<Text style={s.text}>{l('Reason','কারণ')}: {r.reason}</Text>:null}{r.decision_note?<Text style={s.text}>{l('Decision note','সিদ্ধান্তের মন্তব্য')}: {r.decision_note}</Text>:null}
-   {r.status==='submitted'&&admin&&<View style={styles.actions}><Button title={l('Approve','অনুমোদন')} size="sm" disabled={busy} onPress={()=>open('approve',r)}/><Button title={l('Reject','প্রত্যাখ্যান')} size="sm" variant="outline" disabled={busy} onPress={()=>open('reject',r)}/></View>}
-   {r.status==='approved'&&canPay&&<Button title={l('Record money paid','টাকা প্রদান রেকর্ড করুন')} disabled={busy} onPress={()=>open('pay',r)}/>}
-   {((r.status==='submitted'&&(admin||r.member_id===current?.id))||(r.status==='approved'&&admin))&&<Button title={l('Cancel request','আবেদন বাতিল')} variant="ghost" size="sm" disabled={busy} onPress={()=>open('cancel',r)}/>}
-   {['paid','reversed'].includes(r.status)&&<Button title={l('Receipt PDF','রসিদ PDF')} variant="outline" size="sm" disabled={busy} onPress={()=>receipt(r)}/>}
-   {r.status==='paid'&&admin&&<Button title={l('Correct by reversal','সংশোধনের জন্য reversal')} variant="ghost" size="sm" disabled={busy} onPress={()=>open('reverse',r)}/>}
-  </View>)}
+  {done?<View style={[s.card,{backgroundColor:colors.primarySoft}]}><Text style={s.title}>{l('Saved','সংরক্ষণ হয়েছে')}</Text><Text style={s.text}>{done.member_name} · {money(done.amount)}</Text>
+   <View style={styles.actions}><Button size="sm" title={l('Receipt PDF','রসিদ PDF')} onPress={()=>receipt(done)}/><Button size="sm" variant="outline" title={l('Another entry','আরেকটা এন্ট্রি')} onPress={()=>{setDone(null);setMemberId('');openNew();}}/></View></View>:null}
+  {staff?<Button title={l('Give savings back','টাকা ফেরত দিন')} disabled={busy} onPress={openNew}/>:null}
+  {!visible.length&&<Text style={[s.text,{marginTop:16}]}>{l('No savings returned yet.','এখনো কোনো সঞ্চয় ফেরত নেই।')}</Text>}
+  <View style={{gap:10,marginTop:16}}>{visible.map(r=><View key={r.id} style={[s.card,r.status==='reversed'&&{opacity:0.6}]}>
+   <View style={styles.row}><View style={{flex:1}}><Text style={s.title}>{r.member_name}</Text><Text style={s.text}>{r.member_code} · {formatHumanDate(r.payment_date||r.created_at.slice(0,10),isBengali)}</Text></View><Text style={[s.value,r.status==='reversed'&&{textDecorationLine:'line-through'}]}>{money(r.amount)}</Text></View>
+   <Text style={[s.text,{color:['submitted','approved'].includes(r.status)?colors.warning:colors.primary}]}>{status(r.status)}</Text>
+   {r.payment_note||r.reason?<Text style={s.text}>{r.payment_note||r.reason}</Text>:null}
+   {r.status==='reversed'&&r.reversal_reason?<Text style={s.text}>{l('Reason','কারণ')}: {r.reversal_reason}</Text>:null}
+   <View style={styles.actions}>
+    {['paid','reversed'].includes(r.status)&&<Button title={l('Receipt','রসিদ')} variant="outline" size="sm" disabled={busy} onPress={()=>receipt(r)}/>}
+    {r.status==='paid'&&staff&&<Button title={l('Cancel','বাতিল')} variant="ghost" size="sm" disabled={busy} onPress={()=>{setSelected(r);setNote('');setError('');reversalId.current=uuid();setModal('reverse');}}/>}
+    {['submitted','approved'].includes(r.status)&&admin&&<Button title={l('Pay now','এখন টাকা দিন')} size="sm" disabled={busy} onPress={()=>{setSelected(r);setMethod(r.preferred_method);setDate(isoToday());setNote('');setReference('');setError('');setModal('legacy');}}/>}
+    {['submitted','approved'].includes(r.status)&&admin&&<Button title={l('Close request','আবেদন বন্ধ')} size="sm" variant="ghost" disabled={busy} onPress={async()=>{try{await useSomitiStore.getState().decideWithdrawal(r.id,'cancel',l('Closed: approvals are outside the app','বন্ধ: অনুমোদন এখন অ্যাপের বাইরে'));}catch(e:any){setError(e.message);}}}/>}
+   </View>
+  </View>)}</View>
   <Modal visible={!!modal} transparent animationType="fade" onRequestClose={close}>
    <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS==='ios'?'padding':undefined}><View style={styles.panel}>
-    <ScrollView ref={formRef} keyboardShouldPersistTaps="handled"><Text style={s.title}>{modalTitle}</Text>
+    <ScrollView keyboardShouldPersistTaps="handled"><Text style={s.title}>{modalTitle}</Text>
      {error?<Text accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.error}>{error}</Text>:null}
      {selected&&<Text style={s.text}>{selected.member_name} · {selected.member_code} · {money(selected.amount)}</Text>}
-     {modal==='new'&&<><Button variant="outline" title={member?`${member.name} · ${member.code}`:l('Choose member','সদস্য নির্বাচন')} disabled={!canChoose||busy} onPress={()=>setPicker('member')}/>
-      <Text style={s.text}>{l('Available savings (excluding profit and reservations)','উত্তোলনযোগ্য জমা (লাভ ও সংরক্ষিত টাকা বাদে)')}: {money(available)}</Text>
-      <Input label={l('Amount *','পরিমাণ *')} value={amount} keyboardType="decimal-pad" editable={!busy} onChangeText={v=>{setAmount(v);setError('');}}/>
+     {modal==='new'&&<>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={()=>setPicker('member')} style={styles.pick}>
+       <View style={{flex:1}}><Text style={styles.pickLabel}>{l('Member','সদস্য')}</Text><Text style={styles.pickValue}>{member?`${member.name} · ${member.code}`:l('Choose member','সদস্য বাছুন')}</Text></View><Ionicons name="chevron-down" size={18} color={colors.textSecondary}/></Pressable>
+      {member?<Text style={[s.text,{marginBottom:10}]}>{l('Savings now','এখন সঞ্চয় আছে')}: <Text style={{color:colors.primary,fontFamily:typography.fontFamily.semiBold}}>{money(savings)}</Text></Text>:null}
+      <Input label={l('Amount','টাকা')} value={amount} keyboardType="decimal-pad" editable={!busy} onChangeText={v=>{setAmount(v);setError('');}}/>
+      {member&&savings>0?<Pressable onPress={()=>setAmount(String(savings))} style={{marginTop:-8,marginBottom:12}}><Text style={styles.link}>{l(`All savings (${money(savings)}) · member becomes inactive`,`পুরো সঞ্চয় (${money(savings)}) · সদস্য নিষ্ক্রিয় হবেন`)}</Text></Pressable>:null}
      </>}
-     {['new','pay'].includes(modal)&&<><Button variant="outline" disabled={busy} title={l('Payment method','টাকা পাওয়ার মাধ্যম')+': '+methods.find(([v])=>v===method)![1]} onPress={()=>setPicker('method')}/>
-      {modal==='pay'&&<><Text style={s.text}>{l('Account','হিসাব')}: {accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method}</Text><Input label={l('Reference (required except cash)','reference (নগদ ছাড়া আবশ্যক)')} value={reference} maxLength={200} editable={!busy} onChangeText={setReference}/></>}
+     {['new','legacy'].includes(modal)&&<>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={()=>setPicker('method')} style={styles.pick}>
+       <View style={{flex:1}}><Text style={styles.pickLabel}>{l('Paid from','কোন হিসাব থেকে')}</Text><Text style={styles.pickValue}>{account?.name||methods.find(([v])=>v===method)![1]} · {money(account?.amount||0)}</Text></View><Ionicons name="chevron-down" size={18} color={colors.textSecondary}/></Pressable>
+      <DateField label={l('Date','তারিখ')} value={date} max={isoToday()} onChange={setDate}/>
+      {method!=='cash'?<Input label={l('Reference (optional)','রেফারেন্স (ঐচ্ছিক)')} value={reference} maxLength={200} editable={!busy} onChangeText={setReference}/>:null}
      </>}
-     {['pay','reverse'].includes(modal)&&<Input label={l('Posting date (YYYY-MM-DD) *','লেনদেনের তারিখ (YYYY-MM-DD) *')} value={date} editable={!busy} onChangeText={setDate}/>}
-     <Input label={['reject','cancel','reverse'].includes(modal)?l('Reason *','কারণ *'):l('Note (optional)','মন্তব্য (ঐচ্ছিক)')} value={reason} editable={!busy} maxLength={1000} multiline onChangeText={setReason}/>
-     <Text style={s.text}>{modal==='approve'?l('This reserves savings. No cash will be deducted yet.','এতে জমা সংরক্ষিত হবে। এখনই cash থেকে টাকা কাটবে না।'):modal==='pay'?l('Confirm only after you have paid this exact amount to the member.','সদস্যকে ঠিক এই পরিমাণ টাকা দেওয়ার পরেই নিশ্চিত করুন।'):modal==='reverse'?l('Use only after the full amount has returned to the original payment account. This restores savings and adds money to that account.','পুরো টাকা আগের payment account-এ ফেরত আসলেই ব্যবহার করুন। এতে জমা ও ওই account-এ টাকা ফেরত যোগ হবে।'):l('Withdrawals do not close membership or withdraw distributed profit.','উত্তোলনে সদস্যপদ বন্ধ হয় না এবং বণ্টিত লাভ তোলা হয় না।')}</Text>
+     <Input label={modal==='reverse'?l('Why cancel?','কেন বাতিল?'):l('Note (optional)','মন্তব্য (ঐচ্ছিক)')} value={note} editable={!busy} maxLength={1000} multiline onChangeText={setNote}/>
+     {modal==='reverse'?<Text style={s.text}>{l('Use when the money came back or the entry was wrong. Savings and the account are restored.','টাকা ফেরত এলে বা এন্ট্রি ভুল হলে ব্যবহার করুন। সঞ্চয় ও হিসাবে টাকা ফেরত যাবে।')}</Text>:null}
     </ScrollView>
-    <View style={styles.actions}><Button title={l('Back','ফিরুন')} variant="outline" disabled={busy} onPress={close}/><Button title={modal==='pay'?l('Confirm payment','টাকা প্রদান নিশ্চিত'):modal==='reverse'?l('Confirm reversal','সংশোধন নিশ্চিত'):l('Confirm','নিশ্চিত করুন')} loading={busy} onPress={save}/></View>
+    <View style={styles.actions}><Button title={l('Back','ফিরুন')} variant="outline" disabled={busy} onPress={close}/><Button title={modal==='reverse'?l('Cancel entry','বাতিল করুন'):l('Save','সংরক্ষণ করুন')} variant={modal==='reverse'?'danger':'primary'} loading={busy} onPress={save}/></View>
    </View></KeyboardAvoidingView>
   </Modal>
-  <MemberPicker visible={picker==='member'} activeOnly members={members} value={memberId} onSelect={value=>{setMemberId(value);setError('');}} onClose={()=>setPicker('')}/>
-  <SelectModal visible={picker==='method'} title={l('Choose method','মাধ্যম নির্বাচন')} value={method} options={methods.map(([value,label])=>({value,label}))}
+  <MemberPicker visible={picker==='member'} members={members.filter(m=>m.totalDeposit>0)} value={memberId} onSelect={value=>{setMemberId(value);setError('');}} onClose={()=>setPicker('')}/>
+  <SelectModal visible={picker==='method'} title={l('Paid from','কোন হিসাব থেকে')} value={method} options={methods.map(([value,label])=>({value,label:`${accounts.find(a=>a.type===(value==='cash'?'cashier':value))?.name||label} · ${money(accounts.find(a=>a.type===(value==='cash'?'cashier':value))?.amount||0)}`}))}
    onSelect={value=>{setMethod(value as WithdrawalMethod);setError('');}} onClose={()=>setPicker('')}/>
  </Page>;
 }
-const styles=StyleSheet.create({overlay:{flex:1,backgroundColor:colors.overlay,justifyContent:'center',padding:16},panel:{width:'100%',maxWidth:480,maxHeight:'90%',alignSelf:'center',backgroundColor:colors.surface,borderRadius:20,padding:20},actions:{flexDirection:'row',flexWrap:'wrap',gap:12,marginTop:12},error:{color:colors.danger,marginVertical:12}});
+const styles=StyleSheet.create({overlay:{flex:1,backgroundColor:colors.overlay,justifyContent:'center',padding:16},panel:{width:'100%',maxWidth:480,maxHeight:'90%',alignSelf:'center',backgroundColor:colors.surface,borderRadius:20,padding:20},
+ actions:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:10},row:{flexDirection:'row',alignItems:'center',gap:10},error:{color:colors.danger,marginVertical:12},
+ pick:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:14,paddingVertical:9,marginVertical:10},
+ pickLabel:{fontFamily:typography.fontFamily.regular,fontSize:12,color:colors.textSecondary},pickValue:{fontFamily:typography.fontFamily.medium,fontSize:15,color:colors.text},link:{fontFamily:typography.fontFamily.semiBold,fontSize:13,color:colors.primary}});

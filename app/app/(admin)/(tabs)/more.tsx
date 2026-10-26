@@ -23,11 +23,36 @@ export default function MoreScreen() {
   const { l, formatNum, isBengali } = useLanguage();
   const pendingCount = useSomitiStore(s => s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length+s.withdrawalRequests.filter(r=>['submitted','approved'].includes(r.status)).length);
 
-  const defaultName = isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain';
-  const defaultRole = isBengali ? 'সভাপতি • সুপার অ্যাডমিন' : 'President • Super Admin';
-
-  const userName = currentUser?.name || defaultName;
-  const userRole = defaultRole;
+  const role = useAuthStore(st => st.actualRole);
+  const admin = role === 'admin' || role === 'super_admin';
+  const roleName: Record<string, [string, string]> = { super_admin: ['Super admin', 'সুপার অ্যাডমিন'], admin: ['Admin', 'অ্যাডমিন'], cashier: ['Cashier', 'ক্যাশিয়ার'], field_worker: ['Field worker', 'মাঠকর্মী'], member: ['Member', 'সদস্য'] };
+  const userName = currentUser?.name || l('User', 'ব্যবহারকারী');
+  const userRole = [currentUser?.role, roleName[role || 'member'] ? l(...roleName[role || 'member']) : ''].filter(Boolean).join(' • ');
+  // Four groups: money, member services, reports, society & settings. Approvals live outside the app now.
+  const groups: { title: string; items: { icon: keyof typeof Ionicons.glyphMap; title: string; href: string; show?: boolean; badge?: number }[] }[] = [
+    { title: l('Accounts & money', 'হিসাব ও টাকা'), items: [
+      { icon: 'wallet-outline', title: l('Accounts & balances', 'হিসাব ও ব্যালেন্স'), href: '/(admin)/finance' },
+      { icon: 'book-outline', title: l('Khata (all entries)', 'লেনদেনের খাতা'), href: '/(admin)/ledger' },
+      { icon: 'add-circle-outline', title: l('Add money to an account', 'হিসাবে টাকা যোগ'), href: '/(admin)/fund/new' },
+      { icon: 'alert-circle-outline', title: l('Overdue installments', 'বকেয়া কিস্তি'), href: '/(admin)/due' },
+    ] },
+    { title: l('Member services', 'সদস্য সেবা'), items: [
+      { icon: 'cash-outline', title: l('Savings returned', 'সঞ্চয় ফেরত'), href: '/(admin)/withdrawals' },
+      { icon: 'megaphone-outline', title: l('Notices', 'নোটিশ'), href: '/(admin)/notices' },
+      { icon: 'paper-plane-outline', title: l('Send statement', 'স্টেটমেন্ট পাঠান'), href: '/(admin)/statement' },
+      { icon: 'time-outline', title: l('Older requests to close', 'পুরনো আবেদন'), href: '/(admin)/approvals', show: pendingCount > 0, badge: pendingCount },
+    ] },
+    { title: l('Reports', 'রিপোর্ট'), items: [
+      { icon: 'document-text-outline', title: l('Reports & analysis', 'রিপোর্ট ও বিশ্লেষণ'), href: '/(admin)/reports' },
+      { icon: 'pie-chart-outline', title: l('Yearly profit distribution', 'বার্ষিক মুনাফা বণ্টন'), href: '/(admin)/distribution' },
+    ] },
+    { title: l('Society & settings', 'সমিতি ও সেটিংস'), items: [
+      { icon: 'business-outline', title: l('Society details', 'সমিতির তথ্য'), href: '/(admin)/somiti' },
+      { icon: 'people-outline', title: l('Users & permissions', 'ইউজার ও অনুমতি'), href: '/(admin)/roles', show: admin },
+      { icon: 'settings-outline', title: l('Settings', 'সেটিংস'), href: '/(admin)/settings' },
+      { icon: 'shield-checkmark-outline', title: l('Audit log', 'অডিট লগ'), href: '/(admin)/audit', show: admin },
+    ] },
+  ];
   const userInitial = userName.trim().charAt(0) || (isBengali ? 'আ' : 'A');
 
   const handleLogout = () => {
@@ -77,201 +102,20 @@ export default function MoreScreen() {
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Section 1: হিসাব (Accounts) */}
-        <Text style={styles.sectionHeader}>{l('Accounts', 'হিসাব')}</Text>
-        <View style={styles.menuCard}>
-          {/* আয় ও ব্যয় */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/finance')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="wallet-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Income & Expense', 'আয় ও ব্যয়')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* অনুমোদন */}
-          <TouchableOpacity style={styles.menuRow} onPress={()=>router.push('/(admin)/withdrawals')} accessibilityRole="button">
-            <View style={styles.iconBox}><Ionicons name="cash-outline" size={18} color={colors.primary}/></View>
-            <Text style={styles.menuTitle}>{l('Savings withdrawals','সঞ্চয় উত্তোলন')}</Text><Ionicons name="chevron-forward" size={16} color={colors.textSecondary}/>
-          </TouchableOpacity><View style={styles.menuDivider}/>
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/approvals')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="checkmark-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Approvals', 'অনুমোদন')}</Text>
-            {pendingCount > 0 && <View style={styles.badgeBlack}>
-              <Text style={styles.badgeBlackText}>
-                {formatNum(pendingCount)}
-              </Text>
-            </View>}
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* বার্ষিক লাভ বণ্টন */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/distribution')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="pie-chart-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Annual Profit Distribution', 'বার্ষিক লাভ বণ্টন')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Section 2: রিপোর্ট ও যোগাযোগ (Reports & Communication) */}
-        <Text style={styles.sectionHeader}>{l('Reports & Communication', 'রিপোর্ট ও যোগাযোগ')}</Text>
-        <View style={styles.menuCard}>
-          {/* অ্যানালিটিক্স */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/analytics')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="trending-up-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Analytics', 'অ্যানালিটিক্স')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* রিপোর্ট */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/reports')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Reports', 'রিপোর্ট')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* স্টেটমেন্ট পাঠান */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/statement')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="paper-plane-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Send Statement', 'স্টেটমেন্ট পাঠান')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* বকেয়া তালিকা */}
-          
-
-          <View style={styles.menuDivider} />
-
-          {/* রিমাইন্ডার ও টেমপ্লেট */}
-          
-        </View>
-
-        {/* Section 3: সমিতি (Society) */}
-        <Text style={styles.sectionHeader}>{l('Society', 'সমিতি')}</Text>
-        <View style={styles.menuCard}>
-          {/* সমিতির প্রোফাইল */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/somiti')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="business-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Society Profile', 'সমিতির প্রোফাইল')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* সভা ও নোটিশ */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(admin)/notices')}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="easel-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Notices', 'নোটিশ')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-
-        </View>
-
-        {/* Section 4: প্রশাসন (Administration) */}
-        <Text style={styles.sectionHeader}>{l('Administration', 'প্রশাসন')}</Text>
-        <View style={styles.menuCard}>
-          {/* ব্যবহারকারী ও রোল */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(admin)/roles')}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="key-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Users & Roles', 'ব্যবহারকারী ও রোল')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* অডিট লগ */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/audit')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="time-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Audit Log', 'অডিট লগ')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          {/* সেটিংস */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/(admin)/settings')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBox}>
-              <Ionicons name="settings-outline" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{l('Settings', 'সেটিংস')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        {groups.map(group => <React.Fragment key={group.title}>
+          <Text style={styles.sectionHeader}>{group.title}</Text>
+          <View style={styles.menuCard}>
+            {group.items.filter(item => item.show !== false).map((item, index) => <React.Fragment key={item.href}>
+              {index > 0 && <View style={styles.menuDivider} />}
+              <TouchableOpacity style={styles.menuRow} onPress={() => router.push(item.href as any)} activeOpacity={0.7} accessibilityRole="button">
+                <View style={styles.iconBox}><Ionicons name={item.icon} size={18} color={colors.primary} /></View>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                {item.badge ? <View style={styles.badgeBlack}><Text style={styles.badgeBlackText}>{formatNum(item.badge)}</Text></View> : null}
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </React.Fragment>)}
+          </View>
+        </React.Fragment>)}
 
         {/* Centered Logout Button */}
         <TouchableOpacity

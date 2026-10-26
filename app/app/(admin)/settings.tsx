@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { SelectModal } from '../../src/components/SelectModal';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { REMOTE } from '../../src/store/somitiStore';
 import { useSomitiStore } from '../../src/store/somitiStore';
@@ -21,6 +22,8 @@ import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 
 import { typography } from '../../src/theme/typography';
+
+const FY_MONTHS: [string, string][] = [['January','জানুয়ারি'],['February','ফেব্রুয়ারি'],['March','মার্চ'],['April','এপ্রিল'],['May','মে'],['June','জুন'],['July','জুলাই'],['August','আগস্ট'],['September','সেপ্টেম্বর'],['October','অক্টোবর'],['November','নভেম্বর'],['December','ডিসেম্বর']];
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -64,6 +67,11 @@ export default function SettingsScreen() {
     catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
+  const role = useAuthStore(st => st.actualRole);
+  const canChangeSociety = role === 'admin' || role === 'super_admin';
+  const fyStart = Math.min(12, Math.max(1, Number(info.fiscalYearStartMonth) || 7));
+  const [showFyModal, setShowFyModal] = useState(false);
+  const [memberSeesProfit, setMemberSeesProfit] = useState(info.memberSeesProfit !== false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
 
@@ -237,55 +245,40 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Section 3: অনুমোদন (Approvals) - Page 22 */}
-        <Text style={styles.sectionTitle}>{l('Approvals', 'অনুমোদন')}</Text>
+        {/* Year and member view. Approvals happen in the meeting, outside the app. */}
+        <Text style={styles.sectionTitle}>{l('Year & members', 'হিসাব বছর ও সদস্য')}</Text>
         <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => setShowApprovalModal(true)}
-          >
-            <Text style={styles.rowTitle}>
-              {l('Expense Approval Limit', 'ব্যয় অনুমোদনের সীমা')}
-            </Text>
+          <TouchableOpacity style={styles.row} activeOpacity={0.7} disabled={!canChangeSociety} onPress={() => setShowFyModal(true)}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle}>{l('Year starts in', 'হিসাব বছর শুরু')}</Text>
+              <Text style={styles.rowSub}>{l(`Closes at the end of ${FY_MONTHS[(fyStart + 10) % 12][0]}`, `${FY_MONTHS[(fyStart + 10) % 12][1]} মাসের শেষে বছর বন্ধ`)}</Text>
+            </View>
             <View style={styles.rowRight}>
-              <Text style={styles.valText}>{formatMoney(expenseApprovalLimit)}</Text>
+              <Text style={styles.valText}>{l(FY_MONTHS[fyStart - 1][0], FY_MONTHS[fyStart - 1][1])}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
-
           <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => router.push('/(admin)/(tabs)/projects')}>
-            <Text style={styles.rowTitle}>{l('New Investment', 'নতুন বিনিয়োগ')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {l('Always Require Approval', 'সবসময় অনুমোদন')}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* User Request: Auto-Approve Feature */}
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>
-                {l('Auto Approval', 'স্বয়ংক্রিয় অনুমোদন')}
-              </Text>
-              <Text style={styles.rowSub}>
-                {l('Auto-approve expenses within limit', 'সীমার ভেতরের ব্যয় স্বয়ংক্রিয় অনুমোদন')}
-              </Text>
+              <Text style={styles.rowTitle}>{l('Members see their profit', 'সদস্যরা মুনাফা দেখবেন')}</Text>
+              <Text style={styles.rowSub}>{l('Off: the member app shows deposits and withdrawals only', 'বন্ধ থাকলে সদস্যের অ্যাপে শুধু জমা ও উত্তোলন দেখাবে')}</Text>
             </View>
             <Switch
-              value={autoApprove}
-              onValueChange={handleToggleAutoApprove}
+              value={memberSeesProfit}
+              disabled={!canChangeSociety}
+              onValueChange={async (val) => { try { await updateSomitiInfo({ memberSeesProfit: val } as any); setMemberSeesProfit(val); } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.surface}
             />
           </View>
         </View>
+        <View style={styles.noticeBox}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} style={styles.noticeIcon} />
+          <Text style={styles.noticeText}>{l('Approvals happen in the society meeting. Every entry in the app takes effect straight away; mistakes are cancelled or edited, and kept in the audit log.', 'অনুমোদন সমিতির মিটিংয়ে হয়। অ্যাপের প্রতিটা এন্ট্রি সাথে সাথে কার্যকর; ভুল হলে বাতিল বা এডিট করা যায়, সব অডিট লগে থাকে।')}</Text>
+        </View>
+        <SelectModal visible={showFyModal} title={l('Year starts in', 'হিসাব বছর শুরু')} value={String(fyStart)} options={FY_MONTHS.map((m, i) => ({ value: String(i + 1), label: l(m[0], m[1]) }))}
+          onClose={() => setShowFyModal(false)} onSelect={async (v) => { try { await updateSomitiInfo({ fiscalYearStartMonth: Number(v) } as any); } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } }} />
 
         {/* Section 5: অ্যাপ (App Settings) - Page 22 */}
         <Text style={styles.sectionTitle}>{l('App', 'অ্যাপ')}</Text>

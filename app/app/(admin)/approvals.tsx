@@ -160,7 +160,7 @@ export default function ApprovalsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{l('Approvals', 'অনুমোদন')}</Text>
+        <Text style={styles.headerTitle}>{l('Older requests', 'পুরনো আবেদন')}</Text>
         <View style={styles.headerRightSpacer} />
       </View>
 
@@ -229,10 +229,10 @@ export default function ApprovalsScreen() {
               </View>
               <View style={styles.autoApproveTextCol}>
                 <Text style={styles.autoApproveTitle}>
-                  {l('Smart Auto-Approval', 'স্বয়ংক্রিয় অনুমোদন')}
+                  {l('Approve all older vouchers', 'পুরনো সব ভাউচার শেষ করুন')}
                 </Text>
                 <Text style={styles.autoApproveSub}>
-                  {l('One-tap approve all vouchers under limit', 'সীমার নিচের ভাউচার এক ক্লিকে অনুমোদন')}
+                  {l('New entries no longer need approval. Close these once.', 'নতুন এন্ট্রিতে আর অনুমোদন লাগে না। এগুলো একবার শেষ করুন।')}
                 </Text>
               </View>
             </View>

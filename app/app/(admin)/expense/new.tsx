@@ -11,12 +11,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useAuthStore } from '../../../src/features/auth/authStore';
+import { DateField } from '../../../src/components/DateField';
+import { isoToday } from '../../../src/lib/investment';
+import { uuid } from '../../../src/lib/api';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
-import { todayDMY } from '../../../src/lib/months';
 import { safeBack } from '../../../src/utils/navigation';
 
 import { colors } from '../../../src/theme/colors';
@@ -33,34 +36,27 @@ const EXPENSE_CATEGORIES = [
   { key: 'others', en: 'Others', bn: 'অন্যান্য' },
 ];
 
-const AVAILABLE_SPENDERS = [
-  { id: '1', nameEn: 'Anwar Hossain', nameBn: 'আনোয়ার হোসেন', roleEn: 'Cashier', roleBn: 'কোষাধ্যক্ষ' },
-  { id: '2', nameEn: 'Rafiqul Islam', nameBn: 'রফিকুল ইসলাম', roleEn: 'President', roleBn: 'সভাপতি' },
-  { id: '3', nameEn: 'Faruk Ahmed', nameBn: 'ফারুক আহমেদ', roleEn: 'Secretary', roleBn: 'সাধারণ সম্পাদক' },
-  { id: '4', nameEn: 'Tanvir Hasan', nameBn: 'তানভীর হাসান', roleEn: 'Field Officer', roleBn: 'মাঠকর্মী' },
-];
 
 export default function NewExpenseScreen() {
   const router = useRouter();
-  const { addExpense, somitiInfo } = useSomitiStore();
+  const params = useLocalSearchParams<{ amount?: string; title?: string }>();
+  const { addExpense, members } = useSomitiStore();
+  const me = useAuthStore(s => s.currentUser);
+  // People who usually spend for the society: staff first, then everyone else.
+  const spenders = [...members.filter(m => (m as any).appRole && (m as any).appRole !== 'member'), ...members.filter(m => !(m as any).appRole || (m as any).appRole === 'member')];
   const { l, isBengali, formatMoney } = useLanguage();
 
-  const [rawAmount, setRawAmount] = useState('');
+  const [rawAmount, setRawAmount] = useState(params.amount ? String(Math.round(Number(params.amount))) : '');
   const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
   const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const [date, setDate] = useState(todayDMY());
-  const [selectedSpender, setSelectedSpender] = useState(AVAILABLE_SPENDERS[0]);
+  const [date, setDate] = useState(isoToday());
+  const [selectedSpender, setSelectedSpender] = useState<string>(me?.name || '');
+  const requestId = React.useRef(uuid());
   const [showSpenderModal, setShowSpenderModal] = useState(false);
-  const [reason, setReason] = useState(
-    isBengali
-      ? 'বার্ষিক সাধারণ সভার দুপুরের খাবার (১০০ জন)'
-      : 'Annual General Meeting Lunch (100 people)'
-  );
+  const [reason, setReason] = useState(params.title || '');
   const [hasReceipt, setHasReceipt] = useState(false);
 
-  const expenseLimit = Number(somitiInfo?.expenseApprovalLimit) || 10000;
   const numericAmount = Number(toEnglishDigits(rawAmount).replace(/[^0-9.]/g, '')) || 0;
-  const isOverLimit = numericAmount > expenseLimit;
 
   const handleAmountChange = (val: string) => {
     const clean = toEnglishDigits(val).replace(/[^\d]/g, '');
@@ -98,7 +94,7 @@ export default function NewExpenseScreen() {
 
     const currentCat = EXPENSE_CATEGORIES.find((c) => c.key === selectedCategoryKey);
     const catName = isBengali ? (currentCat?.bn || 'সভা ও আপ্যায়ন') : (currentCat?.en || 'Meeting & Refreshment');
-    const voucherNo = `V-${Math.floor(1000 + Math.random() * 9000)}`;
+    const voucherNo = '';
     const paymentSource =
       source === 'bank'
         ? l('Bank', 'ব্যাংক')
@@ -106,8 +102,8 @@ export default function NewExpenseScreen() {
         ? l('bKash', 'বিকাশ')
         : l("Treasurer's Hand", 'কোষাধ্যক্ষের হাতে');
 
-    const status: 'approved' | 'pending' = isOverLimit ? 'pending' : 'approved';
-    const spenderName = isBengali ? selectedSpender.nameBn : selectedSpender.nameEn;
+    const status = 'approved' as const;
+    const spenderName = selectedSpender;
 
     setSaving(true);
     try {
@@ -117,38 +113,22 @@ export default function NewExpenseScreen() {
       amount: numericAmount,
       paymentSource,
       voucherNo,
-      note: `${l('Spender:', 'ব্যয়কারী:')} ${spenderName}`,
+      note: spenderName ? `${l('Spender:', 'ব্যয়কারী:')} ${spenderName}` : undefined,
       status,
+      date,
+      spender: spenderName,
+      id: requestId.current,
     });
 
-    if (saved.status === 'pending') {
-      Alert.alert(
-        l('Sent for Approval', 'অনুমোদনের জন্য পাঠানো হয়েছে'),
-        l(
-          `Voucher ${voucherNo} for ${formatMoney(numericAmount)} exceeds ${formatMoney(expenseLimit)} and has been sent for President's approval.`,
-          `ভাউচার নং ${voucherNo} - ${formatMoney(numericAmount)} টাকা অনুমোদন সীমার (${formatMoney(expenseLimit)}) বেশি হওয়ায় সভাপতির অনুমোদনের তালিকায় পাঠানো হয়েছে।`
-        ),
-        [
-          {
-            text: l('View Approvals', 'অনুমোদন তালিকা দেখুন'),
-            onPress: () => router.replace('/(admin)/approvals'),
-          },
-          {
-            text: l('OK', 'ঠিক আছে'),
-            onPress: () => router.replace('/(admin)/finance'),
-          },
-        ]
-      );
-    } else {
-      Alert.alert(
-        l('Expense Saved', 'খরচ সংরক্ষিত হয়েছে'),
-        l(
-          `Voucher ${voucherNo} for ${formatMoney(numericAmount)} has been recorded successfully.`,
-          `ভাউচার নং ${voucherNo} - ${formatMoney(numericAmount)} টাকা খরচ সফলভাবে সংরক্ষিত হয়েছে।`
-        ),
-        [{ text: l('OK', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/finance') }]
-      );
-    }
+    void saved;
+    Alert.alert(
+      l('Expense saved', 'খরচ সংরক্ষণ হয়েছে'),
+      l(`${formatMoney(numericAmount)} for "${reason.trim()}" is in the khata.`, `"${reason.trim()}" — ${formatMoney(numericAmount)} খাতায় উঠেছে।`),
+      [
+        { text: l('Another entry', 'আরেকটা এন্ট্রি'), onPress: () => { requestId.current = uuid(); setRawAmount(''); setReason(''); } },
+        { text: l('Done', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/finance') },
+      ]
+    );
     } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
   };
 
@@ -224,17 +204,7 @@ export default function NewExpenseScreen() {
         <View style={styles.twoColRow}>
           {/* Date Column */}
           <View style={styles.colHalf}>
-            <Text style={styles.colLabel}>{l('Date', 'তারিখ')}</Text>
-            <View style={styles.fieldBox}>
-              <TextInput
-                style={styles.fieldInput}
-                value={isBengali ? toBengaliDigits(date) : date}
-                onChangeText={setDate}
-                placeholder="DD/MM/YYYY"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-            </View>
+            <DateField label={l('Date', 'তারিখ')} value={date} max={isoToday()} onChange={setDate} />
           </View>
 
           {/* Spender Column */}
@@ -246,7 +216,7 @@ export default function NewExpenseScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.fieldText} numberOfLines={1}>
-                {isBengali ? selectedSpender.nameBn : selectedSpender.nameEn}
+                {selectedSpender || l('Choose', 'বাছুন')}
               </Text>
               <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -330,25 +300,13 @@ export default function NewExpenseScreen() {
           <Text style={styles.receiptTitle}>
             {hasReceipt
               ? l('Receipt Photo Attached ✓', 'রসিদের ছবি সংযুক্ত হয়েছে ✓')
-              : l('Add Receipt Photo *', 'রসিদের ছবি যোগ করুন *')}
+              : l('Add receipt photo (optional)', 'রসিদের ছবি যোগ করুন (ঐচ্ছিক)')}
           </Text>
           <Text style={styles.receiptSub}>
-            {l('Mandatory for expenses over ৳1,000', '৳১,০০০ এর বেশি ব্যয়ে বাধ্যতামূলক')}
+            {l('Keep the voucher with the khata.', 'ভাউচার খাতার সাথে রাখুন।')}
           </Text>
         </TouchableOpacity>
 
-        {/* Approval Notice Banner */}
-        {isOverLimit && (
-          <View style={styles.warningNoticeCard}>
-            <Ionicons name="warning-outline" size={18} color={colors.warning} style={styles.warningIcon} />
-            <Text style={styles.warningNoticeText}>
-              {l(
-                `Amount exceeds ${formatMoney(expenseLimit)}. The expense will be finalized after President's approval.`,
-                `পরিমাণ ${formatMoney(expenseLimit)} এর বেশি হওয়ায় সভাপতির অনুমোদনের পর ব্যয়টি চূড়ান্ত হবে।`
-              )}
-            </Text>
-          </View>
-        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -361,14 +319,12 @@ export default function NewExpenseScreen() {
           activeOpacity={0.85}
         >
           <Ionicons
-            name={isOverLimit ? 'paper-plane-outline' : 'checkmark'}
+            name="checkmark"
             size={18}
             color={colors.surface}
           />
           <Text style={styles.ctaButtonText}>
-            {isOverLimit
-              ? l('Send for Approval', 'অনুমোদনের জন্য পাঠান')
-              : l('Save Expense', 'খরচ সংরক্ষণ করুন')}
+            {l('Save Expense', 'খরচ সংরক্ষণ করুন')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -393,25 +349,22 @@ export default function NewExpenseScreen() {
               </TouchableOpacity>
             </View>
 
-            {AVAILABLE_SPENDERS.map((sp) => {
-              const isChosen = sp.id === selectedSpender.id;
+            <ScrollView style={{ maxHeight: 360 }}>
+            {spenders.map((sp) => {
+              const isChosen = sp.name === selectedSpender;
               return (
                 <TouchableOpacity
                   key={sp.id}
                   style={[styles.spenderOption, isChosen && styles.spenderOptionChosen]}
                   onPress={() => {
-                    setSelectedSpender(sp);
+                    setSelectedSpender(sp.name);
                     setShowSpenderModal(false);
                   }}
                   activeOpacity={0.7}
                 >
                   <View style={styles.spenderInfo}>
-                    <Text style={[styles.spenderName, isChosen && styles.spenderNameChosen]}>
-                      {isBengali ? sp.nameBn : sp.nameEn}
-                    </Text>
-                    <Text style={styles.spenderRole}>
-                      {isBengali ? sp.roleBn : sp.roleEn}
-                    </Text>
+                    <Text style={[styles.spenderName, isChosen && styles.spenderNameChosen]}>{sp.name}</Text>
+                    <Text style={styles.spenderRole}>{sp.role || sp.code}</Text>
                   </View>
                   {isChosen && (
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -419,6 +372,7 @@ export default function NewExpenseScreen() {
                 </TouchableOpacity>
               );
             })}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>

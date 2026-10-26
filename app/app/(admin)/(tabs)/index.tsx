@@ -1,673 +1,133 @@
-import {InvestmentApprovalQueue} from '../../../src/components/InvestmentApprovalQueue';
-import {WithdrawalApprovalQueue} from '../../../src/components/WithdrawalApprovalQueue';
-import { FAB } from '../../../src/components/FAB';
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Image, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { View, Image, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
-import { Card } from '../../../src/components/Card';
-
-
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
-import { useSomitiStore } from '../../../src/store/somitiStore';
+import { useSomitiStore, Transaction } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { somitiName } from '../../../src/utils/somitiBranding';
+import { investmentSchedule, isoToday, roundMoney } from '../../../src/lib/investment';
+import { EntryRow, EntryActions } from '../../../src/components/EntryActions';
+import { formatHumanDate } from '../../../src/components/DateField';
 
+/** Days until the society's year closes (fiscal year, default July–June). */
+function yearEnd(startMonth: number, today = isoToday()) {
+  const [y, m] = today.split('-').map(Number);
+  const endYear = startMonth > 1 && m >= startMonth ? y + 1 : y;
+  const endMonth = startMonth === 1 ? 12 : startMonth - 1;
+  const end = new Date(Date.UTC(endYear, endMonth, 0));
+  const iso = end.toISOString().slice(0, 10);
+  const days = Math.round((end.getTime() - new Date(today + 'T00:00:00Z').getTime()) / 86400000);
+  return { iso, days };
+}
+
+/** Home = what needs doing today. One total, a task list, then the latest entries. */
 export default function HomeDashboardScreen() {
   const router = useRouter();
-  const somitiInfo=useSomitiStore(s=>s.somitiInfo);
-  const approvals=useSomitiStore(s=>s.approvals);
-  const pendingCount=useSomitiStore(s=>s.approvals.length+s.investmentProposals.filter(p=>['submitted','approved'].includes(p.status)).length+s.withdrawalRequests.filter(r=>['submitted','approved'].includes(r.status)).length);
-  const members=useSomitiStore(s=>s.members);
-  const projects=useSomitiStore(s=>s.projects);
-  const cashAccounts=useSomitiStore(s=>s.cashAccounts);
+  const somitiInfo = useSomitiStore(s => s.somitiInfo);
+  const members = useSomitiStore(s => s.members);
+  const projects = useSomitiStore(s => s.projects);
+  const cashAccounts = useSomitiStore(s => s.cashAccounts);
+  const transactions = useSomitiStore(s => s.transactions);
+  const legacyPending = useSomitiStore(s => s.approvals.length + s.investmentProposals.filter(p => ['submitted', 'approved'].includes(p.status)).length + s.withdrawalRequests.filter(r => ['submitted', 'approved'].includes(r.status)).length);
   const { l, formatMoney, formatNum } = useLanguage();
-
   const [refreshing, setRefreshing] = useState(false);
+  const [open, setOpen] = useState<Transaction | null>(null);
+  const onRefresh = useCallback(() => { setRefreshing(true); useSomitiStore.getState().syncFromServer().finally(() => setRefreshing(false)); }, []);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    useSomitiStore.getState().syncFromServer().finally(() => setRefreshing(false));
-  }, []);
-
-  // Dynamic financial totals
-  const projectInvested = useMemo(() => {
-    return projects.length ? projects.reduce((acc, p) => acc + (p.remainingAmount ?? p.investedAmount ?? 0), 0) : somitiInfo.projectInvested || 0;
-  }, [projects, somitiInfo.projectInvested]);
-
-  const cashAndBank = useMemo(() => {
-    return cashAccounts.length ? cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0) : somitiInfo.cashAndBank || 0;
-  }, [cashAccounts, somitiInfo.cashAndBank]);
-
-  const totalFund = useMemo(() => projectInvested + cashAndBank, [projectInvested, cashAndBank]);
-
-  const totalFundCalc = projectInvested + cashAndBank;
-  const projectInvestedPct = useMemo(() => {
-    return totalFundCalc > 0 ? Math.min(100, Math.round((projectInvested / totalFundCalc) * 100)) : 0;
-  }, [projectInvested, totalFundCalc]);
-
-  const cashAndBankPct = useMemo(() => {
-    return totalFundCalc > 0 ? Math.max(0, 100 - projectInvestedPct) : 0;
-  }, [projectInvestedPct]);
-
-  const monthlyCollected = somitiInfo.monthlyCollected || 0;
-  const totalMembersCount = members.length || somitiInfo.totalMembersCount || 0;
-  const activeProjectsCount = projects.filter((p) => p.status === 'ongoing' || p.status === 'delayed').length;
-  const yearlyProjectProfit = somitiInfo.yearlyProjectProfit || 0;
-
-  const monthlyIncome = useMemo(() => somitiInfo.monthlyIncome || 0, [somitiInfo.monthlyIncome]);
-  const monthlyExpense = useMemo(() => somitiInfo.monthlyExpense || 0, [somitiInfo.monthlyExpense]);
-  const monthlyNet = useMemo(() => monthlyIncome - monthlyExpense, [monthlyIncome, monthlyExpense]);
-
-  // Dynamic Somiti Initial Letter
+  const invested = useMemo(() => projects.reduce((acc, p) => acc + (p.remainingAmount ?? p.investedAmount ?? 0), 0), [projects]);
+  const cashAndBank = useMemo(() => cashAccounts.reduce((acc, c) => acc + (c.amount || 0), 0), [cashAccounts]);
+  const overdue = useMemo(() => projects.filter(p => p.contract && p.status !== 'completed').map(p => investmentSchedule(p.contract!, p.returnedAmount).filter(i => i.overdue)).filter(x => x.length), [projects]);
+  const overdueAmount = roundMoney(overdue.flat().reduce((sum, i) => sum + i.remaining, 0));
+  const today = isoToday();
+  const todays = transactions.filter(t => t.dateISO === today && t.type !== 'reversal' && !t.voided);
+  const sumOf = (type: string) => todays.filter(t => t.type === type).reduce((s, t) => s + t.amount, 0);
+  const cash = cashAccounts.find(a => a.type === 'cashier');
+  const fy = yearEnd(Number(somitiInfo.fiscalYearStartMonth) || 7, today);
+  const recent = transactions.filter(t => t.type !== 'reversal').slice(0, 6);
   const somitiDisplayName = somitiName(somitiInfo, l('Your society', 'আপনার সমিতি'));
 
-  const handleQuickApprove = () => {
-    router.push('/(admin)/approvals');
-  };
+  const tasks: { key: string; dot: string; warn?: boolean; title: string; sub: string; href: string }[] = [];
+  if (overdue.length) tasks.push({ key: 'due', dot: formatNum(overdue.length), warn: true, title: l(`${formatNum(overdue.length)} people have overdue installments`, `${formatNum(overdue.length)} জনের কিস্তি মেয়াদ পার`), sub: l(`Total ${formatMoney(overdueAmount)} · send a reminder`, `মোট ${formatMoney(overdueAmount)} · রিমাইন্ডার পাঠান`), href: '/(admin)/due' });
+  if (legacyPending) tasks.push({ key: 'legacy', dot: formatNum(legacyPending), warn: true, title: l('Older requests to close', 'পুরনো আবেদন শেষ করা বাকি'), sub: l('Made before approvals moved outside the app', 'অনুমোদন অ্যাপের বাইরে নেওয়ার আগের আবেদন'), href: '/(admin)/approvals' });
+  if (fy.days >= 0 && fy.days <= 90) tasks.push({ key: 'fy', dot: formatNum(fy.days), title: l(`${formatNum(fy.days)} days to year end`, `বছর শেষ হতে ${formatNum(fy.days)} দিন`), sub: l(`${formatHumanDate(fy.iso, false)} · check the profit draft`, `${formatHumanDate(fy.iso, true)} · মুনাফা বণ্টনের খসড়া দেখুন`), href: '/(admin)/distribution' });
+  tasks.push({ key: 'today', dot: formatNum(todays.length), title: l(`${formatNum(todays.length)} entries today`, `আজ ${formatNum(todays.length)}টা এন্ট্রি`), sub: [l(`Deposits ${formatMoney(sumOf('deposit'))}`, `জমা ${formatMoney(sumOf('deposit'))}`), sumOf('expense') ? l(`Expenses ${formatMoney(sumOf('expense'))}`, `খরচ ${formatMoney(sumOf('expense'))}`) : '', cash ? l(`Cash in hand ${formatMoney(cash.amount)}`, `হাতে নগদ ${formatMoney(cash.amount)}`) : ''].filter(Boolean).join(' · '), href: '/(admin)/ledger' });
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-
-      {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerLeft}
-          onPress={() => router.push('/(admin)/somiti')}
-          activeOpacity={0.7}
-        >
-          <Image source={require('../../../assets/logo-transparent.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel={l('Amanot logo','আমানত লোগো')} />
+        <TouchableOpacity style={styles.headerLeft} onPress={() => router.push('/(admin)/somiti')} activeOpacity={0.7}>
+          <Image source={require('../../../assets/logo-transparent.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel={l('Amanot logo', 'আমানত লোগো')} />
           <View style={styles.headerIdentity}>
-            <Text style={styles.somitiName} numberOfLines={2}>
-              {somitiDisplayName}
-            </Text>
-            <Text style={styles.subHeader}>
-              {l(new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), `${BENGALI_MONTHS_FULL[new Date().getMonth()]} ${toBengaliDigits(new Date().getFullYear())}`)} · {formatNum(totalMembersCount)} {l('Members', 'জন সদস্য')}
-            </Text>
+            <Text style={styles.somitiName} numberOfLines={2}>{somitiDisplayName}</Text>
+            <Text style={styles.subHeader}>{l(new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), `${BENGALI_MONTHS_FULL[new Date().getMonth()]} ${toBengaliDigits(new Date().getFullYear())}`)} · {formatNum(members.length)} {l('Members', 'জন সদস্য')}</Text>
           </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.notificationBtn}
-          onPress={() => router.push('/(admin)/approvals')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="notifications-outline" size={20} color={colors.text} />
-          {pendingCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {formatNum(pendingCount)}
-              </Text>
-            </View>
-          )}
         </TouchableOpacity>
       </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/(admin)/finance')} style={styles.card}>
+          <Text style={styles.label}>{l('Total fund (cash, bank and investments out)', 'মোট তহবিল (হাতে, ব্যাংকে ও বাইরে বিনিয়োগ)')}</Text>
+          <Text style={styles.total}>{formatMoney(cashAndBank + invested)}</Text>
+          <View style={styles.split}><Text style={styles.small}>{l('Cash & bank', 'হাতে ও ব্যাংকে')} {formatMoney(cashAndBank)}</Text><Text style={styles.small}>{l('Invested', 'বাইরে বিনিয়োগ')} {formatMoney(invested)}</Text></View>
+        </Pressable>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* 1. Hero Card: মোট তহবিল (Deep Green) */}
-        <TouchableOpacity
-          style={styles.heroCard}
-          onPress={() => router.push('/(admin)/finance')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.heroTopRow}>
-            <Text style={styles.heroTitle}>{l('Total Fund', 'মোট তহবিল')}</Text>
-            <View style={styles.growthBadge}>
-              <Ionicons name={somitiInfo.monthlyFundGrowth<0?'arrow-down':'arrow-up'} size={12} color={colors.primary} />
-              <Text style={styles.growthText}>
-                {formatNum(somitiInfo.monthlyFundGrowth || 0)}% {l('this month', 'এ মাসে')}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.heroAmount}>
-            {formatMoney(totalFund)}
-          </Text>
-
-          {/* Allocation Bar - White progress fill on translucent white track */}
-          <View style={styles.barContainer}>
-            <View
-              style={[
-                styles.barSegment,
-                { width: `${projectInvestedPct}%`, backgroundColor: colors.surface },
-              ]}
-            />
-          </View>
-
-          {/* Allocation Details */}
-          <View style={styles.heroFooter}>
-            <View style={styles.heroFooterCol}>
-              <Text style={styles.heroFooterLabel}>{l('Invested capital', 'বিনিয়োগে থাকা মূলধন')}</Text>
-              <Text style={styles.heroFooterValue}>
-                {formatMoney(projectInvested)} · {formatNum(projectInvestedPct)}%
-              </Text>
-            </View>
-            <View style={[styles.heroFooterCol, { alignItems: 'flex-end' }]}>
-              <Text style={styles.heroFooterLabel}>{l('In Hand & Bank', 'হাতে ও ব্যাংকে')}</Text>
-              <Text style={styles.heroFooterValue}>
-                {formatMoney(cashAndBank)} · {formatNum(cashAndBankPct)}%
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* 2. 4 Quick Action Buttons */}
-        <View style={styles.quickActionRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/deposit/new')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionCircle}>
-              <Ionicons name="add" size={24} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>{l('Deposit', 'জমা নিন')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/expense/new')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionCircle}>
-              <Ionicons name="receipt-outline" size={22} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>{l('Expense', 'খরচ লিখুন')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/reminder')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionCircle}>
-              <Ionicons name="megaphone-outline" size={22} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>{l('Reminder', 'রিমাইন্ডার')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push('/(admin)/reports')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionCircle}>
-              <Ionicons name="document-text-outline" size={22} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>{l('Reports', 'রিপোর্ট')}</Text>
-          </TouchableOpacity>
+        <View style={styles.card}>
+          <View style={styles.cardHead}><Text style={styles.cardTitle}>{l("Today's work", 'আজকের কাজ')}</Text></View>
+          {tasks.map((t, i) => <Pressable key={t.key} accessibilityRole="button" onPress={() => router.push(t.href as any)} style={[styles.task, i > 0 && styles.divider]}>
+            <View style={[styles.dot, t.warn ? styles.dotWarn : styles.dotOk]}><Text style={[styles.dotText, { color: t.warn ? colors.warning : colors.primary }]} numberOfLines={1}>{t.dot}</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.taskTitle}>{t.title}</Text><Text style={styles.small}>{t.sub}</Text></View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>)}
+          {!overdue.length && !legacyPending ? <Text style={[styles.small, { marginTop: 8 }]}>{l('No overdue installments. All good.', 'কোনো কিস্তি বকেয়া নেই। সব ঠিক আছে।')}</Text> : null}
         </View>
 
-        {/* 3. এ মাসের আদায় Card */}
-        <TouchableOpacity
-          onPress={() => router.push('/(admin)/(tabs)/collection')}
-          activeOpacity={0.9}
-        >
-          <Card style={styles.sectionCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardTitle}>{l("This Month's Collection", 'এ মাসের আদায়')}</Text>
-
-            </View>
-
-            <View style={styles.collectionBody}>
-
-
-              <View style={styles.collectionStats}>
-                <Text style={styles.collectionAmount}>
-                  {formatMoney(monthlyCollected)}
-                </Text>
-                
-              </View>
-            </View>
-
-          </Card>
-        </TouchableOpacity>
-
-        {/* 4. Two-Column Cards: বকেয়া & বিনিয়োগ */}
-        <View style={styles.twoColumnRow}>
-          {/* Due Card (Peach Warning Soft) */}
-          
-
-          {/* Projects Card (White Card) */}
-          <TouchableOpacity
-            style={styles.halfCardWrapper}
-            onPress={() => router.push('/(admin)/(tabs)/projects')}
-            activeOpacity={0.8}
-          >
-            <Card style={styles.projectHalfCard}>
-              <View style={styles.halfCardHeader}>
-                <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
-                <Text style={styles.projectHalfCardTitle}>{l('Active Investments', 'চলমান বিনিয়োগ')}</Text>
-              </View>
-              <Text style={styles.projectHalfCardAmount}>
-                {formatNum(activeProjectsCount)}{l(' items', 'টি')}
-              </Text>
-              <Text style={styles.projectHalfCardSub}>
-                {l('Profit this year', 'এ বছর লাভ')} {formatMoney(yearlyProjectProfit, { showPlusSign: true })}
-              </Text>
-            </Card>
-          </TouchableOpacity>
+        <View style={styles.card}>
+          <View style={styles.cardHead}><Text style={styles.cardTitle}>{l('Latest entries', 'সাম্প্রতিক')}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(admin)/ledger')}><Text style={styles.link}>{l('See all', 'সব দেখুন')}</Text></Pressable></View>
+          {recent.length ? recent.map((t, i) => <View key={t.id} style={i > 0 ? styles.divider : undefined}><EntryRow entry={t} onPress={() => t.type === 'withdrawal' ? router.push({ pathname: '/(admin)/withdrawals', params: { requestId: t.id } }) : t.projectId ? router.push(`/(admin)/project/${t.projectId}` as any) : setOpen(t)} /></View>)
+            : <Text style={styles.small}>{l('Nothing entered yet. Tap + below to make the first entry.', 'এখনো কোনো এন্ট্রি নেই। নিচের + চেপে প্রথম এন্ট্রি দিন।')}</Text>}
         </View>
 
-        {/* 5. Income & Expense Card */}
-        <TouchableOpacity
-          onPress={() => router.push('/(admin)/finance')}
-          activeOpacity={0.85}
-        >
-          <Card style={styles.sectionCard}>
-            <View style={styles.threeColumnStats}>
-              <View style={styles.statCol}>
-                <Text style={styles.colLabel}>{l("This Month's Income", 'এ মাসের আয়')}</Text>
-                <Text style={styles.colValue}>
-                  {formatMoney(monthlyIncome)}
-                </Text>
-              </View>
-              <View style={styles.colDivider} />
-              <View style={styles.statCol}>
-                <Text style={styles.colLabel}>{l("This Month's Expense", 'এ মাসের ব্যয়')}</Text>
-                <Text style={styles.colValue}>
-                  {formatMoney(monthlyExpense)}
-                </Text>
-              </View>
-              <View style={styles.colDivider} />
-              <View style={styles.statCol}>
-                <Text style={styles.colLabel}>{l('Net', 'নিট')}</Text>
-                <Text style={[styles.colValue, { color: colors.primary }]}>
-                  {formatMoney(monthlyNet)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-        </TouchableOpacity>
-
-        <InvestmentApprovalQueue compact />
-        <WithdrawalApprovalQueue hideEmpty />
-        {/* 7. অনুমোদন অপেক্ষমাণ */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{l('Expense approvals', 'ব্যয়ের অনুমোদন')}</Text>
-            <TouchableOpacity onPress={() => router.push('/(admin)/approvals')}>
-              <Text style={styles.viewLinkText}>{l('View All', 'সব দেখুন')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {approvals.length === 0 ? (
-            <View style={styles.emptyApprovalsContainer}>
-              <Text style={styles.emptyApprovalsText}>
-                {l('No pending approvals at this time', 'বর্তমানে কোনো অপেক্ষমাণ অনুমোদন নেই')}
-              </Text>
-            </View>
-          ) : (
-            approvals.slice(0, 3).map((item, index) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.approvalItem,
-                  index === Math.min(approvals.length, 3) - 1 && { borderBottomWidth: 0 },
-                ]}
-                onPress={handleQuickApprove}
-                activeOpacity={0.7}
-              >
-                <View style={styles.approvalItemInfo}>
-                  <Text style={styles.approvalItemTitle}>
-                    {item.type === 'correction' ? item.title : `${item.title} · ${formatMoney(item.amount)}`}
-                  </Text>
-                  <Text style={styles.approvalItemSub}>
-                    {item.createdBy.split(' ')[0]} · {item.dateStr}
-                  </Text>
-                </View>
-                {item.isNew ? (
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>{l('New', 'নতুন')}</Text>
-                  </View>
-                ) : (
-                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                )}
-              </TouchableOpacity>
-            ))
-          )}
-        </Card>
-
-        <View style={{ height: 80 }} />
+        <View style={styles.shortcuts}>
+          {([['wallet-outline', l('Accounts', 'হিসাব'), '/(admin)/finance'], ['document-text-outline', l('Reports', 'রিপোর্ট'), '/(admin)/reports'], ['megaphone-outline', l('Notices', 'নোটিশ'), '/(admin)/notices']] as const).map(([icon, label, href]) =>
+            <Pressable key={href} accessibilityRole="button" onPress={() => router.push(href as any)} style={styles.shortcut}><Ionicons name={icon} size={20} color={colors.primary} /><Text style={styles.shortcutText}>{label}</Text></Pressable>)}
+        </View>
+        <View style={{ height: 24 }} />
       </ScrollView>
-
-      {/* Floating Action Button: + জমা নিন */}
-      <FAB label={l('Deposit', 'জমা নিন')} onPress={() => router.push('/(admin)/deposit/new')} />
+      <EntryActions entry={open} onClose={() => setOpen(null)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 10,
-    backgroundColor: colors.bg,
-  },
-  headerLeft: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIdentity: {flex: 1, minWidth: 0},
-  brandLogo: {width: 48, height: 48, flexShrink: 0},
-  somitiName: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.title,
-    lineHeight: typography.lineHeight.title,
-    color: colors.text,
-  },
-  subHeader: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-  },
-  notificationBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    backgroundColor: colors.warning,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.tiny,
-    lineHeight: typography.lineHeight.tiny,
-    color: colors.surface,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  heroCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  heroTitle: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.surface,
-    opacity: 0.9,
-  },
-  growthBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 4,
-  },
-  growthText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.primary,
-  },
-  heroAmount: {
-    ...typography.displayAmount,
-    color: colors.surface,
-    marginVertical: 10,
-  },
-  barContainer: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  barSegment: {
-    height: '100%',
-  },
-  heroFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  heroFooterCol: {
-    flex: 1,
-  },
-  heroFooterLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.surface,
-    opacity: 0.8,
-    marginBottom: 2,
-  },
-  heroFooterValue: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.surface,
-  },
-  quickActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  actionBtn: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  actionCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-    elevation: 2,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  actionLabel: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.text,
-  },
-  sectionCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.base,
-    lineHeight: typography.lineHeight.base,
-    color: colors.text,
-  },
-  viewLinkText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.primary,
-  },
-  collectionBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-    marginBottom: 14,
-  },
-  collectionStats: {
-    flex: 1,
-  },
-  collectionAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xxl,
-    lineHeight: typography.lineHeight.xxl,
-    color: colors.text,
-  },
-  twoColumnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  halfCardWrapper: {
-    flex: 1,
-  },
-  projectHalfCard: {
-    padding: 14,
-    minHeight: 110,
-    justifyContent: 'space-between',
-  },
-  halfCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  projectHalfCardTitle: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.text,
-  },
-  projectHalfCardAmount: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xl,
-    lineHeight: typography.lineHeight.xl,
-    color: colors.primary,
-    marginVertical: 4,
-  },
-  projectHalfCardSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.primary,
-  },
-  threeColumnStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  statCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  colDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.border,
-  },
-  colLabel: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  colValue: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.text,
-  },
-  approvalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  approvalItemInfo: {
-    flex: 1,
-  },
-  approvalItemTitle: {
-    fontFamily: 'HindSiliguri-SemiBold',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.text,
-  },
-  approvalItemSub: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.textSecondary,
-  },
-  emptyApprovalsContainer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  emptyApprovalsText: {
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    color: colors.textSecondary,
-  },
-  newBadge: {
-    backgroundColor: colors.text,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  newBadgeText: {
-    fontFamily: 'HindSiliguri-Bold',
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.surface,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10, backgroundColor: colors.bg },
+  headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerIdentity: { flex: 1, minWidth: 0 },
+  brandLogo: { width: 48, height: 48, flexShrink: 0 },
+  somitiName: { fontFamily: typography.fontFamily.bold, fontSize: typography.size.title, lineHeight: typography.lineHeight.title, color: colors.text },
+  subHeader: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.caption, lineHeight: typography.lineHeight.caption, color: colors.textSecondary },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
+  card: { backgroundColor: colors.surface, borderRadius: 18, padding: 16 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  cardTitle: { fontFamily: typography.fontFamily.bold, fontSize: 16, color: colors.text },
+  label: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
+  total: { fontFamily: typography.fontFamily.bold, fontSize: 30, color: colors.primary, marginVertical: 4 },
+  split: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  small: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  task: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  dot: { minWidth: 34, height: 34, paddingHorizontal: 6, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  dotWarn: { backgroundColor: colors.warningSoft }, dotOk: { backgroundColor: colors.primarySoft },
+  dotText: { fontFamily: typography.fontFamily.bold, fontSize: 13 },
+  taskTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: 15, color: colors.text },
+  link: { fontFamily: typography.fontFamily.semiBold, fontSize: 14, color: colors.primary },
+  shortcuts: { flexDirection: 'row', gap: 10 },
+  shortcut: { flex: 1, backgroundColor: colors.surface, borderRadius: 14, paddingVertical: 12, alignItems: 'center', gap: 4 },
+  shortcutText: { fontFamily: typography.fontFamily.semiBold, fontSize: 13, color: colors.text },
 });

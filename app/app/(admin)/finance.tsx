@@ -1,7 +1,8 @@
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchLedgerSummary } from '../../src/lib/api';
-import { emptyLedgerSummary,signedTransactionAmount } from '../../src/lib/ledger';
+import { emptyLedgerSummary } from '../../src/lib/ledger';
+import { EntryRow, EntryActions } from '../../src/components/EntryActions';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import { FAB } from '../../src/components/FAB';
@@ -127,18 +128,19 @@ export default function FinanceScreen() {
   }, [displayCashAccounts]);
 
   // Approved expenses of the selected month, grouped by category
-  const periodTransactions = REMOTE ? ledger.rows : transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey));
+  const periodTransactions = (REMOTE ? ledger.rows : transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey))).filter(t=>t.type!=='reversal');
+  const [openEntry,setOpenEntry]=useState<import('../../src/store/somitiStore').Transaction|null>(null);
   const periodExpenses = expenses.filter(e=>e.status==='approved' && inMonth((e as any).dateISO,selectedMonthKey));
   const totals=ledgerSummary.months.find(m=>m.month===selectedMonthKey);
-  const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
-  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.reduce((sum,t)=>sum+(t.type==='deposit'?t.amount:t.profitPart!==undefined?(t.investmentReversal?-t.profitPart:t.profitPart):t.type==='profit'?t.amount:0),0);
+  const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense'&&!t.voided).reduce((sum,t)=>sum+t.amount,0);
+  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0)+Number(totals?.other_income||0) : periodTransactions.filter(t=>!t.voided).reduce((sum,t)=>sum+(t.type==='deposit'||(t.type==='fund'&&t.memberCode==='FUND-INC')?t.amount:t.profitPart!==undefined?(t.investmentReversal?-t.profitPart:t.profitPart):t.type==='profit'?t.amount:0),0);
   const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
   const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:financeLabel(name,true),nameEn:financeLabel(name,false),amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
   const withdrawals=REMOTE?Number(totals?.withdrawals||0):periodTransactions.reduce((sum,t)=>sum+(t.type==='withdrawal'?t.amount:t.type==='withdrawal_reversal'?-t.amount:0),0);
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:signedTransactionAmount(t),isIncome:signedTransactionAmount(t)>=0}));
+
 
   const handleTransferSubmit = async () => {
     try {
@@ -264,6 +266,9 @@ export default function FinanceScreen() {
           >
             <Text style={styles.transferLink}>{l('Transfer', 'স্থানান্তর')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(admin)/fund/new' as any)} activeOpacity={0.7}>
+            <Text style={styles.transferLink}>{l('+ Add money', '+ টাকা যোগ')}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Accounts Card */}
@@ -341,27 +346,10 @@ export default function FinanceScreen() {
         <View style={styles.recentCard}>
           {ledger.loading&&<Text style={styles.recentMeta}>{l('Loading…','লোড হচ্ছে…')}</Text>}
           {ledger.error&&<TouchableOpacity onPress={ledger.reload}><Text style={styles.recentMeta}>{ledger.error} · {l('Retry','আবার চেষ্টা করুন')}</Text></TouchableOpacity>}
-          {recentTxnsList.map((txn, index) => (
+          {periodTransactions.slice(0,10).map((txn, index) => (
             <React.Fragment key={txn.id}>
-              <View style={styles.recentRow}>
-                <View style={styles.recentDetails}>
-                  <Text style={styles.recentTitle}>
-                    {isBengali ? txn.titleBn : txn.titleEn}
-                  </Text>
-                  <Text style={styles.recentMeta}>
-                    {isBengali ? txn.metaBn : txn.metaEn}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.recentAmount,
-                    txn.isIncome ? styles.profitColor : styles.lossColor,
-                  ]}
-                >
-                  {txn.isIncome ? `+${formatMoney(txn.amount)}` : `−${formatMoney(Math.abs(txn.amount))}`}
-                </Text>
-              </View>
-              {index < recentTxnsList.length - 1 && <View style={styles.recentDivider} />}
+              <EntryRow entry={txn} onPress={()=>txn.type==='withdrawal'?router.push({pathname:'/(admin)/withdrawals',params:{requestId:txn.id}}):txn.projectId?router.push(`/(admin)/project/${txn.projectId}` as any):setOpenEntry(txn)} />
+              {index < Math.min(periodTransactions.length,10) - 1 && <View style={styles.recentDivider} />}
             </React.Fragment>
           ))}
         </View>
@@ -524,6 +512,7 @@ export default function FinanceScreen() {
           </TouchableOpacity>
         </View>
       </AppModal>
+      <EntryActions entry={openEntry} onClose={()=>{setOpenEntry(null);ledger.reload?.();}} />
     </SafeAreaView>
   );
 }

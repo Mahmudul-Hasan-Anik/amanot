@@ -126,6 +126,8 @@ export function mapTransaction(r: any): Transaction {
     investmentReversal: r.investment_reversal || false,
     investmentDisbursement: r.type==='transfer' && !!r.project_id && r.party_code==='INV',
     investmentPaymentReversed: r.investment_payment_reversed || false,
+    voided: r.voided || false,
+    reversesTransactionId: r.reverses_transaction_id || undefined,
     id: r.id,
     receiptNo: r.receipt_no,
     memberId: r.member_id || r.project_id || (r.type === 'transfer' ? 'internal' : 'org'),
@@ -714,17 +716,19 @@ export function mapInvestmentContract(r:any): import('./investment').InvestmentC
   return {id:r.id,memberId:r.member_id||undefined,number:r.contract_no,recipientName:r.recipient_name,
     phone:r.phone,whatsapp:r.whatsapp||'',address:r.address||'',nid:r.nid||'',fatherName:r.father_name||'',motherName:r.mother_name||'',
     contacts:r.emergency_contacts||[],principal:num(r.principal),profitPct:num(r.profit_pct),profitAmount:num(r.profit_amount),
-    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||''};
+    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||'',paymentMethod:r.payment_method||'cash'};
 }
 async function fetchInvestmentContracts():Promise<any[]> {
-  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose'); }
+  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose,payment_method'); }
   catch(e:any) {
     // Read-only compatibility until the additive contract migration is deployed.
     if(e.code==='42P01'||e.code==='PGRST205'||/Could not find the table.*investment_contracts/.test(e.message||''))return [];
     throw e;
   }
 }
-export const createInvestment = (p:import('./investment').NewInvestment) => rpc('submit_investment_proposal',{p});
+/** One-step investment: the decision is taken outside the app. */
+export const createInvestment = (p:import('./investment').NewInvestment) => khata('create_investment',{p});
+export const updateInvestment = (p:Partial<import('./investment').NewInvestment>&{id:string;reason?:string}) => khata('update_investment_contract',{p});
 export const collectInvestment = async(p:import('./investment').InvestmentPayment):Promise<Transaction> =>
   mapTransaction(await rpc('collect_investment_payment',{p}));
 export const reverseInvestment = (id:string,paymentId:string,reason:string) => rpc('reverse_investment_payment',{p_id:id,p_payment_id:paymentId,p_reason:reason});
@@ -776,3 +780,24 @@ export const withdrawInvestmentProposal=(id:string,note:string)=>rpc('withdraw_i
 export const mapLegacyMemberIdentity=(id:string,category:string,number:string)=>rpc('map_legacy_member_identity',{p_id:id,p_category:category,p_number:number});
 export const fetchCapabilities=()=>rpc('app_capabilities');
 export async function fetchDistributionShares(year:number){return unwrap(await supabase.from('profit_shares').select('member_id,year,base_deposit,share').eq('year',year));}
+
+// ---- Digital khata (no in-app approvals) ----
+const khata=async(fn:string,args:Record<string,any>)=>{
+  try{return await rpc(fn,args);}
+  catch(e:any){
+    if(/Could not find the function|does not exist|PGRST202/.test(e?.message||''))throw new Error('সার্ভারের নতুন আপডেট (migration 20261026120000_digital_khata) এখনো চালু হয়নি। কোনো টাকা রেকর্ড হয়নি। / Backend update not deployed; nothing was saved.');
+    throw e;
+  }
+};
+export const recordWithdrawal=(p:{id:string;memberId:string;amount:number;method:string;date:string;reference?:string;note?:string})=>khata('record_withdrawal',{p});
+export type FundCategory='opening'|'capital'|'other_income';
+export const addFund=async(p:{id:string;amount:number;method:string;category:FundCategory;date:string;note?:string}):Promise<Transaction>=>mapTransaction(await khata('add_fund',{p}));
+export const voidEntry=(id:string,reversalId:string,reason:string)=>khata('void_entry',{p_id:id,p_reversal_id:reversalId,p_reason:reason});
+export const changeMemberNumber=(memberId:string,number:string,reason:string)=>khata('change_member_number',{p_member_id:memberId,p_number:number,p_reason:reason});
+export const profitPreviewFy=(fy:number,mode:'full'|'rate',rate:number,reservePct:number,managementPct:number)=>
+  khata('profit_preview_fy',{p_fy:fy,p_mode:mode,p_rate:rate,p_reserve_pct:reservePct,p_management_pct:managementPct});
+export const distributeProfitFy=(fy:number,mode:'full'|'rate',rate:number,reservePct:number,managementPct:number)=>
+  khata('distribute_profit_fy',{p_fy:fy,p_mode:mode,p_rate:rate,p_reserve_pct:reservePct,p_management_pct:managementPct});
+export const recordExpense=async(p:{id:string;amount:number;method:string;category:string;title:string;spender?:string;date:string}):Promise<Transaction>=>mapTransaction(await khata('record_expense',{p}));
+/** Map the old free-text payment source ("ব্যাংক", "Treasurer's Hand"…) to an account method. */
+export function methodFromSource(source:string):'cash'|'bank'|'bkash'|'nagad'{const v=(source||'').toLowerCase();return /bank|ব্যাংক/.test(v)?'bank':/bkash|বিকাশ/.test(v)?'bkash':/nagad|নগদ মোবাইল/.test(v)?'nagad':'cash';}

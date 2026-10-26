@@ -1,787 +1,204 @@
-import { cachedQuery } from '../../src/lib/queryCache';
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Alert, TextInput } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useSomitiStore } from '../../src/store/somitiStore';
+import { useSomitiStore, REMOTE } from '../../src/store/somitiStore';
+import { useAuthStore } from '../../src/features/auth/authStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
-import { toEnglishDigits, toBengaliDigits } from '../../src/lib/bengali';
-import { REMOTE } from '../../src/store/somitiStore';
 import * as api from '../../src/lib/api';
+import { Button, Input } from '../../src/components';
+import { formatHumanDate } from '../../src/components/DateField';
+import { fiscalPeriod, fiscalYearOf, parseProfitPercent, takaMonthShares, SavingsMember } from '../../src/lib/profitAllocation';
+import { isoToday } from '../../src/lib/investment';
+import { exportReport } from '../../src/utils/reportExport';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
-import { exportAndShareReceipt } from '../../src/utils/pdfExport';
-import { Button, Card } from '../../src/components';
-import { calculateProfitAllocation } from '../../src/lib/profitAllocation';
-import { useAuthStore } from '../../src/features/auth/authStore';
 
+type Mode = 'full' | 'rate';
+type Preview = {
+  year: number; periodStart: string; periodEnd: string; alreadyDistributed: boolean; complete?: boolean; mode: Mode; ratePct?: number | null;
+  projectProfit: number; otherIncome?: number; expenses: number; netProfit: number; reservePct: number; managementPct: number;
+  distributable?: number; distributed: number; reserveAmount?: number; exceedsProfit?: boolean; totalTakaMonths?: number;
+  shares: { memberId: string; name: string; code: string; balance: number; takaMonths: number; share: number }[];
+};
+
+/**
+ * Yearly profit, the khata way: each member's share follows taka-months
+ * (savings × months it stayed with the society). A deposit counts from the
+ * next month; a withdrawal from its own month. Year = society's fiscal year.
+ * Two methods: share the whole profit, or the society sets a yearly rate.
+ */
 export default function ProfitDistributionScreen() {
   const router = useRouter();
-  const { l, formatMoney, formatNum, isBengali } = useLanguage();
-  const { members, projects, somitiInfo } = useSomitiStore();
-  const actualRole = useAuthStore(s => s.actualRole);
-  const owner=useAuthStore(s=>s.currentUser?.id);
-  const canManage = actualRole === 'admin' || actualRole === 'super_admin';
-  const [reserveInput, setReserveInput] = useState(String((somitiInfo as any).profitReservePct ?? 0));
-  const [managementInput, setManagementInput] = useState(String((somitiInfo as any).profitManagementPct ?? 0));
-  const [savingRules, setSavingRules] = useState(false);
+  const { l, isBengali, formatMoneyPrecise: money, formatNum } = useLanguage();
+  const somitiInfo = useSomitiStore(s => s.somitiInfo);
+  const members = useSomitiStore(s => s.members);
+  const transactions = useSomitiStore(s => s.transactions);
+  const updateSomitiInfo = useSomitiStore(s => s.updateSomitiInfo);
+  const role = useAuthStore(s => s.actualRole);
+  const canManage = role === 'admin' || role === 'super_admin';
+  const info: any = somitiInfo;
+  const startMonth = Math.min(12, Math.max(1, Number(info.fiscalYearStartMonth) || 7));
+  const currentFy = fiscalYearOf(isoToday(), startMonth);
+  const [fy, setFy] = useState(currentFy - 1);
+  const [mode, setMode] = useState<Mode>(info.profitMode === 'rate' ? 'rate' : 'full');
+  const [reserve, setReserve] = useState(String(info.profitReservePct ?? 0));
+  const [management, setManagement] = useState(String(info.profitManagementPct ?? 0));
+  const [rate, setRate] = useState(String(info.profitRatePct || ''));
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [error, setError] = useState(''), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
+  const reservePct = parseProfitPercent(reserve), managementPct = parseProfitPercent(management), ratePct = parseProfitPercent(rate);
+  const rulesValid = mode === 'full' ? reservePct !== null && managementPct !== null && reservePct + managementPct <= 100 : ratePct !== null && ratePct > 0;
+  const period = fiscalPeriod(fy, startMonth);
+  const yearLabel = `${formatHumanDate(period.start, isBengali).replace(/^\S+\s/, '')} – ${formatHumanDate(addDays(period.end, -1), isBengali).replace(/^\S+\s/, '')}`;
 
-  const [currentStep, setCurrentStep] = useState<number>(2); // 1: হিসাব, 2: পর্যালোচনা, 3: অনুমোদন, 4: বিতরণ
-  const [isApproved, setIsApproved] = useState(false);
+  // Demo (no backend): same rule computed on the device from the local khata.
+  const demoPreview = useMemo((): Preview => {
+    const savings: SavingsMember[] = members.map(m => ({ id: m.id, name: m.name, code: m.code, balanceNow: m.totalDeposit,
+      events: transactions.filter(t => t.memberId === m.id && !t.voided && ['deposit', 'withdrawal', 'withdrawal_reversal'].includes(t.type) && t.dateISO)
+        .map(t => ({ date: t.dateISO!, delta: t.type === 'withdrawal' ? -t.amount : t.amount })) }));
+    const inPeriod = (d?: string) => !!d && d >= period.start && d < period.end;
+    const projectProfit = transactions.filter(t => inPeriod(t.dateISO) && !t.voided && t.profitPart).reduce((s, t) => s + (t.investmentReversal ? -1 : 1) * (t.profitPart || 0), 0);
+    const otherIncome = transactions.filter(t => inPeriod(t.dateISO) && !t.voided && t.type === 'fund' && t.memberCode === 'FUND-INC').reduce((s, t) => s + t.amount, 0);
+    const expenses = transactions.filter(t => inPeriod(t.dateISO) && !t.voided && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const net = projectProfit + otherIncome - expenses;
+    const pool = Math.max(0, Math.round(net * (100 - (reservePct || 0) - (managementPct || 0))) / 100);
+    const shares = takaMonthShares(savings, period.start, period.end, mode, pool, ratePct || 0);
+    const distributed = Math.round(shares.reduce((s, r) => s + r.share, 0) * 100) / 100;
+    return { year: fy, periodStart: period.start, periodEnd: addDays(period.end, -1), alreadyDistributed: false, complete: period.end <= addDays(isoToday(), 1), mode, ratePct,
+      projectProfit, otherIncome, expenses, netProfit: net, reservePct: mode === 'full' ? reservePct || 0 : 0, managementPct: mode === 'full' ? managementPct || 0 : 0,
+      distributable: mode === 'full' ? pool : distributed, distributed, reserveAmount: Math.max(0, net - distributed), exceedsProfit: distributed > Math.max(net, 0),
+      totalTakaMonths: shares.reduce((s, r) => s + r.takaMonths, 0), shares };
+  }, [members, transactions, fy, mode, reservePct, managementPct, ratePct, period.start, period.end]);
 
-  // Financial calculations
-  const year = new Date().getFullYear();
-  const [saving, setSaving] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const bnYear = toBengaliDigits(year);
-  const [preview, setPreview] = useState<any>(!REMOTE ? (somitiInfo as any).demoProfitDistributions?.[year] || null : null);
-
-  const loadPreview = (force=false) => {
-    const state=useSomitiStore.getState();
-    const key=JSON.stringify(['profit-preview',year,owner,actualRole,state.syncRevision,state.dataVersion]);
-    if (REMOTE) cachedQuery(key,()=>api.profitPreview(year),force).then(v => { setPreview(v); setPreviewError(null); }).catch(e => setPreviewError(e.message));
+  const load = async () => {
+    if (!REMOTE) { setPreview(demoPreview); return; }
+    if (!rulesValid) return;
+    setLoading(true); setError('');
+    try { setPreview(await api.profitPreviewFy(fy, mode, ratePct || 0, reservePct || 0, managementPct || 0)); }
+    catch (e: any) { setError(e.message); setPreview(null); }
+    finally { setLoading(false); }
   };
+  useEffect(() => { void load(); }, [fy, mode, reserve, management, rate, demoPreview]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(()=>loadPreview(), []);
-
-  useEffect(() => {
-    if (preview?.alreadyDistributed) {
-      setIsApproved(true);
-      setCurrentStep(4);
-    }
-  }, [preview?.alreadyDistributed]);
-
-  const totalProjectProfit = preview ? Number(preview.projectProfit) : projects.reduce((sum,p) => sum + p.netProfit,0);
-  const otherIncome = 0;
-  const operatingExpense = preview ? Number(preview.expenses) : Number(somitiInfo.monthlyExpense || 0);
-  const netProfit = preview ? Number(preview.netProfit) : totalProjectProfit - operatingExpense;
-  const locked = isApproved || !!preview?.alreadyDistributed;
-  const allocation = calculateProfitAllocation(netProfit, locked ? preview?.reservePct ?? 0 : reserveInput, locked ? preview?.managementPct ?? 0 : managementInput);
-  const reservePercent = allocation?.reservePct ?? 0;
-  const directorPercent = allocation?.managementPct ?? 0;
-  const reserveFund = allocation?.reserveFund ?? 0;
-  const directorFund = allocation?.managementFund ?? 0;
-  const distributableProfit = Number(locked ? preview?.distributed ?? 0 : allocation?.distributed ?? 0);
+  const p = preview;
+  const done = !!p?.alreadyDistributed;
+  const complete = !!p?.complete;
   const saveRules = async () => {
-    if (!canManage || locked || !allocation || savingRules || saving) return;
-    setSavingRules(true);
+    try { await updateSomitiInfo({ profitMode: mode, profitReservePct: reservePct ?? 0, profitManagementPct: managementPct ?? 0, profitRatePct: ratePct ?? 0 } as any); Alert.alert(l('Saved', 'সংরক্ষণ হয়েছে')); }
+    catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); }
+  };
+  const distribute = () => {
+    if (!p || busy) return;
+    Alert.alert(l('Distribute profit?', 'মুনাফা বণ্টন করবেন?'),
+      l(`${money(p.distributed)} goes to ${formatNum(p.shares.length)} members' savings for ${yearLabel}. Entries in this year are then locked.`, `${yearLabel} বছরের ${money(p.distributed)} ${formatNum(p.shares.length)} জন সদস্যের সঞ্চয়ে যোগ হবে। এরপর এই বছরের এন্ট্রি বন্ধ হয়ে যাবে।`),
+      [{ text: l('Not now', 'এখন না'), style: 'cancel' }, { text: l('Distribute', 'বণ্টন করুন'), onPress: async () => {
+        setBusy(true);
+        try { await api.distributeProfitFy(fy, mode, ratePct || 0, reservePct || 0, managementPct || 0); await useSomitiStore.getState().syncFromServer(); await load(); }
+        catch (e: any) { Alert.alert(l('Could not distribute', 'বণ্টন হয়নি'), e.message); } finally { setBusy(false); }
+      } }]);
+  };
+  const exportPdf = async () => {
+    if (!p) return;
     try {
-      await useSomitiStore.getState().updateSomitiInfo({ profitReservePct: reservePercent, profitManagementPct: directorPercent } as any);
-      Alert.alert(l('Saved', 'সংরক্ষিত'), l('These percentages will be used as your somiti defaults.', 'পরেরবার এই সমিতির জন্য এই হারগুলো ব্যবহার হবে।'));
-    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e?.message || String(e)); }
-    finally { setSavingRules(false); }
-  };
-  const eligibleMembers = members.filter(m => m.status !== 'inactive' && m.totalDeposit > 0);
-  const totalMembersDeposit = Number(preview?.totalDeposit ?? eligibleMembers.reduce((sum,m)=>sum+m.totalDeposit,0));
-  const totalMemberCount = preview?.shares?.length ?? eligibleMembers.length;
-  const sampleMembers = (preview?.shares ?? eligibleMembers.map(m=>({memberId:m.id,name:m.name,baseDeposit:m.totalDeposit}))).map((m:any,index:number)=>({
-    id:m.memberId,name:m.name,initial:m.name.slice(0,1),totalDeposit:Number(m.baseDeposit),
-    profitShare: Number(m.share ?? (totalMembersDeposit>0 ? Math.round(Number(m.baseDeposit)/totalMembersDeposit*distributableProfit*100)/100 : 0)),
-    avatarBg:colors.avatarPastels[index%colors.avatarPastels.length].bg,avatarColor:colors.avatarPastels[index%colors.avatarPastels.length].text,
-  }));
-
-  const handleApprove = () => {
-    if (!canManage || !allocation || savingRules || saving || locked || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || previewError))) return;
-    const executeApproval = async () => {
-      setSaving(true);
-      if (REMOTE) {
-        try {
-          const result = await api.distributeProfit(year, reservePercent, directorPercent);
-          setPreview({ ...preview, alreadyDistributed: true, reservePct: reservePercent, managementPct: directorPercent, distributed: Number(result.distributed) });
-          await useSomitiStore.getState().syncFromServer();
-          loadPreview(true);
-        } catch (e: any) {
-          Alert.alert(l('Failed', 'ব্যর্থ'), e?.message || String(e));
-          setSaving(false);
-          return;
-        }
-      } else {
-        const state = useSomitiStore.getState();
-        if ((state.somitiInfo as any).demoProfitDistributions?.[year]) { setSaving(false); return; }
-        let allocated = 0;
-        const shares: Array<{memberId:string;name:string;baseDeposit:number;share:number}> = sampleMembers.map((m:any,i:number) => {
-          const share = i === sampleMembers.length-1 ? Math.round((distributableProfit-allocated)*100)/100 : m.profitShare;
-          allocated += share;
-          return {memberId:m.id,name:m.name,baseDeposit:m.totalDeposit,share};
-        });
-        const snapshot = {alreadyDistributed:true,projectProfit:totalProjectProfit,expenses:operatingExpense,netProfit,
-          reservePct:reservePercent,managementPct:directorPercent,distributed:distributableProfit,totalDeposit:totalMembersDeposit,shares};
-        useSomitiStore.setState({members:state.members.map(m=>{const share=shares.find(s=>s.memberId===m.id)?.share||0;
-          return share ? {...m,totalDeposit:m.totalDeposit+share,profitBalance:(m.profitBalance||0)+share,lastProfitYear:year} : m;}),
-          somitiInfo:{...state.somitiInfo,demoProfitDistributions:{...(state.somitiInfo as any).demoProfitDistributions,[year]:snapshot}} as any});
-        setPreview(snapshot);
-      }
-      setSaving(false);
-      setIsApproved(true);
-      setCurrentStep(4);
-      Alert.alert(
-        l('Distribution Approved', 'মুনাফা বণ্টন সফলভাবে অনুমোদিত'),
-        l(
-          `${year} annual profit distribution of ${formatMoney(distributableProfit)} is approved and allocated to all members.`,
-          `${isBengali ? bnYear : year} সালের বার্ষিক মোট ${formatMoney(distributableProfit)} লাভ বণ্টন সফলভাবে অনুমোদিত হয়েছে এবং সকল সদস্যের প্রোফাইলে জমা হয়েছে।`
-        )
-      );
-    };
-
-    Alert.alert(
-      l('Profit Distribution Approval', 'বার্ষিক লাভ বণ্টন অনুমোদন'),
-      `${l('Confirm instant approval of total', `${isBengali ? bnYear : year} সালের মোট`)} ${formatMoney(distributableProfit)} ${l('distributable profit?', 'বণ্টন নিশ্চিত করতে চান? এটি সাথে সাথে কার্যকর হবে।')}\n${l('Reserve', 'রিজার্ভ')}: ${formatNum(reservePercent)}% · ${l('Director share', 'পরিচালক অংশ')}: ${formatNum(directorPercent)}%`,
-      [
-        { text: l('Cancel', 'বাতিল'), style: 'cancel' },
-        {
-          text: l('Approve Now', 'হ্যাঁ, অনুমোদন দিন'),
-          onPress: executeApproval,
-        },
-      ]
-    );
+      await exportReport({ language: isBengali ? 'bn' : 'en', title: l(`Profit distribution ${yearLabel}`, `মুনাফা বণ্টন ${yearLabel}`),
+        columns: [l('Member', 'সদস্য'), l('Savings at year end', 'বছর শেষে সঞ্চয়'), l('Taka-months', 'টাকা-মাস'), l('Share', 'ভাগ')],
+        rows: [...p.shares.map(s => [`${s.name} (${s.code})`, s.balance, s.takaMonths, s.share]), [l('Total', 'মোট'), '', p.totalTakaMonths ?? '', p.distributed]] }, somitiInfo.name, `profit-${fy}`, 'PDF');
+    } catch (e: any) { Alert.alert(l('Export failed', 'ডাউনলোড ব্যর্থ'), e.message); }
   };
 
-  const handleDownloadDraft = () => {
-    exportAndShareReceipt({
-      receiptNo: `DIST-${year}`,
-      memberName: l('All Somiti Members', 'সকল সমিতি সদস্য'),
-      memberCode: `${totalMemberCount} জন`,
-      amount: distributableProfit,
-      date: `হিসাব বছর ${isBengali ? bnYear : year}`,
-      paymentMethod: 'ব্যাংক ও সমবায় ফান্ড',
-      dueAmount: 0,
-      somitiName: somitiInfo.name,
-      somitiReg: somitiInfo.regNo,
-    });
-  };
+  const percentField = (label: string, value: string, set: (v: string) => void) => <View style={{ flex: 1 }}><Input label={label} accessibilityLabel={label} value={value} onChangeText={set} keyboardType="decimal-pad" editable={canManage && !done} /></View>;
+  return <SafeAreaView style={s.root}>
+    <View style={s.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel={l('Back', 'ফিরুন')} onPress={() => safeBack(router, '/(admin)/(tabs)')} style={s.back}><Ionicons name="arrow-back" size={24} color={colors.text} /></Pressable>
+      <View style={{ flex: 1 }}><Text style={s.title}>{l('Yearly profit distribution', 'বার্ষিক মুনাফা বণ্টন')}</Text><Text style={s.sub}>{yearLabel}</Text></View>
+    </View>
+    <ScrollView contentContainerStyle={s.content}>
+      <View style={s.chips}>{[currentFy - 1, currentFy].map(y => { const pp = fiscalPeriod(y, startMonth); return <Pressable key={y} accessibilityRole="radio" accessibilityState={{ checked: fy === y }} onPress={() => setFy(y)} style={[s.chip, fy === y && s.chipOn]}>
+        <Text style={[s.chipText, fy === y && s.chipTextOn]}>{formatHumanDate(pp.start, isBengali).replace(/^\S+\s/, '')} – {formatHumanDate(addDays(pp.end, -1), isBengali).replace(/^\S+\s/, '')}</Text></Pressable>; })}</View>
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      {done ? <View style={[s.banner, { backgroundColor: colors.primarySoft }]}><Ionicons name="checkmark-circle" size={18} color={colors.primary} /><Text style={[s.bannerText, { color: colors.primary }]}>{l('Distributed. Shares are in members\' savings.', 'বণ্টন হয়েছে। ভাগের টাকা সদস্যদের সঞ্চয়ে যোগ হয়েছে।')}</Text></View>
+        : !complete ? <View style={s.banner}><Ionicons name="time-outline" size={18} color={colors.warning} /><Text style={s.bannerText}>{l(`This is a draft. You can distribute after the year closes on ${formatHumanDate(addDays(period.end, -1), false)}.`, `এটি খসড়া। ${formatHumanDate(addDays(period.end, -1), true)} বছর শেষ হলে বণ্টন করা যাবে।`)}</Text></View> : null}
 
-      {/* Screen Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => safeBack(router, '/(admin)/(tabs)')}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>
-            {l('Annual Profit Distribution', 'বার্ষিক লাভ বণ্টন')}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {l(`Accounting Year ${year}`, `হিসাব বছর ${isBengali ? bnYear : year}`)}
-          </Text>
-        </View>
-        <View style={styles.backBtn} />
-      </View>
+      {!done ? <View style={s.card}>
+        <Text style={s.cardTitle}>{l('How to share', 'কীভাবে ভাগ হবে')}</Text>
+        <View style={s.segment}>{([['full', l('Share the whole profit', 'পুরো মুনাফা ভাগ')], ['rate', l('Society sets a rate', 'সমিতির হার (%)')]] as const).map(([key, label]) =>
+          <Pressable key={key} disabled={!canManage} accessibilityRole="radio" accessibilityState={{ checked: mode === key }} onPress={() => setMode(key)} style={[s.segItem, mode === key && s.segOn]}><Text style={[s.segText, mode === key && s.segTextOn]}>{label}</Text></Pressable>)}</View>
+        {mode === 'full' ? <><View style={s.two}>{percentField(l('Reserve fund (%)', 'রিজার্ভ (%)'), reserve, setReserve)}{percentField(l('Management share (%)', 'পরিচালক অংশ (%)'), management, setManagement)}</View>
+          <Text style={s.hint}>{l('The rest of the profit goes to members by taka-months. Use 0 if a share does not apply.', 'বাকি মুনাফা টাকা-মাস অনুযায়ী সদস্যদের মধ্যে ভাগ হবে। কোনো অংশ না থাকলে ০ দিন।')}</Text></>
+          : <>{percentField(l('Yearly profit rate (%)', 'বছরে মুনাফার হার (%)'), rate, setRate)}
+          <Text style={s.hint}>{l('Each member gets taka-months × rate ÷ 12. What is left goes to the reserve.', 'প্রত্যেকে পাবেন টাকা-মাস × হার ÷ ১২। যা বাঁচবে তা রিজার্ভে যাবে।')}</Text></>}
+        {!rulesValid ? <Text style={s.error}>{mode === 'full' ? l('Enter 0–100%; the two together cannot pass 100%.', '০–১০০% দিন; দুটো মিলে ১০০% এর বেশি নয়।') : l('Enter a rate above 0%.', '০% এর বেশি হার দিন।')}</Text> : null}
+        {canManage ? <Button variant="outline" size="sm" title={l('Keep these rules', 'এই নিয়ম সংরক্ষণ করুন')} disabled={!rulesValid} onPress={saveRules} /> : null}
+      </View> : null}
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {previewError && <TouchableOpacity onPress={()=>loadPreview(true)}><Text style={{color: colors.danger, marginBottom:12}}>{previewError} · {l('Retry','আবার চেষ্টা')}</Text></TouchableOpacity>}
-        {REMOTE && !preview && !previewError && <Text>{l('Loading annual accounts…','বার্ষিক হিসাব লোড হচ্ছে…')}</Text>}
-        {/* 4-Step Stepper Card */}
-        <View style={styles.stepperCard}>
-          {/* Step 1: হিসাব */}
-          <View style={styles.stepItem}>
-            <View style={[styles.stepCircle, styles.stepCircleCompleted]}>
-              <Ionicons name="checkmark" size={14} color={colors.surface} />
-            </View>
-            <Text style={styles.stepLabelActive}>{l('Calculation', 'হিসাব')}</Text>
-          </View>
+      {error ? <Pressable onPress={load}><Text style={s.error}>{error} · {l('Retry', 'আবার চেষ্টা')}</Text></Pressable> : null}
+      {loading && !p ? <Text style={s.hint}>{l('Calculating…', 'হিসাব হচ্ছে…')}</Text> : null}
 
-          {/* Step 2: পর্যালোচনা */}
-          <View style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                currentStep >= 2 ? styles.stepCircleActive : styles.stepCircleInactive,
-              ]}
-            >
-              {currentStep > 2 && (
-                <Ionicons name="checkmark" size={14} color={colors.surface} />
-              )}
-            </View>
-            <Text style={styles.stepLabelActive}>{l('Review', 'পর্যালোচনা')}</Text>
-          </View>
-
-          {/* Step 3: অনুমোদন */}
-          <View style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                currentStep >= 3 ? styles.stepCircleCompleted : styles.stepCircleInactive,
-              ]}
-            >
-              {currentStep >= 3 && (
-                <Ionicons name="checkmark" size={14} color={colors.surface} />
-              )}
-            </View>
-            <Text
-              style={
-                currentStep >= 3 ? styles.stepLabelActive : styles.stepLabelInactive
-              }
-            >
-              {l('Approval', 'অনুমোদন')}
-            </Text>
-          </View>
-
-          {/* Step 4: বিতরণ */}
-          <View style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                currentStep >= 4 ? styles.stepCircleCompleted : styles.stepCircleInactive,
-              ]}
-            >
-              {currentStep >= 4 && (
-                <Ionicons name="checkmark" size={14} color={colors.surface} />
-              )}
-            </View>
-            <Text
-              style={
-                currentStep >= 4 ? styles.stepLabelActive : styles.stepLabelInactive
-              }
-            >
-              {l('Disbursement', 'বিতরণ')}
-            </Text>
-          </View>
+      {p ? <>
+        <View style={s.card}>
+          {[[l('Profit from investments', 'বিনিয়োগ থেকে মুনাফা'), p.projectProfit], [l('Other income', 'অন্যান্য আয়'), p.otherIncome ?? 0], [l('Expenses', 'খরচ'), -p.expenses]].map(([label, v]) =>
+            <View key={String(label)} style={s.row}><Text style={s.body}>{label}</Text><Text style={s.value}>{money(Number(v))}</Text></View>)}
+          <View style={[s.row, s.top]}><Text style={s.bodyBold}>{l('Net profit', 'নিট মুনাফা')}</Text><Text style={s.big}>{money(p.netProfit)}</Text></View>
+          <View style={s.row}><Text style={s.body}>{l('To members', 'সদস্যদের ভাগ')}</Text><Text style={s.value}>{money(p.distributed)}</Text></View>
+          {(p.reserveAmount ?? 0) > 0 ? <View style={s.row}><Text style={s.body}>{l('Reserve / management', 'রিজার্ভ / পরিচালক')}</Text><Text style={s.value}>{money(p.reserveAmount || 0)}</Text></View> : null}
+          {p.exceedsProfit ? <Text style={s.error}>{l('At this rate members would get more than the society earned. Lower the rate.', 'এই হারে সদস্যরা সমিতির আয়ের চেয়ে বেশি পাবেন। হার কমান।')}</Text> : null}
         </View>
 
-        <Card variant="surface">
-          <Text style={styles.calcCardTitle}>{l('Distribution rules', 'বণ্টনের নিয়ম')}</Text>
-          <Text style={styles.rulesHint}>{l('Each eligible member receives: distributable member profit × their total deposit ÷ total eligible deposits. The preview below shows each share before approval.', 'প্রতি যোগ্য সদস্যের অংশ = সদস্যদের বণ্টনযোগ্য লাভ × ওই সদস্যের মোট জমা ÷ যোগ্য সদস্যদের মোট জমা। অনুমোদনের আগে নিচের খসড়ায় প্রত্যেকের অংশ দেখুন।')}</Text>
-          <Text style={styles.rulesHint}>{locked
-            ? l('This distribution is approved. Its saved percentages cannot be changed.', 'এই বণ্টন অনুমোদিত। এর সংরক্ষিত হার পরিবর্তন করা যাবে না।')
-            : l('Set each share according to your somiti rules. Use 0 if it does not apply. The remainder goes to members.', 'সমিতির নিয়ম অনুযায়ী হার দিন। কোনো অংশ না থাকলে ০ দিন। বাকি লাভ সদস্যদের মধ্যে বণ্টিত হবে।')}</Text>
-          {([
-            ['reserve', l('Reserve fund (%)', 'রিজার্ভ ফান্ড (%)'), locked ? String(reservePercent) : reserveInput, setReserveInput],
-            ['management', l('Director share (%)', 'পরিচালক অংশ (%)'), locked ? String(directorPercent) : managementInput, setManagementInput],
-          ] as const).map(([key, label, value, onChange]) => (
-            <View key={key} style={styles.ruleField}>
-              <Text style={styles.ruleLabel}>{label}</Text>
-              <TextInput accessibilityLabel={label} style={styles.ruleInput} value={isBengali ? toBengaliDigits(value) : value}
-                onChangeText={text => onChange(toEnglishDigits(text))} keyboardType="decimal-pad" editable={canManage && !locked && !saving && !savingRules} />
-            </View>
-          ))}
-          {!allocation && <Text accessibilityRole="alert" style={styles.ruleError}>{l('Enter percentages from 0 to 100, with up to two decimal places. Their total cannot exceed 100%.', '০ থেকে ১০০-এর মধ্যে সর্বোচ্চ দুই দশমিকের হার দিন। দুই অংশের যোগফল ১০০%-এর বেশি হবে না।')}</Text>}
-          {canManage && !locked && <Button title={l('Save somiti rules', 'সমিতির নিয়ম সংরক্ষণ')} variant="outline" onPress={saveRules} disabled={!allocation || saving} loading={savingRules} />}
-        </Card>
-
-        {/* Calculation Draft Card */}
-        <View style={styles.calcCard}>
-          <Text style={styles.calcCardTitle}>
-            {l('Calculation (Draft)', 'হিসাব (খসড়া)')}
-          </Text>
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>
-              {l('Total Investment Profit', 'মোট বিনিয়োগ লাভ')}
-            </Text>
-            <Text style={styles.calcValueBold}>
-              +{formatMoney(totalProjectProfit)}
-            </Text>
-          </View>
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>{l('Other Income', 'অন্যান্য আয়')}</Text>
-            <Text style={styles.calcValueBold}>+{formatMoney(otherIncome)}</Text>
-          </View>
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>
-              {l('Operating Expense', 'পরিচালনা ব্যয়')}
-            </Text>
-            <Text style={styles.calcValueBold}>
-              −{formatMoney(operatingExpense)}
-            </Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabelTitle}>{l('Net Profit', 'নিট লাভ')}</Text>
-            <Text style={styles.calcValueTitle}>{formatMoney(netProfit)}</Text>
-          </View>
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>
-              {l(`Reserve Fund (${formatNum(reservePercent)}%)`, `রিজার্ভ ফান্ড (${formatNum(reservePercent)}%)`)}
-            </Text>
-            <Text style={styles.calcValueBold}>−{formatMoney(reserveFund)}</Text>
-          </View>
-
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>
-              {l(`Director Share (${formatNum(directorPercent)}%)`, `পরিচালক অংশ (${formatNum(directorPercent)}%)`)}
-            </Text>
-            <Text style={styles.calcValueBold}>−{formatMoney(directorFund)}</Text>
-          </View>
-
-          {/* Distributable Highlight Box */}
-          <View style={styles.distributableBox}>
-            <Text style={styles.distributableLabel}>
-              {l('Distributable Profit', 'বণ্টনযোগ্য লাভ')}
-            </Text>
-            <Text style={styles.distributableAmount}>
-              {formatMoney(distributableProfit)}
-            </Text>
-          </View>
+        <View style={s.card}>
+          <Text style={s.cardTitle}>{l('Each member', 'প্রত্যেক সদস্য')}</Text>
+          <Text style={s.hint}>{l('Taka-months = savings in each month added up. A deposit counts from the next month; a withdrawal from its own month.', 'টাকা-মাস = প্রতি মাসের সঞ্চয়ের যোগফল। জমা পরের মাস থেকে গণনা, উত্তোলন সেই মাস থেকেই বাদ।')}</Text>
+          <View style={[s.tr, s.th]}><Text style={[s.td, { flex: 2 }]}>{l('Member', 'সদস্য')}</Text><Text style={s.td}>{l('Taka-months', 'টাকা-মাস')}</Text><Text style={[s.td, s.num]}>{l('Share', 'ভাগ')}</Text></View>
+          {p.shares.map(r => <View key={r.memberId} style={s.tr}><View style={{ flex: 2 }}><Text style={s.name}>{r.name}</Text><Text style={s.small}>{r.code} · {l('year end', 'বছর শেষে')} {money(r.balance)}</Text></View>
+            <Text style={[s.td, s.mono]}>{formatNum(Math.round(r.takaMonths))}</Text><Text style={[s.td, s.num, s.shareText]}>{money(r.share)}</Text></View>)}
+          {!p.shares.length ? <Text style={s.hint}>{l('No member had savings in this year.', 'এই বছরে কারও সঞ্চয় ছিল না।')}</Text> : null}
         </View>
 
-        {/* Info Note Banner */}
-        <View style={styles.infoBanner}>
-          <Ionicons
-            name="information-circle-outline"
-            size={18}
-            color={colors.textSecondary}
-            style={styles.infoIcon}
-          />
-          <Text style={styles.infoText}>
-            {l(
-              'Shares are calculated from the member savings balances at the time of approval.',
-              'অনুমোদনের সময় সদস্যদের সঞ্চয়ের স্থিতি অনুযায়ী লাভের অংশ হিসাব হবে।'
-            )}
-          </Text>
+        <View style={{ gap: 10 }}>
+          <Button variant="outline" title={l('Download PDF', 'PDF ডাউনলোড')} onPress={exportPdf} />
+          {canManage && !done && REMOTE ? <Button title={l('Distribute profit', 'মুনাফা বণ্টন করুন')} loading={busy} disabled={!complete || !rulesValid || p.distributed <= 0 || !!p.exceedsProfit} onPress={distribute} /> : null}
+          {!canManage && !done ? <Text style={s.hint}>{l('Only an admin can distribute.', 'শুধু admin বণ্টন করতে পারবেন।')}</Text> : null}
         </View>
-
-        {/* Formula Card */}
-        <View style={styles.formulaCard}>
-          <Text style={styles.formulaTitle}>
-            {l('Distribution Formula', 'বণ্টনের সূত্র')}
-          </Text>
-          <Text style={styles.formulaEquation}>
-            {l(
-              `Member Share = ${formatMoney(distributableProfit)} × Member Total Deposit ÷ ${formatMoney(totalMembersDeposit)}`,
-              `সদস্যের অংশ = ${formatMoney(distributableProfit)} × সদস্যের মোট জমা ÷ ${formatMoney(totalMembersDeposit)}`
-            )}
-          </Text>
-          <Text style={styles.formulaSubtitle}>
-            {l(
-              `Total members deposit ${formatMoney(totalMembersDeposit)}`,
-              `সকল সদস্যের মোট জমা ${formatMoney(totalMembersDeposit)}`
-            )}
-          </Text>
-        </View>
-
-        {/* Member Share Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {l('Member-wise Allocation', 'সদস্যভিত্তিক অংশ')}
-          </Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.allMembersLink}>
-              {l(`All ${totalMemberCount} Members`, `সব ${isBengali ? toBengaliDigits(totalMemberCount) : totalMemberCount} জন`)}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Member List Card */}
-        <View style={styles.membersCard}>
-          {sampleMembers.map((item: any, index: number) => (
-            <View
-              key={item.id}
-              style={[
-                styles.memberRow,
-                index < sampleMembers.length - 1 && styles.memberRowBorder,
-              ]}
-            >
-              <View style={[styles.avatarCircle, { backgroundColor: item.avatarBg }]}>
-                <Text style={[styles.avatarText, { color: item.avatarColor }]}>
-                  {item.initial}
-                </Text>
-              </View>
-
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{item.name}</Text>
-                <Text style={styles.memberDeposit}>
-                  {l('Total Deposit', 'মোট জমা')} {formatMoney(item.totalDeposit)}
-                </Text>
-              </View>
-
-              <Text style={styles.memberProfit}>+{formatMoney(item.profitShare)}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-
-      {/* Sticky Bottom Actions Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.draftPdfBtn}
-          onPress={handleDownloadDraft} disabled={!allocation || (REMOTE && (!preview || !!previewError))}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="download-outline" size={16} color={colors.text} />
-          <Text style={styles.draftPdfText}>{l('Draft PDF', 'খসড়া PDF')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.approveBtn, isApproved && styles.approveBtnDone]}
-          onPress={handleApprove} disabled={!canManage || !allocation || savingRules || saving || locked || distributableProfit <= 0 || totalMembersDeposit <= 0 || (REMOTE && (!preview || !!previewError))}
-          activeOpacity={0.85}
-        >
-          <Ionicons
-            name="checkmark"
-            size={16}
-            color={isApproved ? colors.primary : colors.surface}
-          />
-          <Text style={[styles.approveBtnText, isApproved && styles.approveBtnTextDone]}>
-            {isApproved
-              ? l('Approved', 'অনুমোদিত')
-              : l('Give Approval', 'অনুমোদন দিন')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+      </> : null}
+    </ScrollView>
+  </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  rulesHint: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.textSecondary, marginBottom: 12 },
-  ruleField: { marginBottom: 12 },
-  ruleLabel: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.text, marginBottom: 6 },
-  ruleInput: { width: '100%', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, fontFamily: typography.fontFamily.semiBold, fontSize: typography.size.md, lineHeight: typography.lineHeight.md, color: colors.text },
-  ruleError: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.danger, marginBottom: 12 },
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerCenter: {
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.xl,
-    lineHeight: typography.lineHeight.xl,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  stepperCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    marginBottom: 14,
-  },
-  stepItem: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepCircleCompleted: {
-    backgroundColor: colors.primary,
-  },
-  stepCircleActive: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
-  },
-  stepCircleInactive: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  stepLabelActive: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.text,
-  },
-  stepLabelInactive: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.textSecondary,
-  },
-  calcCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-  },
-  calcCardTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.base,
-    lineHeight: typography.lineHeight.base,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  calcRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  calcLabel: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 12,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.textSecondary,
-  },
-  calcLabelTitle: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 12,
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.text,
-  },
-  calcValueBold: {
-    flexShrink: 0,
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-  },
-  calcValueTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.surfaceMuted,
-    marginVertical: 8,
-  },
-  distributableBox: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  distributableLabel: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 12,
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.base,
-    lineHeight: typography.lineHeight.base,
-    color: colors.primary,
-  },
-  distributableAmount: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.xl,
-    lineHeight: typography.lineHeight.xl,
-    color: colors.primary,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 14,
-    padding: 12,
-    gap: 8,
-    marginBottom: 12,
-  },
-  infoIcon: {
-    marginTop: 1,
-  },
-  infoText: {
-    flex: 1,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.text,
-  },
-  formulaCard: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  formulaTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-    marginBottom: 6,
-  },
-  formulaEquation: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.text,
-  },
-  formulaSubtitle: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-    color: colors.text,
-  },
-  allMembersLink: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    color: colors.primary,
-  },
-  membersCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    marginBottom: 16,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  memberRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceMuted,
-  },
-  avatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-  },
-  memberDeposit: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    lineHeight: typography.lineHeight.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  memberProfit: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.primary,
-  },
-  bottomSpacer: {
-    height: 100,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  draftPdfBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 24,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  draftPdfText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.text,
-  },
-  approveBtn: {
-    flex: 1.4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 24,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  approveBtnDone: {
-    backgroundColor: colors.primarySoft,
-  },
-  approveBtnText: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
-    color: colors.surface,
-  },
-  approveBtnTextDone: {
-    color: colors.primary,
-  },
+function addDays(iso: string, days: number) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  back: { padding: 8 },
+  title: { fontFamily: typography.fontFamily.bold, fontSize: 19, color: colors.text },
+  sub: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
+  content: { padding: 16, paddingBottom: 40, gap: 12 },
+  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  chipOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  chipText: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.text }, chipTextOn: { color: colors.primary },
+  banner: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: colors.warningSoft, borderRadius: 12, padding: 12 },
+  bannerText: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: 14, color: colors.warning, lineHeight: 21 },
+  card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16 },
+  cardTitle: { fontFamily: typography.fontFamily.bold, fontSize: 16, color: colors.text, marginBottom: 8 },
+  segment: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: 12, padding: 3, marginBottom: 14 },
+  segItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 10 }, segOn: { backgroundColor: colors.surface },
+  segText: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.textSecondary }, segTextOn: { color: colors.primary, fontFamily: typography.fontFamily.semiBold },
+  two: { flexDirection: 'row', gap: 10 },
+  hint: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 8 },
+  error: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.warning, marginVertical: 6 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, gap: 10 },
+  top: { borderTopWidth: 1, borderTopColor: colors.borderLight, marginTop: 4, paddingTop: 10 },
+  body: { fontFamily: typography.fontFamily.regular, fontSize: 14, color: colors.text }, bodyBold: { fontFamily: typography.fontFamily.semiBold, fontSize: 15, color: colors.text },
+  value: { fontFamily: typography.fontFamily.semiBold, fontSize: 14, color: colors.text, fontVariant: ['tabular-nums'] },
+  big: { fontFamily: typography.fontFamily.bold, fontSize: 18, color: colors.primary },
+  tr: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  th: { borderTopWidth: 0 },
+  td: { flex: 1, fontFamily: typography.fontFamily.medium, fontSize: 12.5, color: colors.textSecondary },
+  num: { textAlign: 'right' }, mono: { fontVariant: ['tabular-nums'], color: colors.text },
+  name: { fontFamily: typography.fontFamily.semiBold, fontSize: 14, color: colors.text },
+  small: { fontFamily: typography.fontFamily.regular, fontSize: 12, color: colors.textSecondary },
+  shareText: { fontFamily: typography.fontFamily.bold, fontSize: 14, color: colors.primary, fontVariant: ['tabular-nums'] },
 });

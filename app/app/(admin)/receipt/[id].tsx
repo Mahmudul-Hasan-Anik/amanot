@@ -136,7 +136,7 @@ export default function ReceiptScreen() {
     } catch (e) {}
   };
 
-  if (!txn) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Receipt not found. Refresh accounts and try again.','রসিদ পাওয়া যায়নি। হিসাব আপডেট করে আবার চেষ্টা করুন।')}</Text><TouchableOpacity onPress={()=>router.replace('/(admin)/(tabs)/collection')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to collections','আদায়ের তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!txn) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Receipt not found. Refresh accounts and try again.','রসিদ পাওয়া যায়নি। হিসাব আপডেট করে আবার চেষ্টা করুন।')}</Text><TouchableOpacity onPress={()=>router.replace('/(admin)/(tabs)')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to home','হোমে ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />

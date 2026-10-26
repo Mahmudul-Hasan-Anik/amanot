@@ -3,12 +3,14 @@ export type LedgerFilter = { from?:string; to?:string; memberId?:string; project
 export type LedgerCursor = { createdAt:string; id:string };
 export type LedgerPage = { rows:Transaction[]; hasMore:boolean; cursor:LedgerCursor|null };
 export type LedgerSummary = {
-  months:Array<{month:string;deposits:number;profit:number;expenses:number;withdrawals?:number;transaction_count:number}>;
+  months:Array<{month:string;deposits:number;profit:number;expenses:number;withdrawals?:number;other_income?:number;funds?:number;transaction_count:number}>;
   categories:Array<{month:string;category:string;amount:number}>;
   collections:Record<string,number>;
 };
 export const emptyLedgerSummary:LedgerSummary={months:[],categories:[],collections:{}};
-export function signedTransactionAmount(t:Pick<Transaction,'type'|'amount'|'investmentReversal'|'investmentDisbursement'>) {
+/** Money in (+) or out (−). Cancelled entries and their reversing rows count as zero. */
+export function signedTransactionAmount(t:Pick<Transaction,'type'|'amount'|'investmentReversal'|'investmentDisbursement'>&{voided?:boolean}) {
+ if(t.voided||t.type==='reversal')return 0;
  return t.type==='expense'||t.type==='withdrawal'||t.investmentReversal||t.investmentDisbursement?-t.amount:t.amount;
 }
 export function monthRange(month:string) {

@@ -45,14 +45,16 @@ export default function RecordDepositScreen() {
     return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
   }, [displayMembers, selectedMemberId]);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('bkash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>((['cash','bkash','nagad','bank'].includes(String(params.method||''))?params.method:'cash') as PaymentMethodType);
   const [trxId, setTrxId] = useState('');
   const [saving, setSaving] = useState(false);
   const requestId = useRef(uuid());
 
   // Deposit date & Comment
-  const [depositDate, setDepositDate] = useState(todayDMY());
-  const [comment, setComment] = useState('');
+  // Edit = cancel + enter again: the form can be prefilled from the cancelled entry.
+  const presetDate = typeof params.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date.split('-').reverse().join('/') : todayDMY();
+  const [depositDate, setDepositDate] = useState(presetDate);
+  const [comment, setComment] = useState(typeof params.note==='string'?params.note:'');
 
   // DatePicker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -98,7 +100,7 @@ export default function RecordDepositScreen() {
   // Notification delivery methods
   const [sendSMS, setSendSMS] = useState(false);
 
-  const [customAmount,setCustomAmount]=useState('');
+  const [customAmount,setCustomAmount]=useState(typeof params.amount==='string'?params.amount:'');
   const handleSelectMember=(id:string)=>{setSelectedMemberId(id);setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
 
   // Payment methods segmented control options
@@ -118,14 +120,11 @@ export default function RecordDepositScreen() {
   const handleConfirmDeposit = async () => {
     if (submitLock.current) return;
     const errors:Record<string,string>={};
-    if(!currentMember||currentMember.status==='inactive')errors.member=l('Select an active member.','সক্রিয় সদস্য নির্বাচন করুন।');
+    if(!currentMember)errors.member=l('Select a member.','সদস্য নির্বাচন করুন।');
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount=l('Enter a positive amount with at most two decimal places.','দশমিকের পরে সর্বোচ্চ দুই ঘরসহ সঠিক পরিমাণ দিন।');
     }
 
-    if (paymentMethod !== 'cash' && !trxId.trim()) {
-      errors.reference=l('Enter the transaction ID.','ট্রানজ্যাকশন আইডি লিখুন।');
-    }
 
     const depositISO = parseDMY(toEnglishDigits(depositDate));
     if (!depositISO || depositISO>isoToday()) {
@@ -162,7 +161,7 @@ export default function RecordDepositScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => safeBack(router, '/(admin)/(tabs)/collection')}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.closeBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -257,7 +256,7 @@ export default function RecordDepositScreen() {
         {/* 4. 2-Column Row for TrxID and Date */}
         <View style={styles.twoColRow}>
           <View style={styles.colLeft} {...validation.fieldProps('reference')}>
-            <Text style={styles.fieldLabel}>{l('Transaction ID', 'লেনদেন নম্বর')}</Text>
+            <Text style={styles.fieldLabel}>{l('Transaction ID (optional)', 'লেনদেন নম্বর (ঐচ্ছিক)')}</Text>
             {!!validation.errors.reference&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.reference}</Text>}
             <View style={styles.inputBox}>
               <TextInput

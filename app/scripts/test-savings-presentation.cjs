@@ -3,7 +3,7 @@ function load(file,deps={}){const exports={};vm.runInNewContext(ts.transpileModu
 const {savingsBreakdown,pendingDays}=load('src/lib/withdrawal.ts');
 const member={id:'m',name:'Member',code:'M-001',totalDeposit:950.25,profitBalance:100.10,totalWithdrawn:150.50};
 const breakdown=savingsBreakdown(member,[{member_id:'m',status:'approved',amount:200.05},{member_id:'other',status:'approved',amount:9999},{member_id:'m',status:'submitted',amount:100}]);
-assert.equal(breakdown.principal,850.15);assert.equal(breakdown.paidIn,1000.65);assert.equal(breakdown.available,650.10);assert.equal(breakdown.profit,100.10);
+assert.equal(breakdown.principal,850.15);assert.equal(breakdown.paidIn,1000.65);assert.equal(breakdown.available,750.20,'deposit and profit are both withdrawable');assert.equal(breakdown.profit,100.10);
 assert.equal(savingsBreakdown({...member,totalDeposit:0,profitBalance:0},[{member_id:'m',status:'approved',amount:100}]).available,0);
 assert.equal(pendingDays('2026-10-10T12:00:00Z',new Date('2026-10-13T11:00:00Z')),2);assert.equal(pendingDays('bad'),0);assert.equal(pendingDays('2099-01-01'),0);
 const {buildMemberStatement}=load('src/lib/memberStatement.ts',{'../i18n/financeLabels':{financeNote:n=>n}});
