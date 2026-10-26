@@ -428,7 +428,7 @@ export default function MemberProfileScreen() {
           <TouchableOpacity
             testID="member-statement-btn"
             style={styles.actionBtn}
-            onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
+            onPress={() => router.push(`/(admin)/passbook/${member.id}` as any)}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color={colors.text} />
@@ -462,7 +462,7 @@ export default function MemberProfileScreen() {
           <Text style={styles.sectionTitle}>{l('Passbook', 'পাসবই')}</Text>
           <TouchableOpacity
             testID="member-view-all-txns"
-            onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
+            onPress={() => router.push(`/(admin)/passbook/${member.id}` as any)}
             activeOpacity={0.7}
           >
             <Text style={styles.viewAllLink}>{l('View All', 'সব দেখুন')}</Text>
@@ -525,18 +525,6 @@ export default function MemberProfileScreen() {
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      {/* Sticky Bottom CTA */}
-      <StickyCTA backgroundColor={colors.bg} style={styles.stickyCTA}>
-        <TouchableOpacity
-          testID="member-collect-deposit-btn"
-          style={styles.bottomPayBtn}
-          onPress={() => router.push(`/(admin)/deposit/new?memberId=${member.id}`)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={20} color={colors.surface} />
-          <Text style={styles.bottomPayBtnText}>{l('Collect Deposit', 'জমা নিন')}</Text>
-        </TouchableOpacity>
-      </StickyCTA>
 
       {/* Edit Member Modal */}
       {showLoginPin&&canIssueLoginPin&&<MemberLoginPin member={member} onIssue={()=>resetMemberPin(member.id)} onClose={()=>setShowLoginPin(false)}/>}

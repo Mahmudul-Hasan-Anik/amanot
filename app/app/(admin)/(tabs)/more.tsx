@@ -27,13 +27,14 @@ export default function MoreScreen() {
   const admin = role === 'admin' || role === 'super_admin';
   const roleName: Record<string, [string, string]> = { super_admin: ['Super admin', 'সুপার অ্যাডমিন'], admin: ['Admin', 'অ্যাডমিন'], cashier: ['Cashier', 'ক্যাশিয়ার'], field_worker: ['Field worker', 'মাঠকর্মী'], member: ['Member', 'সদস্য'] };
   const userName = currentUser?.name || l('User', 'ব্যবহারকারী');
-  const userRole = [currentUser?.role, roleName[role || 'member'] ? l(...roleName[role || 'member']) : ''].filter(Boolean).join(' • ');
+  const userRole = currentUser?.role || (roleName[role || 'member'] ? l(...roleName[role || 'member']) : '');
   // Four groups: money, member services, reports, society & settings. Approvals live outside the app now.
   const groups: { title: string; items: { icon: keyof typeof Ionicons.glyphMap; title: string; href: string; show?: boolean; badge?: number }[] }[] = [
     { title: l('Accounts & money', 'হিসাব ও টাকা'), items: [
       { icon: 'wallet-outline', title: l('Accounts & balances', 'হিসাব ও ব্যালেন্স'), href: '/(admin)/finance' },
       { icon: 'book-outline', title: l('Khata (all entries)', 'লেনদেনের খাতা'), href: '/(admin)/ledger' },
       { icon: 'add-circle-outline', title: l('Add money to an account', 'হিসাবে টাকা যোগ'), href: '/(admin)/fund/new' },
+      { icon: 'calculator-outline', title: l('Day close (count cash)', 'দিন শেষের হিসাব'), href: '/(admin)/day-close' },
       { icon: 'alert-circle-outline', title: l('Overdue installments', 'বকেয়া কিস্তি'), href: '/(admin)/due' },
     ] },
     { title: l('Member services', 'সদস্য সেবা'), items: [

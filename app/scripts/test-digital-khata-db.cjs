@@ -128,6 +128,15 @@ async function main(){
   // Next year: A's opening balance includes last year's share from July.
   const n=(await one("select profit_preview_fy(2025,'rate',12,0,0) v")).v;assert.equal(Number(n.shares.find(s=>s.memberId===a).takaMonths),56750*12);
  });
+ await pass('day close records the count and difference without moving money',async()=>{
+  await as('postgres');await load('20261027120000_cash_count.sql');await load('20261027120000_cash_count.sql');
+  await as('postgres');const cash=Number((await one("select amount from cash_accounts where type='cashier'")).amount);await as('authenticated',owner);
+  const r=await one('select * from record_cash_count($1::jsonb)',[JSON.stringify({id:id(700),method:'cash',counted:cash-50,note:'Short'})]);
+  assert.equal(Number(r.difference),-50);assert.equal(Number(r.expected),cash);
+  await one('select * from record_cash_count($1::jsonb)',[JSON.stringify({id:id(700),method:'cash',counted:1})]);
+  assert.equal((await one('select count(*)::int n from cash_counts')).n,1);
+  await as('postgres');assert.equal(Number((await one("select amount from cash_accounts where type='cashier'")).amount),cash);
+ });
  console.log(checks+' digital-khata DB checks passed (disposable fixtures).');
  }finally{await db.close();}
 }

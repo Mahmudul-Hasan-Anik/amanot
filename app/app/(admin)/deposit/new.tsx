@@ -314,26 +314,7 @@ export default function RecordDepositScreen() {
           </View>
         </View>
 
-        {/* 5. Send Receipt Notification Channels Card */}
-        <Text style={styles.sectionTitle}>{l('Send Receipt to Member', 'সদস্যকে রসিদ পাঠান')}</Text>
-        <View style={styles.deliveryCard}>
-          <TouchableOpacity
-            style={styles.deliveryRow}
-            onPress={() => setSendSMS(!sendSMS)}
-            activeOpacity={0.7}
-          >
-            <Checkbox
-              checked={sendSMS}
-              onPress={() => setSendSMS(!sendSMS)}
-            />
-            <Text style={styles.deliveryLabel}>{l('SMS', 'এসএমএস')}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.deliveryDivider} />
-
-          <Text style={[styles.deliveryLabel,{padding:16}]}>{l('Share via WhatsApp from the saved receipt. Push is not connected.', 'সংরক্ষিত রসিদ থেকে হোয়াটসঅ্যাপে শেয়ার করুন। পুশ সংযুক্ত নেই।')}</Text>
-        </View>
-
+        {/* SMS is not connected; the receipt screen sends the receipt on WhatsApp. */}
         {/* 6. Info Notice Box */}
         <View style={styles.infoBox}>
           <Ionicons

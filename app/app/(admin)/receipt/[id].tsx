@@ -20,6 +20,7 @@ import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { exportAndShareReceipt, shareReceiptViaWhatsApp } from '../../../src/utils/pdfExport';
+import { EntryActions } from '../../../src/components/EntryActions';
 import {fetchTransactionByReference} from '../../../src/lib/api';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
 import {useAuthStore} from '../../../src/features/auth/authStore';
@@ -46,6 +47,7 @@ export default function ReceiptScreen() {
     return()=>{active=false;};
   },[key,!!cached]);
   const txn=cached||(resolved?.key===key?resolved.txn:null);
+  const [fixing,setFixing]=React.useState(false);
   if(!txn||txn.type!=='deposit')return <SafeAreaView style={styles.container}>
     <TouchableOpacity onPress={()=>router.back()}><Text style={styles.homeLinkText}>{l('Back','ফিরুন')}</Text></TouchableOpacity>
     <Text style={styles.homeLinkText}>{resolved?.key===key&&resolved.error ? resolved.error : isSupabaseConfigured()&&resolved?.key!==key&&!cached ? l('Loading receipt…','রসিদ লোড হচ্ছে…') : l('Deposit receipt not found','জমার রসিদ পাওয়া যায়নি')}</Text>
@@ -251,6 +253,11 @@ export default function ReceiptScreen() {
             <Text style={styles.anotherBtnText}>{l('+ Record Another Deposit', '+ আরেকটি জমা নিন')}</Text>
           </TouchableOpacity>
 
+          {/* Mistake? cancel or edit right away (kept in the audit log). */}
+          {txn && !(txn as any).voided ? <TouchableOpacity style={styles.homeLinkBtn} onPress={() => setFixing(true)} activeOpacity={0.7}>
+            <Text style={[styles.homeLinkText, { color: colors.warning }]}>{l('Wrong entry? Cancel or edit', 'ভুল হয়েছে? বাতিল বা এডিট করুন')}</Text>
+          </TouchableOpacity> : null}
+
           {/* Back to Home Link */}
           <TouchableOpacity
             style={styles.homeLinkBtn}
@@ -263,6 +270,7 @@ export default function ReceiptScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <EntryActions entry={fixing && txn ? txn as any : null} onClose={() => setFixing(false)} />
     </SafeAreaView>
   );
 }

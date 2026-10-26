@@ -56,6 +56,8 @@ export default function HomeDashboardScreen() {
   if (fy.days >= 0 && fy.days <= 90) tasks.push({ key: 'fy', dot: formatNum(fy.days), title: l(`${formatNum(fy.days)} days to year end`, `বছর শেষ হতে ${formatNum(fy.days)} দিন`), sub: l(`${formatHumanDate(fy.iso, false)} · check the profit draft`, `${formatHumanDate(fy.iso, true)} · মুনাফা বণ্টনের খসড়া দেখুন`), href: '/(admin)/distribution' });
   tasks.push({ key: 'today', dot: formatNum(todays.length), title: l(`${formatNum(todays.length)} entries today`, `আজ ${formatNum(todays.length)}টা এন্ট্রি`), sub: [l(`Deposits ${formatMoney(sumOf('deposit'))}`, `জমা ${formatMoney(sumOf('deposit'))}`), sumOf('expense') ? l(`Expenses ${formatMoney(sumOf('expense'))}`, `খরচ ${formatMoney(sumOf('expense'))}`) : '', cash ? l(`Cash in hand ${formatMoney(cash.amount)}`, `হাতে নগদ ${formatMoney(cash.amount)}`) : ''].filter(Boolean).join(' · '), href: '/(admin)/ledger' });
 
+  tasks.push({ key: 'close', dot: '৳', title: l('Day close: count the cash', 'দিন শেষের হিসাব মেলান'), sub: l('Count cash in hand and match it with the app', 'হাতের টাকা গুনে অ্যাপের সাথে মেলান'), href: '/(admin)/day-close' });
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />

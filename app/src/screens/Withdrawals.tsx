@@ -15,6 +15,7 @@ import { MemberPicker } from '../components/MemberPicker';
 import { isoToday, parseInvestmentAmount } from '../lib/investment';
 import { uuid, fetchTransactionByReference } from '../lib/api';
 import { exportReport } from '../utils/reportExport';
+import { receiptText, sendOnWhatsApp } from '../utils/whatsappReceipt';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -87,7 +88,7 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
  return <Page title={memberView?l('My withdrawals','আমার উত্তোলন'):l('Savings returned','সঞ্চয় ফেরত')} backTo={memberView?'/(member)':'/(admin)/(tabs)'}>
   {error&&!modal?<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{error}</Text>:null}
   {done?<View style={[s.card,{backgroundColor:colors.primarySoft}]}><Text style={s.title}>{l('Saved','সংরক্ষণ হয়েছে')}</Text><Text style={s.text}>{done.member_name} · {money(done.amount)}</Text>
-   <View style={styles.actions}><Button size="sm" title={l('Receipt PDF','রসিদ PDF')} onPress={()=>receipt(done)}/><Button size="sm" variant="outline" title={l('Another entry','আরেকটা এন্ট্রি')} onPress={()=>{setDone(null);setMemberId('');openNew();}}/></View></View>:null}
+   <View style={styles.actions}><Button size="sm" title="WhatsApp" onPress={()=>{const m=members.find(x=>x.id===done.member_id);void sendOnWhatsApp(m?.whatsapp||m?.phone,receiptText({society:society.name,title:'সঞ্চয় ফেরতের রসিদ',name:done.member_name,code:done.member_code,amount:done.amount,date:done.payment_date||isoToday(),method:done.payment_method||'',balance:m?.totalDeposit},money));}}/><Button size="sm" variant="outline" title={l('Receipt PDF','রসিদ PDF')} onPress={()=>receipt(done)}/><Button size="sm" variant="outline" title={l('Another entry','আরেকটা এন্ট্রি')} onPress={()=>{setDone(null);setMemberId('');openNew();}}/></View></View>:null}
   {staff?<Button title={l('Give savings back','টাকা ফেরত দিন')} disabled={busy} onPress={openNew}/>:null}
   {!visible.length&&<Text style={[s.text,{marginTop:16}]}>{l('No savings returned yet.','এখনো কোনো সঞ্চয় ফেরত নেই।')}</Text>}
   <View style={{gap:10,marginTop:16}}>{visible.map(r=><View key={r.id} style={[s.card,r.status==='reversed'&&{opacity:0.6}]}>

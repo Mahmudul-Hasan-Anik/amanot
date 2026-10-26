@@ -801,3 +801,10 @@ export const distributeProfitFy=(fy:number,mode:'full'|'rate',rate:number,reserv
 export const recordExpense=async(p:{id:string;amount:number;method:string;category:string;title:string;spender?:string;date:string}):Promise<Transaction>=>mapTransaction(await khata('record_expense',{p}));
 /** Map the old free-text payment source ("ব্যাংক", "Treasurer's Hand"…) to an account method. */
 export function methodFromSource(source:string):'cash'|'bank'|'bkash'|'nagad'{const v=(source||'').toLowerCase();return /bank|ব্যাংক/.test(v)?'bank':/bkash|বিকাশ/.test(v)?'bkash':/nagad|নগদ মোবাইল/.test(v)?'nagad':'cash';}
+export type CashCount={id:string;count_date:string;account_id:string;expected:number;counted:number;difference:number;note:string;counted_by_name?:string;created_at:string};
+export const recordCashCount=(p:{id:string;method:string;counted:number;note?:string}):Promise<CashCount>=>khata('record_cash_count',{p});
+export async function fetchCashCounts(limit=10):Promise<CashCount[]>{
+  const r=await supabase.from('cash_counts').select('id,count_date,account_id,expected,counted,difference,note,counted_by_name,created_at').order('created_at',{ascending:false}).limit(limit);
+  if(r.error){if(/cash_counts/.test(r.error.message||''))return [];throw r.error;}
+  return (r.data||[]).map((x:any)=>({...x,expected:num(x.expected),counted:num(x.counted),difference:num(x.difference)}));
+}

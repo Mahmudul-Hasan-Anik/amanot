@@ -5,7 +5,6 @@ import { emptyLedgerSummary } from '../../src/lib/ledger';
 import { EntryRow, EntryActions } from '../../src/components/EntryActions';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
-import { FAB } from '../../src/components/FAB';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -71,7 +70,7 @@ function AppModal({ visible, onClose, children, animationType = 'fade' }: AppMod
 
 const MONTHS_LIST = recentMonths(12);
 const paymentLabel = (method: string, bn: boolean) => ({cash:bn?'নগদ':'Cash',bank:bn?'ব্যাংক':'Bank',bkash:'bKash',nagad:'Nagad'}[method] || financeLabel(method,bn));
-const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'কোষাধ্যক্ষের হাতে':'Cash with Treasurer',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ':'Nagad'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
+const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'হাতে নগদ (কোষাধ্যক্ষ)':'Cash in hand (cashier)',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ (মোবাইল)':'Nagad (mobile)'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
 
 export default function FinanceScreen() {
   const router = useRouter();
@@ -237,7 +236,7 @@ export default function FinanceScreen() {
         </TouchableOpacity>
 
         {/* 3-Column Summary Card */}
-        <Text style={{color:colors.textSecondary,marginBottom:12}}>{l('Net savings withdrawals (separate from expenses)','নিট সঞ্চয় উত্তোলন (ব্যয় থেকে আলাদা)')}: {formatMoney(withdrawals)}</Text>
+
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
@@ -257,6 +256,7 @@ export default function FinanceScreen() {
           </View>
         </Card>
 
+        {withdrawals>0?<Text style={{color:colors.textSecondary,marginTop:-6,marginBottom:12,fontSize:13}}>{l('Savings returned to members this month (not an expense)','এ মাসে সদস্যদের সঞ্চয় ফেরত (খরচ নয়)')}: {formatMoney(withdrawals)}</Text>:null}
         {/* Section: হিসাবসমূহ (Accounts) */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Accounts', 'হিসাবসমূহ')}</Text>
@@ -306,6 +306,7 @@ export default function FinanceScreen() {
           <Text style={styles.totalBalance}>{formatMoney(totalCashAndBank)}</Text>
         </View>
 
+        {expenseCategories.length>0&&<>
         {/* Section: খাতভিত্তিক ব্যয় (Expenses by Category) */}
         <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
           {l('Expenses by Category', 'খাতভিত্তিক ব্যয়')}
@@ -331,6 +332,7 @@ export default function FinanceScreen() {
             </View>
           ))}
         </View>
+        </>}
 
         {/* Section: সাম্প্রতিক (Recent) */}
         <View style={[styles.sectionHeaderRow, styles.sectionTitleSpaced]}>
@@ -346,6 +348,7 @@ export default function FinanceScreen() {
         <View style={styles.recentCard}>
           {ledger.loading&&<Text style={styles.recentMeta}>{l('Loading…','লোড হচ্ছে…')}</Text>}
           {ledger.error&&<TouchableOpacity onPress={ledger.reload}><Text style={styles.recentMeta}>{ledger.error} · {l('Retry','আবার চেষ্টা করুন')}</Text></TouchableOpacity>}
+          {!ledger.loading&&!periodTransactions.length&&<Text style={styles.recentMeta}>{l('No entries this month.','এ মাসে কোনো এন্ট্রি নেই।')}</Text>}
           {periodTransactions.slice(0,10).map((txn, index) => (
             <React.Fragment key={txn.id}>
               <EntryRow entry={txn} onPress={()=>txn.type==='withdrawal'?router.push({pathname:'/(admin)/withdrawals',params:{requestId:txn.id}}):txn.projectId?router.push(`/(admin)/project/${txn.projectId}` as any):setOpenEntry(txn)} />
@@ -358,7 +361,7 @@ export default function FinanceScreen() {
       </ScrollView></RemoteDataState>
 
       {/* Floating Action Button (+ খরচ লিখুন) */}
-      <FAB label={l('Record Expense', 'খরচ লিখুন')} onPress={() => router.push('/(admin)/expense/new')} />
+
 
       {/* Month Selector Modal */}
       <AppModal
