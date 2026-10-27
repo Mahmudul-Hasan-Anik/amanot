@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore, REMOTE } from '../../src/store/somitiStore';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
-import { safeBack } from '../../src/utils/navigation';
+import { Page, HeaderIcon } from '../../src/components/Page';
 import * as api from '../../src/lib/api';
 import { Button, Input } from '../../src/components';
 import { formatHumanDate } from '../../src/components/DateField';
@@ -31,7 +29,6 @@ type Preview = {
  * Two methods: share the whole profit, or the society sets a yearly rate.
  */
 export default function ProfitDistributionScreen() {
-  const router = useRouter();
   const { l, isBengali, formatMoneyPrecise: money, formatNum } = useLanguage();
   const somitiInfo = useSomitiStore(s => s.somitiInfo);
   const members = useSomitiStore(s => s.members);
@@ -110,12 +107,22 @@ export default function ProfitDistributionScreen() {
   };
 
   const percentField = (label: string, value: string, set: (v: string) => void) => <View style={{ flex: 1 }}><Input label={label} accessibilityLabel={label} value={value} onChangeText={set} keyboardType="decimal-pad" editable={canManage && !done} /></View>;
-  return <SafeAreaView style={s.root}>
-    <View style={s.header}>
-      <Pressable accessibilityRole="button" accessibilityLabel={l('Back', 'ফিরুন')} onPress={() => safeBack(router, '/(admin)/(tabs)')} style={s.back}><Ionicons name="arrow-back" size={24} color={colors.text} /></Pressable>
-      <View style={{ flex: 1 }}><Text style={s.title}>{l('Yearly profit distribution', 'বার্ষিক মুনাফা বণ্টন')}</Text><Text style={s.sub}>{yearLabel}</Text></View>
-    </View>
-    <ScrollView contentContainerStyle={s.content}>
+  const steps = [l('Rules', 'নিয়ম'), l('Draft', 'খসড়া'), l('Distribute', 'বণ্টন')];
+  const active = done ? 3 : p && complete ? 2 : p ? 1 : 0;
+  const canDistribute = canManage && !done && REMOTE;
+  return <Page title={l('Profit distribution', 'মুনাফা বণ্টন')} subtitle={yearLabel} backTo="/(admin)/(tabs)"
+    actions={p ? <HeaderIcon icon="download-outline" label={l('Download PDF', 'PDF ডাউনলোড')} onPress={exportPdf} /> : null}
+    footer={p ? <View style={s.footer}>
+      <Button variant="outline" style={{ flex: 1 }} title={l('PDF', 'PDF')} icon={<Ionicons name="document-text-outline" size={18} color={colors.primary} />} onPress={exportPdf} />
+      {canDistribute ? <Button style={{ flex: 2 }} title={l('Distribute profit', 'মুনাফা বণ্টন করুন')} loading={busy} disabled={!complete || !rulesValid || p.distributed <= 0 || !!p.exceedsProfit} onPress={distribute} /> : null}
+    </View> : undefined}>
+    <View style={s.content}>
+      <View style={[s.card, s.stepper]}>{steps.map((label, i) => <React.Fragment key={label}>
+        {i > 0 ? <View style={[s.stepLine, i <= active && s.stepLineOn]} /> : null}
+        <View style={s.step}>
+          <View style={[s.stepDot, i < active && s.stepDone, i === active && s.stepActive]}>{i < active ? <Ionicons name="checkmark" size={14} color={colors.surface} /> : <Text style={[s.stepNum, i === active && { color: colors.primary }]}>{formatNum(i + 1)}</Text>}</View>
+          <Text style={[s.stepLabel, i <= active && { color: colors.text }]}>{label}</Text>
+        </View></React.Fragment>)}</View>
       <View style={s.chips}>{[currentFy - 1, currentFy].map(y => { const pp = fiscalPeriod(y, startMonth); return <Pressable key={y} accessibilityRole="radio" accessibilityState={{ checked: fy === y }} onPress={() => setFy(y)} style={[s.chip, fy === y && s.chipOn]}>
         <Text style={[s.chipText, fy === y && s.chipTextOn]}>{formatHumanDate(pp.start, isBengali).replace(/^\S+\s/, '')} – {formatHumanDate(addDays(pp.end, -1), isBengali).replace(/^\S+\s/, '')}</Text></Pressable>; })}</View>
 
@@ -138,7 +145,13 @@ export default function ProfitDistributionScreen() {
       {loading && !p ? <Text style={s.hint}>{l('Calculating…', 'হিসাব হচ্ছে…')}</Text> : null}
 
       {p ? <>
+        <View style={s.hero}>
+          <Text style={s.heroLabel}>{l('To members', 'সদস্যদের ভাগ')}</Text>
+          <Text style={s.heroValue}>{money(p.distributed)}</Text>
+          <Text style={s.heroSub}>{l(`Net profit ${money(p.netProfit)} · ${formatNum(p.shares.length)} members`, `নিট মুনাফা ${money(p.netProfit)} · ${formatNum(p.shares.length)} জন সদস্য`)}</Text>
+        </View>
         <View style={s.card}>
+          <Text style={s.cardTitle}>{l('Calculation', 'হিসাব')}</Text>
           {[[l('Profit from investments', 'বিনিয়োগ থেকে মুনাফা'), p.projectProfit], [l('Other income', 'অন্যান্য আয়'), p.otherIncome ?? 0], [l('Expenses', 'খরচ'), -p.expenses]].map(([label, v]) =>
             <View key={String(label)} style={s.row}><Text style={s.body}>{label}</Text><Text style={s.value}>{money(Number(v))}</Text></View>)}
           <View style={[s.row, s.top]}><Text style={s.bodyBold}>{l('Net profit', 'নিট মুনাফা')}</Text><Text style={s.big}>{money(p.netProfit)}</Text></View>
@@ -156,14 +169,10 @@ export default function ProfitDistributionScreen() {
           {!p.shares.length ? <Text style={s.hint}>{l('No member had savings in this year.', 'এই বছরে কারও সঞ্চয় ছিল না।')}</Text> : null}
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Button variant="outline" title={l('Download PDF', 'PDF ডাউনলোড')} onPress={exportPdf} />
-          {canManage && !done && REMOTE ? <Button title={l('Distribute profit', 'মুনাফা বণ্টন করুন')} loading={busy} disabled={!complete || !rulesValid || p.distributed <= 0 || !!p.exceedsProfit} onPress={distribute} /> : null}
-          {!canManage && !done ? <Text style={s.hint}>{l('Only an admin can distribute.', 'শুধু admin বণ্টন করতে পারবেন।')}</Text> : null}
-        </View>
+        {!canManage && !done ? <Text style={s.hint}>{l('Only an admin can distribute.', 'শুধু admin বণ্টন করতে পারবেন।')}</Text> : null}
       </> : null}
-    </ScrollView>
-  </SafeAreaView>;
+    </View>
+  </Page>;
 }
 
 function addDays(iso: string, days: number) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
@@ -174,17 +183,31 @@ const s = StyleSheet.create({
   back: { padding: 8 },
   title: { fontFamily: typography.fontFamily.bold, fontSize: 19, color: colors.text },
   sub: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
-  content: { padding: 16, paddingBottom: 40, gap: 12 },
+  content: { gap: 12 },
+  footer: { flexDirection: 'row', gap: 10 },
+  stepper: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 },
+  step: { alignItems: 'center', gap: 6, width: 64 },
+  stepDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  stepActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  stepDone: { borderColor: colors.primary, backgroundColor: colors.primary },
+  stepNum: { fontFamily: typography.fontFamily.bold, fontSize: 13, color: colors.textSecondary },
+  stepLabel: { fontFamily: typography.fontFamily.medium, fontSize: 12.5, color: colors.textSecondary },
+  stepLine: { flex: 1, height: 2, backgroundColor: colors.border, marginTop: 13 },
+  stepLineOn: { backgroundColor: colors.primary },
+  hero: { backgroundColor: colors.primary, borderRadius: 20, padding: 20 },
+  heroLabel: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.subhead, color: colors.surface, opacity: 0.9 },
+  heroValue: { ...typography.displayAmount, color: colors.surface, marginVertical: 6 },
+  heroSub: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.surface, opacity: 0.85 },
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  chipOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  chipText: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.text }, chipTextOn: { color: colors.primary },
+  chipOn: { borderColor: colors.primary, backgroundColor: colors.primary },
+  chipText: { fontFamily: typography.fontFamily.semiBold, fontSize: 13, color: colors.text }, chipTextOn: { color: colors.surface },
   banner: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: colors.warningSoft, borderRadius: 12, padding: 12 },
   bannerText: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: 14, color: colors.warning, lineHeight: 21 },
-  card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16 },
+  card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   cardTitle: { fontFamily: typography.fontFamily.bold, fontSize: 16, color: colors.text, marginBottom: 8 },
   segment: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: 12, padding: 3, marginBottom: 14 },
-  segItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 10 }, segOn: { backgroundColor: colors.surface },
+  segItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 10 }, segOn: { backgroundColor: colors.surface, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 1 },
   segText: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.textSecondary }, segTextOn: { color: colors.primary, fontFamily: typography.fontFamily.semiBold },
   two: { flexDirection: 'row', gap: 10 },
   hint: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 8 },

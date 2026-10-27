@@ -84,7 +84,8 @@ export default function InvestmentNew(){
   if(!allowed)return <SafeAreaView style={styles.root}><Text style={styles.body}>{l('Only an administrator or cashier can give investments.','শুধু admin বা ক্যাশিয়ার বিনিয়োগ দিতে পারবেন।')}</Text><Button title={l('Back','ফিরুন')} onPress={()=>safeBack(router)}/></SafeAreaView>;
   const field=(key:keyof typeof fields,label:string,extra:any={})=><View {...validation.fieldProps(key)} style={extra.half?{flex:1}:undefined}><Input error={validation.errors[key]} label={label} value={fields[key]} onChangeText={change(key)} editable={!extra.locked} {...extra.input}/></View>;
   return <SafeAreaView style={styles.root} edges={['top','left','right','bottom']}>
-    <View style={styles.header}><Button variant="ghost" title={l('Back','ফিরুন')} onPress={()=>review?setReview(false):safeBack(router)}/><Text style={styles.title}>{review?l('Check before saving','সংরক্ষণের আগে দেখে নিন'):c?l('Edit investment','বিনিয়োগ এডিট'):l('New investment','নতুন বিনিয়োগ')}</Text></View>
+    <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel={l('Back','ফিরুন')} hitSlop={8} style={styles.back} onPress={()=>review?setReview(false):safeBack(router)}><Ionicons name="arrow-back" size={24} color={colors.text}/></Pressable>
+      <Text style={styles.title} numberOfLines={1}>{review?l('Check before saving','সংরক্ষণের আগে দেখে নিন'):c?l('Edit investment','বিনিয়োগ এডিট'):l('New investment','নতুন বিনিয়োগ')}</Text><View style={styles.back}/></View>
     {error?<Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>:null}
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
     <ScrollView ref={validation.scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
@@ -100,8 +101,8 @@ export default function InvestmentNew(){
         <Card><Text style={styles.heading}>{l('Installment dates','কিস্তির তারিখ')}</Text>{schedule.map(s=><View key={s.number} style={styles.row}><Text style={styles.body}>{formatNum(s.number)} · {formatHumanDate(s.dueDate,isBengali)}</Text><Text style={styles.value}>{formatMoney(s.amount)}</Text></View>)}</Card>
         {c?<Input label={l('Reason for the change (optional)','এডিটের কারণ (ঐচ্ছিক)')} value={fields.reason} onChangeText={change('reason')}/>:null}
         <Text style={styles.hint}>{c?l('Saving updates the contract. Every change is kept in the audit log.','সংরক্ষণ করলে চুক্তি আপডেট হবে। প্রতিটা পরিবর্তন অডিট লগে থাকবে।'):l(`Saving takes ${formatMoney(principal)} out of ${account?.name||'the account'}.`,`সংরক্ষণ করলে ${account?.name||'হিসাব'} থেকে ${formatMoney(principal)} কাটা হবে।`)}</Text>
-        <Button testID="confirm-investment" title={c?l('Save changes','পরিবর্তন সংরক্ষণ করুন'):l('Save investment','বিনিয়োগ সংরক্ষণ করুন')} loading={busy} onPress={save}/>
       </>:<>
+        <Card><Text style={styles.cardTitle}>{l('Who is taking it','কে নিচ্ছেন')}</Text>
         {!c?<View style={styles.segment}>{(['member','external'] as const).map(k=><Pressable key={k} accessibilityRole="button" accessibilityState={{selected:kind===k}} style={[styles.segItem,kind===k&&styles.segOn]}
           onPress={()=>{setKind(k);setMemberId('');validation.clear();setError('');setFields(s=>({...s,recipientName:'',phone:'',whatsapp:'',address:'',nid:'',fatherName:'',motherName:''}));request.current=uuid();}}>
           <Text style={[styles.segText,kind===k&&styles.segTextOn]}>{k==='member'?l('Society member','সদস্য'):l('Outside person','বাইরের ব্যক্তি')}</Text></Pressable>)}</View>:null}
@@ -111,6 +112,8 @@ export default function InvestmentNew(){
           {validation.errors.memberId?<Text style={styles.fieldError}>{validation.errors.memberId}</Text>:null}</View>
           :field('recipientName',l('Full name','পূর্ণ নাম'))}
         {field('phone',l('Mobile number','মোবাইল নম্বর'),{input:{keyboardType:'phone-pad'}})}
+        </Card>
+        <Card><Text style={styles.cardTitle}>{l('Money and terms','টাকা ও শর্ত')}</Text>
         {moneyLocked?<Text style={styles.lockNote}>{l('Installments have been collected, so the money terms are locked. Reverse the collections first to change them.','কিস্তি নেওয়া শুরু হয়েছে, তাই টাকার শর্ত বদলানো যাবে না। বদলাতে আগে কিস্তি বাতিল করুন।')}</Text>:null}
         <View style={styles.two}>{field('principal',l('Amount ৳','মূলধন ৳'),{half:true,locked:moneyLocked,input:{keyboardType:'decimal-pad',testID:'investment-principal'}})}{field('profitPct',l('Profit %','প্রফিট %'),{half:true,locked:moneyLocked,input:{keyboardType:'decimal-pad',testID:'investment-profit-pct'}})}</View>
         <View style={styles.two}>{field('termMonths',l('Months','মেয়াদ (মাস)'),{half:true,locked:moneyLocked,input:{keyboardType:'number-pad'}})}
@@ -120,11 +123,13 @@ export default function InvestmentNew(){
           <Ionicons name="chevron-down" size={18} color={colors.textSecondary}/></Pressable>
         {shortage>0&&!moneyLocked?<View style={styles.short}><Text style={styles.shortText}>{l(`${formatMoney(shortage)} short`,`${formatMoney(shortage)} কম আছে`)}</Text>
           <Pressable accessibilityRole="button" onPress={()=>router.push(`/(admin)/fund/new?method=${method}&amount=${shortage}` as any)} style={styles.shortBtn}><Text style={styles.shortBtnText}>{l('+ Add money','+ টাকা যোগ')}</Text></Pressable></View>:null}
+        </Card>
         <View style={styles.calc}>
-          <View style={styles.row}><Text style={styles.body}>{l('Total to get back','মোট ফেরত পাবেন')}</Text><Text style={styles.big}>{formatMoney(amounts.total)}</Text></View>
-          <View style={styles.row}><Text style={styles.body}>{l('Monthly installment','মাসিক কিস্তি')} × {formatNum(Number.isFinite(term)?term:0)}</Text><Text style={styles.value}>{formatMoney(installment)}</Text></View>
+          <Text style={styles.calcLabel}>{l('Total to get back','মোট ফেরত পাবেন')}</Text>
+          <Text style={styles.calcBig}>{formatMoney(amounts.total)}</Text>
+          <View style={styles.calcRow}><Text style={styles.calcSub}>{l('Monthly installment','মাসিক কিস্তি')}</Text><Text style={styles.calcVal}>{formatMoney(installment)} × {formatNum(Number.isFinite(term)?term:0)}</Text></View>
           {customDue&&!moneyLocked?<DateField label={l('First installment','প্রথম কিস্তি')} value={fields.firstDueDate} min={fields.disbursedDate} error={validation.errors.firstDueDate} onChange={change('firstDueDate')}/>
-          :<View style={styles.row}><Text style={styles.hint}>{l('First installment','প্রথম কিস্তি')}: {formatHumanDate(fields.firstDueDate,isBengali)}</Text>{!moneyLocked?<Pressable onPress={()=>setCustomDue(true)}><Text style={styles.link}>{l('Change','বদলান')}</Text></Pressable>:null}</View>}
+          :<View style={styles.calcRow}><Text style={styles.calcSub}>{l('First installment','প্রথম কিস্তি')}: {formatHumanDate(fields.firstDueDate,isBengali)}</Text>{!moneyLocked?<Pressable onPress={()=>setCustomDue(true)} style={styles.calcBtn}><Text style={styles.calcBtnText}>{l('Change','বদলান')}</Text></Pressable>:null}</View>}
         </View>
         {contacts.map((contact,index)=><Card key={index}><View style={styles.row}><Text style={styles.value}>{l('Emergency contact','জরুরি যোগাযোগ')} {formatNum(index+1)}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={l('Remove','সরান')} onPress={()=>{request.current=uuid();setContacts(list=>list.filter((_,i)=>i!==index));}}><Ionicons name="close" size={20} color={colors.textSecondary}/></Pressable></View>
@@ -140,22 +145,30 @@ export default function InvestmentNew(){
           {field('motherName',l("Mother's name","মায়ের নাম"))}
           {field('purpose',l('Purpose','উদ্দেশ্য'))}
         </Card>:null}
-        <Button title={l('Check and save','যাচাই করুন')} onPress={()=>{if(check())setReview(true);}}/>
       </>}
       </View>
-    </ScrollView></KeyboardAvoidingView>
+    </ScrollView>
+    <View style={styles.footer}>{review?<Button testID="confirm-investment" title={c?l('Save changes','পরিবর্তন সংরক্ষণ করুন'):l('Save investment','বিনিয়োগ সংরক্ষণ করুন')} loading={busy} onPress={save}/>
+      :<Button title={l('Check and save','যাচাই করুন')} onPress={()=>{if(check())setReview(true);}}/>}</View>
+    </KeyboardAvoidingView>
     <MemberPicker visible={selector==='member'} title={l('Select member','সদস্য বাছুন')} value={memberId} members={members} onClose={()=>setSelector('')} onSelect={id=>{const m=members.find(m=>m.id===id);if(!m)return;request.current=uuid();validation.clear();setError('');setMemberId(id);setFields(s=>({...s,recipientName:m.name,phone:m.phone,whatsapp:m.whatsapp||'',address:m.address,nid:m.nid||'',fatherName:m.fatherName||'',motherName:m.motherName||''}));}}/>
     <SelectModal visible={selector==='account'} title={l('From account','কোন হিসাব থেকে')} value={method} options={accounts.filter(a=>['bank','cashier','bkash','nagad'].includes(a.type||'')).map(a=>({value:a.type==='cashier'?'cash':a.type!,label:`${a.name} · ${formatMoney(a.amount)}`}))} onClose={()=>setSelector('')} onSelect={v=>{request.current=uuid();setMethod(v as NewInvestment['paymentMethod']);}}/>
   </SafeAreaView>;
 }
-const styles=StyleSheet.create({root:{flex:1,backgroundColor:colors.bg},header:{paddingHorizontal:12,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:8},title:{flex:1,fontSize:21,fontFamily:typography.fontFamily.bold,color:colors.text},content:{padding:16,paddingBottom:32},
+const styles=StyleSheet.create({root:{flex:1,backgroundColor:colors.bg},header:{paddingHorizontal:12,paddingTop:10,paddingBottom:8,flexDirection:'row',alignItems:'center'},back:{width:40,height:40,alignItems:'center',justifyContent:'center'},title:{flex:1,textAlign:'center',fontSize:typography.size.title,lineHeight:typography.lineHeight.title,fontFamily:typography.fontFamily.bold,color:colors.text},content:{padding:16,paddingBottom:24},
+ cardTitle:{fontFamily:typography.fontFamily.bold,fontSize:typography.size.base,lineHeight:typography.lineHeight.base,color:colors.text,marginBottom:12},
+ footer:{backgroundColor:colors.surface,borderTopWidth:1,borderTopColor:colors.borderLight,paddingHorizontal:16,paddingTop:12,paddingBottom:14},
+ calcLabel:{fontFamily:typography.fontFamily.medium,fontSize:14,color:colors.surface,opacity:0.9},calcBig:{...typography.displayAmount,color:colors.surface,marginVertical:4},
+ calcRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10,paddingTop:8,marginTop:6,borderTopWidth:1,borderTopColor:'rgba(255,255,255,0.2)'},
+ calcSub:{fontFamily:typography.fontFamily.regular,fontSize:13,color:colors.surface,opacity:0.9,flexShrink:1},calcVal:{fontFamily:typography.fontFamily.bold,fontSize:15,color:colors.surface},
+ calcBtn:{backgroundColor:'rgba(255,255,255,0.18)',borderRadius:8,paddingHorizontal:10,paddingVertical:4},calcBtnText:{fontFamily:typography.fontFamily.semiBold,fontSize:13,color:colors.surface},
  heading:{fontFamily:typography.fontFamily.bold,fontSize:18,color:colors.text,marginBottom:8},body:{fontFamily:typography.fontFamily.regular,fontSize:14,color:colors.text,flexShrink:1},value:{fontFamily:typography.fontFamily.semiBold,fontSize:15,color:colors.primary,flexShrink:1,textAlign:'right'},
  big:{fontFamily:typography.fontFamily.bold,fontSize:18,color:colors.primary},row:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12,paddingVertical:6},two:{flexDirection:'row',gap:10},
  hint:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:21,color:colors.textSecondary,marginVertical:6},segment:{flexDirection:'row',backgroundColor:colors.surfaceMuted,borderRadius:12,padding:3,marginBottom:14},
- segItem:{flex:1,paddingVertical:9,alignItems:'center',borderRadius:10},segOn:{backgroundColor:colors.surface},segText:{fontFamily:typography.fontFamily.medium,color:colors.textSecondary,fontSize:14},segTextOn:{color:colors.primary,fontFamily:typography.fontFamily.semiBold},
- pick:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:14,paddingVertical:9,marginBottom:16},
+ segItem:{flex:1,paddingVertical:9,alignItems:'center',borderRadius:10},segOn:{backgroundColor:colors.surface,shadowColor:colors.shadowColor,shadowOffset:{width:0,height:1},shadowOpacity:0.08,shadowRadius:3,elevation:1},segText:{fontFamily:typography.fontFamily.medium,color:colors.textSecondary,fontSize:14},segTextOn:{color:colors.primary,fontFamily:typography.fontFamily.semiBold},
+ pick:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:14,paddingVertical:9,marginBottom:12},
  pickLabel:{fontFamily:typography.fontFamily.regular,fontSize:12,color:colors.textSecondary},pickValue:{fontFamily:typography.fontFamily.medium,fontSize:15,color:colors.text},link:{fontFamily:typography.fontFamily.semiBold,fontSize:14,color:colors.primary},
  short:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:colors.warningSoft,borderRadius:12,padding:10,marginTop:-8,marginBottom:16,gap:10},shortText:{fontFamily:typography.fontFamily.semiBold,color:colors.warning,fontSize:14,flexShrink:1},
  shortBtn:{backgroundColor:colors.warning,borderRadius:8,paddingHorizontal:10,paddingVertical:6},shortBtnText:{fontFamily:typography.fontFamily.semiBold,color:'#FFFFFF',fontSize:13},
- calc:{backgroundColor:colors.primarySoft,borderRadius:14,padding:12,marginBottom:12},add:{paddingVertical:10},lockNote:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:21,color:colors.warning,backgroundColor:colors.warningSoft,borderRadius:12,padding:10,marginBottom:12},
+ calc:{backgroundColor:colors.primary,borderRadius:20,padding:18,marginBottom:12},add:{paddingVertical:10},lockNote:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:21,color:colors.warning,backgroundColor:colors.warningSoft,borderRadius:12,padding:10,marginBottom:12},
  fieldError:{fontFamily:typography.fontFamily.regular,color:colors.warning,fontSize:13,marginTop:-10,marginBottom:12},error:{fontFamily:typography.fontFamily.regular,color:colors.warning,padding:12,marginHorizontal:16,marginBottom:6,backgroundColor:colors.warningSoft,borderRadius:12}});

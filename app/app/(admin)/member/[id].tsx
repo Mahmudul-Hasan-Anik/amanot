@@ -437,16 +437,15 @@ export default function MemberProfileScreen() {
         </View>
 
         {/* Card: মোট জমা */}
-        {canIssueLoginPin&&<Card style={styles.card}>
-          <Text style={styles.cardSmallTitle}>{l('Member app login','সদস্যের অ্যাপ লগইন')}</Text>
-          <Text style={[styles.cardSmallTitle,{marginBottom:12}]}>{l('Give this member a temporary PIN to log in with their mobile number.','মোবাইল নম্বর দিয়ে লগইনের জন্য এই সদস্যকে অস্থায়ী PIN দিন।')}</Text>
-          <Button testID="member-login-pin-btn" title={l('Give login PIN','লগইন PIN দিন')} variant="outline" onPress={handleResetPin}/>
-        </Card>}
         <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
-        <View style={{flexDirection:'row',gap:8,marginBottom:16}}>
-          <Button style={{flex:1}} title={l('Deposit','জমা নিন')} onPress={()=>router.push(`/(admin)/deposit/new?memberId=${member.id}`)}/>
-          {member.totalDeposit>0?<Button style={{flex:1}} variant="outline" title={l('Give back','টাকা ফেরত')} onPress={()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id,new:'1'}})}/>:null}
-          <Button style={{flex:1}} variant="outline" title={l('Investment','বিনিয়োগ দিন')} onPress={()=>router.push(`/(admin)/investment/new?memberId=${member.id}` as any)}/>
+        <View style={styles.entryRow}>
+          {([['add',l('Deposit','জমা নিন'),()=>router.push(`/(admin)/deposit/new?memberId=${member.id}`),true],
+            ...(member.totalDeposit>0?[['arrow-undo-outline',l('Give back','টাকা ফেরত'),()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id,new:'1'}}),false]]:[]),
+            ['trending-up-outline',l('Investment','বিনিয়োগ'),()=>router.push(`/(admin)/investment/new?memberId=${member.id}` as any),false]] as [any,string,()=>void,boolean][]).map(([icon,label,go,main])=>
+            <TouchableOpacity key={label} accessibilityRole="button" onPress={go} activeOpacity={0.85} style={[styles.entryTile,main&&styles.entryTileMain]}>
+              <View style={[styles.entryIcon,main&&styles.entryIconMain]}><Ionicons name={icon} size={20} color={main?colors.primary:colors.primary}/></View>
+              <Text style={[styles.entryLabel,main&&{color:colors.surface}]} numberOfLines={1}>{label}</Text>
+            </TouchableOpacity>)}
         </View>
         {memberInvestments.length?<Card style={styles.card}>
           <Text style={styles.cardSmallTitle}>{l('Investments taken','নেওয়া বিনিয়োগ')}</Text>
@@ -455,6 +454,11 @@ export default function MemberProfileScreen() {
             <Text style={styles.txnAmount}>{formatMoney(outstanding)}</Text>
           </TouchableOpacity>)}
         </Card>:null}
+        {canIssueLoginPin&&<Card style={styles.card}>
+          <Text style={styles.cardSmallTitle}>{l('Member app login','সদস্যের অ্যাপ লগইন')}</Text>
+          <Text style={[styles.cardSmallTitle,{marginBottom:12}]}>{l('Give this member a temporary PIN to log in with their mobile number.','মোবাইল নম্বর দিয়ে লগইনের জন্য এই সদস্যকে অস্থায়ী PIN দিন।')}</Text>
+          <Button testID="member-login-pin-btn" title={l('Give login PIN','লগইন PIN দিন')} variant="outline" onPress={handleResetPin}/>
+        </Card>}
         {(member.profit2025||0)>0?<Card style={styles.card}><Text style={styles.cardSmallTitle}>{l('Last profit share','সর্বশেষ মুনাফা')}</Text><Text style={styles.profitVal}>+{formatMoney(member.profit2025||0)}</Text></Card>:null}
 
         {/* Card: সাম্প্রতিক লেনদেন */}
@@ -657,6 +661,12 @@ export default function MemberProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  entryRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  entryTile: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  entryTileMain: { backgroundColor: colors.primary, borderColor: colors.primary },
+  entryIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  entryIconMain: { backgroundColor: colors.surface },
+  entryLabel: { fontFamily: typography.fontFamily.semiBold, fontSize: 13, lineHeight: 19, color: colors.text },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

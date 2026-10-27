@@ -29,7 +29,20 @@ async function main(){
  for(const f of files.filter(f=>f>='012'))await load(f);
  for(const f of ['20261016092904_member_withdrawals.sql','20261016145733_withdrawal_summary_consistency.sql'])await load(f);
  const before=await one('select (select sum(total_deposit) from members) s,(select sum(amount) from cash_accounts) c,(select count(*) from transactions) t');
- await pass('migration applies twice without changing money',async()=>{await load('20261026120000_digital_khata.sql');await load('20261026120000_digital_khata.sql');
+ await pass('migration applies twice without changing money',async()=>{
+  // Seed a bit of real-looking money first, then apply the guarded SQL-editor file twice.
+  const mem=(await one('select member_id from profiles where id=$1',[owner])).member_id;
+  const orig=await one("select (select total_deposit from members where id=$1) d,(select amount from cash_accounts where type='bank') b",[mem]);
+  await sql("update members set total_deposit=12345.5 where id=$1",[mem]);await sql("update cash_accounts set amount=777 where type='bank'");
+  await sql("insert into transactions(id,somiti_id,member_id,member_name,member_code,amount,type,payment_method,date,date_iso,receipt_no) select $1,somiti_id,id,name,code,500,'deposit','bank','x',current_date,'R-SEED' from members where id=$2",[id(900),mem]).catch(()=>{});
+  Object.assign(before,await one('select (select sum(total_deposit) from members) s,(select sum(amount) from cash_accounts) c,(select count(*) from transactions) t'));
+  const deploy=fs.readFileSync(path.join(root,'supabase/deploy_khata_update.sql'),'utf8');
+  const r=await db.exec(deploy);await db.exec(deploy);
+  assert.ok(JSON.stringify(r).includes('existing_money_unchanged'),'guarded deploy reports success');
+  assert.deepEqual(await one('select (select sum(total_deposit) from members) s,(select sum(amount) from cash_accounts) c,(select count(*) from transactions) t'),before);
+  await sql('delete from transactions where id=$1',[id(900)]).catch(()=>{});await sql('update members set total_deposit=$1 where id=$2',[orig.d,mem]);await sql("update cash_accounts set amount=$1 where type='bank'",[orig.b]);
+  Object.assign(before,await one('select (select sum(total_deposit) from members) s,(select sum(amount) from cash_accounts) c,(select count(*) from transactions) t'));
+  await load('20261026120000_digital_khata.sql');
   assert.deepEqual(await one('select (select sum(total_deposit) from members) s,(select sum(amount) from cash_accounts) c,(select count(*) from transactions) t'),before);});
  const m=(await one('select member_id from profiles where id=$1',[owner])).member_id;
  const today=(await one('select investment_business_date()::text d')).d;

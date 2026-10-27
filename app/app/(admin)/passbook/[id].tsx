@@ -47,14 +47,15 @@ export default function PassbookScreen() {
   return <SafeAreaView style={s.root}>
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel={l('Back', 'ফিরুন')} onPress={() => safeBack(router, `/(admin)/member/${id}`)} style={{ padding: 8 }}><Ionicons name="arrow-back" size={24} color={colors.text} /></Pressable>
-      <View style={{ flex: 1 }}><Text style={s.title}>{l('Passbook', 'পাসবই')}</Text>{m ? <Text style={s.sub}>{m.name} · {m.code}</Text> : null}</View>
+      <View style={{ flex: 1, alignItems: 'center' }}><Text style={s.title}>{l('Passbook', 'পাসবই')}</Text>{m ? <Text style={s.sub} numberOfLines={1}>{m.name} · {m.code}</Text> : null}</View>
+      <View style={{ width: 40 }} />
     </View>
     <ScrollView contentContainerStyle={s.content}>
       {error || problem ? <Text style={s.error}>{error || problem}</Text> : null}
       {!data && !error ? <Text style={s.muted}>{l('Loading…', 'লোড হচ্ছে…')}</Text> : null}
       {m ? <View style={s.summary}>
-        <View style={{ flex: 1 }}><Text style={s.muted}>{l('Savings now', 'এখন সঞ্চয়')}</Text><Text style={s.big}>{money(m.totalDeposit)}</Text></View>
-        {(m.profitBalance || 0) > 0 ? <View style={{ alignItems: 'flex-end' }}><Text style={s.muted}>{l('of which profit', 'এর মধ্যে মুনাফা')}</Text><Text style={s.mid}>{money(m.profitBalance || 0)}</Text></View> : null}
+        <View style={{ flex: 1 }}><Text style={s.heroLabel}>{l('Savings now', 'এখন সঞ্চয়')}</Text><Text style={s.big}>{money(m.totalDeposit)}</Text></View>
+        {(m.profitBalance || 0) > 0 ? <View style={{ alignItems: 'flex-end' }}><Text style={s.heroLabel}>{l('of which profit', 'এর মধ্যে মুনাফা')}</Text><Text style={s.mid}>{money(m.profitBalance || 0)}</Text></View> : null}
       </View> : null}
       {report ? <View style={s.table}>
         <View style={[s.tr, s.th]}><Text style={[s.c1, s.thText]}>{l('Date', 'তারিখ')}</Text><Text style={[s.c2, s.thText]}>{l('In', 'জমা')}</Text><Text style={[s.c2, s.thText]}>{l('Out', 'উত্তোলন')}</Text><Text style={[s.c3, s.thText]}>{l('Balance', 'ব্যালেন্স')}</Text></View>
@@ -71,16 +72,17 @@ export default function PassbookScreen() {
 }
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  title: { fontFamily: typography.fontFamily.bold, fontSize: 19, color: colors.text },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
+  title: { fontFamily: typography.fontFamily.bold, fontSize: typography.size.title, lineHeight: typography.lineHeight.title, color: colors.text },
+  heroLabel: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.surface, opacity: 0.85 },
   sub: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   error: { fontFamily: typography.fontFamily.regular, color: colors.warning, backgroundColor: colors.warningSoft, padding: 12, borderRadius: 12 },
   muted: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
-  summary: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: colors.surface, borderRadius: 16, padding: 16 },
-  big: { fontFamily: typography.fontFamily.bold, fontSize: 26, color: colors.primary },
-  mid: { fontFamily: typography.fontFamily.semiBold, fontSize: 16, color: colors.text },
-  table: { backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' },
+  summary: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: colors.primary, borderRadius: 20, padding: 20 },
+  big: { ...typography.displayAmount, color: colors.surface, marginTop: 4 },
+  mid: { fontFamily: typography.fontFamily.bold, fontSize: 16, color: colors.surface },
+  table: { backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   tr: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.borderLight, gap: 6 },
   th: { backgroundColor: colors.surfaceMuted, borderTopWidth: 0 },
   thText: { fontFamily: typography.fontFamily.semiBold, fontSize: 12, color: colors.textSecondary },

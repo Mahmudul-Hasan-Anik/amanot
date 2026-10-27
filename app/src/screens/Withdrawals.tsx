@@ -12,6 +12,7 @@ import { useAuthStore } from '../features/auth/authStore';
 import { useLanguage } from '../i18n/useLanguage';
 import { Withdrawal, WithdrawalMethod } from '../lib/withdrawal';
 import { MemberPicker } from '../components/MemberPicker';
+import { Avatar } from '../components/Avatar';
 import { isoToday, parseInvestmentAmount } from '../lib/investment';
 import { uuid, fetchTransactionByReference } from '../lib/api';
 import { exportReport } from '../utils/reportExport';
@@ -26,7 +27,7 @@ import { typography } from '../theme/typography';
  */
 export default function Withdrawals({memberView=false}:{memberView?:boolean}){
  const params=useLocalSearchParams<{memberId?:string;requestId?:string;new?:string}>();
- const {l,isBengali,formatMoneyPrecise:money}=useLanguage();
+ const {l,isBengali,formatMoneyPrecise:money,formatNum}=useLanguage();
  const rows=useSomitiStore(s=>s.withdrawalRequests),members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts),society=useSomitiStore(s=>s.somitiInfo);
  const current=useAuthStore(s=>s.currentUser),role=useAuthStore(s=>s.actualRole);
  const staff=!memberView&&['super_admin','admin','cashier'].includes(role||'');
@@ -85,24 +86,42 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
   }catch(e:any){setError(e.message||l('Could not save. Try again.','সংরক্ষণ হয়নি। আবার চেষ্টা করুন।'));}finally{locked.current=false;setBusy(false);}
  };
  const modalTitle=modal==='new'?l('Give savings back','টাকা ফেরত দিন'):modal==='reverse'?l('Cancel this return','এই ফেরত বাতিল'):l('Pay old request','পুরনো আবেদনের টাকা দিন');
- return <Page title={memberView?l('My withdrawals','আমার উত্তোলন'):l('Savings returned','সঞ্চয় ফেরত')} backTo={memberView?'/(member)':'/(admin)/(tabs)'}>
-  {error&&!modal?<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{error}</Text>:null}
-  {done?<View style={[s.card,{backgroundColor:colors.primarySoft}]}><Text style={s.title}>{l('Saved','সংরক্ষণ হয়েছে')}</Text><Text style={s.text}>{done.member_name} · {money(done.amount)}</Text>
-   <View style={styles.actions}><Button size="sm" title="WhatsApp" onPress={()=>{const m=members.find(x=>x.id===done.member_id);void sendOnWhatsApp(m?.whatsapp||m?.phone,receiptText({society:society.name,title:'সঞ্চয় ফেরতের রসিদ',name:done.member_name,code:done.member_code,amount:done.amount,date:done.payment_date||isoToday(),method:done.payment_method||'',balance:m?.totalDeposit},money));}}/><Button size="sm" variant="outline" title={l('Receipt PDF','রসিদ PDF')} onPress={()=>receipt(done)}/><Button size="sm" variant="outline" title={l('Another entry','আরেকটা এন্ট্রি')} onPress={()=>{setDone(null);setMemberId('');openNew();}}/></View></View>:null}
-  {staff?<Button title={l('Give savings back','টাকা ফেরত দিন')} disabled={busy} onPress={openNew}/>:null}
-  {!visible.length&&<Text style={[s.text,{marginTop:16}]}>{l('No savings returned yet.','এখনো কোনো সঞ্চয় ফেরত নেই।')}</Text>}
-  <View style={{gap:10,marginTop:16}}>{visible.map(r=><View key={r.id} style={[s.card,r.status==='reversed'&&{opacity:0.6}]}>
-   <View style={styles.row}><View style={{flex:1}}><Text style={s.title}>{r.member_name}</Text><Text style={s.text}>{r.member_code} · {formatHumanDate(r.payment_date||r.created_at.slice(0,10),isBengali)}</Text></View><Text style={[s.value,r.status==='reversed'&&{textDecorationLine:'line-through'}]}>{money(r.amount)}</Text></View>
-   <Text style={[s.text,{color:['submitted','approved'].includes(r.status)?colors.warning:colors.primary}]}>{status(r.status)}</Text>
-   {r.payment_note||r.reason?<Text style={s.text}>{r.payment_note||r.reason}</Text>:null}
-   {r.status==='reversed'&&r.reversal_reason?<Text style={s.text}>{l('Reason','কারণ')}: {r.reversal_reason}</Text>:null}
+ const paidRows=visible.filter(r=>r.status==='paid');
+ const paidTotal=paidRows.reduce((t,r)=>t+r.amount,0);
+ const legacyRows=visible.filter(r=>['submitted','approved'].includes(r.status));
+ const chip=(v:Withdrawal['status'])=>v==='paid'?[colors.primarySoft,colors.primary]:v==='reversed'?[colors.surfaceMuted,colors.textSecondary]:[colors.warningSoft,colors.warning];
+ return <Page title={memberView?l('My withdrawals','আমার উত্তোলন'):l('Savings returned','সঞ্চয় ফেরত')} backTo={memberView?'/(member)':'/(admin)/(tabs)'}
+  footer={staff?<Button title={l('Give savings back','টাকা ফেরত দিন')} icon={<Ionicons name="arrow-undo-outline" size={18} color={colors.surface}/>} disabled={busy} onPress={openNew}/>:undefined}>
+  {error&&!modal?<Text accessibilityRole="alert" style={styles.error}>{error}</Text>:null}
+  {done?<View style={styles.done}>
+   <View style={styles.row}><View style={styles.doneIcon}><Ionicons name="checkmark" size={20} color={colors.surface}/></View>
+    <View style={{flex:1}}><Text style={styles.doneTitle}>{l('Saved','সংরক্ষণ হয়েছে')}</Text><Text style={s.text}>{done.member_name} · {money(done.amount)}</Text></View></View>
+   <View style={styles.actions}><Button size="sm" title="WhatsApp" onPress={()=>{const m=members.find(x=>x.id===done.member_id);void sendOnWhatsApp(m?.whatsapp||m?.phone,receiptText({society:society.name,title:'সঞ্চয় ফেরতের রসিদ',name:done.member_name,code:done.member_code,amount:done.amount,date:done.payment_date||isoToday(),method:done.payment_method||'',balance:m?.totalDeposit},money));}}/><Button size="sm" variant="outline" title={l('Receipt PDF','রসিদ PDF')} onPress={()=>receipt(done)}/><Button size="sm" variant="ghost" title={l('Another entry','আরেকটা এন্ট্রি')} onPress={()=>{setDone(null);setMemberId('');openNew();}}/></View></View>:null}
+  <View style={s.hero}>
+   <Text style={s.heroLabel}>{memberView?l('Total withdrawn','মোট উত্তোলন'):l('Savings given back','মোট সঞ্চয় ফেরত')}</Text>
+   <Text style={s.heroValue}>{money(paidTotal)}</Text>
+   <Text style={s.heroSub}>{l(`${formatNum(paidRows.length)} entries`,`${formatNum(paidRows.length)}টি এন্ট্রি`)}{legacyRows.length?l(` · ${formatNum(legacyRows.length)} old requests open`,` · ${formatNum(legacyRows.length)}টি পুরনো আবেদন খোলা`):''}</Text>
+  </View>
+  {!visible.length?<View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name="wallet-outline" size={28} color={colors.primary}/></View>
+   <Text style={styles.emptyTitle}>{l('No savings returned yet','এখনো কোনো সঞ্চয় ফেরত নেই')}</Text>
+   {staff?<Text style={[s.text,{textAlign:'center'}]}>{l('When a member takes savings back, record it with the button below.','কোনো সদস্য সঞ্চয় ফেরত নিলে নিচের বাটন দিয়ে লিখে রাখুন।')}</Text>:null}</View>:
+  <><Text style={s.section}>{l('History','ইতিহাস')}</Text>
+  <View style={[s.card,{paddingVertical:4}]}>{visible.map((r,i)=>{const [bg,fg]=chip(r.status);return <View key={r.id} style={[styles.item,i>0&&s.divider]}>
+   <View style={styles.row}>
+    <Avatar name={r.member_name} size="md"/>
+    <View style={{flex:1,minWidth:0}}><Text style={styles.name} numberOfLines={1}>{r.member_name}</Text><Text style={styles.meta} numberOfLines={1}>{r.member_code} · {formatHumanDate(r.payment_date||r.created_at.slice(0,10),isBengali)}</Text></View>
+    <View style={{alignItems:'flex-end',gap:4}}><Text style={[styles.amount,r.status==='reversed'&&{textDecorationLine:'line-through',color:colors.textSecondary}]}>{money(r.amount)}</Text>
+     <View style={[styles.chip,{backgroundColor:bg}]}><Text style={[styles.chipText,{color:fg}]}>{status(r.status)}</Text></View></View>
+   </View>
+   {r.payment_note||r.reason?<Text style={[styles.meta,{marginTop:6}]}>{r.payment_note||r.reason}</Text>:null}
+   {r.status==='reversed'&&r.reversal_reason?<Text style={[styles.meta,{marginTop:2}]}>{l('Reason','কারণ')}: {r.reversal_reason}</Text>:null}
    <View style={styles.actions}>
     {['paid','reversed'].includes(r.status)&&<Button title={l('Receipt','রসিদ')} variant="outline" size="sm" disabled={busy} onPress={()=>receipt(r)}/>}
     {r.status==='paid'&&staff&&<Button title={l('Cancel','বাতিল')} variant="ghost" size="sm" disabled={busy} onPress={()=>{setSelected(r);setNote('');setError('');reversalId.current=uuid();setModal('reverse');}}/>}
     {['submitted','approved'].includes(r.status)&&admin&&<Button title={l('Pay now','এখন টাকা দিন')} size="sm" disabled={busy} onPress={()=>{setSelected(r);setMethod(r.preferred_method);setDate(isoToday());setNote('');setReference('');setError('');setModal('legacy');}}/>}
     {['submitted','approved'].includes(r.status)&&admin&&<Button title={l('Close request','আবেদন বন্ধ')} size="sm" variant="ghost" disabled={busy} onPress={async()=>{try{await useSomitiStore.getState().decideWithdrawal(r.id,'cancel',l('Closed: approvals are outside the app','বন্ধ: অনুমোদন এখন অ্যাপের বাইরে'));}catch(e:any){setError(e.message);}}}/>}
    </View>
-  </View>)}</View>
+  </View>;})}</View></>}
   <Modal visible={!!modal} transparent animationType="fade" onRequestClose={close}>
    <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS==='ios'?'padding':undefined}><View style={styles.panel}>
     <ScrollView keyboardShouldPersistTaps="handled"><Text style={s.title}>{modalTitle}</Text>
@@ -133,6 +152,10 @@ export default function Withdrawals({memberView=false}:{memberView?:boolean}){
  </Page>;
 }
 const styles=StyleSheet.create({overlay:{flex:1,backgroundColor:colors.overlay,justifyContent:'center',padding:16},panel:{width:'100%',maxWidth:480,maxHeight:'90%',alignSelf:'center',backgroundColor:colors.surface,borderRadius:20,padding:20},
- actions:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:10},row:{flexDirection:'row',alignItems:'center',gap:10},error:{color:colors.danger,marginVertical:12},
+ actions:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:10},row:{flexDirection:'row',alignItems:'center',gap:12},error:{color:colors.danger,marginVertical:12,fontFamily:typography.fontFamily.medium},
+ item:{paddingVertical:12},name:{fontFamily:typography.fontFamily.semiBold,fontSize:15,lineHeight:22,color:colors.text},meta:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:19,color:colors.textSecondary},amount:{fontFamily:typography.fontFamily.bold,fontSize:16,lineHeight:22,color:colors.text},
+ chip:{paddingHorizontal:8,paddingVertical:2,borderRadius:10},chipText:{fontFamily:typography.fontFamily.semiBold,fontSize:11,lineHeight:16},
+ done:{backgroundColor:colors.primarySoft,borderRadius:16,padding:16,marginBottom:12},doneIcon:{width:36,height:36,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},doneTitle:{fontFamily:typography.fontFamily.bold,fontSize:16,color:colors.primary},
+ empty:{alignItems:'center',gap:8,paddingVertical:28,paddingHorizontal:16},emptyIcon:{width:60,height:60,borderRadius:30,backgroundColor:colors.primarySoft,alignItems:'center',justifyContent:'center',marginBottom:4},emptyTitle:{fontFamily:typography.fontFamily.bold,fontSize:16,color:colors.text,textAlign:'center'},
  pick:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:14,paddingVertical:9,marginVertical:10},
  pickLabel:{fontFamily:typography.fontFamily.regular,fontSize:12,color:colors.textSecondary},pickValue:{fontFamily:typography.fontFamily.medium,fontSize:15,color:colors.text},link:{fontFamily:typography.fontFamily.semiBold,fontSize:13,color:colors.primary}});

@@ -262,7 +262,7 @@ export default function ProjectDetailScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Transactions', 'লেনদেন')}</Text>
           <TouchableOpacity
-            onPress={() => router.push('/(admin)/audit')}
+            onPress={() => router.push(`/(admin)/ledger?projectId=${project!.id}` as any)}
             activeOpacity={0.7}
           >
             <Text style={styles.seeAllLink}>{l('See All', 'সব দেখুন')}</Text>
@@ -270,7 +270,7 @@ export default function ProjectDetailScreen() {
         </View>
 
         <View style={styles.transactionsCard}>
-          <LedgerPaging {...history}/>
+          {!sampleTransactions.length && !history.loading ? <Text style={[styles.txnMeta, { textAlign: 'center', paddingVertical: 14 }]}>{l('No transactions yet', 'এখনো কোনো লেনদেন নেই')}</Text> : null}
           {sampleTransactions.map((txn, idx) => (
             <React.Fragment key={txn.id}>
               {idx > 0 && <View style={styles.txnDivider} />}
@@ -302,6 +302,7 @@ export default function ProjectDetailScreen() {
               </View>
             </React.Fragment>
           ))}
+          <LedgerPaging {...history}/>
         </View>
 
         {/* Documents Section */}

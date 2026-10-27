@@ -162,28 +162,6 @@ export default function SettingsScreen() {
           {l('Profit-Loss Distribution', 'লাভ-ক্ষতি বণ্টন')}
         </Text>
         <View style={styles.card}>
-          {/* Row 1: Accounting Year */}
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => {
-              const next = accountingYear === 'Jan – Dec' ? 'Jul – Jun' : 'Jan – Dec';
-              setAccountingYear(next);
-            }}
-          >
-            <Text style={styles.rowTitle}>{l('Accounting Year', 'হিসাব বছর')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {accountingYear === 'Jan – Dec'
-                  ? l('Jan – Dec', 'জানু – ডিসে')
-                  : l('Jul – Jun', 'জুলাই – জুন')}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
           {/* Row 2: Distribution Method */}
           <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => router.push('/(admin)/distribution')}>
             <View style={styles.rowLeft}>
