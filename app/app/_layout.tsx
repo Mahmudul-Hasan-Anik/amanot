@@ -12,7 +12,8 @@ import { WebAlertHost } from '../src/components/WebAlertHost';
 
 // react-native-web's Alert.alert does nothing, so errors/confirmations were invisible on web.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  // Global reset on web to prevent black or colored browser focus rings and outlines across the entire app
+  // Keep the native form styling restrained, but retain a clear keyboard-focus
+  // indicator so web users can navigate forms and buttons safely.
   if (typeof document !== 'undefined') {
     const existing = document.getElementById('amanot-global-focus-reset');
     if (!existing) {
@@ -26,13 +27,9 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
           box-shadow: none !important;
           -webkit-tap-highlight-color: transparent !important;
         }
-        input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus,
-        input:focus-visible, textarea:focus-visible, select:focus-visible,
-        *:focus, *:focus-visible {
-          outline: none !important;
-          outline-style: none !important;
-          outline-width: 0 !important;
-          box-shadow: none !important;
+        *:focus-visible {
+          outline: 3px solid #0F5E4A !important;
+          outline-offset: 2px !important;
         }
       `;
       document.head.appendChild(style);

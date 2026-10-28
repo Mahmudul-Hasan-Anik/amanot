@@ -87,12 +87,8 @@ export default function MoreScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Profile Card */}
-        <TouchableOpacity
-          style={styles.profileCard}
-          activeOpacity={0.8}
-          onPress={() => router.push('/(admin)/somiti')}
-        >
+        {/* Current-user identity. Society details have their own explicit menu row below. */}
+        <View style={styles.profileCard}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>{userInitial}</Text>
           </View>
@@ -100,8 +96,7 @@ export default function MoreScreen() {
             <Text style={styles.profileName}>{userName}</Text>
             <Text style={styles.profileRole}>{userRole}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
+        </View>
 
         {groups.map(group => <React.Fragment key={group.title}>
           <Text style={styles.sectionHeader}>{group.title}</Text>

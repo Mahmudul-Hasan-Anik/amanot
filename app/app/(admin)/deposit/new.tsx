@@ -32,17 +32,18 @@ export default function RecordDepositScreen() {
 
   const displayMembers = useMemo(() => (members), [members]);
 
-  // Find selected member, default to Karim Uddin (id: '2') or first due member
-  const initialMemberId = (params.memberId as string) ||
-    displayMembers.find((m) => m.id === '2')?.id ||
-    displayMembers.find((m) => m.status === 'due')?.id ||
-    displayMembers[0]?.id || '1';
+  // A member passed from a member page is intentional. From the general entry
+  // point, require the cashier to choose a member so a deposit cannot be posted
+  // to the wrong account by accident.
+  const initialMemberId = typeof params.memberId === 'string' && displayMembers.some(m => m.id === params.memberId)
+    ? params.memberId
+    : '';
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>(initialMemberId);
   const [showMemberModal, setShowMemberModal] = useState(false);
 
   const currentMember: Member | undefined = useMemo(() => {
-    return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
+    return displayMembers.find((m) => m.id === selectedMemberId);
   }, [displayMembers, selectedMemberId]);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>((['cash','bkash','nagad','bank'].includes(String(params.method||''))?params.method:'cash') as PaymentMethodType);
@@ -67,6 +68,7 @@ export default function RecordDepositScreen() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  const daysInPickerMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
 
   const openDatePicker = () => {
     if (depositDate) {
@@ -89,7 +91,8 @@ export default function RecordDepositScreen() {
   };
 
   const handleConfirmDate = () => {
-    const dd = pickerDay < 10 ? `0${pickerDay}` : `${pickerDay}`;
+    const validDay = Math.min(pickerDay, daysInPickerMonth(pickerYear, pickerMonth));
+    const dd = validDay < 10 ? `0${validDay}` : `${validDay}`;
     const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
     const yyyy = `${pickerYear}`;
     const dateStr = `${dd}/${mm}/${yyyy}`;
@@ -153,7 +156,7 @@ export default function RecordDepositScreen() {
   };
 
 
-  if (!currentMember) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!displayMembers.length) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -183,14 +186,14 @@ export default function RecordDepositScreen() {
         <View style={styles.memberCard} {...validation.fieldProps('member')}>
           {!!validation.errors.member&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.member}</Text>}
           <Avatar
-            name={currentMember?.name || 'ক'}
+            name={currentMember?.name || l('Select member', 'সদস্য বাছুন')}
             size="md"
             index={1}
           />
           <View style={styles.memberDetails}>
-            <Text style={styles.memberName}>{l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}</Text>
+            <Text style={styles.memberName}>{currentMember ? l(currentMember.nameEn || currentMember.name, currentMember.name) : l('Select a member', 'সদস্য বাছুন')}</Text>
             <Text style={styles.memberSub}>
-              {currentMember?.code} · {l('Voluntary deposits', 'ইচ্ছামতো জমা')}
+              {currentMember ? `${currentMember.code} · ${l('Voluntary deposits', 'ইচ্ছামতো জমা')}` : l('Required before recording a deposit', 'জমা নেওয়ার আগে প্রয়োজন')}
             </Text>
           </View>
           <TouchableOpacity
@@ -198,7 +201,7 @@ export default function RecordDepositScreen() {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
+            <Text style={styles.changeLink}>{currentMember ? l('Change', 'বদলান') : l('Select', 'বাছুন')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -324,9 +327,12 @@ export default function RecordDepositScreen() {
             style={{ marginTop: 2 }}
           />
           <Text style={styles.infoText}>
-            {l(
-              `${l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}'s deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
-              `${currentMember?.name}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
+            {currentMember ? l(
+              `${l(currentMember.nameEn || currentMember.name, currentMember.name)}'s deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
+              `${currentMember.name}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
+            ) : l(
+              'Select a member before confirming this deposit.',
+              'এই জমা নিশ্চিত করার আগে একজন সদস্য বাছুন।'
             )}
           </Text>
         </View>
@@ -379,7 +385,7 @@ export default function RecordDepositScreen() {
               style={styles.pickerScrollView}
               showsVerticalScrollIndicator={false}
             >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+              {Array.from({ length: daysInPickerMonth(pickerYear, pickerMonth) }, (_, i) => i + 1).map((d) => {
                 const isSelected = d === pickerDay;
                 return (
                   <TouchableOpacity
@@ -410,7 +416,7 @@ export default function RecordDepositScreen() {
                   <TouchableOpacity
                     key={`month-${m}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerMonth(m)}
+                    onPress={() => { setPickerMonth(m); setPickerDay(day => Math.min(day, daysInPickerMonth(pickerYear, m))); }}
                   >
                     <Text
                       numberOfLines={1}
@@ -437,7 +443,7 @@ export default function RecordDepositScreen() {
                   <TouchableOpacity
                     key={`year-${y}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerYear(y)}
+                    onPress={() => { setPickerYear(y); setPickerDay(day => Math.min(day, daysInPickerMonth(y, pickerMonth))); }}
                   >
                     <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
                       {isBengali ? toBengaliDigits(y) : y}
