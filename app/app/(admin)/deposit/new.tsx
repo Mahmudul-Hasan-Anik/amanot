@@ -79,7 +79,7 @@ export default function RecordDepositScreen() {
         const y = parseInt(parts[2], 10);
         if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
         if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
-        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+        if (!isNaN(y) && y >= 1930 && y <= new Date().getFullYear() + 1) setPickerYear(y);
       }
     } else {
       const now = new Date();

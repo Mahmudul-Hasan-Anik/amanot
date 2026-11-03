@@ -24,6 +24,7 @@ import { typography } from '../../../src/theme/typography';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
 import {LedgerPaging} from '../../../src/components/LedgerPaging';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
+import { uuid } from '../../../src/lib/api';
 import InvestmentDetail from '../../../src/screens/InvestmentDetail';
 
 export default function ProjectDetailScreen() {
@@ -48,6 +49,11 @@ export default function ProjectDetailScreen() {
   const [expenseSource, setExpenseSource] = useState<'bank' | 'cash'>('bank');
   const [expenseNote, setExpenseNote] = useState('');
 
+  const [savingReturn, setSavingReturn] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const expenseOpId = React.useRef('');
+  // A new request id whenever the expense details change; a retry of the same details reuses it.
+  React.useEffect(() => { expenseOpId.current = ''; }, [expenseAmount, expenseNote, expenseSource]);
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -88,11 +94,9 @@ export default function ProjectDetailScreen() {
 
   const isProfit = project ? project.netProfit >= 0 : true;
 
-  const handleDocOpen = (name: string) => {
-    Alert.alert(l('Document Viewer', 'ডকুমেন্ট ভিউয়ার'), `${project?.name} - ${name} ${l('is loading...', 'লোড হচ্ছে...')}`);
-  };
-
   const handleRecordReturn = async () => {
+    if (savingReturn) return;
+    setSavingReturn(true);
     try {
     const cleanAmount = Number(toEnglishDigits(returnAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
@@ -116,10 +120,12 @@ export default function ProjectDetailScreen() {
       l('Success', 'সফল'),
       `${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`
     );
-    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingReturn(false); }
   };
 
   const handleRecordExpense = async () => {
+    if (savingExpense) return;
+    setSavingExpense(true);
     try {
     const cleanAmount = Number(toEnglishDigits(expenseAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
@@ -128,7 +134,9 @@ export default function ProjectDetailScreen() {
     }
     if (!project) return;
 
-    await addExpense({title:project.name+': '+(expenseNote.trim()||l('Investment expense','বিনিয়োগ খরচ')),category:l('Investment expense','বিনিয়োগ খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
+    if (!expenseOpId.current) expenseOpId.current = uuid();
+    await addExpense({id:expenseOpId.current,projectId:project.id,title:project.name+': '+(expenseNote.trim()||l('Investment expense','বিনিয়োগ খরচ')),category:l('Investment expense','বিনিয়োগ খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
+    expenseOpId.current = '';
     setShowExpenseModal(false);
     setExpenseAmount('');
     setExpenseNote('');
@@ -137,7 +145,7 @@ export default function ProjectDetailScreen() {
       l('Success', 'সফল'),
       `${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`
     );
-    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingExpense(false); }
   };
 
   if(project?.contract) return <InvestmentDetail project={project}/>;
@@ -346,40 +354,6 @@ export default function ProjectDetailScreen() {
           <LedgerPaging {...history}/>
         </View>
 
-        {/* Documents Section */}
-        <Text style={[styles.sectionTitle, styles.docsHeader]}>{l('Documents', 'ডকুমেন্ট')}</Text>
-        <View style={styles.docsRow}>
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Contract', 'চুক্তিপত্র'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>{l('Contract', 'চুক্তিপত্র')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Site Photos (3)', 'সাইটের ছবি (৩)'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="image-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>
-              {l('Site Photos (3)', 'সাইটের ছবি (৩)')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Receipts (6)', 'রসিদ (৬)'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="receipt-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>
-              {l('Receipts (6)', 'রসিদ (৬)')}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={styles.scrollSpacer} />
       </ScrollView>
@@ -457,10 +431,11 @@ export default function ProjectDetailScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, savingReturn && { opacity: 0.6 }]}
             onPress={handleRecordReturn}
+            disabled={savingReturn}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Save Income', 'আয় সংরক্ষণ করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{savingReturn ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Income', 'আয় সংরক্ষণ করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>
@@ -517,10 +492,11 @@ export default function ProjectDetailScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, savingExpense && { opacity: 0.6 }]}
             onPress={handleRecordExpense}
+            disabled={savingExpense}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{savingExpense ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>

@@ -87,7 +87,7 @@ export default function NewMemberScreen() {
         const y = parseInt(parts[2], 10);
         if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
         if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
-        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+        if (!isNaN(y) && y >= 1930 && y <= new Date().getFullYear() + 1) setPickerYear(y);
       }
     } else {
       if (target === 'dob') {
@@ -547,7 +547,7 @@ export default function NewMemberScreen() {
               style={styles.pickerScrollView}
               showsVerticalScrollIndicator={false}
             >
-              {Array.from({ length: 80 }, (_, i) => 2026 - i).map((y) => {
+              {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => {
                 const isSelected = y === pickerYear;
                 return (
                   <TouchableOpacity

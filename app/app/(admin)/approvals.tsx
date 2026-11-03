@@ -83,7 +83,7 @@ export default function ApprovalsScreen() {
 
   const handleApprove = async (item: PendingApproval) => {
     try {
-    const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
+    const approverName = useAuthStore.getState().currentUser?.name || l('Admin', 'অ্যাডমিন');
     await approveRequest(item.id, approverName);
     Alert.alert(
       l('Approved', 'অনুমোদিত'),
@@ -98,7 +98,7 @@ export default function ApprovalsScreen() {
   const handleConfirmReject = async () => {
     try {
     if (!rejectingItem) return;
-    const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
+    const approverName = useAuthStore.getState().currentUser?.name || l('Admin', 'অ্যাডমিন');
     const finalReason =
       selectedReasonIdx === REJECTION_REASONS.length - 1 && customReason.trim()
         ? customReason.trim()

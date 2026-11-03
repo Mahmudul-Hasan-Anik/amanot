@@ -31,6 +31,7 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
 import { recentMonths, inMonth } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
+import { toEnglishDigits } from '../../src/lib/bengali';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 
@@ -106,6 +107,7 @@ export default function FinanceScreen() {
   const [toAccount, setToAccount] = useState<string>('ca2'); // Default: কোষাধ্যক্ষ
   const [transferAmount, setTransferAmount] = useState<string>('');
   const [transferNote, setTransferNote] = useState<string>('');
+  const [transferring, setTransferring] = useState(false);
 
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
@@ -142,8 +144,10 @@ export default function FinanceScreen() {
 
 
   const handleTransferSubmit = async () => {
+    if (transferring) return;
+    setTransferring(true);
     try {
-    const amt = parseFloat(transferAmount.replace(/[^0-9.]/g, ''));
+    const amt = parseFloat(toEnglishDigits(transferAmount).replace(/[^0-9.]/g, ''));
     if (!amt || isNaN(amt) || amt <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount', 'সঠিক টাকার পরিমাণ লিখুন'));
       return;
@@ -175,6 +179,7 @@ export default function FinanceScreen() {
       `${senderAcc.name} → ${targetAcc?.name}: ${formatMoney(amt)} ${l('transferred successfully', 'সফলভাবে স্থানান্তর হয়েছে')}`
     );
     } catch(e:any) { Alert.alert(l('Transfer failed','স্থানান্তর ব্যর্থ'),e.message); }
+    finally { setTransferring(false); }
   };
 
   const getAccountIcon = (account: CashAccount) => {
@@ -472,11 +477,12 @@ export default function FinanceScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, transferring && { opacity: 0.6 }]}
             onPress={handleTransferSubmit}
+            disabled={transferring}
             activeOpacity={0.85}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Confirm Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{transferring ? l('Transferring...', 'স্থানান্তর হচ্ছে...') : l('Confirm Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>

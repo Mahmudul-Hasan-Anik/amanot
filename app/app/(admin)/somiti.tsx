@@ -86,52 +86,23 @@ export default function SomitiProfileScreen() {
   };
 
   // Committee members matching Page 23
-  const committeeMembers = [
-    {
-      id: 'c1',
-      name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
-      role: isBengali ? 'সভাপতি' : 'President',
-      initial: isBengali ? 'আ' : 'A',
-      phone: '01711000001',
-      avatarBg: colors.avatarPastels[1].bg,
-      avatarColor: colors.avatarPastels[1].text,
-    },
-    {
-      id: 'c2',
-      name: isBengali ? 'জাহিদ হাসান' : 'Zahid Hasan',
-      role: isBengali ? 'সাধারণ সম্পাদক' : 'General Secretary',
-      initial: isBengali ? 'জ' : 'Z',
-      phone: '01711000002',
-      avatarBg: colors.avatarPastels[0].bg,
-      avatarColor: colors.avatarPastels[0].text,
-    },
-    {
-      id: 'c3',
-      name: isBengali ? 'মাহমুদা খাতুন' : 'Mahmuda Khatun',
-      role: isBengali ? 'কোষাধ্যক্ষ' : 'Treasurer',
-      initial: isBengali ? 'ম' : 'M',
-      phone: '01711000003',
-      avatarBg: colors.avatarPastels[2].bg,
-      avatarColor: colors.avatarPastels[2].text,
-    },
-    {
-      id: 'c4',
-      name: isBengali ? 'হাবিবুর রহমান' : 'Habibur Rahman',
-      role: isBengali ? 'সদস্য' : 'Member',
-      initial: isBengali ? 'হ' : 'H',
-      phone: '01711000004',
-      avatarBg: colors.avatarPastels[1].bg,
-      avatarColor: colors.avatarPastels[1].text,
-    },
-  ];
+  // Committee = members who have a committee title (role_title), not the default general member.
+  const GENERAL_ROLES = ['সাধারণ সদস্য', 'General Member', 'Member', 'সদস্য', ''];
+  const committeeMembers = members
+    .filter((m) => m.status !== 'inactive' && !GENERAL_ROLES.includes((m.role || '').trim()))
+    .map((m, i) => {
+      const pastel = colors.avatarPastels[i % colors.avatarPastels.length];
+      const name = isBengali ? m.name : m.nameEn || m.name;
+      return { id: m.id, name, role: m.role || '', initial: (name || '?').trim().charAt(0), phone: m.phone, avatarBg: pastel.bg, avatarColor: pastel.text };
+    });
 
   const somitiDisplayName = somitiInfo.name || '';
   const somitiInitial = somitiDisplayName.trim().charAt(0) || (isBengali ? 'স' : 'S');
   const regNoText = somitiInfo.regNo || '';
   const estYearText = somitiInfo.establishedYear || '';
 
-  const memberCountDisplay = members.length > 0 ? members.length : 100;
-  const projectCountDisplay = projects.length > 0 ? projects.length : 4;
+  const memberCountDisplay = members.length;
+  const projectCountDisplay = projects.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -256,6 +227,11 @@ export default function SomitiProfileScreen() {
         </Text>
 
         <View style={styles.committeeCard}>
+          {!committeeMembers.length ? (
+            <Text style={styles.memberRole}>
+              {l('No committee members yet. Set a member\'s title from Roles to show them here.', 'এখনো কোনো কমিটি সদস্য নেই। সদস্যের পদবি সেট করলে এখানে দেখাবে।')}
+            </Text>
+          ) : null}
           {committeeMembers.map((m, index) => (
             <View
               key={m.id}
