@@ -494,27 +494,28 @@ const styles = StyleSheet.create({
   twoColRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 14,
+    marginBottom: 0,
   },
   colHalf: {
     flex: 1,
   },
+  // Same label and box size as DateField so the two columns line up.
   colLabel: {
     fontFamily: typography.fontFamily.medium,
-    fontSize: typography.size.sm,
+    fontSize: typography.size.subhead,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   fieldBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 10,
-    height: 42,
+    paddingHorizontal: 14,
+    minHeight: 48,
   },
   fieldInput: {
     flex: 1,

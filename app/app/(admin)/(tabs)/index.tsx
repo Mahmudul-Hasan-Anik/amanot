@@ -129,12 +129,12 @@ export default function HomeDashboardScreen() {
 
         <View style={styles.twoCol}>
           <Pressable accessibilityRole="button" onPress={() => router.push('/(admin)/(tabs)/projects')} style={[styles.card, styles.half]}>
-            <View style={styles.halfHead}><Ionicons name="briefcase-outline" size={16} color={colors.primary} /><Text style={styles.halfTitle}>{l('Active investments', 'চলমান বিনিয়োগ')}</Text></View>
+            <View style={styles.halfHead}><Ionicons name="briefcase-outline" size={16} color={colors.primary} /><Text style={styles.halfTitle} numberOfLines={1}>{l('Investments', 'চলমান বিনিয়োগ')}</Text></View>
             <Text style={styles.halfValue}>{formatNum(activeCount)}{l('', 'টি')}</Text>
             <Text style={styles.halfSub} numberOfLines={1}>{l('Out', 'বাইরে')} {formatMoney(invested)}</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={() => router.push('/(admin)/due')} style={[styles.card, styles.half, overdue.length ? styles.halfWarn : null]}>
-            <View style={styles.halfHead}><Ionicons name={overdue.length ? 'alert-circle-outline' : 'checkmark-circle-outline'} size={16} color={overdue.length ? colors.warning : colors.primary} /><Text style={styles.halfTitle}>{l('Overdue', 'বকেয়া কিস্তি')}</Text></View>
+            <View style={styles.halfHead}><Ionicons name={overdue.length ? 'alert-circle-outline' : 'checkmark-circle-outline'} size={16} color={overdue.length ? colors.warning : colors.primary} /><Text style={styles.halfTitle} numberOfLines={1}>{l('Overdue', 'বকেয়া কিস্তি')}</Text></View>
             <Text style={[styles.halfValue, overdue.length ? { color: colors.warning } : null]} numberOfLines={1} adjustsFontSizeToFit>{overdue.length ? formatMoney(overdueAmount) : l('None', 'নেই')}</Text>
             <Text style={[styles.halfSub, overdue.length ? { color: colors.warning } : null]} numberOfLines={1}>{overdue.length ? l(`${formatNum(overdue.length)} people`, `${formatNum(overdue.length)} জন`) : l('All on time', 'সবাই সময়মতো')}</Text>
           </Pressable>
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   half: { flex: 1, minHeight: 110, justifyContent: 'space-between', padding: 14 },
   halfWarn: { backgroundColor: colors.warningSoft, shadowOpacity: 0 },
   halfHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  halfTitle: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.text },
+  halfTitle: { flexShrink: 1, fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, lineHeight: typography.lineHeight.sm, color: colors.text },
   halfValue: { fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, lineHeight: typography.lineHeight.xl, color: colors.primary, marginVertical: 4 },
   halfSub: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, lineHeight: typography.lineHeight.xs, color: colors.textSecondary },
   small: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },

@@ -245,17 +245,17 @@ export default function FinanceScreen() {
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalIncome)}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(totalIncome)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Expense', 'ব্যয়')}</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalExpense)}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(totalExpense)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>{l('Income less expenses', 'আয় থেকে ব্যয় বাদ')}</Text>
-            <Text style={[styles.summaryValue, styles.netProfitColor]}>
+            <Text style={styles.summaryLabel} numberOfLines={1} accessibilityLabel={l('Net: income minus expense', 'নিট: আয় থেকে ব্যয় বাদ')}>{l('Net', 'নিট')}</Text>
+            <Text style={[styles.summaryValue, netAmount < 0 ? styles.netLossColor : styles.netProfitColor]} numberOfLines={1} adjustsFontSizeToFit>
               {formatMoney(netAmount)}
             </Text>
           </View>
@@ -616,6 +616,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.textSecondary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   summaryValue: {
     fontFamily: typography.fontFamily.bold,
@@ -625,6 +626,9 @@ const styles = StyleSheet.create({
   },
   netProfitColor: {
     color: colors.primary,
+  },
+  netLossColor: {
+    color: colors.warning,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

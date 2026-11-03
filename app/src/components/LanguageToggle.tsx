@@ -23,6 +23,7 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false,
           compact && styles.segmentCompact,
         ]}
         onPress={() => setLanguage('bn')}
+        hitSlop={compact ? { top: 10, bottom: 10, left: 4, right: 4 } : undefined}
         activeOpacity={0.8}
       >
         <Text
@@ -46,6 +47,7 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ compact = false,
           compact && styles.segmentCompact,
         ]}
         onPress={() => setLanguage('en')}
+        hitSlop={compact ? { top: 10, bottom: 10, left: 4, right: 4 } : undefined}
         activeOpacity={0.8}
       >
         <Text

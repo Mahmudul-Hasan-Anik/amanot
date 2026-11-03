@@ -8,15 +8,16 @@ import { typography } from '../theme/typography';
 import { useLanguage } from '../i18n/useLanguage';
 import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../lib/bengali';
 
+const EN_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 /** Format an ISO date (YYYY-MM-DD) for people: "২৬ অক্টোবর ২০২৬". */
-export function formatHumanDate(iso: string, bengali: boolean) {
+export function formatHumanDate(iso: string, bengali: boolean, short = false) {
   const [y, m, d] = (iso || '').split('-').map(Number);
   if (!y || !m || !d) return iso || '';
-  return bengali ? `${toBengaliDigits(d)} ${BENGALI_MONTHS_FULL[m - 1]} ${toBengaliDigits(y)}` : `${d} ${EN_MONTHS[m - 1]} ${y}`;
+  return bengali ? `${toBengaliDigits(d)} ${BENGALI_MONTHS_FULL[m - 1]} ${toBengaliDigits(y)}` : `${d} ${(short ? EN_MONTHS_SHORT : EN_MONTHS)[m - 1]} ${y}`;
 }
 
 /** One date picker for every form: tap to pick day, month, year. No typing. */
@@ -25,6 +26,8 @@ export function DateField({ label, value, onChange, max, min, error, testID }: {
 }) {
   const { l, isBengali } = useLanguage();
   const [open, setOpen] = useState(false);
+  // In a half-width field (two fields side by side on a phone) use the short month so the date stays on one line.
+  const [narrow, setNarrow] = useState(false);
   const parse = (iso: string) => { const [y, m, d] = (iso || '').split('-').map(Number); const now = new Date(); return { y: y || now.getFullYear(), m: m || now.getMonth() + 1, d: d || now.getDate() }; };
   const [draft, setDraft] = useState(parse(value));
   useEffect(() => { if (open) setDraft(parse(value)); }, [open, value]);
@@ -48,8 +51,9 @@ export function DateField({ label, value, onChange, max, min, error, testID }: {
     <View style={s.wrap}>
       <Text style={s.label}>{label}</Text>
       <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${label}: ${formatHumanDate(value, isBengali)}`} onPress={() => setOpen(true)}
+        onLayout={(e) => setNarrow(e.nativeEvent.layout.width < 200)}
         style={[s.field, !!error && { borderColor: colors.warning }]}>
-        <Text style={s.value}>{formatHumanDate(value, isBengali) || l('Pick a date', 'তারিখ বাছুন')}</Text>
+        <Text style={s.value} numberOfLines={1}>{formatHumanDate(value, isBengali, narrow) || l('Pick a date', 'তারিখ বাছুন')}</Text>
         <Ionicons name="calendar-outline" size={20} color={colors.primary} />
       </Pressable>
       {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
@@ -75,7 +79,7 @@ const s = StyleSheet.create({
   wrap: { marginBottom: 16, width: '100%' },
   label: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.subhead, color: colors.textSecondary, marginBottom: 6 },
   field: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface },
-  value: { fontFamily: typography.fontFamily.medium, fontSize: 15, color: colors.text },
+  value: { flexShrink: 1, marginRight: 8, fontFamily: typography.fontFamily.medium, fontSize: 15, color: colors.text },
   error: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.warning, marginTop: 6 },
   title: { fontFamily: typography.fontFamily.bold, fontSize: 18, color: colors.text },
   preview: { fontFamily: typography.fontFamily.semiBold, fontSize: 16, color: colors.primary, marginVertical: 10 },
