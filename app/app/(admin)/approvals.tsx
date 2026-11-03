@@ -26,6 +26,7 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { showToast } from '../../src/components/Toast';
 
 const REJECTION_REASONS = [
   { bn: 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার', en: 'Unclear or unnecessary voucher' },
@@ -85,13 +86,10 @@ export default function ApprovalsScreen() {
     try {
     const approverName = useAuthStore.getState().currentUser?.name || l('Admin', 'অ্যাডমিন');
     await approveRequest(item.id, approverName);
-    Alert.alert(
-      l('Approved', 'অনুমোদিত'),
-      l(
+    showToast(l(
         `"${cleanTitle(item.title)}" has been approved. Funds adjusted.`,
         `"${cleanTitle(item.title)}" সফলভাবে অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।`
-      )
-    );
+      ));
     } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
@@ -110,10 +108,7 @@ export default function ApprovalsScreen() {
     const itemTitle = cleanTitle(rejectingItem.title);
     setRejectingItem(null);
     setCustomReason('');
-    Alert.alert(
-      l('Rejected', 'প্রত্যাখ্যাত'),
-      l(`"${itemTitle}" has been rejected.`, `"${itemTitle}" বাতিল করা হয়েছে।`)
-    );
+    showToast(l(`"${itemTitle}" has been rejected.`, `"${itemTitle}" বাতিল করা হয়েছে।`));
     } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
@@ -121,13 +116,10 @@ export default function ApprovalsScreen() {
     try {
     const result = await autoApproveAllPending();
     if (result.approvedCount > 0) {
-      Alert.alert(
-        l('Auto-Approved', 'স্বয়ংক্রিয় অনুমোদন সম্পন্ন'),
-        l(
+      showToast(l(
           `${result.approvedCount} eligible requests totaling ${formatMoney(result.totalAmount)} have been auto-approved!`,
           `${formatNum(result.approvedCount)}টি উপযুক্ত অনুরোধ (মোট ${formatMoney(result.totalAmount)}) স্বয়ংক্রিয়ভাবে অনুমোদিত হয়েছে!`
-        )
-      );
+        ));
     } else {
       Alert.alert(
         l('Notice', 'নোটিশ'),

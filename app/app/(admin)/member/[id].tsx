@@ -38,6 +38,7 @@ import {signedTransactionAmount} from '../../../src/lib/ledger';
 import {financeNote} from '../../../src/i18n/financeLabels';
 import {MemberBalanceSummary} from '../../../src/components/MemberBalanceSummary';
 import {MemberLoginPin} from '../../../src/components/MemberLoginPin';
+import { showToast } from '../../../src/components/Toast';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
@@ -111,13 +112,13 @@ export default function MemberProfileScreen() {
       fatherName: editFatherName.trim(),
       motherName: editMotherName.trim(),
       phone: editPhone.trim(),
-      address: editAddress.trim() || '[ঠিকানা]',
+      address: editAddress.trim(),
       nomineeName: editNomineeName.trim(),
       nomineeRelation: editNomineeRelation.trim(),
     });
 
     setShowEditModal(false);
-    Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    showToast(l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
@@ -141,7 +142,7 @@ export default function MemberProfileScreen() {
     });
 
     setShowFollowupModal(false);
-    Alert.alert(l('Success', 'সফল'), l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    showToast(l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
@@ -329,7 +330,7 @@ export default function MemberProfileScreen() {
           ? isBengali
             ? member.address
             : toEnglishDigits(member.address)
-          : l('[Address]', '[ঠিকানা]'),
+          : l('Not given', 'দেওয়া হয়নি'),
     },
   ];
 

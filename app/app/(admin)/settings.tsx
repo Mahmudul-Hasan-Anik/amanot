@@ -22,6 +22,7 @@ import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 
 import { typography } from '../../src/theme/typography';
+import { showToast } from '../../src/components/Toast';
 
 const FY_MONTHS: [string, string][] = [['January','জানুয়ারি'],['February','ফেব্রুয়ারি'],['March','মার্চ'],['April','এপ্রিল'],['May','মে'],['June','জুন'],['July','জুলাই'],['August','আগস্ট'],['September','সেপ্টেম্বর'],['October','অক্টোবর'],['November','নভেম্বর'],['December','ডিসেম্বর']];
 
@@ -79,10 +80,7 @@ export default function SettingsScreen() {
     if (REMOTE) {
       await useSomitiStore.getState().syncFromServer();
       if(useSomitiStore.getState().syncError){Alert.alert(l('Refresh failed','আপডেট ব্যর্থ'),l('Check your connection and try again.','ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।'));return;}
-      Alert.alert(
-        l('Done', 'সম্পন্ন'),
-        l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।')
-      );
+      showToast(l('Data reloaded from server.', 'সার্ভার থেকে তথ্য রিলোড হয়েছে।'));
       return;
     }
     Alert.alert(
@@ -98,10 +96,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             resetAllData();
-            Alert.alert(
-              l('Success', 'সফল'),
-              l('All demo data has been reset.', 'অ্যাপের সকল ডেমো তথ্য সফলভাবে রিসেট হয়েছে।')
-            );
+            showToast(l('All demo data has been reset.', 'অ্যাপের সকল ডেমো তথ্য সফলভাবে রিসেট হয়েছে।'));
           },
         },
       ]

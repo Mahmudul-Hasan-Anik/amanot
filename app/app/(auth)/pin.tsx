@@ -148,7 +148,7 @@ export default function PinScreen() {
     <SafeAreaView style={styles.container}>
       {__DEV__ && (
         <View style={styles.topBar}>
-          <LanguageToggle />
+          <LanguageToggle compact shortLabels />
         </View>
       )}
 

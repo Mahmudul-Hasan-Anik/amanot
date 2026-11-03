@@ -808,3 +808,61 @@ export async function fetchCashCounts(limit=10):Promise<CashCount[]>{
   if(r.error){if(/cash_counts/.test(r.error.message||''))return [];throw r.error;}
   return (r.data||[]).map((x:any)=>({...x,expected:num(x.expected),counted:num(x.counted),difference:num(x.difference)}));
 }
+
+// ---------------------------------------------------------------------------
+// Investment documents (contract, site photos, receipts) — migration 20261103130000
+// ---------------------------------------------------------------------------
+export type InvestmentDocKind = 'contract' | 'photo' | 'receipt' | 'other';
+export type InvestmentDocument = { id: string; projectId: string; kind: InvestmentDocKind; path: string; fileName: string; contentType: string; size: number; createdAt: string; createdByName?: string };
+export const MAX_INVESTMENT_DOC_BYTES = 5 * 1024 * 1024;
+const DOCS_BUCKET = 'investment-documents';
+const docsMissing = (e: any) => /investment_documents|add_investment_document|remove_investment_document|Could not find|does not exist|PGRST202|PGRST205|Bucket not found/i.test(e?.message || '');
+const DOCS_UPDATE_MSG = 'ডকুমেন্টের জন্য সার্ভার আপডেট (deploy_027_investment_documents.sql) এখনো চালু হয়নি। / Server update for documents is not deployed yet.';
+
+export async function fetchInvestmentDocuments(projectId: string): Promise<InvestmentDocument[]> {
+  const r = await supabase.from('investment_documents')
+    .select('id,project_id,kind,path,file_name,content_type,size_bytes,created_at,created_by_name')
+    .eq('project_id', projectId).is('deleted_at', null).order('created_at', { ascending: false });
+  if (r.error) { if (docsMissing(r.error)) throw new Error(DOCS_UPDATE_MSG); throw r.error; }
+  return (r.data || []).map((d: any) => ({ id: d.id, projectId: d.project_id, kind: d.kind, path: d.path, fileName: d.file_name || '', contentType: d.content_type, size: d.size_bytes, createdAt: d.created_at, createdByName: d.created_by_name || undefined }));
+}
+
+/** Read the picked file, check type by its bytes and the 5 MB limit. */
+export async function readInvestmentDocument(uri: string) {
+  const { Platform } = require('react-native');
+  const bytes: Uint8Array = Platform.OS === 'web'
+    ? new Uint8Array(await (await fetch(uri)).arrayBuffer())
+    : await new (require('expo-file-system').File)(uri).bytes();
+  if (!bytes.byteLength) throw new Error('ফাইলটি খালি / The file is empty');
+  if (bytes.byteLength > MAX_INVESTMENT_DOC_BYTES) throw new Error('ফাইল সর্বোচ্চ ৫ MB হতে পারবে / File must be at most 5 MB');
+  let extension: 'jpg' | 'png' | 'webp' | 'pdf';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) extension = 'jpg';
+  else if ([137, 80, 78, 71, 13, 10, 26, 10].every((n, i) => bytes[i] === n)) extension = 'png';
+  else if (String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') extension = 'webp';
+  else if (String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-') extension = 'pdf';
+  else throw new Error('JPEG, PNG, WebP ছবি অথবা PDF দিন / Use a JPEG, PNG, WebP image or a PDF');
+  const contentType = extension === 'pdf' ? 'application/pdf' : extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+  return { bytes, extension, contentType };
+}
+
+export async function uploadInvestmentDocument(d: { id: string; projectId: string; kind: InvestmentDocKind; uri: string; fileName?: string }): Promise<InvestmentDocument> {
+  const { bytes, extension, contentType } = await readInvestmentDocument(d.uri);
+  const path = `${d.projectId}/${d.id}.${extension}`;
+  const up = await supabase.storage.from(DOCS_BUCKET).upload(path, bytes, { contentType, upsert: false });
+  // A retry after a dropped response finds the file already there; that is fine.
+  if (up.error && !/already exists|Duplicate/i.test(up.error.message || '')) { if (docsMissing(up.error)) throw new Error(DOCS_UPDATE_MSG); throw up.error; }
+  try {
+    const r: any = await rpc('add_investment_document', { p: { id: d.id, projectId: d.projectId, kind: d.kind, path, contentType, size: bytes.byteLength, fileName: d.fileName || '' } });
+    return { id: r.id, projectId: r.project_id, kind: r.kind, path: r.path, fileName: r.file_name || '', contentType: r.content_type, size: r.size_bytes, createdAt: r.created_at, createdByName: r.created_by_name || undefined };
+  } catch (e: any) { if (docsMissing(e)) throw new Error(DOCS_UPDATE_MSG); throw e; }
+}
+
+export const removeInvestmentDocument = (id: string) => rpc('remove_investment_document', { p_id: id });
+
+export async function signedInvestmentDocUrls(paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!paths.length) return out;
+  const { data } = await supabase.storage.from(DOCS_BUCKET).createSignedUrls(paths, 3600);
+  for (const item of data || []) if (item.path && item.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  return out;
+}

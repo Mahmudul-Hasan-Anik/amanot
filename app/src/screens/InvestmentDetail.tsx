@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ActionMenu } from '../components/ActionMenu';
+import { InvestmentDocuments } from '../components/InvestmentDocuments';
 import { formatHumanDate } from '../components/DateField';
 import { Button, Card, Input, SelectModal, DateField } from '../components';
 import { LedgerPaging } from '../components/LedgerPaging';
@@ -109,6 +110,7 @@ export default function InvestmentDetail({project}:{project:Project}){
         <Button size="sm" variant="ghost" title={l('Call recipient','গ্রহীতাকে ফোন')} onPress={()=>Linking.openURL(`tel:${c.phone}`).catch(()=>setError(l('Could not open phone app.','ফোন app খোলা যায়নি।')))}/>
         {c.contacts.length?<><Text style={s.heading}>{l('Emergency contacts','জরুরি যোগাযোগ')}</Text>{c.contacts.map((contact,i)=><View style={s.line} key={i}><Text style={s.value}>{contact.name}{contact.relation?` · ${contact.relation}`:''}</Text><Text style={s.body}>{contact.phone}</Text></View>)}</>:null}
       </Card>:null}
+      <InvestmentDocuments projectId={project.id} canEdit={canEnter}/>
     </ScrollView>
     <ActionMenu visible={menu} title={c.recipientName} onClose={()=>setMenu(false)} actions={[
       ...(canEnter?[{text:l('Edit investment','বিনিয়োগ এডিট করুন'),onPress:()=>router.push(`/(admin)/investment/new?edit=${project.id}` as any)}]:[]),

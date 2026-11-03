@@ -18,6 +18,8 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
 import { ActionMenu } from '../../../src/components/ActionMenu';
+import { InvestmentDocuments } from '../../../src/components/InvestmentDocuments';
+import { useAuthStore } from '../../../src/features/auth/authStore';
 import { toEnglishDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
@@ -26,6 +28,7 @@ import {LedgerPaging} from '../../../src/components/LedgerPaging';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
 import { uuid } from '../../../src/lib/api';
 import InvestmentDetail from '../../../src/screens/InvestmentDetail';
+import { showToast } from '../../../src/components/Toast';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
@@ -54,6 +57,8 @@ export default function ProjectDetailScreen() {
   const expenseOpId = React.useRef('');
   // A new request id whenever the expense details change; a retry of the same details reuses it.
   React.useEffect(() => { expenseOpId.current = ''; }, [expenseAmount, expenseNote, expenseSource]);
+  const role = useAuthStore((st) => st.actualRole);
+  const canEditDocs = ['admin', 'super_admin', 'cashier'].includes(role || '');
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -84,7 +89,7 @@ export default function ProjectDetailScreen() {
     try {
       await updateProject(project.id, editForm);
       setShowEditModal(false);
-      Alert.alert(l('Saved', 'সংরক্ষিত'), l('Investment details updated.', 'বিনিয়োগের বিবরণ হালনাগাদ হয়েছে।'));
+      showToast(l('Investment details updated.', 'বিনিয়োগের বিবরণ হালনাগাদ হয়েছে।'));
     } catch (e: any) {
       Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e?.message || String(e));
     } finally {
@@ -116,10 +121,7 @@ export default function ProjectDetailScreen() {
     setReturnAmount('');
     setReturnNote('');
 
-    Alert.alert(
-      l('Success', 'সফল'),
-      `${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`
-    );
+    showToast(`${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`);
     } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingReturn(false); }
   };
 
@@ -141,10 +143,7 @@ export default function ProjectDetailScreen() {
     setExpenseAmount('');
     setExpenseNote('');
 
-    Alert.alert(
-      l('Success', 'সফল'),
-      `${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`
-    );
+    showToast(`${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`);
     } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingExpense(false); }
   };
 
@@ -154,17 +153,7 @@ export default function ProjectDetailScreen() {
   const sampleTransactions = (isSupabaseConfigured()?history.rows:transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':')))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
 
   if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Investment not found','বিনিয়োগ পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to investments','বিনিয়োগ তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
-  const projectTitle = isBengali
-    ? project.name
-    : project.id === 'p1'
-    ? 'Site A: Land Project'
-    : project.id === 'p2'
-    ? 'Shop Rental Project'
-    : project.id === 'p3'
-    ? 'Poultry Farm'
-    : project.id === 'p4'
-    ? 'Site B: Construction'
-    : project.name;
+  const projectTitle = project.name;
 
   const typeLabel =
     project.type === 'জমি'
@@ -177,7 +166,10 @@ export default function ProjectDetailScreen() {
       ? l('Construction', 'নির্মাণ')
       : project.type;
 
-  const locLabel = project.location === '[স্থান]' ? l('[Location]', '[স্থান]') : project.location;
+  // Hide empty or placeholder values ('', '.', '-', '[স্থান]') instead of printing them.
+  const shown = (v?: string) => { const t = (v || '').trim(); return t && !/^[.\-–—]+$/.test(t) && !/^\[.*\]$/.test(t) ? t : ''; };
+  const metaParts = [shown(project.manager) && `${l('Manager:', 'দায়িত্বে:')} ${shown(project.manager)}`, shown(project.location)].filter(Boolean);
+  const dateParts = [shown(project.startDate) && `${l('Start', 'শুরু')} ${shown(project.startDate)}`, shown(project.expectedEnd) && `${l('Est. End', 'সম্ভাব্য শেষ')} ${shown(project.expectedEnd)}`].filter(Boolean);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -245,12 +237,8 @@ export default function ProjectDetailScreen() {
 
         {/* Project Title and Meta */}
         <Text style={styles.projectMainTitle}>{projectTitle}</Text>
-        <Text style={styles.projectMetaLine}>
-          {l('Manager:', 'দায়িত্বে:')} {project.manager} · {locLabel}
-        </Text>
-        <Text style={styles.projectMetaLine}>
-          {l('Start', 'শুরু')} {project.startDate} · {l('Est. End', 'সম্ভাব্য শেষ')} {project.expectedEnd}
-        </Text>
+        {metaParts.length ? <Text style={styles.projectMetaLine}>{metaParts.join(' · ')}</Text> : null}
+        {dateParts.length ? <Text style={styles.projectMetaLine}>{dateParts.join(' · ')}</Text> : null}
 
         {/* 2x2 Metric Cards Grid */}
         <View style={styles.gridContainer}>
@@ -354,6 +342,8 @@ export default function ProjectDetailScreen() {
           <LedgerPaging {...history}/>
         </View>
 
+
+        <InvestmentDocuments projectId={project.id} canEdit={canEditDocs} />
 
         <View style={styles.scrollSpacer} />
       </ScrollView>

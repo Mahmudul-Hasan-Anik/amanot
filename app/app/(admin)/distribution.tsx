@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore, REMOTE } from '../../src/store/somitiStore';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { showToast } from '../../src/components/Toast';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { Page, HeaderIcon } from '../../src/components/Page';
 import * as api from '../../src/lib/api';
@@ -84,7 +85,7 @@ export default function ProfitDistributionScreen() {
   const done = !!p?.alreadyDistributed;
   const complete = !!p?.complete;
   const saveRules = async () => {
-    try { await updateSomitiInfo({ profitMode: mode, profitReservePct: reservePct ?? 0, profitManagementPct: managementPct ?? 0, profitRatePct: ratePct ?? 0 } as any); Alert.alert(l('Saved', 'সংরক্ষণ হয়েছে')); }
+    try { await updateSomitiInfo({ profitMode: mode, profitReservePct: reservePct ?? 0, profitManagementPct: managementPct ?? 0, profitRatePct: ratePct ?? 0 } as any); showToast(l('Saved', 'সংরক্ষণ হয়েছে')); }
     catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); }
   };
   const distribute = () => {

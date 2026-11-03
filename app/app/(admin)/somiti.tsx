@@ -20,6 +20,7 @@ import { safeBack } from '../../src/utils/navigation';
 import { toBengaliDigits } from '../../src/lib/bengali';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { showToast } from '../../src/components/Toast';
 
 export default function SomitiProfileScreen() {
   const router = useRouter();
@@ -66,10 +67,7 @@ export default function SomitiProfileScreen() {
   const handleSaveEdit = async () => {
     try { await updateSomitiInfo(editForm);
     setIsEditModalOpen(false);
-    Alert.alert(
-      l('Success', 'সফল'),
-      l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।')
-    );} catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    showToast(l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।'));} catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   const handleCall = (phoneNumber: string) => {

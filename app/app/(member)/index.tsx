@@ -81,7 +81,7 @@ export default function MemberDashboardScreen() {
         </View>
 
         <View style={styles.headerRight}>
-          <LanguageToggle />
+          <LanguageToggle compact shortLabels />
           <TouchableOpacity
             style={styles.profileBtn}
             onPress={() => router.push('/(member)/profile')}
