@@ -131,6 +131,7 @@ export interface SomitiState {
   deleteNotice: (id: string) => Promise<void>;
   setMemberRole: (memberId: string, role: string, title?: string) => Promise<void>;
   addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => Promise<void>;
+  updateProject: (id: string, data: { name: string; type: string; location: string; manager: string; status: Project['status']; startDate: string; expectedEnd: string }) => Promise<void>;
 
   // Master data
   somitiInfo: typeof mockSomitiInfo;
@@ -500,6 +501,15 @@ export const useSomitiStore = create<SomitiState>()(
       reverseInvestment: async(id,paymentId,reason)=>{
         if(REMOTE){await api.reverseInvestment(id,paymentId,reason);await get().syncFromServer();return;}
         throw new Error('আদায় সংশোধনের জন্য live backend প্রয়োজন');
+      },
+      updateProject: async (id, data) => {
+        const target=get().projects.find(p=>p.id===id);
+        if(!target)throw new Error('বিনিয়োগ পাওয়া যায়নি');
+        if(target.contract)throw new Error('চুক্তির বিনিয়োগ এখান থেকে পরিবর্তন করা যাবে না');
+        const clean={...data,name:data.name.trim(),type:data.type.trim(),location:data.location.trim(),manager:data.manager.trim(),startDate:data.startDate.trim(),expectedEnd:data.expectedEnd.trim()};
+        if(!clean.name)throw new Error('বিনিয়োগের নাম লিখুন');
+        if (REMOTE) { await api.upsertProject({ ...clean, id }); await get().syncFromServer(); return; }
+        set({ projects: get().projects.map(p=>p.id===id?{...p,...clean}:p), dataVersion: get().dataVersion+1 });
       },
       addProject: async (data) => {
         if (!data.name.trim() || !Number.isFinite(data.investedAmount) || data.investedAmount<0) throw new Error('প্রজেক্টের তথ্য সঠিক নয়');
@@ -884,7 +894,12 @@ export const useSomitiStore = create<SomitiState>()(
       addExpense: async (data) => {
         if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('খরচের পরিমাণ সঠিক নয়');
         if (REMOTE) {
-          if (data.projectId) { const saved = api.mapExpense(await api.addExpense(data)); await get().syncFromServer(); return saved; }
+          if (data.projectId) {
+            // add_expense has no project link; use the idempotent investment expense RPC so the
+            // expense is tied to the investment and a repeated tap with the same id is not posted twice.
+            const saved = api.mapExpense(await api.recordInvestmentExpense({ id: data.id || api.uuid(), projectId: data.projectId, amount: data.amount, paymentMethod: api.methodFromSource(data.paymentSource), note: data.title }));
+            await get().syncFromServer(); return saved;
+          }
           const t = await api.recordExpense({ id: data.id || api.uuid(), amount: data.amount, method: api.methodFromSource(data.paymentSource), category: data.category, title: data.title, spender: data.spender || '', date: data.date || isoToday() });
           await get().syncFromServer();
           return { id: data.id || t.id, title: data.title, category: data.category, amount: data.amount, date: t.date, dateISO: t.dateISO, paymentSource: data.paymentSource, voucherNo: t.receiptNo, note: data.spender, status: 'approved' };

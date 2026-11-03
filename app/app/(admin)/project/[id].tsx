@@ -17,6 +17,7 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
+import { ActionMenu } from '../../../src/components/ActionMenu';
 import { toEnglishDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
@@ -29,7 +30,7 @@ export default function ProjectDetailScreen() {
   const router = useRouter();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { projects, transactions, recordProjectReturn, addExpense } = useSomitiStore();
+  const { projects, transactions, recordProjectReturn, addExpense, updateProject } = useSomitiStore();
 
   const allProjects = projects;
   const project = allProjects.find(
@@ -46,6 +47,44 @@ export default function ProjectDetailScreen() {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseSource, setExpenseSource] = useState<'bank' | 'cash'>('bank');
   const [expenseNote, setExpenseNote] = useState('');
+
+  const [showMenu, setShowMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', type: '', location: '', manager: '', status: 'ongoing' as 'ongoing' | 'delayed' | 'completed', startDate: '', expectedEnd: '' });
+  const setField = (k: keyof typeof editForm, v: string) => setEditForm((f) => ({ ...f, [k]: v }));
+
+  const openEdit = () => {
+    if (!project) return;
+    setEditForm({
+      name: project.name || '',
+      type: project.type || '',
+      location: project.location || '',
+      manager: project.manager || '',
+      status: (project.status as any) || 'ongoing',
+      startDate: project.startDate || '',
+      expectedEnd: project.expectedEnd || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!project || savingEdit) return;
+    if (!editForm.name.trim()) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter the investment name.', 'অনুগ্রহ করে বিনিয়োগের নাম লিখুন।'));
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updateProject(project.id, editForm);
+      setShowEditModal(false);
+      Alert.alert(l('Saved', 'সংরক্ষিত'), l('Investment details updated.', 'বিনিয়োগের বিবরণ হালনাগাদ হয়েছে।'));
+    } catch (e: any) {
+      Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e?.message || String(e));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const isProfit = project ? project.netProfit >= 0 : true;
 
@@ -149,14 +188,16 @@ export default function ProjectDetailScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit investment details', 'বিনিয়োগের বিবরণ সম্পাদনা করুন'))}
+            onPress={openEdit}
+            accessibilityLabel={l('Edit investment', 'বিনিয়োগ সম্পাদনা')}
             activeOpacity={0.7}
           >
             <Ionicons name="pencil-outline" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Menu', 'মেনু'), l('More options', 'আরও অপশন'))}
+            onPress={() => setShowMenu(true)}
+            accessibilityLabel={l('More options', 'আরও অপশন')}
             activeOpacity={0.7}
           >
             <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
@@ -483,6 +524,68 @@ export default function ProjectDetailScreen() {
           </TouchableOpacity>
         </View>
       </AppModal>
+
+      {/* Edit Investment Modal */}
+      <AppModal
+        visible={showEditModal}
+        onClose={() => !savingEdit && setShowEditModal(false)}
+        title={l('Edit Investment', 'বিনিয়োগ সম্পাদনা')}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalProjectName}>{l('Edit Investment', 'বিনিয়োগ সম্পাদনা')}</Text>
+          <Text style={styles.modalProjectSub}>
+            {l('Amounts change only through income/expense entries.', 'টাকার পরিমাণ শুধু আয়/খরচ এন্ট্রির মাধ্যমে বদলায়।')}
+          </Text>
+
+          <Text style={styles.inputTitle}>{l('Name', 'নাম')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.name} onChangeText={(v) => setField('name', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Type', 'ধরন')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.type} onChangeText={(v) => setField('type', v)} editable={!savingEdit} placeholder={l('e.g. Gold, Land', 'যেমন: গোল্ড, জমি')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Manager', 'দায়িত্বে')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.manager} onChangeText={(v) => setField('manager', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Location', 'স্থান')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.location} onChangeText={(v) => setField('location', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Start', 'শুরু')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.startDate} onChangeText={(v) => setField('startDate', v)} editable={!savingEdit} placeholder={l('e.g. September 2026', 'যেমন: সেপ্টেম্বর ২০২৬')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Est. End', 'সম্ভাব্য শেষ')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.expectedEnd} onChangeText={(v) => setField('expectedEnd', v)} editable={!savingEdit} placeholder={l('e.g. March 2027', 'যেমন: মার্চ ২০২৭')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Status', 'অবস্থা')}</Text>
+          <View style={styles.sourceToggleRow}>
+            {([['ongoing', l('Ongoing', 'চলমান')], ['delayed', l('Delayed', 'বিলম্বিত')], ['completed', l('Completed', 'সমাপ্ত')]] as const).map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                style={[styles.sourceToggleBtn, editForm.status === value && styles.sourceToggleBtnActive]}
+                onPress={() => setField('status', value)}
+                disabled={savingEdit}
+              >
+                <Text style={styles.sourceToggleText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity style={[styles.modalSubmitBtn, savingEdit && { opacity: 0.6 }]} onPress={handleSaveEdit} disabled={savingEdit}>
+            <Text style={styles.modalSubmitBtnText}>{savingEdit ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Changes', 'পরিবর্তন সংরক্ষণ করুন')}</Text>
+          </TouchableOpacity>
+        </View>
+      </AppModal>
+
+      <ActionMenu
+        visible={showMenu}
+        title={projectTitle}
+        onClose={() => setShowMenu(false)}
+        actions={[
+          { text: l('Edit investment', 'বিনিয়োগ সম্পাদনা'), onPress: openEdit },
+          { text: l('Record Income/Return', 'আয়/ফেরত লিখুন'), onPress: () => setShowIncomeModal(true) },
+          { text: l('Record Expense', 'খরচ লিখুন'), onPress: () => setShowExpenseModal(true) },
+          { text: l('View all transactions', 'সব লেনদেন দেখুন'), onPress: () => router.push(`/(admin)/ledger?projectId=${project!.id}` as any) },
+        ]}
+      />
     </SafeAreaView>
   );
 }
