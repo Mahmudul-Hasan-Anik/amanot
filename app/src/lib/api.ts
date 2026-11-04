@@ -120,6 +120,8 @@ async function memberRead<T>(load:(columns:string)=>PromiseLike<{data:T|null;err
 
 export function mapTransaction(r: any): Transaction {
   return {
+    transferFrom: r.transfer_from || undefined,
+    transferTo: r.transfer_to || undefined,
     projectId: r.project_id || undefined,
     principalPart: r.principal_part == null ? undefined : num(r.principal_part),
     profitPart: r.profit_part == null ? undefined : num(r.profit_part),
@@ -702,8 +704,8 @@ export const recordProjectReturn = (d: { projectId: string; amount: number; paym
     p_note: d.note ?? null,
   });
 
-export const transferCash = (from: string, to: string, amount: number, note?: string) =>
-  rpc('transfer_cash', { p_from: from, p_to: to, p_amount: amount, p_note: note ?? null });
+export const transferCash = (from: string, to: string, amount: number, note?: string, requestId = uuid()) =>
+  rpc('transfer_cash_once', { p: {id:requestId,from,to,amount,note:note || ''} });
 
 export const updateSomitiInfo = (p: Record<string, any>) => rpc('update_somiti_info', { p });
 

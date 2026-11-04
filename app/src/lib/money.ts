@@ -83,7 +83,7 @@ export function normalizeMobileNumber(input: string): string {
   if (digits.startsWith('0')) {
     digits = digits.slice(1);
   }
-  return digits.slice(0, 10);
+  return digits;
 }
 
 /**
@@ -91,6 +91,6 @@ export function normalizeMobileNumber(input: string): string {
  */
 export function isValidMobileNumber(input: string): boolean {
   const normalized = normalizeMobileNumber(input);
-  return normalized.length === 10 && normalized.startsWith('1');
+  return /^1[3-9][0-9]{8}$/.test(normalized);
 }
 

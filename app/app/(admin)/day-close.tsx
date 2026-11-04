@@ -8,7 +8,7 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { isoToday, parseInvestmentAmount, roundMoney } from '../../src/lib/investment';
 import { signedTransactionAmount } from '../../src/lib/ledger';
 import { entryDisplay } from '../../src/lib/entryDisplay';
-import { uuid, recordCashCount, fetchCashCounts, CashCount } from '../../src/lib/api';
+import { uuid, recordCashCount, fetchCashCounts, fetchTransactionHistory, CashCount } from '../../src/lib/api';
 import { formatHumanDate } from '../../src/components/DateField';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
@@ -28,15 +28,28 @@ export default function DayCloseScreen() {
   const [counted, setCounted] = useState(''), [note, setNote] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [history, setHistory] = useState<CashCount[]>([]);
   const requestId = useRef(uuid());
+  const [dayRows,setDayRows]=useState<typeof transactions>([]),[activityError,setActivityError]=useState(''),[activityLoading,setActivityLoading]=useState(REMOTE);
+  const revision=useSomitiStore(s=>String(s.syncRevision)+':'+s.dataVersion);
+  const [activityRetry,retryActivity]=useState(0);
   const account = accounts.find(a => a.type === (method === 'cash' ? 'cashier' : method));
   const today = isoToday();
-  const todays = transactions.filter(t => t.dateISO === today && t.paymentMethod === method && t.type !== 'reversal' && !t.voided);
-  const inToday = roundMoney(todays.reduce((s, t) => s + Math.max(0, signedTransactionAmount(t)), 0));
-  const outToday = roundMoney(todays.reduce((s, t) => s + Math.max(0, -signedTransactionAmount(t)), 0));
+  const nextDay=new Date(Date.parse(today+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+  useEffect(()=>{
+    if(!REMOTE)return;
+    let active=true;setActivityLoading(true);setActivityError('');
+    fetchTransactionHistory({from:today,to:nextDay}).then(rows=>{if(active)setDayRows(rows);},e=>{if(active)setActivityError(e.message);}).finally(()=>{if(active)setActivityLoading(false);});
+    return()=>{active=false;};
+  },[today,revision,activityRetry]);
+  const scopedRows=REMOTE?dayRows:transactions;
+  const todays = scopedRows.filter(t => t.dateISO === today && t.type !== 'reversal' && !t.voided &&
+    (t.transferFrom ? t.transferFrom===account?.id || t.transferTo===account?.id : t.paymentMethod===method && (t.type!=='transfer'||t.investmentDisbursement)));
+  const movement=(t:typeof transactions[number])=>t.transferFrom ? (t.transferTo===account?.id?t.amount:-t.amount) : signedTransactionAmount(t);
+  const inToday = roundMoney(todays.reduce((s, t) => s + Math.max(0, movement(t)), 0));
+  const outToday = roundMoney(todays.reduce((s, t) => s + Math.max(0, -movement(t)), 0));
   const expected = account?.amount || 0;
   const value = parseInvestmentAmount(counted);
   const diff = Number.isFinite(value) ? roundMoney(value - expected) : null;
-  const load = () => { if (REMOTE) fetchCashCounts().then(setHistory, () => {}); };
+  const load = () => { if (REMOTE) fetchCashCounts().then(setHistory, e => setError(e.message)); };
   useEffect(load, []);
   const save = async () => {
     if (busy) return;
@@ -53,12 +66,14 @@ export default function DayCloseScreen() {
     footer={<Button title={l('Save the count', 'গোনা সংরক্ষণ করুন')} icon={<Ionicons name="checkmark-done-outline" size={18} color={colors.surface} />} loading={busy} onPress={save} />}>
     <View style={ps.chips}>{(['cash', 'bkash', 'nagad', 'bank'] as Method[]).filter(m => accounts.some(a => a.type === (m === 'cash' ? 'cashier' : m))).map(m =>
       <Pressable key={m} accessibilityRole="radio" accessibilityState={{ checked: method === m }} onPress={() => { setMethod(m); setCounted(''); }} style={[s.chip, method === m && s.chipOn]}><Text style={[s.chipText, method === m && { color: colors.surface }]}>{label(m)}</Text></Pressable>)}</View>
+    {activityError?<View><Text accessibilityRole="alert" style={s.error}>{activityError}</Text><Button variant="outline" title={l('Retry activity','লেনদেন আবার আনুন')} onPress={()=>retryActivity(n=>n+1)}/></View>:null}
+    {scopedRows.some(t=>t.type==='transfer'&&!t.investmentDisbursement&&!t.transferFrom)?<Text style={s.small}>{l('Older internal transfers without account details are excluded from daily activity. Current balances include them.','হিসাবের তথ্যবিহীন পুরোনো স্থানান্তর দৈনিক হিসাবে দেখানো হয় না। বর্তমান ব্যালেন্সে সেগুলো অন্তর্ভুক্ত।')}</Text>:null}
     <View style={ps.hero}>
       <Text style={ps.heroLabel}>{l('Should be in hand now', 'এখন থাকার কথা')}</Text>
       <Text style={ps.heroValue}>{money(expected)}</Text>
       <View style={s.heroRow}>
-        <View style={s.heroCell}><Ionicons name="arrow-down-circle-outline" size={16} color={colors.surface} /><Text style={s.heroCellText}>{l('In today', 'আজ এসেছে')} {money(inToday)}</Text></View>
-        <View style={s.heroCell}><Ionicons name="arrow-up-circle-outline" size={16} color={colors.surface} /><Text style={s.heroCellText}>{l('Out today', 'আজ গেছে')} {money(outToday)}</Text></View>
+        <View style={s.heroCell}><Ionicons name="arrow-down-circle-outline" size={16} color={colors.surface} /><Text style={s.heroCellText}>{l('In today', 'আজ এসেছে')} {activityLoading||activityError?'—':money(inToday)}</Text></View>
+        <View style={s.heroCell}><Ionicons name="arrow-up-circle-outline" size={16} color={colors.surface} /><Text style={s.heroCellText}>{l('Out today', 'আজ গেছে')} {activityLoading||activityError?'—':money(outToday)}</Text></View>
       </View>
     </View>
     <View style={ps.card}>
@@ -73,7 +88,7 @@ export default function DayCloseScreen() {
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
     <View style={ps.card}><Text style={ps.title}>{l("Today's entries in this account", 'এই হিসাবে আজকের এন্ট্রি')}</Text>
-      {todays.length ? todays.map((t, i) => { const d = entryDisplay(t, l, isBengali), v = signedTransactionAmount(t); return <View key={t.id} style={[s.row, i > 0 && ps.divider]}><Text style={s.body} numberOfLines={1}>{d.title}</Text><Text style={[s.val, { color: v < 0 ? colors.warning : colors.primary }]}>{v < 0 ? '−' : '+'}{money(Math.abs(v))}</Text></View>; })
+      {todays.length ? todays.map((t, i) => { const d = entryDisplay(t, l, isBengali), v = movement(t); return <View key={t.id} style={[s.row, i > 0 && ps.divider]}><Text style={s.body} numberOfLines={1}>{d.title}</Text><Text style={[s.val, { color: v < 0 ? colors.warning : colors.primary }]}>{v < 0 ? '−' : '+'}{money(Math.abs(v))}</Text></View>; })
         : <Text style={s.small}>{l('No entries in this account today.', 'আজ এই হিসাবে কোনো এন্ট্রি নেই।')}</Text>}</View>
     {history.length ? <View style={ps.card}><Text style={ps.title}>{l('Recent counts', 'আগের গোনা')}</Text>
       {history.map((h, i) => <View key={h.id} style={[s.row, i > 0 && ps.divider]}><Text style={s.body}>{formatHumanDate(h.count_date, isBengali)}{h.counted_by_name ? ` · ${h.counted_by_name}` : ''}</Text>

@@ -34,7 +34,8 @@ async function main(){
  await pass('contract migration applies twice without rewriting existing balances',async()=>{const before=await one('select sum(total_deposit) total from members');await db.exec(migration);await db.exec(migration);assert.deepEqual(await one('select sum(total_deposit) total from members'),before);assert.equal((await one("select has_schema_privilege('amanot_rpc','public','CREATE') allowed")).allowed,false);});
  await sql("update cash_accounts set amount=1000000 where type='bank'");
  await as('authenticated',owner);
- const today=new Date().toISOString().slice(0,10);
+ await db.exec("set timezone='Asia/Dhaka'");
+ const today=(await one('select current_date::text d')).d;
  const contract={id:'00000000-0000-4000-8000-000000000701',recipientName:'External recipient',phone:'01733000001',whatsapp:'',address:'Dhaka',nid:'1234567890',fatherName:'Father',motherName:'Mother',contacts:[{name:'Contact one',relation:'Brother',phone:'01733000002'}],principal:100000,profitPct:20,termMonths:12,disbursedDate:today,firstDueDate:today,purpose:'Business',paymentMethod:'bank'};
  const create=p=>one('select * from create_investment_contract($1::jsonb)',[JSON.stringify(p)]);
  const pay=p=>one('select * from collect_investment_payment($1::jsonb)',[JSON.stringify(p)]);

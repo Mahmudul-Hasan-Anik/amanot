@@ -49,6 +49,8 @@ function remote(label: string, call: () => Promise<any>) {
 }
 
 export interface Transaction {
+  transferFrom?: string;
+  transferTo?: string;
   projectId?: string;
   principalPart?: number;
   profitPart?: number;
@@ -215,7 +217,7 @@ export interface SomitiState {
   }) => Promise<void>;
 
   // Cash Transfer Action
-  transferCash: (fromId: string, toId: string, amount: number, note?: string) => Promise<boolean>;
+  transferCash: (fromId: string, toId: string, amount: number, note?: string, requestId?: string) => Promise<boolean>;
 
   // Transaction Lookup
   getTransactionById: (id: string) => Transaction | undefined;
@@ -1130,8 +1132,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId: target.id,
           memberName: target.name,
           memberCode: 'PRJ',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(isoToday()),
+          dateISO: isoToday(),
           amount: data.amount,
           type: 'profit',
           paymentMethod: data.paymentSource.toLowerCase().includes('ব্যাংক') ? 'bank' : 'cash',
@@ -1167,26 +1169,28 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Transfer cash
-      transferCash: async (fromId, toId, amount, note) => {
-        if (REMOTE) { await api.transferCash(fromId,toId,amount,note); await get().syncFromServer(); return true; }
+      transferCash: async (fromId, toId, amount, note, requestId) => {
+        if (REMOTE) { await api.transferCash(fromId,toId,amount,note,requestId); await get().syncFromServer(); return true; }
+        if(requestId){const previous=get().transactions.find(t=>t.id===requestId);if(previous){if(previous.transferFrom!==fromId||previous.transferTo!==toId||previous.amount!==amount)throw new Error('Request ID already used');return true;}}
         const fromAcc = get().cashAccounts.find((a) => a.id === fromId);
         const toAcc = get().cashAccounts.find((a) => a.id === toId);
-        if (!Number.isFinite(amount) || amount <= 0 || fromId===toId || !fromAcc || !toAcc || fromAcc.amount < amount) return false;
+        if (!Number.isFinite(amount) || amount <= 0 || roundMoney(amount)!==amount || fromId===toId || !fromAcc || !toAcc || fromAcc.amount < amount) return false;
 
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
-          if (acc.id === fromId) return { ...acc, amount: Math.max(0, acc.amount - amount) };
-          if (acc.id === toId) return { ...acc, amount: acc.amount + amount };
+          if (acc.id === fromId) return { ...acc, amount: roundMoney(acc.amount - amount) };
+          if (acc.id === toId) return { ...acc, amount: roundMoney(acc.amount + amount) };
           return acc;
         });
 
         const newTxn: Transaction = {
-          id: `tx-tf-${Date.now()}`,
+          id: requestId || api.uuid(),
           receiptNo: `TRF-${Math.floor(1000 + Math.random() * 9000)}`,
+          transferFrom: fromId, transferTo: toId,
           memberId: 'internal',
           memberName: 'হিসাব স্থানান্তর',
           memberCode: 'TRF',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(isoToday()),
+          dateISO: isoToday(),
           amount: amount,
           type: 'transfer',
           paymentMethod: 'cash',
@@ -1196,8 +1200,8 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           cashAccounts: updatedCashAccounts,
           transactions: [newTxn, ...get().transactions],
+          dataVersion:get().dataVersion+1,
         });
-        remote('স্থানান্তর', () => api.transferCash(fromId, toId, amount, note));
         return true;
       },
 

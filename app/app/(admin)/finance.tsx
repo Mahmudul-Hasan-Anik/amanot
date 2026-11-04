@@ -5,7 +5,7 @@ import { emptyLedgerSummary } from '../../src/lib/ledger';
 import { EntryRow, EntryActions } from '../../src/components/EntryActions';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,7 +31,8 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
 import { recentMonths, inMonth } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
-import { toEnglishDigits } from '../../src/lib/bengali';
+import { parseInvestmentAmount } from '../../src/lib/investment';
+import { uuid } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 
@@ -108,6 +109,7 @@ export default function FinanceScreen() {
   const [transferAmount, setTransferAmount] = useState<string>('');
   const [transferNote, setTransferNote] = useState<string>('');
   const [transferring, setTransferring] = useState(false);
+  const transferLock=useRef(false),transferRequest=useRef(uuid());
 
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
@@ -144,11 +146,11 @@ export default function FinanceScreen() {
 
 
   const handleTransferSubmit = async () => {
-    if (transferring) return;
-    setTransferring(true);
+    if (transferLock.current) return;
+    transferLock.current=true;setTransferring(true);
     try {
-    const amt = parseFloat(toEnglishDigits(transferAmount).replace(/[^0-9.]/g, ''));
-    if (!amt || isNaN(amt) || amt <= 0) {
+    const amt = parseInvestmentAmount(transferAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount', 'সঠিক টাকার পরিমাণ লিখুন'));
       return;
     }
@@ -168,8 +170,9 @@ export default function FinanceScreen() {
     }
 
     const note = transferNote.trim() || l('Internal Cash Transfer', 'অভ্যন্তরীণ তহবিল স্থানান্তর');
-    if (!await transferCash(fromAccount, toAccount, amt, note)) return;
+    if (!await transferCash(fromAccount, toAccount, amt, note, transferRequest.current)) return;
 
+    transferRequest.current=uuid();
     setShowTransferModal(false);
     setTransferAmount('');
     setTransferNote('');
@@ -179,7 +182,7 @@ export default function FinanceScreen() {
       `${senderAcc.name} → ${targetAcc?.name}: ${formatMoney(amt)} ${l('transferred successfully', 'সফলভাবে স্থানান্তর হয়েছে')}`
     );
     } catch(e:any) { Alert.alert(l('Transfer failed','স্থানান্তর ব্যর্থ'),e.message); }
-    finally { setTransferring(false); }
+    finally { transferLock.current=false;setTransferring(false); }
   };
 
   const getAccountIcon = (account: CashAccount) => {

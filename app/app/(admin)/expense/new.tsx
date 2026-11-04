@@ -16,7 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { DateField } from '../../../src/components/DateField';
-import { isoToday } from '../../../src/lib/investment';
+import { isoToday, parseInvestmentAmount, validISODate } from '../../../src/lib/investment';
 import { uuid } from '../../../src/lib/api';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import { useLanguage } from '../../../src/i18n/useLanguage';
@@ -39,45 +39,31 @@ const EXPENSE_CATEGORIES = [
 
 export default function NewExpenseScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ amount?: string; title?: string }>();
+  const params = useLocalSearchParams<{ amount?: string; title?: string; method?: string; date?: string; category?: string; spender?: string }>();
   const { addExpense, members } = useSomitiStore();
   const me = useAuthStore(s => s.currentUser);
   // People who usually spend for the society: staff first, then everyone else.
   const spenders = [...members.filter(m => (m as any).appRole && (m as any).appRole !== 'member'), ...members.filter(m => !(m as any).appRole || (m as any).appRole === 'member')];
   const { l, isBengali, formatMoney } = useLanguage();
 
-  const [rawAmount, setRawAmount] = useState(params.amount ? String(Math.round(Number(params.amount))) : '');
-  const [selectedCategoryKey, setSelectedCategoryKey] = useState('meeting');
-  const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash'>('treasurer');
-  const [date, setDate] = useState(isoToday());
-  const [selectedSpender, setSelectedSpender] = useState<string>(me?.name || '');
+  const [rawAmount, setRawAmount] = useState(params.amount || '');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState(EXPENSE_CATEGORIES.find(c => c.en === params.category || c.bn === params.category)?.key || params.category || 'meeting');
+  const [source, setSource] = useState<'treasurer' | 'bank' | 'bkash' | 'nagad'>(params.method === 'cash' ? 'treasurer' : ['bank','bkash','nagad'].includes(params.method || '') ? params.method as 'bank' | 'bkash' | 'nagad' : 'treasurer');
+  const [date, setDate] = useState(params.date && validISODate(params.date) ? params.date : isoToday());
+  const [selectedSpender, setSelectedSpender] = useState<string>(params.spender || me?.name || '');
   const requestId = React.useRef(uuid());
   const [showSpenderModal, setShowSpenderModal] = useState(false);
   const [reason, setReason] = useState(params.title || '');
-  const [hasReceipt, setHasReceipt] = useState(false);
 
-  const numericAmount = Number(toEnglishDigits(rawAmount).replace(/[^0-9.]/g, '')) || 0;
 
-  const handleAmountChange = (val: string) => {
-    const clean = toEnglishDigits(val).replace(/[^\d]/g, '');
-    setRawAmount(clean);
-  };
+  const numericAmount = parseInvestmentAmount(rawAmount);
 
-  const handleReceiptToggle = () => {
-    const nextState = !hasReceipt;
-    setHasReceipt(nextState);
-    Alert.alert(
-      l('Receipt Attachment', 'রসিদ সংযুক্তি'),
-      nextState
-        ? l('Receipt photo attached successfully.', 'রসিদের ছবি সফলভাবে যোগ করা হয়েছে।')
-        : l('Receipt removed.', 'রসিদ সরানো হয়েছে।')
-    );
-  };
-
+  const handleAmountChange = (val: string) => setRawAmount(toEnglishDigits(val));
+  const submitLock = React.useRef(false);
   const [saving, setSaving] = useState(false);
   const handleSubmit = async () => {
-    if (saving) return;
-    if (numericAmount <= 0) {
+    if (submitLock.current) return;
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       Alert.alert(
         l('Error', 'ত্রুটি'),
         l('Please enter a valid expense amount.', 'অনুগ্রহ করে খরচের সঠিক পরিমাণ লিখুন।')
@@ -92,20 +78,21 @@ export default function NewExpenseScreen() {
       return;
     }
 
+    if (!validISODate(date) || date > isoToday()) { Alert.alert(l('Error','ত্রুটি'), l('Choose a valid date no later than today.','আজ বা তার আগের সঠিক তারিখ বাছুন।')); return; }
     const currentCat = EXPENSE_CATEGORIES.find((c) => c.key === selectedCategoryKey);
-    const catName = isBengali ? (currentCat?.bn || 'সভা ও আপ্যায়ন') : (currentCat?.en || 'Meeting & Refreshment');
+    const catName = currentCat ? l(currentCat.en,currentCat.bn) : selectedCategoryKey;
     const voucherNo = '';
     const paymentSource =
       source === 'bank'
         ? l('Bank', 'ব্যাংক')
-        : source === 'bkash'
+        : source === 'nagad' ? 'nagad' : source === 'bkash'
         ? l('bKash', 'বিকাশ')
         : l("Treasurer's Hand", 'কোষাধ্যক্ষের হাতে');
 
     const status = 'approved' as const;
     const spenderName = selectedSpender;
 
-    setSaving(true);
+    submitLock.current = true; setSaving(true);
     try {
     const saved = await addExpense({
       title: reason,
@@ -129,14 +116,8 @@ export default function NewExpenseScreen() {
         { text: l('Done', 'ঠিক আছে'), onPress: () => router.replace('/(admin)/finance') },
       ]
     );
-    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { setSaving(false); }
+    } catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); } finally { submitLock.current = false; setSaving(false); }
   };
-
-  const formattedAmountDisplay = numericAmount
-    ? (isBengali
-        ? toBengaliDigits(numericAmount.toLocaleString('en-IN'))
-        : numericAmount.toLocaleString('en-US'))
-    : '';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -166,9 +147,9 @@ export default function NewExpenseScreen() {
             <Text style={styles.currencySymbol}>{l('৳', '৳')}</Text>
             <TextInput
               style={styles.amountInput}
-              value={formattedAmountDisplay || (isBengali ? toBengaliDigits(rawAmount) : rawAmount)}
+              value={isBengali ? toBengaliDigits(rawAmount) : rawAmount}
               onChangeText={handleAmountChange}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={colors.textSecondary}
               selectionColor={colors.primary}
@@ -270,6 +251,7 @@ export default function NewExpenseScreen() {
               {l('bKash', 'বিকাশ')}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.sourceSegmentBtn, source === 'nagad' && styles.sourceSegmentBtnActive]} onPress={() => setSource('nagad')}><Text style={styles.sourceSegmentText}>{l('Nagad','নগদ মোবাইল')}</Text></TouchableOpacity>
         </View>
 
         {/* Reason / Purpose Section */}
@@ -286,27 +268,7 @@ export default function NewExpenseScreen() {
           />
         </View>
 
-        {/* Receipt Upload Dashed Box */}
-        <TouchableOpacity
-          style={[styles.receiptBox, hasReceipt && styles.receiptBoxActive]}
-          onPress={handleReceiptToggle}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={hasReceipt ? 'camera' : 'camera-outline'}
-            size={24}
-            color={colors.primary}
-          />
-          <Text style={styles.receiptTitle}>
-            {hasReceipt
-              ? l('Receipt Photo Attached ✓', 'রসিদের ছবি সংযুক্ত হয়েছে ✓')
-              : l('Add receipt photo (optional)', 'রসিদের ছবি যোগ করুন (ঐচ্ছিক)')}
-          </Text>
-          <Text style={styles.receiptSub}>
-            {l('Keep the voucher with the khata.', 'ভাউচার খাতার সাথে রাখুন।')}
-          </Text>
-        </TouchableOpacity>
-
+        <Text style={styles.receiptSub}>{l('Keep the original receipt with the khata.', 'আসল রসিদ খাতার সাথে রাখুন।')}</Text>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -533,6 +495,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   sourceSegmentTrack: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     backgroundColor: colors.surfaceMuted,
     borderRadius: 10,
@@ -541,6 +504,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sourceSegmentBtn: {
+    flexBasis: '45%',
+    minWidth: 0,
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
@@ -553,6 +518,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   sourceSegmentText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.size.sm,
     color: colors.textSecondary,
@@ -576,28 +543,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
     textAlignVertical: 'top',
     padding: 0,
-  },
-  receiptBox: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    gap: 3,
-  },
-  receiptBoxActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
-  receiptTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.subhead,
-    color: colors.text,
   },
   receiptSub: {
     fontFamily: typography.fontFamily.regular,

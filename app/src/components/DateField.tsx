@@ -34,8 +34,8 @@ export function DateField({ label, value, onChange, max, min, error, testID }: {
   const day = Math.min(draft.d, daysIn(draft.y, draft.m));
   const iso = `${draft.y}-${pad(draft.m)}-${pad(day)}`;
   const outOfRange = (max && iso > max) || (min && iso < min);
-  const thisYear = new Date().getFullYear();
-  const years = Array.from({ length: 8 }, (_, i) => thisYear - 6 + i);
+  const [yearCenter, setYearCenter] = useState(parse(value).y);
+  const years = Array.from({ length: 12 }, (_, i) => yearCenter - 6 + i).filter(y => y >= 1900 && y <= 9999 && (!min || y >= Number(min.slice(0,4))) && (!max || y <= Number(max.slice(0,4))));
   const n = (v: number) => (isBengali ? toBengaliDigits(v) : String(v));
   const column = (items: { key: number; label: string }[], selected: number, pick: (v: number) => void, flex = 1) => (
     <ScrollView style={[s.col, { flex }]} showsVerticalScrollIndicator={false}>
@@ -50,7 +50,7 @@ export function DateField({ label, value, onChange, max, min, error, testID }: {
   return (
     <View style={s.wrap}>
       <Text style={s.label}>{label}</Text>
-      <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${label}: ${formatHumanDate(value, isBengali)}`} onPress={() => setOpen(true)}
+      <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${label}: ${formatHumanDate(value, isBengali)}`} onPress={() => { setYearCenter(parse(value).y); setOpen(true); }}
         onLayout={(e) => setNarrow(e.nativeEvent.layout.width < 200)}
         style={[s.field, !!error && { borderColor: colors.warning }]}>
         <Text style={s.value} numberOfLines={1}>{formatHumanDate(value, isBengali, narrow) || l('Pick a date', 'তারিখ বাছুন')}</Text>
@@ -60,6 +60,7 @@ export function DateField({ label, value, onChange, max, min, error, testID }: {
       <AppModal visible={open} onClose={() => setOpen(false)}>
         <Text style={s.title}>{label}</Text>
         <Text style={s.preview}>{formatHumanDate(iso, isBengali)}</Text>
+        <View style={{flexDirection:'row',justifyContent:'space-between',marginVertical:8}}><Button size="sm" variant="ghost" title={l('Earlier years','আগের বছর')} disabled={yearCenter - 6 <= Number(min?.slice(0,4) || 1900)} onPress={() => setYearCenter(y => y - 12)}/><Button size="sm" variant="ghost" title={l('Later years','পরের বছর')} disabled={yearCenter + 5 >= Number(max?.slice(0,4) || 9999)} onPress={() => setYearCenter(y => y + 12)}/></View>
         <View style={s.cols}>
           {column(Array.from({ length: daysIn(draft.y, draft.m) }, (_, i) => ({ key: i + 1, label: n(i + 1) })), day, d => setDraft(v => ({ ...v, d })))}
           {column(Array.from({ length: 12 }, (_, i) => ({ key: i + 1, label: isBengali ? BENGALI_MONTHS_FULL[i] : EN_MONTHS[i] })), draft.m, m => setDraft(v => ({ ...v, m })), 1.5)}

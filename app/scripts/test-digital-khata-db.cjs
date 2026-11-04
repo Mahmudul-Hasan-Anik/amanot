@@ -150,6 +150,27 @@ async function main(){
   assert.equal((await one('select count(*)::int n from cash_counts')).n,1);
   await as('postgres');assert.equal(Number((await one("select amount from cash_accounts where type='cashier'")).amount),cash);
  });
+ await pass('transfer retry is idempotent, exact, account-scoped and protected',async()=>{
+  await as('postgres');const unchanged=await one('select sum(amount)::text cash from cash_accounts');
+  await load('20261104180632_transfer_idempotency.sql');await load('20261104180632_transfer_idempotency.sql');
+  assert.deepEqual(await one('select sum(amount)::text cash from cash_accounts'),unchanged);
+  assert.equal((await one("select has_function_privilege('anon','public.transfer_cash_once(jsonb)','execute') ok")).ok,false);
+  assert.equal((await one("select has_schema_privilege('amanot_rpc','public','create') ok")).ok,false);
+  const accounts=(await sql("select id,type,amount from cash_accounts where type in ('bank','bkash')")).rows;
+  const from=accounts.find(a=>a.type==='bank'),to=accounts.find(a=>a.type==='bkash');
+  const request={id:id(800),from:from.id,to:to.id,amount:123.45,note:'Fixture transfer'};
+  const submit=p=>one('select * from transfer_cash_once($1::jsonb)',[JSON.stringify(p)]);
+  await as('authenticated',owner);const first=await submit(request),retry=await submit(request);
+  assert.equal(first.id,retry.id);assert.equal(first.transfer_from,from.id);assert.equal(first.transfer_to,to.id);
+  assert.equal((await one('select count(*)::int n from transactions where id=$1',[id(800)])).n,1);
+  assert.equal(Number((await one('select amount from cash_accounts where id=$1',[from.id])).amount),Number(from.amount)-123.45);
+  assert.equal(Number((await one('select amount from cash_accounts where id=$1',[to.id])).amount),Number(to.amount)+123.45);
+  await assert.rejects(()=>submit({...request,amount:123.46}),/Request ID already used/);
+  await assert.rejects(()=>submit({...request,id:id(801),amount:-1}));
+  await assert.rejects(()=>submit({...request,id:id(801),amount:1.001}));
+  await assert.rejects(()=>submit({...request,id:id(801),from:'missing'}));
+  await setRole('field_worker');await assert.rejects(()=>submit({...request,id:id(801)}));await setRole('super_admin');
+ });
  console.log(checks+' digital-khata DB checks passed (disposable fixtures).');
  }finally{await db.close();}
 }

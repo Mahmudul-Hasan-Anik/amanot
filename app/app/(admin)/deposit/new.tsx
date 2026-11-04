@@ -97,6 +97,7 @@ export default function RecordDepositScreen() {
     const yyyy = `${pickerYear}`;
     const dateStr = `${dd}/${mm}/${yyyy}`;
     setDepositDate(dateStr);
+    validation.clear('date');
     setShowDatePicker(false);
   };
 
@@ -104,7 +105,7 @@ export default function RecordDepositScreen() {
   const [sendSMS, setSendSMS] = useState(false);
 
   const [customAmount,setCustomAmount]=useState(typeof params.amount==='string'?params.amount:'');
-  const handleSelectMember=(id:string)=>{setSelectedMemberId(id);setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
+  const handleSelectMember=(id:string)=>{setSelectedMemberId(id);validation.clear('member');setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
 
   // Payment methods segmented control options
   const paymentMethodsList: Array<{ id: PaymentMethodType; label: string }> = [
@@ -183,8 +184,8 @@ export default function RecordDepositScreen() {
         <View ref={validation.contentRef} collapsable={false}>
         {!!validation.errors._form&&<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{validation.errors._form}</Text>}
         {/* Member Selector Card */}
-        <View style={styles.memberCard} {...validation.fieldProps('member')}>
-          {!!validation.errors.member&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.member}</Text>}
+        <View style={styles.memberGroup} {...validation.fieldProps('member')}>
+        <View style={[styles.memberCard, !!validation.errors.member && styles.memberCardError]}>
           <Avatar
             name={currentMember?.name || l('Select member', 'সদস্য বাছুন')}
             size="md"
@@ -203,6 +204,8 @@ export default function RecordDepositScreen() {
           >
             <Text style={styles.changeLink}>{currentMember ? l('Change', 'বদলান') : l('Select', 'বাছুন')}</Text>
           </TouchableOpacity>
+        </View>
+          {!!validation.errors.member&&<Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.memberError}>{validation.errors.member}</Text>}
         </View>
 
         {/* 1. Month Selection */}
@@ -504,13 +507,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  memberGroup: {
+    marginBottom: 16,
+    minWidth: 0,
+  },
+  memberCardError: {
+    borderColor: colors.danger,
+  },
+  memberError: {
+    color: colors.danger,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    marginTop: 6,
+  },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.surface,
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -519,6 +537,7 @@ const styles = StyleSheet.create({
   },
   memberDetails: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 12,
   },
   memberName: {

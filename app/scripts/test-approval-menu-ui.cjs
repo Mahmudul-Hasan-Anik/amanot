@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict'),path=require('path');
-function load(file,deps){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)}});return exports;}
+function load(file,deps){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:n=>{if(n.endsWith('/components/Toast'))return {showToast:()=>{}};if(n in deps)return deps[n];throw Error(n)}});return exports;}
 const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>[v,()=>{}]};
 const native={View:'View',Text:'Text',Pressable:'Press',ScrollView:'Scroll',Modal:'Modal',TouchableOpacity:'Touch',StyleSheet:{create:s=>s},Alert:{alert:()=>{throw Error('Native alert must not select actions')}}};
 const theme={colors:{},typography:{fontFamily:{},size:{},lineHeight:{}}},language={l:en=>en,formatMoney:String,formatNum:String};

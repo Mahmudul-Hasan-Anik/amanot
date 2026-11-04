@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSomitiStore, REMOTE } from '../../src/store/somitiStore';
@@ -17,6 +17,7 @@ import { typography } from '../../src/theme/typography';
 
 type Mode = 'full' | 'rate';
 type Preview = {
+  requestKey?: string;
   year: number; periodStart: string; periodEnd: string; alreadyDistributed: boolean; complete?: boolean; mode: Mode; ratePct?: number | null;
   projectProfit: number; otherIncome?: number; expenses: number; netProfit: number; reservePct: number; managementPct: number;
   distributable?: number; distributed: number; reserveAmount?: number; exceedsProfit?: boolean; totalTakaMonths?: number;
@@ -71,17 +72,22 @@ export default function ProfitDistributionScreen() {
       totalTakaMonths: shares.reduce((s, r) => s + r.takaMonths, 0), shares };
   }, [members, transactions, fy, mode, reservePct, managementPct, ratePct, period.start, period.end]);
 
+  const ledgerRevision=useSomitiStore(s=>String(s.syncRevision)+':'+s.dataVersion);
+  const previewKey=JSON.stringify([fy,mode,ratePct,reservePct,managementPct,ledgerRevision]);
+  const previewGeneration=useRef(0);
   const load = async () => {
-    if (!REMOTE) { setPreview(demoPreview); return; }
+    const generation=++previewGeneration.current;
+    const commit=(p:Preview)=>{if(generation===previewGeneration.current)setPreview({...p,requestKey:previewKey});};
+    if (!REMOTE) { commit(demoPreview); return; }
     if (!rulesValid) return;
-    setLoading(true); setError('');
-    try { setPreview(await api.profitPreviewFy(fy, mode, ratePct || 0, reservePct || 0, managementPct || 0)); }
-    catch (e: any) { setError(e.message); setPreview(null); }
-    finally { setLoading(false); }
+    setLoading(true); setError(''); setPreview(null);
+    try { commit(await api.profitPreviewFy(fy, mode, ratePct || 0, reservePct || 0, managementPct || 0)); }
+    catch (e: any) { if(generation===previewGeneration.current){setError(e.message);setPreview(null);} }
+    finally { if(generation===previewGeneration.current)setLoading(false); }
   };
-  useEffect(() => { void load(); }, [fy, mode, reserve, management, rate, demoPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); return()=>{previewGeneration.current++;}; }, [fy, mode, reserve, management, rate, demoPreview, ledgerRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const p = preview;
+  const p = preview?.requestKey===previewKey ? preview : null;
   const done = !!p?.alreadyDistributed;
   const complete = !!p?.complete;
   const saveRules = async () => {
@@ -89,7 +95,7 @@ export default function ProfitDistributionScreen() {
     catch (e: any) { Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e.message); }
   };
   const distribute = () => {
-    if (!p || busy) return;
+    if (!p || busy || loading || !rulesValid) return;
     Alert.alert(l('Distribute profit?', 'মুনাফা বণ্টন করবেন?'),
       l(`${money(p.distributed)} goes to ${formatNum(p.shares.length)} members' savings for ${yearLabel}. Entries in this year are then locked.`, `${yearLabel} বছরের ${money(p.distributed)} ${formatNum(p.shares.length)} জন সদস্যের সঞ্চয়ে যোগ হবে। এরপর এই বছরের এন্ট্রি বন্ধ হয়ে যাবে।`),
       [{ text: l('Not now', 'এখন না'), style: 'cancel' }, { text: l('Distribute', 'বণ্টন করুন'), onPress: async () => {
@@ -115,7 +121,7 @@ export default function ProfitDistributionScreen() {
     actions={p ? <HeaderIcon icon="download-outline" label={l('Download PDF', 'PDF ডাউনলোড')} onPress={exportPdf} /> : null}
     footer={p ? <View style={s.footer}>
       <Button variant="outline" style={{ flex: 1 }} title={l('PDF', 'PDF')} icon={<Ionicons name="document-text-outline" size={18} color={colors.primary} />} onPress={exportPdf} />
-      {canDistribute ? <Button style={{ flex: 2 }} title={l('Distribute profit', 'মুনাফা বণ্টন করুন')} loading={busy} disabled={!complete || !rulesValid || p.distributed <= 0 || !!p.exceedsProfit} onPress={distribute} /> : null}
+      {canDistribute ? <Button style={{ flex: 2 }} title={l('Distribute profit', 'মুনাফা বণ্টন করুন')} loading={busy} disabled={!complete || !rulesValid || loading || p.distributed <= 0 || !!p.exceedsProfit} onPress={distribute} /> : null}
     </View> : undefined}>
     <View style={s.content}>
       <View style={[s.card, s.stepper]}>{steps.map((label, i) => <React.Fragment key={label}>

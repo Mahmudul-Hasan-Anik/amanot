@@ -43,8 +43,8 @@ export function EntryActions({ entry, onClose }: { entry: Transaction | null; on
       if (!thenEdit) return;
       const date = t.dateISO || '';
       if (t.type === 'deposit') router.push({ pathname: '/(admin)/deposit/new', params: { memberId: t.memberId, amount: String(t.amount), method: t.paymentMethod, date, note: t.note && t.note !== 'জমা' ? t.note : '' } } as any);
-      else if (t.type === 'fund') router.push({ pathname: '/(admin)/fund/new', params: { method: t.paymentMethod, amount: String(t.amount) } } as any);
-      else router.push({ pathname: '/(admin)/expense/new', params: { amount: String(t.amount), title: d.title } } as any);
+      else if (t.type === 'fund') router.push({ pathname: '/(admin)/fund/new', params: { method: t.paymentMethod, amount: String(t.amount), date, note: t.note || '', category: t.memberCode === 'FUND-INC' ? 'other_income' : t.memberCode === 'FUND-CAP' ? 'capital' : 'opening' } } as any);
+      else router.push({ pathname: '/(admin)/expense/new', params: { amount: String(t.amount), title: d.title, method: t.paymentMethod, date, category: (t.note || '').split(': ')[0], spender: (t.note || '').split(' · ').slice(1).join(' · ') } } as any);
     } catch (e: any) { setError(e.message); setBusy(false); }
   };
   return <AppModal visible={!!entry} onClose={close}>

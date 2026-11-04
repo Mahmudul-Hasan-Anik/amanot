@@ -22,16 +22,16 @@ type Method = 'cash' | 'bank' | 'bkash' | 'nagad';
  */
 export default function AddFundScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ method?: string; amount?: string }>();
+  const params = useLocalSearchParams<{ method?: string; amount?: string; category?: string; date?: string; note?: string }>();
   const { l, formatMoneyPrecise: money } = useLanguage();
   const accounts = useSomitiStore(st => st.cashAccounts);
   const addFund = useSomitiStore(st => st.addFund);
   const role = useAuthStore(st => st.actualRole);
   const [method, setMethod] = useState<Method>((['cash', 'bank', 'bkash', 'nagad'].includes(params.method || '') ? params.method : 'cash') as Method);
-  const [category, setCategory] = useState<FundCategory>('opening');
+  const [category, setCategory] = useState<FundCategory>(['opening','capital','other_income'].includes(params.category || '') ? params.category as FundCategory : 'opening');
   const [amount, setAmount] = useState(params.amount || '');
-  const [date, setDate] = useState(isoToday());
-  const [note, setNote] = useState('');
+  const [date, setDate] = useState(params.date || isoToday());
+  const [note, setNote] = useState(params.note || '');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState('');
   const requestId = useRef(uuid());
   const allowed = ['admin', 'super_admin', 'cashier'].includes(role || '');
