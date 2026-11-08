@@ -550,7 +550,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
     paddingVertical: 12,
   },
   infoLabel: {
@@ -565,6 +566,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.subhead,
     color: colors.text,
     textAlign: 'right',
+    flex: 1,
+    minWidth: 0,
   },
   divider: {
     height: 1,

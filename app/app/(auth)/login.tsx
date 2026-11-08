@@ -25,6 +25,7 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { isSupabaseConfigured } from '../../src/lib/supabase';
 
 const REMOTE = isSupabaseConfigured();
+const ALLOW_NEW_SOMITI = process.env.EXPO_PUBLIC_ALLOW_NEW_SOMITI !== 'false';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import {
   toBengaliDigits,
@@ -69,6 +70,13 @@ export default function LoginScreen() {
   };
 
   const isPhoneValid = isValidMobileNumber(phoneDigits);
+
+  // Open the society registration form, carrying over a number typed on the login card.
+  const openRegister = () => {
+    if (!regAdminPhone && isValidMobileNumber(phoneDigits)) setRegAdminPhone('0' + phoneDigits);
+    setShowUnregisteredModal(false);
+    setShowRegisterModal(true);
+  };
 
   // Handle phone input typing
   const handlePhoneChange = (text: string) => {
@@ -406,17 +414,22 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* One society uses this app: creating another is hidden unless EXPO_PUBLIC_ALLOW_NEW_SOMITI=true (first-time setup). */}
-        {process.env.EXPO_PUBLIC_ALLOW_NEW_SOMITI === 'true' && (
-          <TouchableOpacity
-            onPress={() => setShowRegisterModal(true)}
-            style={styles.superAdminRegLink}
-          >
-            <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
-            <Text style={styles.superAdminRegText}>
-              {l('Create a new society', 'নতুন সমিতি তৈরি করুন')}
+        {/* Society registration (creates the super admin). Visible by default; a build can hide it with EXPO_PUBLIC_ALLOW_NEW_SOMITI=false. */}
+        {ALLOW_NEW_SOMITI && (
+          <View style={styles.regCard}>
+            <Text style={styles.regCardTitle}>{l('Society admin?', 'সমিতির অ্যাডমিন?')}</Text>
+            <Text style={styles.regCardSub}>
+              {l('Register your society here. You become its super admin and can then add members.', 'এখানে আপনার সমিতি নিবন্ধন করুন। আপনি সুপার অ্যাডমিন হবেন, পরে সদস্য যোগ করতে পারবেন।')}
             </Text>
-          </TouchableOpacity>
+            <Button
+              testID="open-register-somiti"
+              title={l('Register a new society', 'নতুন সমিতি নিবন্ধন করুন')}
+              variant="outline"
+              onPress={() => openRegister()}
+              icon={<Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />}
+              style={styles.regCardButton}
+            />
+          </View>
         )}
 
         {/* Bottom Helper Note */}
@@ -440,8 +453,8 @@ export default function LoginScreen() {
           <Text style={styles.unregTitle}>{l('Number Not Registered', 'নম্বরটি নিবন্ধিত নয়')}</Text>
           <Text style={styles.unregDesc}>
             {l(
-              'General members cannot self-register. Please contact the society committee to be added as a member.',
-              'সাধারণ সদস্যদের জন্য অ্যাপে উন্মুক্ত স্ব-নিবন্ধন নেই। সমিতি আপনাকে সদস্য হিসেবে যুক্ত করলে আপনি লগইন করতে পারবেন।'
+              'Members are added by their society. Ask your society committee to add this number. If you are starting a new society, register it below.',
+              'সদস্যদের সমিতি নিজে যুক্ত করে। এই নম্বরটি যুক্ত করতে সমিতির কমিটিকে বলুন। নতুন সমিতি চালু করতে চাইলে নিচে নিবন্ধন করুন।'
             )}
           </Text>
         </View>
@@ -457,6 +470,14 @@ export default function LoginScreen() {
             <Ionicons name="call" size={18} color={colors.surface} />
             <Text style={styles.helplineButtonText}>{l('Call Somiti Helpline', 'সমিতির হেল্পলাইনে কল করুন')}</Text>
           </TouchableOpacity>
+
+          {ALLOW_NEW_SOMITI && (
+            <Button
+              title={l('Register a new society instead', 'নতুন সমিতি নিবন্ধন করুন')}
+              variant="outline"
+              onPress={openRegister}
+            />
+          )}
 
           <TouchableOpacity
             style={styles.modalCloseBtn}
@@ -780,22 +801,32 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.tiny,
     color: colors.textSecondary,
   },
-  superAdminRegLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginBottom: 8,
+  regCard: {
+    width: '100%',
+    padding: 16,
+    marginTop: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  superAdminRegText: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.sm,
-    lineHeight: typography.lineHeight.sm,
-    fontWeight: '600',
-    color: colors.primary,
-    textDecorationLine: 'underline',
+  regCardTitle: {
+    fontFamily: 'HindSiliguri-Bold',
+    fontSize: typography.size.subhead,
+    lineHeight: typography.lineHeight.subhead,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  regCardSub: {
+    fontFamily: 'HindSiliguri-Regular',
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  regCardButton: {
+    width: '100%',
   },
   unregModalHeader: {
     alignItems: 'center',
@@ -869,24 +900,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  // Same label/input sizes as MemberIdentityFields so the registration form reads as one form.
   modalInputLabel: {
-    fontFamily: 'HindSiliguri-Medium',
-    fontSize: typography.size.caption,
-    lineHeight: typography.lineHeight.caption,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.size.base,
     color: colors.text,
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 12,
+    marginBottom: 8,
   },
   modalInput: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontFamily: 'HindSiliguri-Regular',
-    fontSize: typography.size.subhead,
-    lineHeight: typography.lineHeight.subhead,
+    borderRadius: 12,
+    padding: 14,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.base,
     color: colors.text,
     backgroundColor: colors.surface,
   },
