@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../hooks/useCashAccounts';
 import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ const EMPTY_CONTACT: EmergencyContact = { name: '', relation: '', phone: '' };
  */
 export default function InvestmentNew(){
   const {l,isBengali,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();const router=useRouter();
-  const members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts);
+  const members=useSomitiStore(s=>s.members),accounts=useCashAccounts();
   const create=useSomitiStore(s=>s.createInvestment),update=useSomitiStore(s=>s.updateInvestment);
   const role=useAuthStore(s=>s.actualRole);const allowed=['admin','super_admin','cashier'].includes(role||'');
   const params=useLocalSearchParams<{edit?:string;memberId?:string}>();

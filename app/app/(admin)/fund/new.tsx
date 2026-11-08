@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../../../src/hooks/useCashAccounts';
 import React, { useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,7 +25,7 @@ export default function AddFundScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ method?: string; amount?: string; category?: string; date?: string; note?: string }>();
   const { l, formatMoneyPrecise: money } = useLanguage();
-  const accounts = useSomitiStore(st => st.cashAccounts);
+  const accounts = useCashAccounts();
   const addFund = useSomitiStore(st => st.addFund);
   const role = useAuthStore(st => st.actualRole);
   const [method, setMethod] = useState<Method>((['cash', 'bank', 'bkash', 'nagad'].includes(params.method || '') ? params.method : 'cash') as Method);

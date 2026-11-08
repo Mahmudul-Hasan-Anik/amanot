@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../../src/hooks/useCashAccounts';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Page, pageStyles as ps } from '../../src/components/Page';
@@ -22,7 +23,7 @@ type Method = 'cash' | 'bank' | 'bkash' | 'nagad';
  */
 export default function DayCloseScreen() {
   const { l, isBengali, formatMoneyPrecise: money } = useLanguage();
-  const accounts = useSomitiStore(s => s.cashAccounts);
+  const accounts = useCashAccounts();
   const transactions = useSomitiStore(s => s.transactions);
   const [method, setMethod] = useState<Method>('cash');
   const [counted, setCounted] = useState(''), [note, setNote] = useState('');

@@ -257,6 +257,7 @@ function mapApproval(r: any): PendingApproval {
     detail: r.detail,
     createdBy: r.created_by_name,
     dateStr: bnRelative(r.created_at),
+    createdAt: r.created_at || undefined,
     isNew: Date.now() - new Date(r.created_at).getTime() < 86400000,
     attachmentType: r.attachment_type || undefined,
     attachmentTitle: r.attachment_title || undefined,

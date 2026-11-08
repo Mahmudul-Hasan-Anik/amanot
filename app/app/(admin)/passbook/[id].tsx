@@ -1,3 +1,4 @@
+import { displayDate, localDigits } from '../../../src/lib/displayText';
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,7 +62,7 @@ export default function PassbookScreen() {
         <View style={[s.tr, s.th]}><Text style={[s.c1, s.thText]}>{l('Date', 'তারিখ')}</Text><Text style={[s.c2, s.thText]}>{l('In', 'জমা')}</Text><Text style={[s.c2, s.thText]}>{l('Out', 'উত্তোলন')}</Text><Text style={[s.c3, s.thText]}>{l('Balance', 'ব্যালেন্স')}</Text></View>
         <View style={s.tr}><Text style={[s.c1, s.muted]}>{l('Opening', 'শুরুর ব্যালেন্স')}</Text><Text style={s.c2} /><Text style={s.c2} /><Text style={[s.c3, s.bal]}>{money(opening)}</Text></View>
         {lines.map((r, i) => <View key={i} style={s.tr}>
-          <View style={s.c1}><Text style={s.date}>{/^\d{4}-\d{2}-\d{2}$/.test(r.date) ? formatHumanDate(r.date, isBengali) : r.date}</Text><Text style={s.small} numberOfLines={1}>{r.receipt}</Text></View>
+          <View style={s.c1}><Text style={s.date}>{displayDate(r.date, isBengali)}</Text><Text style={s.small} numberOfLines={1}>{localDigits(r.receipt, isBengali)}</Text></View>
           <Text style={[s.c2, s.in]}>{r.inAmt ? money(r.inAmt) : ''}</Text><Text style={[s.c2, s.out]}>{r.outAmt ? money(r.outAmt) : ''}</Text><Text style={[s.c3, s.bal]}>{money(r.balance)}</Text></View>)}
         {!lines.length ? <Text style={[s.muted, { padding: 12 }]}>{l('No deposits yet', 'এখনো কোনো জমা নেই')}</Text> : null}
         <Text style={[s.small, { padding: 10 }]}>{l('Balance here is own savings. Distributed profit is shown above, separately.', 'এখানের ব্যালেন্স নিজের জমা। বণ্টিত মুনাফা উপরে আলাদা দেখানো।')}</Text>

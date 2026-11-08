@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../hooks/useCashAccounts';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Modal, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -28,7 +29,7 @@ import { typography } from '../theme/typography';
 export default function Withdrawals({memberView=false}:{memberView?:boolean}){
  const params=useLocalSearchParams<{memberId?:string;requestId?:string;new?:string}>();
  const {l,isBengali,formatMoneyPrecise:money,formatNum}=useLanguage();
- const rows=useSomitiStore(s=>s.withdrawalRequests),members=useSomitiStore(s=>s.members),accounts=useSomitiStore(s=>s.cashAccounts),society=useSomitiStore(s=>s.somitiInfo);
+ const rows=useSomitiStore(s=>s.withdrawalRequests),members=useSomitiStore(s=>s.members),accounts=useCashAccounts(),society=useSomitiStore(s=>s.somitiInfo);
  const current=useAuthStore(s=>s.currentUser),role=useAuthStore(s=>s.actualRole);
  const staff=!memberView&&['super_admin','admin','cashier'].includes(role||'');
  const admin=!memberView&&['super_admin','admin'].includes(role||'');

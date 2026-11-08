@@ -388,7 +388,7 @@ export default function ProjectDetailScreen() {
               style={styles.modalAmountInput}
               value={returnAmount}
               onChangeText={setReturnAmount}
-              placeholder="৫০,০০০"
+              placeholder={l('50,000', '৫০,০০০')}
               placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               autoFocus
@@ -449,7 +449,7 @@ export default function ProjectDetailScreen() {
               style={styles.modalAmountInput}
               value={expenseAmount}
               onChangeText={setExpenseAmount}
-              placeholder="২০,০০০"
+              placeholder={l('20,000', '২০,০০০')}
               placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               autoFocus

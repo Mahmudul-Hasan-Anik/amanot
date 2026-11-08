@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../hooks/useCashAccounts';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Modal, Linking, Share, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +26,7 @@ import { typography } from '../theme/typography';
 
 export default function InvestmentDetail({project}:{project:Project}){
   const c=project.contract!;const router=useRouter();const {l,isBengali,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
-  const collect=useSomitiStore(s=>s.collectInvestment),reverse=useSomitiStore(s=>s.reverseInvestment),accounts=useSomitiStore(s=>s.cashAccounts),society=useSomitiStore(s=>s.somitiInfo);
+  const collect=useSomitiStore(s=>s.collectInvestment),reverse=useSomitiStore(s=>s.reverseInvestment),accounts=useCashAccounts(),society=useSomitiStore(s=>s.somitiInfo);
   const role=useAuthStore(s=>s.actualRole),identity=useAuthStore(s=>s.currentUser?.id),revision=useSomitiStore(s=>s.dataVersion);
   const history=useLedgerPage({projectId:project.id});
   const [modal,setModal]=useState(''),[allSchedule,setAllSchedule]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');

@@ -66,6 +66,7 @@ export interface PendingApproval {
   detail: string;
   createdBy: string;
   dateStr: string;
+  createdAt?: string;
   isNew?: boolean;
   attachmentType?: 'image' | 'document';
   attachmentTitle?: string;

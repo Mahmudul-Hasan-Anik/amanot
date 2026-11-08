@@ -1,3 +1,4 @@
+import { roleTitle } from '../../../src/lib/displayText';
 import React from 'react';
 import {
   View,
@@ -27,7 +28,7 @@ export default function MoreScreen() {
   const admin = role === 'admin' || role === 'super_admin';
   const roleName: Record<string, [string, string]> = { super_admin: ['Super admin', 'সুপার অ্যাডমিন'], admin: ['Admin', 'অ্যাডমিন'], cashier: ['Cashier', 'ক্যাশিয়ার'], field_worker: ['Field worker', 'মাঠকর্মী'], member: ['Member', 'সদস্য'] };
   const userName = currentUser?.name || l('User', 'ব্যবহারকারী');
-  const userRole = currentUser?.role || (roleName[role || 'member'] ? l(...roleName[role || 'member']) : '');
+  const userRole = roleTitle(currentUser?.role, isBengali) || (roleName[role || 'member'] ? l(...roleName[role || 'member']) : '');
   // Four groups: money, member services, reports, society & settings. Approvals live outside the app now.
   const groups: { title: string; items: { icon: keyof typeof Ionicons.glyphMap; title: string; href: string; show?: boolean; badge?: number }[] }[] = [
     { title: l('Accounts & money', 'হিসাব ও টাকা'), items: [

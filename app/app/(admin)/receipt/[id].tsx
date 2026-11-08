@@ -16,7 +16,7 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { somitiName } from '../../../src/utils/somitiBranding';
-import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
+import { displayDate, localDigits, roleTitle } from '../../../src/lib/displayText';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { exportAndShareReceipt, shareReceiptViaWhatsApp } from '../../../src/utils/pdfExport';
@@ -28,7 +28,7 @@ import type {Transaction} from '../../../src/store/somitiStore';
 
 export default function ReceiptScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, fresh } = useLocalSearchParams();
   const { getTransactionById, getMemberById, members, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney } = useLanguage();
 
@@ -56,30 +56,23 @@ export default function ReceiptScreen() {
     ? getMemberById(txn.memberId) || displayMembers.find((m) => m.id === txn.memberId)
     : displayMembers.find((m) => m.id === '2') || displayMembers[0];
 
-  const defaultNum = isBengali ? '১০৮৮' : '1088';
-  const receiptNo = txn?.receiptNo || ('#' + defaultNum);
-  const amount = txn?.amount ?? 0;
-  const memberName = l(member?.nameEn || txn?.memberName || member?.name || 'করিম উদ্দিন', txn?.memberName || member?.name || 'করিম উদ্দিন');
-  const memberCode = member?.code || txn?.memberCode || 'SM-042';
+  const receiptNo = localDigits(txn.receiptNo || '', isBengali);
+  const amount = txn.amount ?? 0;
+  const memberName = l(member?.nameEn || txn.memberName || member?.name || '', txn.memberName || member?.name || '');
+  const memberCode = member?.code || txn.memberCode || '';
 
   const monthsStr = txn.months?.join(', ') || '';
 
   const lateFee = txn?.lateFee ?? 0;
   const baseDeposit = amount - lateFee;
 
-  // Date and Time formatting
-  const now = new Date();
-  const day = now.getDate();
-  const monthBn = BENGALI_MONTHS_FULL[now.getMonth()];
-  const monthEn = now.toLocaleDateString('en-GB', { month: 'short' });
-  const year = now.getFullYear();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const mins = String(now.getMinutes()).padStart(2, '0');
-  const timeFormatted = `${hours}:${mins}`;
-
-  const defaultDateBn = `${toBengaliDigits(day)} ${monthBn} ${toBengaliDigits(year)}, ${toBengaliDigits(timeFormatted)}`;
-  const defaultDateEn = `${day} ${monthEn} ${year}, ${timeFormatted}`;
-  const dateStr = txn?.date ? txn.date : l(defaultDateEn, defaultDateBn);
+  // Stored dates are Bengali text; show them in the reader's language.
+  const dateStr = displayDate(txn.date, isBengali, (txn as any).dateISO);
+  // Only name the receiver when we know who it was: the person who just recorded it.
+  const currentUser = useAuthStore.getState().currentUser;
+  const receivedBy = fresh === '1' && currentUser?.name
+    ? `${l(currentUser.nameEn || currentUser.name, currentUser.name)}${currentUser.role ? ` (${roleTitle(currentUser.role, isBengali)})` : ''}`
+    : '';
 
   const trxIdStr = txn?.trxId || '—';
   const methodStr =
@@ -167,7 +160,7 @@ export default function ReceiptScreen() {
         <View style={styles.voucherCard}>
           <View style={styles.voucherTop}>
             <Text style={styles.voucherNo}>{l('Receipt', 'রসিদ')} {receiptNo}</Text>
-            <Text style={styles.voucherSomiti}>[{somitiTitle}]</Text>
+            <Text style={styles.voucherSomiti} numberOfLines={1}>{somitiTitle}</Text>
           </View>
 
           <View style={styles.detailList}>
@@ -207,10 +200,12 @@ export default function ReceiptScreen() {
               </View>
             )}
 
-            <View style={styles.row}>
-              <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>
-              <Text style={styles.value}>{l('Mahmuda Khatun (Treasurer)', 'মাহমুদা খাতুন (কোষাধ্যক্ষ)')}</Text>
-            </View>
+            {!!receivedBy && (
+              <View style={styles.row}>
+                <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>
+                <Text style={styles.value}>{receivedBy}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.dottedDivider} />
@@ -250,7 +245,7 @@ export default function ReceiptScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="add" size={20} color={colors.surface} />
-            <Text style={styles.anotherBtnText}>{l('+ Record Another Deposit', '+ আরেকটি জমা নিন')}</Text>
+            <Text style={styles.anotherBtnText}>{l('Record Another Deposit', 'আরেকটি জমা নিন')}</Text>
           </TouchableOpacity>
 
           {/* Mistake? cancel or edit right away (kept in the audit log). */}

@@ -15,6 +15,7 @@
     "test:profile-photo": "node scripts/test-profile-photo.cjs",
     "test:live-auth": "node scripts/test-live-auth.cjs",
     "test:pin-screen": "node scripts/test-pin-screen.cjs",
+    "test:display-text": "node scripts/test-display-text.cjs",
     "test:somiti-branding": "node scripts/test-somiti-branding.cjs",
     "test:mobile-feedback": "node scripts/test-mobile-feedback.cjs",
     "test:export-files": "node scripts/test-export-files.cjs",

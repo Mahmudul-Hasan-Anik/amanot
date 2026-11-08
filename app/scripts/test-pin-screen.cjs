@@ -10,7 +10,7 @@ function fixture(remote,{ok=true,mustChangePin=false,phone='01700000000',isAuthe
   const auth={isAuthenticated,phone,currentUser:null,phoneRegistered:true,userRole:'member',mustChangePin,verifyPin:pin=>{verifications.push(pin);return true},loginWithPin:async pin=>{logins.push(pin);if(pending)await pending;if(reject)throw Error('offline');return ok?{ok:true}:{ok:false,error:'Synthetic invalid PIN'}}};
   const useAuthStore=selector=>selector?selector(auth):auth;useAuthStore.getState=()=>auth;
   const exported={};
-  vm.runInNewContext(code,{exports:exported,__DEV__:false,setTimeout:fn=>{timers.push(fn);return fn},clearTimeout:fn=>{const i=timers.indexOf(fn);if(i>=0)timers.splice(i,1)},require:name=>{
+  vm.runInNewContext(code,{exports:exported,__DEV__:false,setTimeout:fn=>{timers.push(fn);return fn},clearTimeout:fn=>{const i=timers.indexOf(fn);if(i>=0)timers.splice(i,1)},require:name=>{const __f=require('./display-fixtures.cjs').displayFixture(name,typeof deps!=='undefined'?deps:{});if(__f)return __f;
     if(name==='react')return {__esModule:true,default:React,...React};
     if(name==='react-native')return {Image:'Image',ActivityIndicator:'Spinner',View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',SafeAreaView:'SafeAreaView',StyleSheet:{create:s=>s},Alert:{alert:(...args)=>alerts.push(args)}};
     if(name.endsWith('/assets/logo-transparent.png'))return 'transparent-amanot-logo';

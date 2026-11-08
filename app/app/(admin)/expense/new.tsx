@@ -1,3 +1,4 @@
+import { roleTitle } from '../../../src/lib/displayText';
 import React, { useState } from 'react';
 import {
   View,
@@ -326,7 +327,7 @@ export default function NewExpenseScreen() {
                 >
                   <View style={styles.spenderInfo}>
                     <Text style={[styles.spenderName, isChosen && styles.spenderNameChosen]}>{sp.name}</Text>
-                    <Text style={styles.spenderRole}>{sp.role || sp.code}</Text>
+                    <Text style={styles.spenderRole}>{roleTitle(sp.role, isBengali) || sp.code}</Text>
                   </View>
                   {isChosen && (
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary} />

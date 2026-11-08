@@ -1,3 +1,4 @@
+import { useCashAccounts } from '../hooks/useCashAccounts';
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ export default function InvestmentProposal(){
  const {id}=useLocalSearchParams<{id:string}>(),router=useRouter(),{l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
  const proposal=useSomitiStore(s=>s.investmentProposals.find(p=>p.id===id));
  const actualContract=useSomitiStore(s=>s.projects.find(p=>p.id===id)?.contract);
- const accounts=useSomitiStore(s=>s.cashAccounts),decide=useSomitiStore(s=>s.decideInvestmentProposal),disburse=useSomitiStore(s=>s.disburseInvestmentProposal);
+ const accounts=useCashAccounts(),decide=useSomitiStore(s=>s.decideInvestmentProposal),disburse=useSomitiStore(s=>s.disburseInvestmentProposal);
  const role=useAuthStore(s=>s.actualRole),admin=role==='admin'||role==='super_admin';
  const [note,setNote]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(false),[selector,setSelector]=useState(false);
  const [date,setDate]=useState(isoToday()),[due,setDue]=useState(proposal?.payload.firstDueDate&&proposal.payload.firstDueDate>=isoToday()?proposal.payload.firstDueDate:monthDate(isoToday(),1));

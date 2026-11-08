@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
-function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,requestAnimationFrame:callback=>callback(),require:n=>{if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return out;}
+function load(file,deps={}){const out={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports:out,requestAnimationFrame:callback=>callback(),require:n=>{const __f=require('./display-fixtures.cjs').displayFixture(n,typeof deps!=='undefined'?deps:{});if(__f)return __f;if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return out;}
 const digits={toEnglishDigits:s=>s.replace(/[০-৯]/g,c=>String('০১২৩৪৫৬৭৮৯'.indexOf(c)))};
 const domain=load('src/lib/investment.ts',{'./bengali':digits});
 const {contractAmounts,allocateInvestmentPayment,investmentSchedule,investmentReminder,parseInvestmentAmount}=domain;

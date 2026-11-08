@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
 function load(file,deps={}){
  const exports={};const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText;
- vm.runInNewContext(code,{exports,require:n=>{if(n.endsWith('/components/Toast'))return {showToast:()=>{}};if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return exports;
+ vm.runInNewContext(code,{exports,require:n=>{const __f=require('./display-fixtures.cjs').displayFixture(n,typeof deps!=='undefined'?deps:{});if(__f)return __f;if(n.endsWith('/components/Toast'))return {showToast:()=>{}};if(n in deps)return deps[n];throw Error('Missing fixture '+n)}});return exports;
 }
 const labels=load('src/i18n/financeLabels.ts');
 const lang={l:(en)=>en,isBengali:false,formatMoney:String,formatNum:String,defaultMonthlyDeposit:2000,gracePeriodDays:5,lateFeeAmount:100};

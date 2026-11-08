@@ -1,3 +1,4 @@
+import { localDigits, roleTitle } from '../../src/lib/displayText';
 import React, { useState } from 'react';
 import {
   View,
@@ -96,8 +97,8 @@ export default function SomitiProfileScreen() {
 
   const somitiDisplayName = somitiInfo.name || '';
   const somitiInitial = somitiDisplayName.trim().charAt(0) || (isBengali ? 'স' : 'S');
-  const regNoText = somitiInfo.regNo || '';
-  const estYearText = somitiInfo.establishedYear || '';
+  const regNoText = localDigits(somitiInfo.regNo || '', isBengali);
+  const estYearText = localDigits(somitiInfo.establishedYear || '', isBengali);
 
   const memberCountDisplay = members.length;
   const projectCountDisplay = projects.length;
@@ -182,7 +183,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Phone', 'ফোন')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.phone || ''}
+              {localDigits(somitiInfo.phone || '', isBengali)}
             </Text>
           </View>
 
@@ -219,8 +220,8 @@ export default function SomitiProfileScreen() {
         </View>
         <Text style={styles.tenureSub}>
           {l(
-            `Tenure: ${somitiInfo.committeeTenure || ''}`,
-            `মেয়াদ: ${somitiInfo.committeeTenure || ''}`
+            `Tenure: ${localDigits(somitiInfo.committeeTenure || '', false)}`,
+            `মেয়াদ: ${localDigits(somitiInfo.committeeTenure || '', true)}`
           )}
         </Text>
 
@@ -246,7 +247,7 @@ export default function SomitiProfileScreen() {
 
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{m.name}</Text>
-                <Text style={styles.memberRole}>{m.role}</Text>
+                <Text style={styles.memberRole}>{roleTitle(m.role, isBengali)}</Text>
               </View>
 
               <TouchableOpacity
@@ -277,7 +278,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Account No.', 'হিসাব নম্বর')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.bankAccountNo || ''}
+              {localDigits(somitiInfo.bankAccountNo || '', isBengali)}
             </Text>
           </View>
 
@@ -323,7 +324,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.name}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, name: t }))}
-                placeholder="[সমিতির নাম]"
+                placeholder={l('Society name', 'সমিতির নাম')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -332,7 +333,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.address}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, address: t }))}
-                placeholder="[অফিসের ঠিকানা]"
+                placeholder={l('Office address', 'অফিসের ঠিকানা')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -341,7 +342,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.phone}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, phone: t }))}
-                placeholder="[ফোন নম্বর]"
+                placeholder={l('Phone number', 'ফোন নম্বর')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -350,7 +351,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.email}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, email: t }))}
-                placeholder="[ইমেইল]"
+                placeholder={l('Email', 'ইমেইল')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -359,7 +360,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.bankName}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, bankName: t }))}
-                placeholder="[ব্যাংকের নাম], [শাখা]"
+                placeholder={l('Bank name, branch', 'ব্যাংকের নাম, শাখা')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -368,7 +369,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.bankAccountNo}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, bankAccountNo: t }))}
-                placeholder="[হিসাব নম্বর]"
+                placeholder={l('Account number', 'হিসাব নম্বর')}
                 placeholderTextColor={colors.textSecondary}
               />
             </ScrollView>

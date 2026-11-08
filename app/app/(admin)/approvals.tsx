@@ -1,3 +1,4 @@
+import { displayRelative, localDigits, roleTitle } from '../../src/lib/displayText';
 import {InvestmentApprovalQueue} from '../../src/components/InvestmentApprovalQueue';
 import {WithdrawalApprovalQueue} from '../../src/components/WithdrawalApprovalQueue';
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
@@ -268,7 +269,7 @@ export default function ApprovalsScreen() {
                     <Text style={styles.typeBadgeText}>{badgeText}</Text>
                   </View>
                   <Text style={styles.timestampText}>
-                    {item.dateStr || (isBengali ? 'আজ ১০:২০' : 'Today 10:20')}
+                    {displayRelative(item.createdAt, isBengali) || localDigits(item.dateStr, isBengali)}
                   </Text>
                 </View>
 
@@ -278,7 +279,7 @@ export default function ApprovalsScreen() {
                     {displayTitle}
                   </Text>
                   <Text style={styles.cardAmount}>
-                    {item.amountDisplay || formatMoney(item.amount)}
+                    {item.amountDisplay ? localDigits(item.amountDisplay, isBengali) : formatMoney(item.amount)}
                   </Text>
                 </View>
 
@@ -293,7 +294,7 @@ export default function ApprovalsScreen() {
 
                 {/* Created By / Entry By */}
                 <Text style={styles.cardEntryText}>
-                  {l('Entry:', 'এন্ট্রি:')} {item.createdBy || (isBengali ? 'মাহমুদা খাতুন (কোষাধ্যক্ষ)' : 'Mahmuda Khatun (Cashier)')}
+                  {l('Entry:', 'এন্ট্রি:')} {item.createdBy ? roleTitle(item.createdBy, isBengali) : '—'}
                 </Text>
 
                 {/* Attachment Row (if present) */}

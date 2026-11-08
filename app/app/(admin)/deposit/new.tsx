@@ -152,7 +152,7 @@ export default function RecordDepositScreen() {
         sendSMS,
       });
 
-      router.replace(`/(admin)/receipt/${newTxn.id}`);
+      router.replace(`/(admin)/receipt/${newTxn.id}?fresh=1`);
     } catch (e: any) { validation.show({_form:e.message}); } finally { submitLock.current=false;setSaving(false); }
   };
 
@@ -224,7 +224,7 @@ export default function RecordDepositScreen() {
               value={isBengali ? toBengaliDigits(customAmount) : customAmount}
               onChangeText={(t) => {setCustomAmount(toEnglishDigits(t));validation.clear('amount');}}
               keyboardType="numeric"
-              placeholder="০"
+              placeholder={isBengali ? '০' : '0'}
               placeholderTextColor={colors.textSecondary}
             />
           </View>
