@@ -120,12 +120,16 @@ async function memberRead<T>(load:(columns:string)=>PromiseLike<{data:T|null;err
 
 export function mapTransaction(r: any): Transaction {
   return {
+    transferFrom: r.transfer_from || undefined,
+    transferTo: r.transfer_to || undefined,
     projectId: r.project_id || undefined,
     principalPart: r.principal_part == null ? undefined : num(r.principal_part),
     profitPart: r.profit_part == null ? undefined : num(r.profit_part),
     investmentReversal: r.investment_reversal || false,
     investmentDisbursement: r.type==='transfer' && !!r.project_id && r.party_code==='INV',
     investmentPaymentReversed: r.investment_payment_reversed || false,
+    voided: r.voided || false,
+    reversesTransactionId: r.reverses_transaction_id || undefined,
     id: r.id,
     receiptNo: r.receipt_no,
     memberId: r.member_id || r.project_id || (r.type === 'transfer' ? 'internal' : 'org'),
@@ -253,6 +257,7 @@ function mapApproval(r: any): PendingApproval {
     detail: r.detail,
     createdBy: r.created_by_name,
     dateStr: bnRelative(r.created_at),
+    createdAt: r.created_at || undefined,
     isNew: Date.now() - new Date(r.created_at).getTime() < 86400000,
     attachmentType: r.attachment_type || undefined,
     attachmentTitle: r.attachment_title || undefined,
@@ -700,8 +705,8 @@ export const recordProjectReturn = (d: { projectId: string; amount: number; paym
     p_note: d.note ?? null,
   });
 
-export const transferCash = (from: string, to: string, amount: number, note?: string) =>
-  rpc('transfer_cash', { p_from: from, p_to: to, p_amount: amount, p_note: note ?? null });
+export const transferCash = (from: string, to: string, amount: number, note?: string, requestId = uuid()) =>
+  rpc('transfer_cash_once', { p: {id:requestId,from,to,amount,note:note || ''} });
 
 export const updateSomitiInfo = (p: Record<string, any>) => rpc('update_somiti_info', { p });
 
@@ -714,17 +719,19 @@ export function mapInvestmentContract(r:any): import('./investment').InvestmentC
   return {id:r.id,memberId:r.member_id||undefined,number:r.contract_no,recipientName:r.recipient_name,
     phone:r.phone,whatsapp:r.whatsapp||'',address:r.address||'',nid:r.nid||'',fatherName:r.father_name||'',motherName:r.mother_name||'',
     contacts:r.emergency_contacts||[],principal:num(r.principal),profitPct:num(r.profit_pct),profitAmount:num(r.profit_amount),
-    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||''};
+    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||'',paymentMethod:r.payment_method||'cash'};
 }
 async function fetchInvestmentContracts():Promise<any[]> {
-  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose'); }
+  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose,payment_method'); }
   catch(e:any) {
     // Read-only compatibility until the additive contract migration is deployed.
     if(e.code==='42P01'||e.code==='PGRST205'||/Could not find the table.*investment_contracts/.test(e.message||''))return [];
     throw e;
   }
 }
-export const createInvestment = (p:import('./investment').NewInvestment) => rpc('submit_investment_proposal',{p});
+/** One-step investment: the decision is taken outside the app. */
+export const createInvestment = (p:import('./investment').NewInvestment) => khata('create_investment',{p});
+export const updateInvestment = (p:Partial<import('./investment').NewInvestment>&{id:string;reason?:string}) => khata('update_investment_contract',{p});
 export const collectInvestment = async(p:import('./investment').InvestmentPayment):Promise<Transaction> =>
   mapTransaction(await rpc('collect_investment_payment',{p}));
 export const reverseInvestment = (id:string,paymentId:string,reason:string) => rpc('reverse_investment_payment',{p_id:id,p_payment_id:paymentId,p_reason:reason});
@@ -776,3 +783,89 @@ export const withdrawInvestmentProposal=(id:string,note:string)=>rpc('withdraw_i
 export const mapLegacyMemberIdentity=(id:string,category:string,number:string)=>rpc('map_legacy_member_identity',{p_id:id,p_category:category,p_number:number});
 export const fetchCapabilities=()=>rpc('app_capabilities');
 export async function fetchDistributionShares(year:number){return unwrap(await supabase.from('profit_shares').select('member_id,year,base_deposit,share').eq('year',year));}
+
+// ---- Digital khata (no in-app approvals) ----
+const khata=async(fn:string,args:Record<string,any>)=>{
+  try{return await rpc(fn,args);}
+  catch(e:any){
+    if(/Could not find the function|does not exist|PGRST202/.test(e?.message||''))throw new Error('সার্ভারের নতুন আপডেট (migration 20261026120000_digital_khata) এখনো চালু হয়নি। কোনো টাকা রেকর্ড হয়নি। / Backend update not deployed; nothing was saved.');
+    throw e;
+  }
+};
+export const recordWithdrawal=(p:{id:string;memberId:string;amount:number;method:string;date:string;reference?:string;note?:string})=>khata('record_withdrawal',{p});
+export type FundCategory='opening'|'capital'|'other_income';
+export const addFund=async(p:{id:string;amount:number;method:string;category:FundCategory;date:string;note?:string}):Promise<Transaction>=>mapTransaction(await khata('add_fund',{p}));
+export const voidEntry=(id:string,reversalId:string,reason:string)=>khata('void_entry',{p_id:id,p_reversal_id:reversalId,p_reason:reason});
+export const changeMemberNumber=(memberId:string,number:string,reason:string)=>khata('change_member_number',{p_member_id:memberId,p_number:number,p_reason:reason});
+export const profitPreviewFy=(fy:number,mode:'full'|'rate',rate:number,reservePct:number,managementPct:number)=>
+  khata('profit_preview_fy',{p_fy:fy,p_mode:mode,p_rate:rate,p_reserve_pct:reservePct,p_management_pct:managementPct});
+export const distributeProfitFy=(fy:number,mode:'full'|'rate',rate:number,reservePct:number,managementPct:number)=>
+  khata('distribute_profit_fy',{p_fy:fy,p_mode:mode,p_rate:rate,p_reserve_pct:reservePct,p_management_pct:managementPct});
+export const recordExpense=async(p:{id:string;amount:number;method:string;category:string;title:string;spender?:string;date:string}):Promise<Transaction>=>mapTransaction(await khata('record_expense',{p}));
+/** Map the old free-text payment source ("ব্যাংক", "Treasurer's Hand"…) to an account method. */
+export function methodFromSource(source:string):'cash'|'bank'|'bkash'|'nagad'{const v=(source||'').toLowerCase();return /bank|ব্যাংক/.test(v)?'bank':/bkash|বিকাশ/.test(v)?'bkash':/nagad|নগদ মোবাইল/.test(v)?'nagad':'cash';}
+export type CashCount={id:string;count_date:string;account_id:string;expected:number;counted:number;difference:number;note:string;counted_by_name?:string;created_at:string};
+export const recordCashCount=(p:{id:string;method:string;counted:number;note?:string}):Promise<CashCount>=>khata('record_cash_count',{p});
+export async function fetchCashCounts(limit=10):Promise<CashCount[]>{
+  const r=await supabase.from('cash_counts').select('id,count_date,account_id,expected,counted,difference,note,counted_by_name,created_at').order('created_at',{ascending:false}).limit(limit);
+  if(r.error){if(/cash_counts/.test(r.error.message||''))return [];throw r.error;}
+  return (r.data||[]).map((x:any)=>({...x,expected:num(x.expected),counted:num(x.counted),difference:num(x.difference)}));
+}
+
+// ---------------------------------------------------------------------------
+// Investment documents (contract, site photos, receipts) — migration 20261103130000
+// ---------------------------------------------------------------------------
+export type InvestmentDocKind = 'contract' | 'photo' | 'receipt' | 'other';
+export type InvestmentDocument = { id: string; projectId: string; kind: InvestmentDocKind; path: string; fileName: string; contentType: string; size: number; createdAt: string; createdByName?: string };
+export const MAX_INVESTMENT_DOC_BYTES = 5 * 1024 * 1024;
+const DOCS_BUCKET = 'investment-documents';
+const docsMissing = (e: any) => /investment_documents|add_investment_document|remove_investment_document|Could not find|does not exist|PGRST202|PGRST205|Bucket not found/i.test(e?.message || '');
+const DOCS_UPDATE_MSG = 'ডকুমেন্টের জন্য সার্ভার আপডেট (deploy_027_investment_documents.sql) এখনো চালু হয়নি। / Server update for documents is not deployed yet.';
+
+export async function fetchInvestmentDocuments(projectId: string): Promise<InvestmentDocument[]> {
+  const r = await supabase.from('investment_documents')
+    .select('id,project_id,kind,path,file_name,content_type,size_bytes,created_at,created_by_name')
+    .eq('project_id', projectId).is('deleted_at', null).order('created_at', { ascending: false });
+  if (r.error) { if (docsMissing(r.error)) throw new Error(DOCS_UPDATE_MSG); throw r.error; }
+  return (r.data || []).map((d: any) => ({ id: d.id, projectId: d.project_id, kind: d.kind, path: d.path, fileName: d.file_name || '', contentType: d.content_type, size: d.size_bytes, createdAt: d.created_at, createdByName: d.created_by_name || undefined }));
+}
+
+/** Read the picked file, check type by its bytes and the 5 MB limit. */
+export async function readInvestmentDocument(uri: string) {
+  const { Platform } = require('react-native');
+  const bytes: Uint8Array = Platform.OS === 'web'
+    ? new Uint8Array(await (await fetch(uri)).arrayBuffer())
+    : await new (require('expo-file-system').File)(uri).bytes();
+  if (!bytes.byteLength) throw new Error('ফাইলটি খালি / The file is empty');
+  if (bytes.byteLength > MAX_INVESTMENT_DOC_BYTES) throw new Error('ফাইল সর্বোচ্চ ৫ MB হতে পারবে / File must be at most 5 MB');
+  let extension: 'jpg' | 'png' | 'webp' | 'pdf';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) extension = 'jpg';
+  else if ([137, 80, 78, 71, 13, 10, 26, 10].every((n, i) => bytes[i] === n)) extension = 'png';
+  else if (String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') extension = 'webp';
+  else if (String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-') extension = 'pdf';
+  else throw new Error('JPEG, PNG, WebP ছবি অথবা PDF দিন / Use a JPEG, PNG, WebP image or a PDF');
+  const contentType = extension === 'pdf' ? 'application/pdf' : extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+  return { bytes, extension, contentType };
+}
+
+export async function uploadInvestmentDocument(d: { id: string; projectId: string; kind: InvestmentDocKind; uri: string; fileName?: string }): Promise<InvestmentDocument> {
+  const { bytes, extension, contentType } = await readInvestmentDocument(d.uri);
+  const path = `${d.projectId}/${d.id}.${extension}`;
+  const up = await supabase.storage.from(DOCS_BUCKET).upload(path, bytes, { contentType, upsert: false });
+  // A retry after a dropped response finds the file already there; that is fine.
+  if (up.error && !/already exists|Duplicate/i.test(up.error.message || '')) { if (docsMissing(up.error)) throw new Error(DOCS_UPDATE_MSG); throw up.error; }
+  try {
+    const r: any = await rpc('add_investment_document', { p: { id: d.id, projectId: d.projectId, kind: d.kind, path, contentType, size: bytes.byteLength, fileName: d.fileName || '' } });
+    return { id: r.id, projectId: r.project_id, kind: r.kind, path: r.path, fileName: r.file_name || '', contentType: r.content_type, size: r.size_bytes, createdAt: r.created_at, createdByName: r.created_by_name || undefined };
+  } catch (e: any) { if (docsMissing(e)) throw new Error(DOCS_UPDATE_MSG); throw e; }
+}
+
+export const removeInvestmentDocument = (id: string) => rpc('remove_investment_document', { p_id: id });
+
+export async function signedInvestmentDocUrls(paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!paths.length) return out;
+  const { data } = await supabase.storage.from(DOCS_BUCKET).createSignedUrls(paths, 3600);
+  for (const item of data || []) if (item.path && item.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  return out;
+}

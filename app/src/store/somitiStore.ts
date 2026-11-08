@@ -12,6 +12,9 @@ import { smsGateway } from '../services/smsGateway';
 import { LedgerSummary, emptyLedgerSummary } from '../lib/ledger';
 import { validateNewInvestment, contractAmounts, allocateInvestmentPayment, roundMoney, investmentSchedule, isoToday } from '../lib/investment';
 
+function demoAccount(accounts:CashAccount[],method:string){return accounts.find(a=>a.type===(method==='cash'?'cashier':method));}
+export function fundLabel(category:api.FundCategory){return category==='opening'?'প্রারম্ভিক ব্যালেন্স':category==='capital'?'মূলধন / অনুদান':'অন্যান্য আয়';}
+
 /** true = real Supabase backend, false = local demo data */
 export const REMOTE = isSupabaseConfigured();
 let syncPromise: Promise<void> | null = null;
@@ -46,6 +49,8 @@ function remote(label: string, call: () => Promise<any>) {
 }
 
 export interface Transaction {
+  transferFrom?: string;
+  transferTo?: string;
   projectId?: string;
   principalPart?: number;
   profitPart?: number;
@@ -59,7 +64,10 @@ export interface Transaction {
   memberCode: string;
   date: string;
   amount: number;
-  type: 'deposit' | 'expense' | 'transfer' | 'profit' | 'loan' | 'withdrawal' | 'withdrawal_reversal';
+  type: 'deposit' | 'expense' | 'transfer' | 'profit' | 'loan' | 'withdrawal' | 'withdrawal_reversal' | 'fund' | 'reversal';
+  /** Cancelled by a later reversing entry (still shown in the khata, struck out). */
+  voided?: boolean;
+  reversesTransactionId?: string;
   paymentMethod: 'cash' | 'bkash' | 'nagad' | 'bank';
   trxId?: string;
   note?: string;
@@ -104,6 +112,13 @@ export interface SomitiState {
   decideWithdrawal:(id:string,action:'approve'|'reject'|'cancel',note:string)=>Promise<void>;
   payWithdrawal:(id:string,method:import('../lib/withdrawal').WithdrawalMethod,date:string,reference:string,note:string)=>Promise<void>;
   reverseWithdrawal:(id:string,reversalId:string,date:string,reason:string)=>Promise<void>;
+  /** One-step savings return (approval happens outside the app). */
+  recordWithdrawal:(p:{id:string;memberId:string;amount:number;method:import('../lib/withdrawal').WithdrawalMethod;date:string;reference?:string;note?:string})=>Promise<void>;
+  addFund:(p:{id:string;amount:number;method:import('../lib/withdrawal').WithdrawalMethod;category:api.FundCategory;date:string;note?:string})=>Promise<Transaction>;
+  /** Cancel a deposit/expense/fund entry with a reason (reversing entry, audited). */
+  voidEntry:(id:string,reversalId:string,reason:string)=>Promise<void>;
+  updateInvestment:(p:Partial<import('../lib/investment').NewInvestment>&{id:string;reason?:string})=>Promise<void>;
+  changeMemberNumber:(memberId:string,number:string,reason:string)=>Promise<void>;
   investmentProposals: import('../lib/investment').InvestmentProposal[];
   withdrawInvestmentProposal: (id:string,note:string)=>Promise<void>;
   decideInvestmentProposal: (id:string,approve:boolean,note:string)=>Promise<void>;
@@ -118,6 +133,7 @@ export interface SomitiState {
   deleteNotice: (id: string) => Promise<void>;
   setMemberRole: (memberId: string, role: string, title?: string) => Promise<void>;
   addProject: (data: { name: string; type: string; location?: string; manager?: string; investedAmount: number; startDate?: string; expectedEnd?: string; paymentSource?: 'bank' | 'cash' | 'bkash' }) => Promise<void>;
+  updateProject: (id: string, data: { name: string; type: string; location: string; manager: string; status: Project['status']; startDate: string; expectedEnd: string }) => Promise<void>;
 
   // Master data
   somitiInfo: typeof mockSomitiInfo;
@@ -181,6 +197,10 @@ export interface SomitiState {
     voucherNo: string;
     note?: string;
     status?: 'approved' | 'pending';
+    /** YYYY-MM-DD; defaults to today. */
+    date?: string;
+    spender?: string;
+    id?: string;
   }) => Promise<ExpenseItem>;
 
   // Approvals Actions
@@ -197,7 +217,7 @@ export interface SomitiState {
   }) => Promise<void>;
 
   // Cash Transfer Action
-  transferCash: (fromId: string, toId: string, amount: number, note?: string) => Promise<boolean>;
+  transferCash: (fromId: string, toId: string, amount: number, note?: string, requestId?: string) => Promise<boolean>;
 
   // Transaction Lookup
   getTransactionById: (id: string) => Transaction | undefined;
@@ -311,6 +331,78 @@ export const useSomitiStore = create<SomitiState>()(
         set({withdrawalRequests:get().withdrawalRequests.map(x=>x.id===id?{...x,status:'reversed',reversal_transaction_id:reversalId,reversal_reason:reason.trim()}:x),members:get().members.map(m=>m.id===r.member_id?{...m,totalDeposit:roundMoney(m.totalDeposit+r.amount),totalWithdrawn:roundMoney((m.totalWithdrawn||0)-r.amount)}:m),cashAccounts,transactions:[tx,...get().transactions],somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund+r.amount)},dataVersion:get().dataVersion+1});
       },
 
+      recordWithdrawal: async p => {
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('অনুমতি নেই / Not permitted');
+        if(!Number.isFinite(p.amount)||p.amount<=0||roundMoney(p.amount)!==p.amount)throw new Error('সঠিক টাকার পরিমাণ দিন');
+        if(REMOTE){await api.recordWithdrawal({...p,reference:p.reference||'',note:p.note||''});await get().syncFromServer();return;}
+        if(get().withdrawalRequests.some(r=>r.id===p.id))return;
+        const m=get().members.find(x=>x.id===p.memberId);if(!m)throw new Error('সদস্য পাওয়া যায়নি');
+        if(p.amount>m.totalDeposit)throw new Error(`সদস্যের সঞ্চয়ে এত টাকা নেই (আছে ৳${m.totalDeposit})`);
+        const account=demoAccount(get().cashAccounts,p.method);if(!account||account.amount<p.amount)throw new Error('নির্বাচিত হিসাবে পর্যাপ্ত টাকা নেই');
+        const tx:Transaction={id:p.id,receiptNo:String(Date.now()),memberId:m.id,memberName:m.name,memberCode:m.code,amount:p.amount,type:'withdrawal',paymentMethod:p.method,date:api.bnDate(p.date),dateISO:p.date,createdAt:new Date().toISOString(),trxId:p.reference,note:p.note?.trim()||'সঞ্চয় ফেরত'};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount-p.amount)}:a),cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        const balance=roundMoney(m.totalDeposit-p.amount);
+        set({withdrawalRequests:[{id:p.id,member_id:m.id,member_name:m.name,member_code:m.code,amount:p.amount,reason:p.note||'',preferred_method:p.method,status:'paid',created_at:new Date().toISOString(),decision_note:'সরাসরি এন্ট্রি',payment_note:p.note||'',reversal_reason:'',paid_transaction_id:p.id,payment_method:p.method,payment_date:p.date,payment_reference:p.reference||''},...get().withdrawalRequests],
+          members:get().members.map(x=>x.id===m.id?{...x,totalDeposit:balance,totalWithdrawn:roundMoney((x.totalWithdrawn||0)+p.amount),status:balance<=0&&(x as any).appRole!=='admin'&&(x as any).appRole!=='super_admin'&&(x as any).appRole!=='cashier'?'inactive':x.status}:x),
+          cashAccounts,transactions:[tx,...get().transactions],somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund-p.amount)},dataVersion:get().dataVersion+1});
+      },
+      addFund: async p => {
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('অনুমতি নেই / Not permitted');
+        if(!Number.isFinite(p.amount)||p.amount<=0||roundMoney(p.amount)!==p.amount)throw new Error('সঠিক টাকার পরিমাণ দিন');
+        if(REMOTE){const t=await api.addFund({...p,note:p.note||''});await get().syncFromServer();return t;}
+        const existing=get().transactions.find(t=>t.id===p.id);if(existing)return existing;
+        const account=demoAccount(get().cashAccounts,p.method);if(!account)throw new Error('হিসাব পাওয়া যায়নি');
+        const label=fundLabel(p.category);
+        const tx:Transaction={id:p.id,receiptNo:String(Date.now()),memberId:'org',memberName:label,memberCode:p.category==='opening'?'FUND-OPEN':p.category==='capital'?'FUND-CAP':'FUND-INC',amount:p.amount,type:'fund',paymentMethod:p.method,date:api.bnDate(p.date),dateISO:p.date,createdAt:new Date().toISOString(),note:p.note?.trim()||label};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount+p.amount)}:a),cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({cashAccounts,transactions:[tx,...get().transactions],somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund+p.amount)},dataVersion:get().dataVersion+1});
+        return tx;
+      },
+      voidEntry: async(id,reversalId,reason)=>{
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('অনুমতি নেই / Not permitted');
+        if(reason.trim().length<3)throw new Error('বাতিলের কারণ লিখুন');
+        if(REMOTE){await api.voidEntry(id,reversalId,reason.trim());await get().syncFromServer();return;}
+        const t=get().transactions.find(x=>x.id===id);if(!t)throw new Error('এন্ট্রি পাওয়া যায়নি');
+        if(t.voided)return;
+        if(!['deposit','expense','fund'].includes(t.type))throw new Error('এই এন্ট্রি এখানে বাতিল করা যায় না');
+        const account=demoAccount(get().cashAccounts,t.paymentMethod);if(!account)throw new Error('হিসাব পাওয়া যায়নি');
+        const sign=t.type==='expense'?1:-1;
+        if(sign<0&&account.amount<t.amount)throw new Error('হিসাবে পর্যাপ্ত টাকা নেই');
+        let members=get().members;
+        if(t.type==='deposit'){const m=members.find(x=>x.id===t.memberId);if(!m||m.totalDeposit<t.amount)throw new Error('সদস্যের সঞ্চয় এই জমার চেয়ে কম; আগে উত্তোলন বাতিল করুন');members=members.map(x=>x.id===m.id?{...x,totalDeposit:roundMoney(x.totalDeposit-t.amount)}:x);}
+        const reversal:Transaction={...t,id:reversalId,receiptNo:String(Date.now()),type:'reversal',note:'বাতিল: '+reason.trim(),reversesTransactionId:t.id,voided:false,createdAt:new Date().toISOString()};
+        const cashAccounts=get().cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount+sign*t.amount)}:a),cashAndBank=cashAccounts.reduce((s,a)=>s+a.amount,0);
+        set({members,cashAccounts,transactions:[reversal,...get().transactions.map(x=>x.id===id?{...x,voided:true}:x)],
+          expenses:get().expenses.filter(e=>!(t.type==='expense'&&e.voucherNo===t.receiptNo)),
+          somitiInfo:{...get().somitiInfo,cashAndBank,totalFund:roundMoney(get().somitiInfo.totalFund+sign*t.amount)},dataVersion:get().dataVersion+1});
+      },
+      updateInvestment: async p => {
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('অনুমতি নেই / Not permitted');
+        if(REMOTE){await api.updateInvestment(p);await get().syncFromServer();return;}
+        const project=get().projects.find(x=>x.id===p.id);const c=project?.contract;if(!project||!c)throw new Error('বিনিয়োগ পাওয়া যায়নি');
+        const next={...c,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&!['id','reason','memberId','paymentMethod'].includes(k)))} as typeof c;
+        const termsChanged=next.principal!==c.principal||next.profitPct!==c.profitPct||next.termMonths!==c.termMonths||next.disbursedDate!==c.disbursedDate||next.firstDueDate!==c.firstDueDate;
+        if(termsChanged&&project.returnedAmount>0)throw new Error('কিস্তি নেওয়া শুরু হয়েছে; টাকার শর্ত বদলাতে আগে কিস্তি বাতিল করুন');
+        const amounts=contractAmounts(next.principal,next.profitPct);next.profitAmount=amounts.profit;
+        let cashAccounts=get().cashAccounts;
+        if(next.principal!==c.principal){const method=(p.paymentMethod||'cash');const account=demoAccount(cashAccounts,method);const delta=roundMoney(next.principal-c.principal);
+          if(!account||account.amount<delta)throw new Error('নির্বাচিত হিসাবে পর্যাপ্ত টাকা নেই');cashAccounts=cashAccounts.map(a=>a.id===account.id?{...a,amount:roundMoney(a.amount-delta)}:a);}
+        set({cashAccounts,projects:get().projects.map(x=>x.id===p.id?{...x,name:next.recipientName,investedAmount:next.principal,remainingAmount:Math.max(0,next.principal-x.returnedAmount),startDate:next.disbursedDate,contract:next}:x),dataVersion:get().dataVersion+1});
+      },
+      changeMemberNumber: async(memberId,number,reason)=>{
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin'].includes(auth.actualRole))throw new Error('শুধু admin সদস্য নম্বর বদলাতে পারবেন');
+        const n=normalizeMemberNumber(number);if(!/^\d{1,12}$/.test(n))throw new Error('শুধু সংখ্যায় সদস্য নম্বর দিন');if(reason.trim().length<3)throw new Error('পরিবর্তনের কারণ লিখুন');
+        if(REMOTE){await api.changeMemberNumber(memberId,n,reason.trim());await get().syncFromServer();return;}
+        const m=get().members.find(x=>x.id===memberId);if(!m?.memberCategory)throw new Error('আগে পুরোনো আইডির mapping করুন');
+        if(get().members.some(x=>x.id!==memberId&&(x.memberNumber||legacyMemberNumber(x.code))===n))throw new Error('এই সদস্য নম্বর ইতিমধ্যে ব্যবহৃত');
+        set({members:get().members.map(x=>x.id===memberId?{...x,memberNumber:n,code:memberCode(x.memberCategory!,n)}:x),dataVersion:get().dataVersion+1});
+      },
+
       addNotice: async (title, body) => {
         if (REMOTE) { await api.addNotice(title,body); await get().syncFromServer(); return; }
         const n = { id: api.uuid(), title, body, createdBy: '', createdAt: new Date().toISOString() };
@@ -343,10 +435,10 @@ export const useSomitiStore = create<SomitiState>()(
       },
       createInvestment: async (data) => {
         if(validateNewInvestment(data))throw new Error('বিনিয়োগের তথ্য সঠিকভাবে পূরণ করুন');
+        const auth=require('../features/auth/authStore').useAuthStore.getState();
+        if(!['admin','super_admin','cashier'].includes(auth.actualRole))throw new Error('অনুমতি নেই / Not permitted');
         if(REMOTE){await api.createInvestment(data);await get().syncFromServer();return;}
-        const old=get().investmentProposals.find(p=>p.id===data.id);
-        if(old){if(JSON.stringify(old.payload)!==JSON.stringify(data))throw new Error('Request differs');return;}
-        set({investmentProposals:[{id:data.id,status:'submitted',payload:data,created_at:new Date().toISOString(),decision_note:''},...get().investmentProposals]});
+        await get().postDemoInvestment(data);
       },
       withdrawInvestmentProposal: async(id,note)=>{
         if(!note.trim())throw new Error('Withdrawal reason required');
@@ -411,6 +503,15 @@ export const useSomitiStore = create<SomitiState>()(
       reverseInvestment: async(id,paymentId,reason)=>{
         if(REMOTE){await api.reverseInvestment(id,paymentId,reason);await get().syncFromServer();return;}
         throw new Error('আদায় সংশোধনের জন্য live backend প্রয়োজন');
+      },
+      updateProject: async (id, data) => {
+        const target=get().projects.find(p=>p.id===id);
+        if(!target)throw new Error('বিনিয়োগ পাওয়া যায়নি');
+        if(target.contract)throw new Error('চুক্তির বিনিয়োগ এখান থেকে পরিবর্তন করা যাবে না');
+        const clean={...data,name:data.name.trim(),type:data.type.trim(),location:data.location.trim(),manager:data.manager.trim(),startDate:data.startDate.trim(),expectedEnd:data.expectedEnd.trim()};
+        if(!clean.name)throw new Error('বিনিয়োগের নাম লিখুন');
+        if (REMOTE) { await api.upsertProject({ ...clean, id }); await get().syncFromServer(); return; }
+        set({ projects: get().projects.map(p=>p.id===id?{...p,...clean}:p), dataVersion: get().dataVersion+1 });
       },
       addProject: async (data) => {
         if (!data.name.trim() || !Number.isFinite(data.investedAmount) || data.investedAmount<0) throw new Error('প্রজেক্টের তথ্য সঠিক নয়');
@@ -680,7 +781,7 @@ export const useSomitiStore = create<SomitiState>()(
         const { memberId, totalAmount, paymentMethod, trxId, note, months, lateFee, date } = data;
         const currentMembers = get().members;
         const member = currentMembers.find((m) => m.id === memberId);
-        if (!member || member.status === 'inactive') throw new Error('সক্রিয় সদস্য নির্বাচন করুন');
+        if (!member) throw new Error('সদস্য নির্বাচন করুন');
         if (Math.abs(data.baseAmount + lateFee - totalAmount) > 0.01 || lateFee < 0 || data.baseAmount < 0) throw new Error('জমার হিসাব সঠিক নয়');
         if (lateFee !== 0) throw new Error('বিলম্ব ফি বন্ধ রয়েছে');
         if (data.id) { const existing = get().transactions.find(t => t.id === data.id); if (existing) return existing; }
@@ -795,22 +896,29 @@ export const useSomitiStore = create<SomitiState>()(
       addExpense: async (data) => {
         if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('খরচের পরিমাণ সঠিক নয়');
         if (REMOTE) {
-          const saved = api.mapExpense(await api.addExpense(data));
+          if (data.projectId) {
+            // add_expense has no project link; use the idempotent investment expense RPC so the
+            // expense is tied to the investment and a repeated tap with the same id is not posted twice.
+            const saved = api.mapExpense(await api.recordInvestmentExpense({ id: data.id || api.uuid(), projectId: data.projectId, amount: data.amount, paymentMethod: api.methodFromSource(data.paymentSource), note: data.title }));
+            await get().syncFromServer(); return saved;
+          }
+          const t = await api.recordExpense({ id: data.id || api.uuid(), amount: data.amount, method: api.methodFromSource(data.paymentSource), category: data.category, title: data.title, spender: data.spender || '', date: data.date || isoToday() });
           await get().syncFromServer();
-          return saved;
+          return { id: data.id || t.id, title: data.title, category: data.category, amount: data.amount, date: t.date, dateISO: t.dateISO, paymentSource: data.paymentSource, voucherNo: t.receiptNo, note: data.spender, status: 'approved' };
         }
         const somiti = get().somitiInfo;
         const autoLimit = (somiti as any).autoApproveThreshold ?? 5000;
         const autoEnabled = (somiti as any).autoApproveEnabled !== false;
         const shouldAutoApprove = autoEnabled && data.amount <= autoLimit;
-        const isPending = !shouldAutoApprove && data.status === 'pending';
+        // Approval happens outside the app: every expense posts immediately.
+        void shouldAutoApprove; const isPending = false;
         const newExpense: ExpenseItem = {
           id: `exp-${Date.now()}`,
           title: data.title,
           category: data.category,
           amount: data.amount,
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(data.date || isoToday()),
+          dateISO: data.date || isoToday(),
           paymentSource: data.paymentSource,
           voucherNo: data.voucherNo,
           note: data.note,
@@ -843,14 +951,14 @@ export const useSomitiStore = create<SomitiState>()(
           receiptNo: data.voucherNo,
           memberId: data.projectId || 'org',
           projectId: data.projectId,
-          memberName: 'সমিতি খরচ',
+          memberName: data.title,
           memberCode: 'EXP',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(data.date || isoToday()),
+          dateISO: data.date || isoToday(),
           amount: data.amount,
           type: 'expense',
           paymentMethod: /bank|ব্যাংক/i.test(data.paymentSource) ? 'bank' : /bkash|বিকাশ/i.test(data.paymentSource) ? 'bkash' : /nagad|নগদ মোবাইল/i.test(data.paymentSource) ? 'nagad' : 'cash',
-          note: `${data.category}: ${data.title}`,
+          note: `${data.category}: ${data.title}${data.spender ? ' · ' + data.spender : ''}`,
         };
 
         const sourceStr = (data.paymentSource || '').toLowerCase();
@@ -1024,8 +1132,8 @@ export const useSomitiStore = create<SomitiState>()(
           memberId: target.id,
           memberName: target.name,
           memberCode: 'PRJ',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(isoToday()),
+          dateISO: isoToday(),
           amount: data.amount,
           type: 'profit',
           paymentMethod: data.paymentSource.toLowerCase().includes('ব্যাংক') ? 'bank' : 'cash',
@@ -1061,26 +1169,28 @@ export const useSomitiStore = create<SomitiState>()(
       },
 
       // Transfer cash
-      transferCash: async (fromId, toId, amount, note) => {
-        if (REMOTE) { await api.transferCash(fromId,toId,amount,note); await get().syncFromServer(); return true; }
+      transferCash: async (fromId, toId, amount, note, requestId) => {
+        if (REMOTE) { await api.transferCash(fromId,toId,amount,note,requestId); await get().syncFromServer(); return true; }
+        if(requestId){const previous=get().transactions.find(t=>t.id===requestId);if(previous){if(previous.transferFrom!==fromId||previous.transferTo!==toId||previous.amount!==amount)throw new Error('Request ID already used');return true;}}
         const fromAcc = get().cashAccounts.find((a) => a.id === fromId);
         const toAcc = get().cashAccounts.find((a) => a.id === toId);
-        if (!Number.isFinite(amount) || amount <= 0 || fromId===toId || !fromAcc || !toAcc || fromAcc.amount < amount) return false;
+        if (!Number.isFinite(amount) || amount <= 0 || roundMoney(amount)!==amount || fromId===toId || !fromAcc || !toAcc || fromAcc.amount < amount) return false;
 
         const updatedCashAccounts = get().cashAccounts.map((acc) => {
-          if (acc.id === fromId) return { ...acc, amount: Math.max(0, acc.amount - amount) };
-          if (acc.id === toId) return { ...acc, amount: acc.amount + amount };
+          if (acc.id === fromId) return { ...acc, amount: roundMoney(acc.amount - amount) };
+          if (acc.id === toId) return { ...acc, amount: roundMoney(acc.amount + amount) };
           return acc;
         });
 
         const newTxn: Transaction = {
-          id: `tx-tf-${Date.now()}`,
+          id: requestId || api.uuid(),
           receiptNo: `TRF-${Math.floor(1000 + Math.random() * 9000)}`,
+          transferFrom: fromId, transferTo: toId,
           memberId: 'internal',
           memberName: 'হিসাব স্থানান্তর',
           memberCode: 'TRF',
-          date: api.bnDate(new Date().toISOString()),
-          dateISO: new Date().toISOString().slice(0,10),
+          date: api.bnDate(isoToday()),
+          dateISO: isoToday(),
           amount: amount,
           type: 'transfer',
           paymentMethod: 'cash',
@@ -1090,8 +1200,8 @@ export const useSomitiStore = create<SomitiState>()(
         set({
           cashAccounts: updatedCashAccounts,
           transactions: [newTxn, ...get().transactions],
+          dataVersion:get().dataVersion+1,
         });
-        remote('স্থানান্তর', () => api.transferCash(fromId, toId, amount, note));
         return true;
       },
 

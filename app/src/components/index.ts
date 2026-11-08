@@ -11,3 +11,4 @@ export * from './SegmentedControl';
 export * from './Checkbox';
 export * from './Avatar';
 export * from './SelectModal';
+export * from './DateField';

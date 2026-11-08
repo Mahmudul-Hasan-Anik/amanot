@@ -3,6 +3,7 @@ import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
+import { useLanguage } from '../i18n/useLanguage';
 
 interface SearchBarProps {
   value: string;
@@ -14,9 +15,10 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
-  placeholder = 'নাম, আইডি বা ফোন নম্বর',
+  placeholder,
   onClear,
 }) => {
+  const { l } = useLanguage();
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.icon} />
@@ -24,7 +26,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={placeholder ?? l('Name, ID or phone number', 'নাম, আইডি বা ফোন নম্বর')}
         placeholderTextColor={colors.textSecondary}
         autoCapitalize="none"
       />

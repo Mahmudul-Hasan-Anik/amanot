@@ -32,27 +32,30 @@ export default function RecordDepositScreen() {
 
   const displayMembers = useMemo(() => (members), [members]);
 
-  // Find selected member, default to Karim Uddin (id: '2') or first due member
-  const initialMemberId = (params.memberId as string) ||
-    displayMembers.find((m) => m.id === '2')?.id ||
-    displayMembers.find((m) => m.status === 'due')?.id ||
-    displayMembers[0]?.id || '1';
+  // A member passed from a member page is intentional. From the general entry
+  // point, require the cashier to choose a member so a deposit cannot be posted
+  // to the wrong account by accident.
+  const initialMemberId = typeof params.memberId === 'string' && displayMembers.some(m => m.id === params.memberId)
+    ? params.memberId
+    : '';
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>(initialMemberId);
   const [showMemberModal, setShowMemberModal] = useState(false);
 
   const currentMember: Member | undefined = useMemo(() => {
-    return displayMembers.find((m) => m.id === selectedMemberId) || displayMembers[0];
+    return displayMembers.find((m) => m.id === selectedMemberId);
   }, [displayMembers, selectedMemberId]);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('bkash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>((['cash','bkash','nagad','bank'].includes(String(params.method||''))?params.method:'cash') as PaymentMethodType);
   const [trxId, setTrxId] = useState('');
   const [saving, setSaving] = useState(false);
   const requestId = useRef(uuid());
 
   // Deposit date & Comment
-  const [depositDate, setDepositDate] = useState(todayDMY());
-  const [comment, setComment] = useState('');
+  // Edit = cancel + enter again: the form can be prefilled from the cancelled entry.
+  const presetDate = typeof params.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date.split('-').reverse().join('/') : todayDMY();
+  const [depositDate, setDepositDate] = useState(presetDate);
+  const [comment, setComment] = useState(typeof params.note==='string'?params.note:'');
 
   // DatePicker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -65,6 +68,7 @@ export default function RecordDepositScreen() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  const daysInPickerMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
 
   const openDatePicker = () => {
     if (depositDate) {
@@ -75,7 +79,7 @@ export default function RecordDepositScreen() {
         const y = parseInt(parts[2], 10);
         if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
         if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
-        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+        if (!isNaN(y) && y >= 1930 && y <= new Date().getFullYear() + 1) setPickerYear(y);
       }
     } else {
       const now = new Date();
@@ -87,19 +91,21 @@ export default function RecordDepositScreen() {
   };
 
   const handleConfirmDate = () => {
-    const dd = pickerDay < 10 ? `0${pickerDay}` : `${pickerDay}`;
+    const validDay = Math.min(pickerDay, daysInPickerMonth(pickerYear, pickerMonth));
+    const dd = validDay < 10 ? `0${validDay}` : `${validDay}`;
     const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
     const yyyy = `${pickerYear}`;
     const dateStr = `${dd}/${mm}/${yyyy}`;
     setDepositDate(dateStr);
+    validation.clear('date');
     setShowDatePicker(false);
   };
 
   // Notification delivery methods
   const [sendSMS, setSendSMS] = useState(false);
 
-  const [customAmount,setCustomAmount]=useState('');
-  const handleSelectMember=(id:string)=>{setSelectedMemberId(id);setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
+  const [customAmount,setCustomAmount]=useState(typeof params.amount==='string'?params.amount:'');
+  const handleSelectMember=(id:string)=>{setSelectedMemberId(id);validation.clear('member');setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};
 
   // Payment methods segmented control options
   const paymentMethodsList: Array<{ id: PaymentMethodType; label: string }> = [
@@ -118,14 +124,11 @@ export default function RecordDepositScreen() {
   const handleConfirmDeposit = async () => {
     if (submitLock.current) return;
     const errors:Record<string,string>={};
-    if(!currentMember||currentMember.status==='inactive')errors.member=l('Select an active member.','সক্রিয় সদস্য নির্বাচন করুন।');
+    if(!currentMember)errors.member=l('Select a member.','সদস্য নির্বাচন করুন।');
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount=l('Enter a positive amount with at most two decimal places.','দশমিকের পরে সর্বোচ্চ দুই ঘরসহ সঠিক পরিমাণ দিন।');
     }
 
-    if (paymentMethod !== 'cash' && !trxId.trim()) {
-      errors.reference=l('Enter the transaction ID.','ট্রানজ্যাকশন আইডি লিখুন।');
-    }
 
     const depositISO = parseDMY(toEnglishDigits(depositDate));
     if (!depositISO || depositISO>isoToday()) {
@@ -149,12 +152,12 @@ export default function RecordDepositScreen() {
         sendSMS,
       });
 
-      router.replace(`/(admin)/receipt/${newTxn.id}`);
+      router.replace(`/(admin)/receipt/${newTxn.id}?fresh=1`);
     } catch (e: any) { validation.show({_form:e.message}); } finally { submitLock.current=false;setSaving(false); }
   };
 
 
-  if (!currentMember) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!displayMembers.length) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Add a member before recording a deposit.', 'জমা নেওয়ার আগে একজন সদস্য যোগ করুন।')}</Text><TouchableOpacity onPress={() => router.push('/(admin)/member/new')}><Text style={{color: colors.primary, marginTop:16}}>{l('Add member', 'সদস্য যোগ করুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -162,7 +165,7 @@ export default function RecordDepositScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => safeBack(router, '/(admin)/(tabs)/collection')}
+          onPress={() => safeBack(router, '/(admin)/(tabs)')}
           style={styles.closeBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -181,17 +184,17 @@ export default function RecordDepositScreen() {
         <View ref={validation.contentRef} collapsable={false}>
         {!!validation.errors._form&&<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{validation.errors._form}</Text>}
         {/* Member Selector Card */}
-        <View style={styles.memberCard} {...validation.fieldProps('member')}>
-          {!!validation.errors.member&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.member}</Text>}
+        <View style={styles.memberGroup} {...validation.fieldProps('member')}>
+        <View style={[styles.memberCard, !!validation.errors.member && styles.memberCardError]}>
           <Avatar
-            name={currentMember?.name || 'ক'}
+            name={currentMember?.name || l('Select member', 'সদস্য বাছুন')}
             size="md"
             index={1}
           />
           <View style={styles.memberDetails}>
-            <Text style={styles.memberName}>{l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}</Text>
+            <Text style={styles.memberName}>{currentMember ? l(currentMember.nameEn || currentMember.name, currentMember.name) : l('Select a member', 'সদস্য বাছুন')}</Text>
             <Text style={styles.memberSub}>
-              {currentMember?.code} · {l('Voluntary deposits', 'ইচ্ছামতো জমা')}
+              {currentMember ? `${currentMember.code} · ${l('Voluntary deposits', 'ইচ্ছামতো জমা')}` : l('Required before recording a deposit', 'জমা নেওয়ার আগে প্রয়োজন')}
             </Text>
           </View>
           <TouchableOpacity
@@ -199,8 +202,10 @@ export default function RecordDepositScreen() {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.changeLink}>{l('Change', 'বদলান')}</Text>
+            <Text style={styles.changeLink}>{currentMember ? l('Change', 'বদলান') : l('Select', 'বাছুন')}</Text>
           </TouchableOpacity>
+        </View>
+          {!!validation.errors.member&&<Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.memberError}>{validation.errors.member}</Text>}
         </View>
 
         {/* 1. Month Selection */}
@@ -219,7 +224,7 @@ export default function RecordDepositScreen() {
               value={isBengali ? toBengaliDigits(customAmount) : customAmount}
               onChangeText={(t) => {setCustomAmount(toEnglishDigits(t));validation.clear('amount');}}
               keyboardType="numeric"
-              placeholder="০"
+              placeholder={isBengali ? '০' : '0'}
               placeholderTextColor={colors.textSecondary}
             />
           </View>
@@ -257,7 +262,7 @@ export default function RecordDepositScreen() {
         {/* 4. 2-Column Row for TrxID and Date */}
         <View style={styles.twoColRow}>
           <View style={styles.colLeft} {...validation.fieldProps('reference')}>
-            <Text style={styles.fieldLabel}>{l('Transaction ID', 'লেনদেন নম্বর')}</Text>
+            <Text style={styles.fieldLabel}>{l('Transaction ID (optional)', 'লেনদেন নম্বর (ঐচ্ছিক)')}</Text>
             {!!validation.errors.reference&&<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.reference}</Text>}
             <View style={styles.inputBox}>
               <TextInput
@@ -315,26 +320,7 @@ export default function RecordDepositScreen() {
           </View>
         </View>
 
-        {/* 5. Send Receipt Notification Channels Card */}
-        <Text style={styles.sectionTitle}>{l('Send Receipt to Member', 'সদস্যকে রসিদ পাঠান')}</Text>
-        <View style={styles.deliveryCard}>
-          <TouchableOpacity
-            style={styles.deliveryRow}
-            onPress={() => setSendSMS(!sendSMS)}
-            activeOpacity={0.7}
-          >
-            <Checkbox
-              checked={sendSMS}
-              onPress={() => setSendSMS(!sendSMS)}
-            />
-            <Text style={styles.deliveryLabel}>{l('SMS', 'এসএমএস')}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.deliveryDivider} />
-
-          <Text style={[styles.deliveryLabel,{padding:16}]}>{l('Share via WhatsApp from the saved receipt. Push is not connected.', 'সংরক্ষিত রসিদ থেকে হোয়াটসঅ্যাপে শেয়ার করুন। পুশ সংযুক্ত নেই।')}</Text>
-        </View>
-
+        {/* SMS is not connected; the receipt screen sends the receipt on WhatsApp. */}
         {/* 6. Info Notice Box */}
         <View style={styles.infoBox}>
           <Ionicons
@@ -344,9 +330,12 @@ export default function RecordDepositScreen() {
             style={{ marginTop: 2 }}
           />
           <Text style={styles.infoText}>
-            {l(
-              `${l(currentMember?.nameEn || currentMember?.name, currentMember?.name)}'s deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
-              `${currentMember?.name}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
+            {currentMember ? l(
+              `${l(currentMember.nameEn || currentMember.name, currentMember.name)}'s deposit of ${formatMoney(numericAmount)} will be received via ${methodNameText}. Total deposit after this will be ${formatMoney(newTotalDeposit)}.`,
+              `${currentMember.name}ের জমা ${formatMoney(numericAmount)} ${methodNameText}ে গ্রহণ করা হবে। জমার পর মোট জমা হবে ${formatMoney(newTotalDeposit)}।`
+            ) : l(
+              'Select a member before confirming this deposit.',
+              'এই জমা নিশ্চিত করার আগে একজন সদস্য বাছুন।'
             )}
           </Text>
         </View>
@@ -399,7 +388,7 @@ export default function RecordDepositScreen() {
               style={styles.pickerScrollView}
               showsVerticalScrollIndicator={false}
             >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+              {Array.from({ length: daysInPickerMonth(pickerYear, pickerMonth) }, (_, i) => i + 1).map((d) => {
                 const isSelected = d === pickerDay;
                 return (
                   <TouchableOpacity
@@ -430,7 +419,7 @@ export default function RecordDepositScreen() {
                   <TouchableOpacity
                     key={`month-${m}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerMonth(m)}
+                    onPress={() => { setPickerMonth(m); setPickerDay(day => Math.min(day, daysInPickerMonth(pickerYear, m))); }}
                   >
                     <Text
                       numberOfLines={1}
@@ -457,7 +446,7 @@ export default function RecordDepositScreen() {
                   <TouchableOpacity
                     key={`year-${y}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerYear(y)}
+                    onPress={() => { setPickerYear(y); setPickerDay(day => Math.min(day, daysInPickerMonth(y, pickerMonth))); }}
                   >
                     <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
                       {isBengali ? toBengaliDigits(y) : y}
@@ -518,13 +507,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  memberGroup: {
+    marginBottom: 16,
+    minWidth: 0,
+  },
+  memberCardError: {
+    borderColor: colors.danger,
+  },
+  memberError: {
+    color: colors.danger,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
+    marginTop: 6,
+  },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.surface,
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -533,6 +537,7 @@ const styles = StyleSheet.create({
   },
   memberDetails: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 12,
   },
   memberName: {

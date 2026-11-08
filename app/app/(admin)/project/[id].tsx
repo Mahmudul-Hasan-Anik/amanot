@@ -17,19 +17,24 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
+import { ActionMenu } from '../../../src/components/ActionMenu';
+import { InvestmentDocuments } from '../../../src/components/InvestmentDocuments';
+import { useAuthStore } from '../../../src/features/auth/authStore';
 import { toEnglishDigits } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
 import {LedgerPaging} from '../../../src/components/LedgerPaging';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
+import { uuid } from '../../../src/lib/api';
 import InvestmentDetail from '../../../src/screens/InvestmentDetail';
+import { showToast } from '../../../src/components/Toast';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { projects, transactions, recordProjectReturn, addExpense } = useSomitiStore();
+  const { projects, transactions, recordProjectReturn, addExpense, updateProject } = useSomitiStore();
 
   const allProjects = projects;
   const project = allProjects.find(
@@ -47,13 +52,56 @@ export default function ProjectDetailScreen() {
   const [expenseSource, setExpenseSource] = useState<'bank' | 'cash'>('bank');
   const [expenseNote, setExpenseNote] = useState('');
 
-  const isProfit = project ? project.netProfit >= 0 : true;
+  const [savingReturn, setSavingReturn] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const expenseOpId = React.useRef('');
+  // A new request id whenever the expense details change; a retry of the same details reuses it.
+  React.useEffect(() => { expenseOpId.current = ''; }, [expenseAmount, expenseNote, expenseSource]);
+  const role = useAuthStore((st) => st.actualRole);
+  const canEditDocs = ['admin', 'super_admin', 'cashier'].includes(role || '');
+  const [showMenu, setShowMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', type: '', location: '', manager: '', status: 'ongoing' as 'ongoing' | 'delayed' | 'completed', startDate: '', expectedEnd: '' });
+  const setField = (k: keyof typeof editForm, v: string) => setEditForm((f) => ({ ...f, [k]: v }));
 
-  const handleDocOpen = (name: string) => {
-    Alert.alert(l('Document Viewer', 'ডকুমেন্ট ভিউয়ার'), `${project?.name} - ${name} ${l('is loading...', 'লোড হচ্ছে...')}`);
+  const openEdit = () => {
+    if (!project) return;
+    setEditForm({
+      name: project.name || '',
+      type: project.type || '',
+      location: project.location || '',
+      manager: project.manager || '',
+      status: (project.status as any) || 'ongoing',
+      startDate: project.startDate || '',
+      expectedEnd: project.expectedEnd || '',
+    });
+    setShowEditModal(true);
   };
 
+  const handleSaveEdit = async () => {
+    if (!project || savingEdit) return;
+    if (!editForm.name.trim()) {
+      Alert.alert(l('Error', 'ত্রুটি'), l('Please enter the investment name.', 'অনুগ্রহ করে বিনিয়োগের নাম লিখুন।'));
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updateProject(project.id, editForm);
+      setShowEditModal(false);
+      showToast(l('Investment details updated.', 'বিনিয়োগের বিবরণ হালনাগাদ হয়েছে।'));
+    } catch (e: any) {
+      Alert.alert(l('Save failed', 'সংরক্ষণ ব্যর্থ'), e?.message || String(e));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const isProfit = project ? project.netProfit >= 0 : true;
+
   const handleRecordReturn = async () => {
+    if (savingReturn) return;
+    setSavingReturn(true);
     try {
     const cleanAmount = Number(toEnglishDigits(returnAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
@@ -73,14 +121,13 @@ export default function ProjectDetailScreen() {
     setReturnAmount('');
     setReturnNote('');
 
-    Alert.alert(
-      l('Success', 'সফল'),
-      `${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`
-    );
-    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    showToast(`${project.name} ${l('received return of', 'থেকে')} ${formatMoney(cleanAmount)} ${l('recorded successfully!', 'টাকা আয় জমা হয়েছে!')}`);
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingReturn(false); }
   };
 
   const handleRecordExpense = async () => {
+    if (savingExpense) return;
+    setSavingExpense(true);
     try {
     const cleanAmount = Number(toEnglishDigits(expenseAmount).replace(/[^0-9.]/g, '')) || 0;
     if (cleanAmount <= 0) {
@@ -89,16 +136,15 @@ export default function ProjectDetailScreen() {
     }
     if (!project) return;
 
-    await addExpense({title:project.name+': '+(expenseNote.trim()||l('Investment expense','বিনিয়োগ খরচ')),category:l('Investment expense','বিনিয়োগ খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
+    if (!expenseOpId.current) expenseOpId.current = uuid();
+    await addExpense({id:expenseOpId.current,projectId:project.id,title:project.name+': '+(expenseNote.trim()||l('Investment expense','বিনিয়োগ খরচ')),category:l('Investment expense','বিনিয়োগ খরচ'),amount:cleanAmount,paymentSource:expenseSource,voucherNo:'PRJ-EXP-'+Date.now(),note:expenseNote});
+    expenseOpId.current = '';
     setShowExpenseModal(false);
     setExpenseAmount('');
     setExpenseNote('');
 
-    Alert.alert(
-      l('Success', 'সফল'),
-      `${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`
-    );
-    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    showToast(`${project.name} ${l('recorded expense of', 'এর জন্য')} ${formatMoney(cleanAmount)} ${l('successfully!', 'টাকা খরচ রেকর্ড করা হয়েছে!')}`);
+    } catch(e:any) {Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);} finally { setSavingExpense(false); }
   };
 
   if(project?.contract) return <InvestmentDetail project={project}/>;
@@ -107,17 +153,7 @@ export default function ProjectDetailScreen() {
   const sampleTransactions = (isSupabaseConfigured()?history.rows:transactions.filter(t=>t.memberId===project?.id || (project && t.note?.startsWith(project.name+':')))).map(t=>({id:t.id,titleBn:t.note||t.memberName,titleEn:t.note||t.memberName,metaBn:t.date,metaEn:t.date,amount:t.type==='profit'?t.amount:-t.amount,isIncome:t.type==='profit'}));
 
   if(!project) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Investment not found','বিনিয়োগ পাওয়া যায়নি')}</Text><TouchableOpacity onPress={()=>safeBack(router,'/(admin)/(tabs)/projects')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to investments','বিনিয়োগ তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
-  const projectTitle = isBengali
-    ? project.name
-    : project.id === 'p1'
-    ? 'Site A: Land Project'
-    : project.id === 'p2'
-    ? 'Shop Rental Project'
-    : project.id === 'p3'
-    ? 'Poultry Farm'
-    : project.id === 'p4'
-    ? 'Site B: Construction'
-    : project.name;
+  const projectTitle = project.name;
 
   const typeLabel =
     project.type === 'জমি'
@@ -130,7 +166,10 @@ export default function ProjectDetailScreen() {
       ? l('Construction', 'নির্মাণ')
       : project.type;
 
-  const locLabel = project.location === '[স্থান]' ? l('[Location]', '[স্থান]') : project.location;
+  // Hide empty or placeholder values ('', '.', '-', '[স্থান]') instead of printing them.
+  const shown = (v?: string) => { const t = (v || '').trim(); return t && !/^[.\-–—]+$/.test(t) && !/^\[.*\]$/.test(t) ? t : ''; };
+  const metaParts = [shown(project.manager) && `${l('Manager:', 'দায়িত্বে:')} ${shown(project.manager)}`, shown(project.location)].filter(Boolean);
+  const dateParts = [shown(project.startDate) && `${l('Start', 'শুরু')} ${shown(project.startDate)}`, shown(project.expectedEnd) && `${l('Est. End', 'সম্ভাব্য শেষ')} ${shown(project.expectedEnd)}`].filter(Boolean);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -149,14 +188,16 @@ export default function ProjectDetailScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Edit', 'সম্পাদনা'), l('Edit investment details', 'বিনিয়োগের বিবরণ সম্পাদনা করুন'))}
+            onPress={openEdit}
+            accessibilityLabel={l('Edit investment', 'বিনিয়োগ সম্পাদনা')}
             activeOpacity={0.7}
           >
             <Ionicons name="pencil-outline" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert(l('Menu', 'মেনু'), l('More options', 'আরও অপশন'))}
+            onPress={() => setShowMenu(true)}
+            accessibilityLabel={l('More options', 'আরও অপশন')}
             activeOpacity={0.7}
           >
             <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
@@ -196,12 +237,8 @@ export default function ProjectDetailScreen() {
 
         {/* Project Title and Meta */}
         <Text style={styles.projectMainTitle}>{projectTitle}</Text>
-        <Text style={styles.projectMetaLine}>
-          {l('Manager:', 'দায়িত্বে:')} {project.manager} · {locLabel}
-        </Text>
-        <Text style={styles.projectMetaLine}>
-          {l('Start', 'শুরু')} {project.startDate} · {l('Est. End', 'সম্ভাব্য শেষ')} {project.expectedEnd}
-        </Text>
+        {metaParts.length ? <Text style={styles.projectMetaLine}>{metaParts.join(' · ')}</Text> : null}
+        {dateParts.length ? <Text style={styles.projectMetaLine}>{dateParts.join(' · ')}</Text> : null}
 
         {/* 2x2 Metric Cards Grid */}
         <View style={styles.gridContainer}>
@@ -262,7 +299,7 @@ export default function ProjectDetailScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Transactions', 'লেনদেন')}</Text>
           <TouchableOpacity
-            onPress={() => router.push('/(admin)/audit')}
+            onPress={() => router.push(`/(admin)/ledger?projectId=${project!.id}` as any)}
             activeOpacity={0.7}
           >
             <Text style={styles.seeAllLink}>{l('See All', 'সব দেখুন')}</Text>
@@ -270,7 +307,7 @@ export default function ProjectDetailScreen() {
         </View>
 
         <View style={styles.transactionsCard}>
-          <LedgerPaging {...history}/>
+          {!sampleTransactions.length && !history.loading ? <Text style={[styles.txnMeta, { textAlign: 'center', paddingVertical: 14 }]}>{l('No transactions yet', 'এখনো কোনো লেনদেন নেই')}</Text> : null}
           {sampleTransactions.map((txn, idx) => (
             <React.Fragment key={txn.id}>
               {idx > 0 && <View style={styles.txnDivider} />}
@@ -302,42 +339,11 @@ export default function ProjectDetailScreen() {
               </View>
             </React.Fragment>
           ))}
+          <LedgerPaging {...history}/>
         </View>
 
-        {/* Documents Section */}
-        <Text style={[styles.sectionTitle, styles.docsHeader]}>{l('Documents', 'ডকুমেন্ট')}</Text>
-        <View style={styles.docsRow}>
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Contract', 'চুক্তিপত্র'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>{l('Contract', 'চুক্তিপত্র')}</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Site Photos (3)', 'সাইটের ছবি (৩)'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="image-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>
-              {l('Site Photos (3)', 'সাইটের ছবি (৩)')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocOpen(l('Receipts (6)', 'রসিদ (৬)'))}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="receipt-outline" size={24} color={colors.primary} />
-            <Text style={styles.docText}>
-              {l('Receipts (6)', 'রসিদ (৬)')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <InvestmentDocuments projectId={project.id} canEdit={canEditDocs} />
 
         <View style={styles.scrollSpacer} />
       </ScrollView>
@@ -382,7 +388,7 @@ export default function ProjectDetailScreen() {
               style={styles.modalAmountInput}
               value={returnAmount}
               onChangeText={setReturnAmount}
-              placeholder="৫০,০০০"
+              placeholder={l('50,000', '৫০,০০০')}
               placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               autoFocus
@@ -415,10 +421,11 @@ export default function ProjectDetailScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, savingReturn && { opacity: 0.6 }]}
             onPress={handleRecordReturn}
+            disabled={savingReturn}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Save Income', 'আয় সংরক্ষণ করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{savingReturn ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Income', 'আয় সংরক্ষণ করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>
@@ -442,7 +449,7 @@ export default function ProjectDetailScreen() {
               style={styles.modalAmountInput}
               value={expenseAmount}
               onChangeText={setExpenseAmount}
-              placeholder="২০,০০০"
+              placeholder={l('20,000', '২০,০০০')}
               placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               autoFocus
@@ -475,13 +482,76 @@ export default function ProjectDetailScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, savingExpense && { opacity: 0.6 }]}
             onPress={handleRecordExpense}
+            disabled={savingExpense}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{savingExpense ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Expense', 'খরচ সংরক্ষণ করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>
+
+      {/* Edit Investment Modal */}
+      <AppModal
+        visible={showEditModal}
+        onClose={() => !savingEdit && setShowEditModal(false)}
+        title={l('Edit Investment', 'বিনিয়োগ সম্পাদনা')}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalProjectName}>{l('Edit Investment', 'বিনিয়োগ সম্পাদনা')}</Text>
+          <Text style={styles.modalProjectSub}>
+            {l('Amounts change only through income/expense entries.', 'টাকার পরিমাণ শুধু আয়/খরচ এন্ট্রির মাধ্যমে বদলায়।')}
+          </Text>
+
+          <Text style={styles.inputTitle}>{l('Name', 'নাম')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.name} onChangeText={(v) => setField('name', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Type', 'ধরন')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.type} onChangeText={(v) => setField('type', v)} editable={!savingEdit} placeholder={l('e.g. Gold, Land', 'যেমন: গোল্ড, জমি')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Manager', 'দায়িত্বে')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.manager} onChangeText={(v) => setField('manager', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Location', 'স্থান')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.location} onChangeText={(v) => setField('location', v)} editable={!savingEdit} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Start', 'শুরু')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.startDate} onChangeText={(v) => setField('startDate', v)} editable={!savingEdit} placeholder={l('e.g. September 2026', 'যেমন: সেপ্টেম্বর ২০২৬')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Est. End', 'সম্ভাব্য শেষ')}</Text>
+          <TextInput style={styles.modalNoteInput} value={editForm.expectedEnd} onChangeText={(v) => setField('expectedEnd', v)} editable={!savingEdit} placeholder={l('e.g. March 2027', 'যেমন: মার্চ ২০২৭')} placeholderTextColor={colors.textSecondary} />
+
+          <Text style={styles.inputTitle}>{l('Status', 'অবস্থা')}</Text>
+          <View style={styles.sourceToggleRow}>
+            {([['ongoing', l('Ongoing', 'চলমান')], ['delayed', l('Delayed', 'বিলম্বিত')], ['completed', l('Completed', 'সমাপ্ত')]] as const).map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                style={[styles.sourceToggleBtn, editForm.status === value && styles.sourceToggleBtnActive]}
+                onPress={() => setField('status', value)}
+                disabled={savingEdit}
+              >
+                <Text style={styles.sourceToggleText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity style={[styles.modalSubmitBtn, savingEdit && { opacity: 0.6 }]} onPress={handleSaveEdit} disabled={savingEdit}>
+            <Text style={styles.modalSubmitBtnText}>{savingEdit ? l('Saving...', 'সংরক্ষণ হচ্ছে...') : l('Save Changes', 'পরিবর্তন সংরক্ষণ করুন')}</Text>
+          </TouchableOpacity>
+        </View>
+      </AppModal>
+
+      <ActionMenu
+        visible={showMenu}
+        title={projectTitle}
+        onClose={() => setShowMenu(false)}
+        actions={[
+          { text: l('Edit investment', 'বিনিয়োগ সম্পাদনা'), onPress: openEdit },
+          { text: l('Record Income/Return', 'আয়/ফেরত লিখুন'), onPress: () => setShowIncomeModal(true) },
+          { text: l('Record Expense', 'খরচ লিখুন'), onPress: () => setShowExpenseModal(true) },
+          { text: l('View all transactions', 'সব লেনদেন দেখুন'), onPress: () => router.push(`/(admin)/ledger?projectId=${project!.id}` as any) },
+        ]}
+      />
     </SafeAreaView>
   );
 }

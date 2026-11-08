@@ -1,11 +1,11 @@
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
 import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchLedgerSummary } from '../../src/lib/api';
-import { emptyLedgerSummary,signedTransactionAmount } from '../../src/lib/ledger';
+import { emptyLedgerSummary } from '../../src/lib/ledger';
+import { EntryRow, EntryActions } from '../../src/components/EntryActions';
 import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
-import { FAB } from '../../src/components/FAB';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,8 @@ import { useLanguage } from '../../src/i18n/useLanguage';
 import { CashAccount } from '../../src/mocks/mockData';
 import { recentMonths, inMonth } from '../../src/lib/months';
 import { safeBack } from '../../src/utils/navigation';
+import { parseInvestmentAmount } from '../../src/lib/investment';
+import { uuid } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 
@@ -70,7 +72,7 @@ function AppModal({ visible, onClose, children, animationType = 'fade' }: AppMod
 
 const MONTHS_LIST = recentMonths(12);
 const paymentLabel = (method: string, bn: boolean) => ({cash:bn?'নগদ':'Cash',bank:bn?'ব্যাংক':'Bank',bkash:'bKash',nagad:'Nagad'}[method] || financeLabel(method,bn));
-const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'কোষাধ্যক্ষের হাতে':'Cash with Treasurer',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ':'Nagad'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
+const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'হাতে নগদ (কোষাধ্যক্ষ)':'Cash in hand (cashier)',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ (মোবাইল)':'Nagad (mobile)'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
 
 export default function FinanceScreen() {
   const router = useRouter();
@@ -106,6 +108,8 @@ export default function FinanceScreen() {
   const [toAccount, setToAccount] = useState<string>('ca2'); // Default: কোষাধ্যক্ষ
   const [transferAmount, setTransferAmount] = useState<string>('');
   const [transferNote, setTransferNote] = useState<string>('');
+  const [transferring, setTransferring] = useState(false);
+  const transferLock=useRef(false),transferRequest=useRef(uuid());
 
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
@@ -127,23 +131,26 @@ export default function FinanceScreen() {
   }, [displayCashAccounts]);
 
   // Approved expenses of the selected month, grouped by category
-  const periodTransactions = REMOTE ? ledger.rows : transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey));
+  const periodTransactions = (REMOTE ? ledger.rows : transactions.filter(t=>inMonth(t.dateISO,selectedMonthKey))).filter(t=>t.type!=='reversal');
+  const [openEntry,setOpenEntry]=useState<import('../../src/store/somitiStore').Transaction|null>(null);
   const periodExpenses = expenses.filter(e=>e.status==='approved' && inMonth((e as any).dateISO,selectedMonthKey));
   const totals=ledgerSummary.months.find(m=>m.month===selectedMonthKey);
-  const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense').reduce((sum,t)=>sum+t.amount,0);
-  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0) : periodTransactions.reduce((sum,t)=>sum+(t.type==='deposit'?t.amount:t.profitPart!==undefined?(t.investmentReversal?-t.profitPart:t.profitPart):t.type==='profit'?t.amount:0),0);
+  const totalExpense = REMOTE ? Number(totals?.expenses||0) : periodTransactions.filter(t=>t.type==='expense'&&!t.voided).reduce((sum,t)=>sum+t.amount,0);
+  const totalIncome = REMOTE ? Number(totals?.deposits||0)+Number(totals?.profit||0)+Number(totals?.other_income||0) : periodTransactions.filter(t=>!t.voided).reduce((sum,t)=>sum+(t.type==='deposit'||(t.type==='fund'&&t.memberCode==='FUND-INC')?t.amount:t.profitPart!==undefined?(t.investmentReversal?-t.profitPart:t.profitPart):t.type==='profit'?t.amount:0),0);
   const groups = REMOTE ? Object.fromEntries(ledgerSummary.categories.filter(c=>c.month===selectedMonthKey).map(c=>[c.category,Number(c.amount)])) : periodExpenses.reduce<Record<string,number>>((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{});
   const expenseCategories = Object.entries(groups).map(([name,amount])=>({id:name,nameBn:financeLabel(name,true),nameEn:financeLabel(name,false),amount,pct:totalExpense>0?Math.round(amount/totalExpense*100):0}));
   const netAmount = totalIncome-totalExpense;
   const withdrawals=REMOTE?Number(totals?.withdrawals||0):periodTransactions.reduce((sum,t)=>sum+(t.type==='withdrawal'?t.amount:t.type==='withdrawal_reversal'?-t.amount:0),0);
 
   // Sample recent transactions matching Page 14 design
-  const recentTxnsList = periodTransactions.slice(0,10).map(t=>({id:t.id,titleBn:financeNote(t.note||t.memberName,true),titleEn:financeNote(t.note||t.memberName,false),metaBn:financeDate(t.dateISO,t.date,true)+' · '+paymentLabel(t.paymentMethod,true),metaEn:financeDate(t.dateISO,t.date,false)+' · '+paymentLabel(t.paymentMethod,false),amount:signedTransactionAmount(t),isIncome:signedTransactionAmount(t)>=0}));
+
 
   const handleTransferSubmit = async () => {
+    if (transferLock.current) return;
+    transferLock.current=true;setTransferring(true);
     try {
-    const amt = parseFloat(transferAmount.replace(/[^0-9.]/g, ''));
-    if (!amt || isNaN(amt) || amt <= 0) {
+    const amt = parseInvestmentAmount(transferAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
       Alert.alert(l('Error', 'ত্রুটি'), l('Please enter a valid amount', 'সঠিক টাকার পরিমাণ লিখুন'));
       return;
     }
@@ -163,8 +170,9 @@ export default function FinanceScreen() {
     }
 
     const note = transferNote.trim() || l('Internal Cash Transfer', 'অভ্যন্তরীণ তহবিল স্থানান্তর');
-    if (!await transferCash(fromAccount, toAccount, amt, note)) return;
+    if (!await transferCash(fromAccount, toAccount, amt, note, transferRequest.current)) return;
 
+    transferRequest.current=uuid();
     setShowTransferModal(false);
     setTransferAmount('');
     setTransferNote('');
@@ -174,6 +182,7 @@ export default function FinanceScreen() {
       `${senderAcc.name} → ${targetAcc?.name}: ${formatMoney(amt)} ${l('transferred successfully', 'সফলভাবে স্থানান্তর হয়েছে')}`
     );
     } catch(e:any) { Alert.alert(l('Transfer failed','স্থানান্তর ব্যর্থ'),e.message); }
+    finally { transferLock.current=false;setTransferring(false); }
   };
 
   const getAccountIcon = (account: CashAccount) => {
@@ -235,26 +244,27 @@ export default function FinanceScreen() {
         </TouchableOpacity>
 
         {/* 3-Column Summary Card */}
-        <Text style={{color:colors.textSecondary,marginBottom:12}}>{l('Net savings withdrawals (separate from expenses)','নিট সঞ্চয় উত্তোলন (ব্যয় থেকে আলাদা)')}: {formatMoney(withdrawals)}</Text>
+
         <Card variant="surface" style={styles.summaryCard}>
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Income', 'আয়')}</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalIncome)}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(totalIncome)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
             <Text style={styles.summaryLabel}>{l('Expense', 'ব্যয়')}</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalExpense)}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(totalExpense)}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>{l('Income less expenses', 'আয় থেকে ব্যয় বাদ')}</Text>
-            <Text style={[styles.summaryValue, styles.netProfitColor]}>
+            <Text style={styles.summaryLabel} numberOfLines={1} accessibilityLabel={l('Net: income minus expense', 'নিট: আয় থেকে ব্যয় বাদ')}>{l('Net', 'নিট')}</Text>
+            <Text style={[styles.summaryValue, netAmount < 0 ? styles.netLossColor : styles.netProfitColor]} numberOfLines={1} adjustsFontSizeToFit>
               {formatMoney(netAmount)}
             </Text>
           </View>
         </Card>
 
+        {withdrawals>0?<Text style={{color:colors.textSecondary,marginTop:-6,marginBottom:12,fontSize:13}}>{l('Savings returned to members this month (not an expense)','এ মাসে সদস্যদের সঞ্চয় ফেরত (খরচ নয়)')}: {formatMoney(withdrawals)}</Text>:null}
         {/* Section: হিসাবসমূহ (Accounts) */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{l('Accounts', 'হিসাবসমূহ')}</Text>
@@ -263,6 +273,9 @@ export default function FinanceScreen() {
             activeOpacity={0.7}
           >
             <Text style={styles.transferLink}>{l('Transfer', 'স্থানান্তর')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(admin)/fund/new' as any)} activeOpacity={0.7}>
+            <Text style={styles.transferLink}>{l('+ Add money', '+ টাকা যোগ')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -301,6 +314,7 @@ export default function FinanceScreen() {
           <Text style={styles.totalBalance}>{formatMoney(totalCashAndBank)}</Text>
         </View>
 
+        {expenseCategories.length>0&&<>
         {/* Section: খাতভিত্তিক ব্যয় (Expenses by Category) */}
         <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>
           {l('Expenses by Category', 'খাতভিত্তিক ব্যয়')}
@@ -326,6 +340,7 @@ export default function FinanceScreen() {
             </View>
           ))}
         </View>
+        </>}
 
         {/* Section: সাম্প্রতিক (Recent) */}
         <View style={[styles.sectionHeaderRow, styles.sectionTitleSpaced]}>
@@ -341,27 +356,11 @@ export default function FinanceScreen() {
         <View style={styles.recentCard}>
           {ledger.loading&&<Text style={styles.recentMeta}>{l('Loading…','লোড হচ্ছে…')}</Text>}
           {ledger.error&&<TouchableOpacity onPress={ledger.reload}><Text style={styles.recentMeta}>{ledger.error} · {l('Retry','আবার চেষ্টা করুন')}</Text></TouchableOpacity>}
-          {recentTxnsList.map((txn, index) => (
+          {!ledger.loading&&!periodTransactions.length&&<Text style={styles.recentMeta}>{l('No entries this month.','এ মাসে কোনো এন্ট্রি নেই।')}</Text>}
+          {periodTransactions.slice(0,10).map((txn, index) => (
             <React.Fragment key={txn.id}>
-              <View style={styles.recentRow}>
-                <View style={styles.recentDetails}>
-                  <Text style={styles.recentTitle}>
-                    {isBengali ? txn.titleBn : txn.titleEn}
-                  </Text>
-                  <Text style={styles.recentMeta}>
-                    {isBengali ? txn.metaBn : txn.metaEn}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.recentAmount,
-                    txn.isIncome ? styles.profitColor : styles.lossColor,
-                  ]}
-                >
-                  {txn.isIncome ? `+${formatMoney(txn.amount)}` : `−${formatMoney(Math.abs(txn.amount))}`}
-                </Text>
-              </View>
-              {index < recentTxnsList.length - 1 && <View style={styles.recentDivider} />}
+              <EntryRow entry={txn} onPress={()=>txn.type==='withdrawal'?router.push({pathname:'/(admin)/withdrawals',params:{requestId:txn.id}}):txn.projectId?router.push(`/(admin)/project/${txn.projectId}` as any):setOpenEntry(txn)} />
+              {index < Math.min(periodTransactions.length,10) - 1 && <View style={styles.recentDivider} />}
             </React.Fragment>
           ))}
         </View>
@@ -370,7 +369,7 @@ export default function FinanceScreen() {
       </ScrollView></RemoteDataState>
 
       {/* Floating Action Button (+ খরচ লিখুন) */}
-      <FAB label={l('Record Expense', 'খরচ লিখুন')} onPress={() => router.push('/(admin)/expense/new')} />
+
 
       {/* Month Selector Modal */}
       <AppModal
@@ -481,11 +480,12 @@ export default function FinanceScreen() {
           />
 
           <TouchableOpacity
-            style={styles.modalSubmitBtn}
+            style={[styles.modalSubmitBtn, transferring && { opacity: 0.6 }]}
             onPress={handleTransferSubmit}
+            disabled={transferring}
             activeOpacity={0.85}
           >
-            <Text style={styles.modalSubmitBtnText}>{l('Confirm Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
+            <Text style={styles.modalSubmitBtnText}>{transferring ? l('Transferring...', 'স্থানান্তর হচ্ছে...') : l('Confirm Transfer', 'স্থানান্তর সম্পন্ন করুন')}</Text>
           </TouchableOpacity>
         </View>
       </AppModal>
@@ -524,6 +524,7 @@ export default function FinanceScreen() {
           </TouchableOpacity>
         </View>
       </AppModal>
+      <EntryActions entry={openEntry} onClose={()=>{setOpenEntry(null);ledger.reload?.();}} />
     </SafeAreaView>
   );
 }
@@ -618,6 +619,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.caption,
     color: colors.textSecondary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   summaryValue: {
     fontFamily: typography.fontFamily.bold,
@@ -627,6 +629,9 @@ const styles = StyleSheet.create({
   },
   netProfitColor: {
     color: colors.primary,
+  },
+  netLossColor: {
+    color: colors.warning,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

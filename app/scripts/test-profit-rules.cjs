@@ -20,41 +20,28 @@ assert.equal(calc(1000,100,0).distributed,0);
 assert.equal(calc(1000,'১২.৫','৭.২৫').distributed,802.5);
 const pennies=calc(0.03,10,10);
 assert.equal(Math.round((pennies.reserveFund+pennies.managementFund+pennies.distributed)*100),3);
-function fixture({remote=false,approved=false,role='super_admin'}={}) {
-  const hooks=[],effects=[],alerts=[],writes=[],approvals=[];let cursor=0;
-  const React={Fragment:'Fragment',createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:initial=>{const i=cursor++;if(!(i in hooks))hooks[i]=typeof initial==='function'?initial():initial;return [hooks[i],v=>hooks[i]=typeof v==='function'?v(hooks[i]):v]},useMemo:f=>f(),useEffect:f=>effects.push(f)};
-  const snapshot={alreadyDistributed:true,reservePct:12.5,managementPct:7.25,projectProfit:1000,expenses:0,netProfit:1000,totalDeposit:1000,distributed:802.5,shares:[{memberId:'m',name:'Fixture',baseDeposit:1000,share:802.5}]};
-  const state={members:[{id:'m',name:'Fixture',status:'paid',totalDeposit:1000}],projects:[{netProfit:1000}],somitiInfo:{name:'Fixture',monthlyExpense:0,...(approved?{demoProfitDistributions:{[new Date().getFullYear()]:snapshot}}:{})},updateSomitiInfo:async v=>writes.push(v),syncFromServer:async()=>{}};
-  const store=()=>state;store.getState=()=>state;store.setState=v=>Object.assign(state,v);
-  const screen=load(path.join(__dirname,'../app/(admin)/distribution.tsx'),{
-    'react':{__esModule:true,default:React,...React},'react-native':{View:'View',Text:'Text',ScrollView:'Scroll',TouchableOpacity:'Touch',TextInput:'Input',SafeAreaView:'SafeAreaView',StatusBar:'StatusBar',StyleSheet:{create:s=>s},Alert:{alert:(...a)=>alerts.push(a)},Platform:{}},
-    'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},
-    'expo-router':{useRouter:()=>({})},'@expo/vector-icons/Ionicons':{default:'Icon'},
-    '../../src/store/somitiStore':{REMOTE:remote,useSomitiStore:store},'../../src/features/auth/authStore':{useAuthStore:f=>f({actualRole:role})},
-    '../../src/i18n/useLanguage':{useLanguage:()=>({l:en=>en,formatMoney:n=>String(n),formatNum:n=>String(n),isBengali:false})},
-    '../../src/utils/navigation':{safeBack:()=>{}},'../../src/lib/api':{profitPreview:()=>approvals.length ? new Promise(()=>{}) : Promise.resolve({alreadyDistributed:false,projectProfit:1000,expenses:0,netProfit:1000,totalDeposit:1000}),distributeProfit:async(...v)=>{approvals.push(v);return {distributed:802.5};}},
-    '../../src/theme/colors':{colors:{avatarPastels:[{bg:'',text:''}]}},'../../src/theme/typography':{typography:{fontFamily:{},size:{},lineHeight:{}}},
-    '../../src/utils/pdfExport':{exportAndShareReceipt:()=>{}},'../../src/components':{Button:'Button',Card:'Card'},'../../src/lib/profitAllocation':allocation,
-  });
-  function render(){cursor=0;effects.length=0;return screen.default()}
-  function nodes(tree){if(!tree||typeof tree!=='object')return [];return [tree,...(tree.props.children||[]).flat(Infinity).flatMap(nodes)]}
-  const input=label=>nodes(render()).find(n=>n.type==='Input'&&n.props.accessibilityLabel===label);
-  const button=title=>nodes(render()).find(n=>n.props.title===title);
-  const approve=()=>nodes(render()).find(n=>n.type==='Touch'&&JSON.stringify(n.props.children).includes('Give Approval'));
-  return {render,input,button,approve,alerts,writes,approvals,effects};
+// The distribution screen now runs on the server's taka-month preview
+// (profit_preview_fy); see scripts/test-digital-khata-db.cjs for the posting checks.
+{
+  const src=fs.readFileSync(path.join(__dirname,'../app/(admin)/distribution.tsx'),'utf8');
+  assert.ok(src.includes('profitPreviewFy')&&src.includes('distributeProfitFy'),'screen uses the fiscal-year API');
+  assert.ok(src.includes("disabled={!complete || !rulesValid"),'distribution waits for the year to close');
+  assert.ok(src.includes('canManage && !done && REMOTE'),'only admin can distribute');
 }
-async function main(){
- const f=fixture({remote:true});f.render();f.effects[0]();await Promise.resolve();await Promise.resolve();
- assert.equal(f.input('Reserve fund (%)').props.value,'0');
- f.input('Reserve fund (%)').props.onChangeText('12.5');f.input('Director share (%)').props.onChangeText('7.25');
- await f.button('Save somiti rules').props.onPress();assert.equal(f.writes[0].profitReservePct,12.5);assert.equal(f.writes[0].profitManagementPct,7.25);
- f.approve().props.onPress();const confirm=f.alerts.find(a=>a[0]==='Profit Distribution Approval');assert.ok(confirm[1].includes('802.5'));
- await confirm[2][1].onPress();assert.equal(f.approvals[0][1],12.5);assert.equal(f.approvals[0][2],7.25);
- assert.equal(f.input('Reserve fund (%)').props.value,'12.5','Approved rates remain visible while refreshing the server snapshot');
- const invalid=fixture();invalid.input('Reserve fund (%)').props.onChangeText('60');invalid.input('Director share (%)').props.onChangeText('41');assert.equal(invalid.approve().props.disabled,true);invalid.approve().props.onPress();assert.equal(invalid.alerts.length,0);
- const frozen=fixture({approved:true});assert.equal(frozen.input('Reserve fund (%)').props.value,'12.5');assert.equal(frozen.input('Reserve fund (%)').props.editable,false);assert.equal(frozen.button('Save somiti rules'),undefined);
- const cashier=fixture({role:'cashier'});assert.equal(cashier.input('Reserve fund (%)').props.editable,false);assert.equal(cashier.approve().props.disabled,true);
- console.log('PASS profit rules: zero/decimal/Bengali rates, invalid totals blocked, cents reconcile, settings persistence payload, selected rates sent to distribution API, approved snapshot locked, cashier read-only.');
+// Taka-month profit (client example: same deposit, different months).
+{
+  const {takaMonthShares,fiscalPeriod,fiscalYearOf}=allocation;
+  assert.equal(JSON.stringify(fiscalPeriod(2027)),JSON.stringify({start:'2026-07-01',end:'2027-07-01'}));
+  assert.equal(fiscalYearOf('2026-10-26'),2027);assert.equal(fiscalYearOf('2027-06-30'),2027);assert.equal(fiscalYearOf('2026-03-01',1),2026);
+  const p=fiscalPeriod(2024);
+  const m=(id,date,amount)=>({id,name:id,code:id,balanceNow:amount,events:[{date,delta:amount}]});
+  const rows=takaMonthShares([m('A','2023-06-20',50000),m('B','2024-02-10',50000),m('C','2024-06-05',50000)],p.start,p.end,'full',9000);
+  const by=Object.fromEntries(rows.map(r=>[r.memberId,r]));
+  assert.equal(by.A.takaMonths,600000);assert.equal(by.B.takaMonths,200000);assert.equal(by.C,undefined,'June deposit counts from July');
+  assert.equal(by.A.share,6750);assert.equal(by.B.share,2250);
+  const rate=takaMonthShares([m('A','2023-06-20',50000)],p.start,p.end,'rate',0,10);assert.equal(rate[0].share,5000);
+  // Withdrawal counts from its own month: 50,000 all year, 20,000 withdrawn in March.
+  const w={id:'W',name:'W',code:'W',balanceNow:30000,events:[{date:'2023-01-10',delta:50000},{date:'2024-03-15',delta:-20000}]};
+  assert.equal(takaMonthShares([w],p.start,p.end,'rate',0,12)[0].takaMonths,50000*8+30000*4);
+  console.log('taka-month profit checks passed');
 }
-main().catch(e=>{console.error(e);process.exitCode=1});
-

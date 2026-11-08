@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
@@ -6,11 +6,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { useLanguage } from '../../../src/i18n/useLanguage';
+import { NewEntrySheet } from '../../../src/components/NewEntrySheet';
 
 export default function TabLayout() {
   const { l } = useLanguage();
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 8);
+  const [sheet, setSheet] = useState(false);
 
   const renderIcon = (name: keyof typeof Ionicons.glyphMap, nameOutline: keyof typeof Ionicons.glyphMap, focused: boolean, color: any) => (
     <View style={focused ? styles.activePill : styles.inactivePill}>
@@ -19,6 +21,7 @@ export default function TabLayout() {
   );
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -63,11 +66,18 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => renderIcon('people', 'people-outline', focused, color),
         }}
       />
+      {/* Savings are voluntary: the monthly collection tab is replaced by the New entry button. */}
+      <Tabs.Screen name="collection" options={{ href: null }} />
       <Tabs.Screen
-        name="collection"
+        name="new"
         options={{
-          title: l('Collection', 'আদায়'),
-          tabBarIcon: ({ color, focused }) => renderIcon('wallet', 'wallet-outline', focused, color),
+          title: l('New', 'নতুন'),
+          tabBarAccessibilityLabel: l('New entry', 'নতুন এন্ট্রি'),
+          tabBarButton: ({ style }) => (
+            <Pressable style={[style, styles.plusWrap]} onPress={() => setSheet(true)} accessibilityRole="button" accessibilityLabel={l('New entry', 'নতুন এন্ট্রি')} testID="tab-new-entry">
+              <View style={styles.plus}><Ionicons name="add" size={28} color={colors.textWhite} /></View>
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen
@@ -85,10 +95,14 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    <NewEntrySheet visible={sheet} onClose={() => setSheet(false)} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  plusWrap: { alignItems: 'center', justifyContent: 'center' },
+  plus: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: -14, shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   activePill: {
     backgroundColor: colors.primarySoft,
     width: 48,

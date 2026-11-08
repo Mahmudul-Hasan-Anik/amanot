@@ -1,3 +1,4 @@
+import { displayRelative, localDigits, roleTitle } from '../../src/lib/displayText';
 import {InvestmentApprovalQueue} from '../../src/components/InvestmentApprovalQueue';
 import {WithdrawalApprovalQueue} from '../../src/components/WithdrawalApprovalQueue';
 import { useRemoteQuery } from '../../src/hooks/useRemoteQuery';
@@ -26,6 +27,7 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { showToast } from '../../src/components/Toast';
 
 const REJECTION_REASONS = [
   { bn: 'অপ্রয়োজনীয় বা অস্পষ্ট ভাউচার', en: 'Unclear or unnecessary voucher' },
@@ -83,22 +85,19 @@ export default function ApprovalsScreen() {
 
   const handleApprove = async (item: PendingApproval) => {
     try {
-    const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
+    const approverName = useAuthStore.getState().currentUser?.name || l('Admin', 'অ্যাডমিন');
     await approveRequest(item.id, approverName);
-    Alert.alert(
-      l('Approved', 'অনুমোদিত'),
-      l(
+    showToast(l(
         `"${cleanTitle(item.title)}" has been approved. Funds adjusted.`,
         `"${cleanTitle(item.title)}" সফলভাবে অনুমোদিত হয়েছে এবং ফান্ড সমন্বয় করা হয়েছে।`
-      )
-    );
+      ));
     } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
   const handleConfirmReject = async () => {
     try {
     if (!rejectingItem) return;
-    const approverName = useAuthStore.getState().currentUser?.name || (isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain');
+    const approverName = useAuthStore.getState().currentUser?.name || l('Admin', 'অ্যাডমিন');
     const finalReason =
       selectedReasonIdx === REJECTION_REASONS.length - 1 && customReason.trim()
         ? customReason.trim()
@@ -110,10 +109,7 @@ export default function ApprovalsScreen() {
     const itemTitle = cleanTitle(rejectingItem.title);
     setRejectingItem(null);
     setCustomReason('');
-    Alert.alert(
-      l('Rejected', 'প্রত্যাখ্যাত'),
-      l(`"${itemTitle}" has been rejected.`, `"${itemTitle}" বাতিল করা হয়েছে।`)
-    );
+    showToast(l(`"${itemTitle}" has been rejected.`, `"${itemTitle}" বাতিল করা হয়েছে।`));
     } catch (e: any) { Alert.alert(l('Failed', 'ব্যর্থ'), e.message); }
   };
 
@@ -121,13 +117,10 @@ export default function ApprovalsScreen() {
     try {
     const result = await autoApproveAllPending();
     if (result.approvedCount > 0) {
-      Alert.alert(
-        l('Auto-Approved', 'স্বয়ংক্রিয় অনুমোদন সম্পন্ন'),
-        l(
+      showToast(l(
           `${result.approvedCount} eligible requests totaling ${formatMoney(result.totalAmount)} have been auto-approved!`,
           `${formatNum(result.approvedCount)}টি উপযুক্ত অনুরোধ (মোট ${formatMoney(result.totalAmount)}) স্বয়ংক্রিয়ভাবে অনুমোদিত হয়েছে!`
-        )
-      );
+        ));
     } else {
       Alert.alert(
         l('Notice', 'নোটিশ'),
@@ -160,7 +153,7 @@ export default function ApprovalsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{l('Approvals', 'অনুমোদন')}</Text>
+        <Text style={styles.headerTitle}>{l('Older requests', 'পুরনো আবেদন')}</Text>
         <View style={styles.headerRightSpacer} />
       </View>
 
@@ -229,10 +222,10 @@ export default function ApprovalsScreen() {
               </View>
               <View style={styles.autoApproveTextCol}>
                 <Text style={styles.autoApproveTitle}>
-                  {l('Smart Auto-Approval', 'স্বয়ংক্রিয় অনুমোদন')}
+                  {l('Approve all older vouchers', 'পুরনো সব ভাউচার শেষ করুন')}
                 </Text>
                 <Text style={styles.autoApproveSub}>
-                  {l('One-tap approve all vouchers under limit', 'সীমার নিচের ভাউচার এক ক্লিকে অনুমোদন')}
+                  {l('New entries no longer need approval. Close these once.', 'নতুন এন্ট্রিতে আর অনুমোদন লাগে না। এগুলো একবার শেষ করুন।')}
                 </Text>
               </View>
             </View>
@@ -276,7 +269,7 @@ export default function ApprovalsScreen() {
                     <Text style={styles.typeBadgeText}>{badgeText}</Text>
                   </View>
                   <Text style={styles.timestampText}>
-                    {item.dateStr || (isBengali ? 'আজ ১০:২০' : 'Today 10:20')}
+                    {displayRelative(item.createdAt, isBengali) || localDigits(item.dateStr, isBengali)}
                   </Text>
                 </View>
 
@@ -286,7 +279,7 @@ export default function ApprovalsScreen() {
                     {displayTitle}
                   </Text>
                   <Text style={styles.cardAmount}>
-                    {item.amountDisplay || formatMoney(item.amount)}
+                    {item.amountDisplay ? localDigits(item.amountDisplay, isBengali) : formatMoney(item.amount)}
                   </Text>
                 </View>
 
@@ -301,7 +294,7 @@ export default function ApprovalsScreen() {
 
                 {/* Created By / Entry By */}
                 <Text style={styles.cardEntryText}>
-                  {l('Entry:', 'এন্ট্রি:')} {item.createdBy || (isBengali ? 'মাহমুদা খাতুন (কোষাধ্যক্ষ)' : 'Mahmuda Khatun (Cashier)')}
+                  {l('Entry:', 'এন্ট্রি:')} {item.createdBy ? roleTitle(item.createdBy, isBengali) : '—'}
                 </Text>
 
                 {/* Attachment Row (if present) */}

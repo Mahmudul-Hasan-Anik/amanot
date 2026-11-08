@@ -14,7 +14,7 @@ import { MemberBalanceSummary } from '../components/MemberBalanceSummary';
 import { useAuthStore } from '../features/auth/authStore';
 
 export default function Statements(){
-  const state=useSomitiStore();const {l,formatMoney,isBengali}=useLanguage();
+  const state=useSomitiStore();const {l,formatMoney,formatNum,isBengali}=useLanguage();
   const params=useLocalSearchParams<{memberId?:string}>();
   const [target,setTarget]=useState<'all'|'single'>(params.memberId?'single':'all');const [memberId,setMemberId]=useState(String(params.memberId||''));
   useEffect(()=>{if(params.memberId){setTarget('single');setMemberId(String(params.memberId));}},[params.memberId]);
@@ -40,7 +40,7 @@ export default function Statements(){
     {error?<Text accessibilityRole="alert" style={{color:colors.danger,marginBottom:12}}>{error}</Text>:null}
     {target==='single'&&<TouchableOpacity disabled={busy} style={s.card} onPress={()=>setPicker(true)} accessibilityRole="button"><Text style={s.text}>{state.members.find(m=>m.id===memberId)?.name||l('Choose member','সদস্য নির্বাচন')} ▾</Text></TouchableOpacity>}
     <MemberPicker visible={picker} members={state.members} value={memberId} onSelect={id=>{setMemberId(id);setError('');}} onClose={()=>setPicker(false)}/>
-    <View style={s.card}><Text style={s.title}>{l('Selected balances','নির্বাচিত হিসাব')}</Text><Text style={s.text}>{members.length} {l('members','জন সদস্য')}</Text><View style={s.row}><Text style={s.text}>{l('Total savings','মোট সঞ্চয়')}</Text><Text style={s.value}>{formatMoney(total)}</Text></View></View>
+    <View style={s.card}><Text style={s.title}>{l('Selected balances','নির্বাচিত হিসাব')}</Text><Text style={s.text}>{formatNum(members.length)} {l('members','জন সদস্য')}</Text><View style={s.row}><Text style={s.text}>{l('Total savings','মোট সঞ্চয়')}</Text><Text style={s.value}>{formatMoney(total)}</Text></View></View>
     <TouchableOpacity disabled={busy} style={[s.button,busy&&{opacity:0.5}]} onPress={()=>exportStatement('PDF')}><Text style={s.buttonText}>{busy?l('Preparing…','প্রস্তুত হচ্ছে…'):l('Download / Share PDF','PDF ডাউনলোড / শেয়ার')}</Text></TouchableOpacity>
     <TouchableOpacity disabled={busy} style={[s.button,{backgroundColor:colors.text}]} onPress={()=>exportStatement('CSV')}><Text style={s.buttonText}>{l('Export CSV for Excel','Excel-এর জন্য CSV এক্সপোর্ট')}</Text></TouchableOpacity>
     {members.length===0&&<Text style={s.text}>{l('No members match this selection.','এই তালিকায় কোনো সদস্য নেই।')}</Text>}

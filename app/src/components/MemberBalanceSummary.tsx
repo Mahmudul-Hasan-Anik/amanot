@@ -1,18 +1,30 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import type { Member } from '../mocks/mockData';
 import { Withdrawal, savingsBreakdown } from '../lib/withdrawal';
 import { useLanguage } from '../i18n/useLanguage';
-import { pageStyles as s } from './Page';
-export function MemberBalanceSummary({member,requests}:{member:Member;requests:Withdrawal[]}){
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+/** Savings in khata terms. `showProfit=false` hides profit (member app, society setting). */
+export function MemberBalanceSummary({member,requests,showProfit=true}:{member:Member;requests:Withdrawal[];showProfit?:boolean}){
  const {l,formatMoneyPrecise:money}=useLanguage(),b=savingsBreakdown(member,requests);
- const rows:[[string,string],number][]=[
-  [['Savings paid in','মোট জমা দেওয়া সঞ্চয়'],b.paidIn],[['Net withdrawals','নিট উত্তোলন'],b.withdrawn],
-  [['Remaining own savings','অবশিষ্ট নিজের জমা'],b.principal],[['Allocated profit','বণ্টিত লাভ'],b.profit],
-  [['Total remaining balance','মোট অবশিষ্ট ব্যালেন্স'],b.balance],[['Reserved for approved requests','অনুমোদিত আবেদনে সংরক্ষিত'],b.reserved],
- ];
- return <View style={s.card}><Text style={s.title}>{l('Savings breakdown','সঞ্চয়ের বিস্তারিত')}</Text>{rows.map(([label,value])=><View key={label[0]} style={s.row}><Text style={[s.text,{flex:1}]}>{l(...label)}</Text><Text style={s.title}>{money(value)}</Text></View>)}
-  <Text style={s.text}>{l('Available to withdraw','উত্তোলনযোগ্য জমা')}</Text><Text style={s.value}>{money(b.available)}</Text>
-  <Text style={s.text}>{l('Allocated profit is separate and cannot be withdrawn here.','বণ্টিত লাভ আলাদা; এই প্রক্রিয়ায় তা তোলা যায় না।')}</Text>
+ const rows:[[string,string],number][]=showProfit?[
+  [['Deposited','মোট জমা'],b.paidIn],[['Withdrawn','মোট উত্তোলন'],b.withdrawn],[['Profit','মুনাফা'],b.profit],
+ ]:[[['Deposited','মোট জমা'],b.paidIn],[['Withdrawn','মোট উত্তোলন'],b.withdrawn]];
+ const balance=showProfit?b.balance:Math.max(0,Math.round((b.paidIn-b.withdrawn)*100)/100);
+ return <View style={st.hero}>
+  <Text style={st.label}>{l('Savings now','এখন সঞ্চয়')}</Text>
+  <Text style={st.value}>{money(balance)}</Text>
+  <View style={st.cols}>{rows.map(([label,value],i)=><View key={label[0]} style={[st.col,i>0&&st.colLine]}>
+   <Text style={st.colLabel} numberOfLines={1}>{l(...label)}</Text><Text style={st.colValue} numberOfLines={1} adjustsFontSizeToFit>{money(value)}</Text></View>)}</View>
  </View>;
 }
+const st=StyleSheet.create({
+ hero:{backgroundColor:colors.primary,borderRadius:20,padding:20,marginBottom:12,shadowColor:colors.primary,shadowOffset:{width:0,height:6},shadowOpacity:0.18,shadowRadius:12,elevation:4},
+ label:{fontFamily:typography.fontFamily.medium,fontSize:typography.size.subhead,lineHeight:typography.lineHeight.subhead,color:colors.surface,opacity:0.9},
+ value:{...typography.displayAmount,color:colors.surface,marginTop:6,marginBottom:14},
+ cols:{flexDirection:'row',backgroundColor:'rgba(255,255,255,0.12)',borderRadius:14,paddingVertical:10},
+ col:{flex:1,alignItems:'center',paddingHorizontal:6},colLine:{borderLeftWidth:1,borderLeftColor:'rgba(255,255,255,0.2)'},
+ colLabel:{fontFamily:typography.fontFamily.regular,fontSize:12,lineHeight:18,color:colors.surface,opacity:0.85},
+ colValue:{fontFamily:typography.fontFamily.bold,fontSize:15,lineHeight:22,color:colors.surface},
+});

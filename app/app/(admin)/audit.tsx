@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { REMOTE } from '../../src/store/somitiStore';
-import { bnDate } from '../../src/lib/api';
+import { displayDate, localDigits } from '../../src/lib/displayText';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { safeBack } from '../../src/utils/navigation';
@@ -102,8 +102,8 @@ export default function AuditLogScreen() {
         const meta = ACTIONS[a.action] || { en: a.action, bn: a.action, cat: 'settings' as const };
         const d = a.details || {};
         const parts: string[] = [];
-        if (d.amount) parts.push(`৳${d.amount}`);
-        if (d.receipt) parts.push(`রসিদ #${d.receipt}`);
+        if (d.amount) parts.push(`৳${localDigits(d.amount, isBengali)}`);
+        if (d.receipt) parts.push(`${isBengali ? 'রসিদ' : 'Receipt'} #${localDigits(d.receipt, isBengali)}`);
         if (d.member) parts.push(String(d.member));
         if(d.from && d.to)parts.push([d.from,d.to].map(value=>{const category=MEMBER_CATEGORIES.find(item=>item.value===value);return category?(isBengali?category.bn:category.en):String(value)}).join(' → '));
         if(d.number)parts.push(`${isBengali?'নম্বর':'Number'}: ${d.number}`);
@@ -111,7 +111,7 @@ export default function AuditLogScreen() {
 
         return {
           id: a.id,
-          header: `${bnDate(a.createdAt)} • ${a.actor || 'সিস্টেম'}`,
+          header: `${displayDate(a.createdAt, isBengali)} • ${a.actor || (isBengali ? 'সিস্টেম' : 'System')}`,
           title: isBengali ? meta.bn : meta.en,
           sub: parts.join(' • ') || (isBengali ? 'সিস্টেম লগ' : 'System log'),
           category: meta.cat,

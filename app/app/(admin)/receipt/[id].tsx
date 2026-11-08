@@ -16,10 +16,11 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { somitiName } from '../../../src/utils/somitiBranding';
-import { BENGALI_MONTHS_FULL, toBengaliDigits } from '../../../src/lib/bengali';
+import { displayDate, localDigits, roleTitle } from '../../../src/lib/displayText';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { exportAndShareReceipt, shareReceiptViaWhatsApp } from '../../../src/utils/pdfExport';
+import { EntryActions } from '../../../src/components/EntryActions';
 import {fetchTransactionByReference} from '../../../src/lib/api';
 import {isSupabaseConfigured} from '../../../src/lib/supabase';
 import {useAuthStore} from '../../../src/features/auth/authStore';
@@ -27,7 +28,7 @@ import type {Transaction} from '../../../src/store/somitiStore';
 
 export default function ReceiptScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, fresh } = useLocalSearchParams();
   const { getTransactionById, getMemberById, members, somitiInfo } = useSomitiStore();
   const { l, isBengali, formatMoney } = useLanguage();
 
@@ -46,6 +47,7 @@ export default function ReceiptScreen() {
     return()=>{active=false;};
   },[key,!!cached]);
   const txn=cached||(resolved?.key===key?resolved.txn:null);
+  const [fixing,setFixing]=React.useState(false);
   if(!txn||txn.type!=='deposit')return <SafeAreaView style={styles.container}>
     <TouchableOpacity onPress={()=>router.back()}><Text style={styles.homeLinkText}>{l('Back','ফিরুন')}</Text></TouchableOpacity>
     <Text style={styles.homeLinkText}>{resolved?.key===key&&resolved.error ? resolved.error : isSupabaseConfigured()&&resolved?.key!==key&&!cached ? l('Loading receipt…','রসিদ লোড হচ্ছে…') : l('Deposit receipt not found','জমার রসিদ পাওয়া যায়নি')}</Text>
@@ -54,30 +56,23 @@ export default function ReceiptScreen() {
     ? getMemberById(txn.memberId) || displayMembers.find((m) => m.id === txn.memberId)
     : displayMembers.find((m) => m.id === '2') || displayMembers[0];
 
-  const defaultNum = isBengali ? '১০৮৮' : '1088';
-  const receiptNo = txn?.receiptNo || ('#' + defaultNum);
-  const amount = txn?.amount ?? 0;
-  const memberName = l(member?.nameEn || txn?.memberName || member?.name || 'করিম উদ্দিন', txn?.memberName || member?.name || 'করিম উদ্দিন');
-  const memberCode = member?.code || txn?.memberCode || 'SM-042';
+  const receiptNo = localDigits(txn.receiptNo || '', isBengali);
+  const amount = txn.amount ?? 0;
+  const memberName = l(member?.nameEn || txn.memberName || member?.name || '', txn.memberName || member?.name || '');
+  const memberCode = member?.code || txn.memberCode || '';
 
   const monthsStr = txn.months?.join(', ') || '';
 
   const lateFee = txn?.lateFee ?? 0;
   const baseDeposit = amount - lateFee;
 
-  // Date and Time formatting
-  const now = new Date();
-  const day = now.getDate();
-  const monthBn = BENGALI_MONTHS_FULL[now.getMonth()];
-  const monthEn = now.toLocaleDateString('en-GB', { month: 'short' });
-  const year = now.getFullYear();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const mins = String(now.getMinutes()).padStart(2, '0');
-  const timeFormatted = `${hours}:${mins}`;
-
-  const defaultDateBn = `${toBengaliDigits(day)} ${monthBn} ${toBengaliDigits(year)}, ${toBengaliDigits(timeFormatted)}`;
-  const defaultDateEn = `${day} ${monthEn} ${year}, ${timeFormatted}`;
-  const dateStr = txn?.date ? txn.date : l(defaultDateEn, defaultDateBn);
+  // Stored dates are Bengali text; show them in the reader's language.
+  const dateStr = displayDate(txn.date, isBengali, (txn as any).dateISO);
+  // Only name the receiver when we know who it was: the person who just recorded it.
+  const currentUser = useAuthStore.getState().currentUser;
+  const receivedBy = fresh === '1' && currentUser?.name
+    ? `${l(currentUser.nameEn || currentUser.name, currentUser.name)}${currentUser.role ? ` (${roleTitle(currentUser.role, isBengali)})` : ''}`
+    : '';
 
   const trxIdStr = txn?.trxId || '—';
   const methodStr =
@@ -136,7 +131,7 @@ export default function ReceiptScreen() {
     } catch (e) {}
   };
 
-  if (!txn) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Receipt not found. Refresh accounts and try again.','রসিদ পাওয়া যায়নি। হিসাব আপডেট করে আবার চেষ্টা করুন।')}</Text><TouchableOpacity onPress={()=>router.replace('/(admin)/(tabs)/collection')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to collections','আদায়ের তালিকায় ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!txn) return <SafeAreaView style={styles.container}><View style={{padding:24}}><Text>{l('Receipt not found. Refresh accounts and try again.','রসিদ পাওয়া যায়নি। হিসাব আপডেট করে আবার চেষ্টা করুন।')}</Text><TouchableOpacity onPress={()=>router.replace('/(admin)/(tabs)')}><Text style={{color:colors.primary,marginTop:16}}>{l('Back to home','হোমে ফিরুন')}</Text></TouchableOpacity></View></SafeAreaView>;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
@@ -165,7 +160,7 @@ export default function ReceiptScreen() {
         <View style={styles.voucherCard}>
           <View style={styles.voucherTop}>
             <Text style={styles.voucherNo}>{l('Receipt', 'রসিদ')} {receiptNo}</Text>
-            <Text style={styles.voucherSomiti}>[{somitiTitle}]</Text>
+            <Text style={styles.voucherSomiti} numberOfLines={1}>{somitiTitle}</Text>
           </View>
 
           <View style={styles.detailList}>
@@ -205,10 +200,12 @@ export default function ReceiptScreen() {
               </View>
             )}
 
-            <View style={styles.row}>
-              <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>
-              <Text style={styles.value}>{l('Mahmuda Khatun (Treasurer)', 'মাহমুদা খাতুন (কোষাধ্যক্ষ)')}</Text>
-            </View>
+            {!!receivedBy && (
+              <View style={styles.row}>
+                <Text style={styles.label}>{l('Received By', 'গ্রহণকারী')}</Text>
+                <Text style={styles.value}>{receivedBy}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.dottedDivider} />
@@ -248,8 +245,13 @@ export default function ReceiptScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="add" size={20} color={colors.surface} />
-            <Text style={styles.anotherBtnText}>{l('+ Record Another Deposit', '+ আরেকটি জমা নিন')}</Text>
+            <Text style={styles.anotherBtnText}>{l('Record Another Deposit', 'আরেকটি জমা নিন')}</Text>
           </TouchableOpacity>
+
+          {/* Mistake? cancel or edit right away (kept in the audit log). */}
+          {txn && !(txn as any).voided ? <TouchableOpacity style={styles.homeLinkBtn} onPress={() => setFixing(true)} activeOpacity={0.7}>
+            <Text style={[styles.homeLinkText, { color: colors.warning }]}>{l('Wrong entry? Cancel or edit', 'ভুল হয়েছে? বাতিল বা এডিট করুন')}</Text>
+          </TouchableOpacity> : null}
 
           {/* Back to Home Link */}
           <TouchableOpacity
@@ -263,6 +265,7 @@ export default function ReceiptScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <EntryActions entry={fixing && txn ? txn as any : null} onClose={() => setFixing(false)} />
     </SafeAreaView>
   );
 }

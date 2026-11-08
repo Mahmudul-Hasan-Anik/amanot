@@ -1,4 +1,4 @@
-import { FAB } from '../../../src/components/FAB';
+import { formatHumanDate } from '../../../src/components/DateField';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -30,12 +30,16 @@ type FilterType = 'all' | 'active' | 'general' | 'shareholder' | 'director' | 'i
 export default function MembersScreen() {
   const router = useRouter();
   const members = useSomitiStore(s => s.members);
-  const { l, formatNum, language } = useLanguage();
+  const transactions = useSomitiStore(s => s.transactions);
+  const { l, formatNum, formatMoney, language, isBengali } = useLanguage();
+  // Latest deposit per member from the loaded khata (most recent first).
+  const lastDeposit = useMemo(() => { const map = new Map<string, string>(); for (const t of transactions) if (t.type === 'deposit' && !t.voided && t.dateISO && !map.has(t.memberId)) map.set(t.memberId, t.dateISO); return map; }, [transactions]);
+  const totalSavings = useMemo(() => members.reduce((sum, m) => sum + (m.totalDeposit || 0), 0), [members]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState('name');
+  const [sortBy, setSortBy] = useState('savings');
   const sortOptions = [
     { value: 'name', label: l('Name', 'নাম') },
     { value: 'code', label: l('Member ID', 'সদস্য আইডি') },
@@ -70,30 +74,22 @@ export default function MembersScreen() {
   }, [members, searchQuery, activeFilter, sortBy, language]);
 
   const renderMemberItem = ({ item, index }: { item: Member; index: number }) => {
-    const category=MEMBER_CATEGORIES.find(c=>c.value===item.memberCategory);
-    const tagBg=colors.primarySoft,tagColor=colors.primary;
-    const tagLabel=item.status==='inactive'?l('Inactive','নিষ্ক্রিয়'):category?l(category.en,category.bn):l('Legacy ID','পুরোনো ID');
+    const last = lastDeposit.get(item.id);
     return (
-      <TouchableOpacity
-        onPress={() => router.push(`/(admin)/member/${item.id}`)}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity onPress={() => router.push(`/(admin)/member/${item.id}`)} activeOpacity={0.7}>
         <Card style={styles.memberCard}>
           <View style={styles.memberLeft}>
             <Avatar photoUri={item.photoUri} name={item.name} size="md" index={index} />
-
             <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{item.name}</Text>
-              <Text style={styles.memberCodeAndRate}>
-                {item.code}
+              <Text style={styles.memberName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.memberCodeAndRate} numberOfLines={1}>
+                {item.code}{last ? ` · ${l('last deposit', 'শেষ জমা')} ${formatHumanDate(last, isBengali)}` : ''}
               </Text>
             </View>
           </View>
-
-          <View style={[styles.statusTag, { backgroundColor: tagBg }]}>
-            <Text style={[styles.statusTagText, { color: tagColor }]}>
-              {tagLabel}
-            </Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.balance, item.status === 'inactive' && { color: colors.textSecondary }]}>{formatMoney(item.totalDeposit || 0)}</Text>
+            {item.status === 'inactive' ? <Text style={styles.inactiveText}>{l('Inactive', 'নিষ্ক্রিয়')}</Text> : null}
           </View>
         </Card>
       </TouchableOpacity>
@@ -109,9 +105,13 @@ export default function MembersScreen() {
         <View>
           <Text style={styles.headerTitle}>{l('Members', 'সদস্য')}</Text>
           <Text style={styles.headerSubtitle}>
-            {formatNum(totalCount)} {l('members ·', 'জন ·')} {formatNum(activeCount)} {l('active', 'সক্রিয়')}
+            {formatNum(totalCount)} {l('members ·', 'জন ·')} {formatNum(activeCount)} {l('active', 'সক্রিয়')} · {l('savings', 'মোট সঞ্চয়')} {formatMoney(totalSavings)}
           </Text>
         </View>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity style={[styles.menuBtn, { marginRight: 8 }]} accessibilityRole="button" accessibilityLabel={l('New member', 'নতুন সদস্য')} onPress={() => router.push('/(admin)/member/new')} activeOpacity={0.7}>
+          <Ionicons name="person-add-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuBtn} accessibilityRole="button" accessibilityLabel={l('Sort members', 'সদস্য সাজান')} onPress={() => setShowSort(true)} activeOpacity={0.7}>
           <Ionicons name="swap-vertical" size={20} color={colors.text} />
@@ -181,8 +181,6 @@ export default function MembersScreen() {
         />
       </View>
 
-      {/* Floating Action Button: + নতুন সদস্য */}
-      <FAB label={l('New Member', 'নতুন সদস্য')} onPress={() => router.push('/(admin)/member/new')} />
       <SelectModal visible={showSort} title={l('Sort members', 'সদস্য সাজান')} value={sortBy} options={sortOptions} onSelect={setSortBy} onClose={() => setShowSort(false)} />
       <SelectModal visible={showFilter} title={l('Filter members', 'সদস্য বাছাই করুন')} value={activeFilter}
         options={[{value:'all',label:l('All','সব')},{value:'active',label:l('Active','সক্রিয়')},...MEMBER_CATEGORIES.map(c=>({value:c.value,label:l(c.en,c.bn)})),{value:'inactive',label:l('Inactive','নিষ্ক্রিয়')}]}
@@ -192,6 +190,8 @@ export default function MembersScreen() {
 }
 
 const styles = StyleSheet.create({
+  balance: { fontFamily: typography.fontFamily.bold, fontSize: 15, color: colors.primary },
+  inactiveText: { fontFamily: typography.fontFamily.medium, fontSize: 11, color: colors.warning },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

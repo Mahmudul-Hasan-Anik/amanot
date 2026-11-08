@@ -5,8 +5,8 @@
   "scripts": {
     "start": "expo start",
     "tunnel": "expo start --tunnel",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "check:tokens": "node scripts/check-tokens.js",
     "typecheck": "tsc --noEmit",
@@ -15,6 +15,7 @@
     "test:profile-photo": "node scripts/test-profile-photo.cjs",
     "test:live-auth": "node scripts/test-live-auth.cjs",
     "test:pin-screen": "node scripts/test-pin-screen.cjs",
+    "test:display-text": "node scripts/test-display-text.cjs",
     "test:somiti-branding": "node scripts/test-somiti-branding.cjs",
     "test:mobile-feedback": "node scripts/test-mobile-feedback.cjs",
     "test:export-files": "node scripts/test-export-files.cjs",
@@ -52,7 +53,9 @@
     "test:withdrawal-ui": "node scripts/test-withdrawal-ui.cjs",
     "test:savings-presentation": "node scripts/test-savings-presentation.cjs",
     "test:deposit-form": "node scripts/test-deposit-form.cjs",
-    "test:member-login-pin": "node scripts/test-member-login-pin.cjs"
+    "test:member-login-pin": "node scripts/test-member-login-pin.cjs",
+    "test:form-regressions": "node scripts/test-form-regressions.cjs",
+    "test:digital-khata": "node scripts/test-digital-khata-db.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

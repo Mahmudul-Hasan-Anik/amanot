@@ -50,7 +50,6 @@ export default function NewMemberScreen() {
   const [fatherName, setFatherName] = useState('');
   const [motherName, setMotherName] = useState('');
   const [nid, setNid] = useState('');
-  const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
   const [sameAsPhone, setSameAsPhone] = useState(true);
   const [whatsappPhone, setWhatsappPhone] = useState('');
@@ -62,7 +61,6 @@ export default function NewMemberScreen() {
 
   // DatePicker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerTarget, setDatePickerTarget] = useState<'dob' | 'joinDate'>('dob');
   const [pickerDay, setPickerDay] = useState(15);
   const [pickerMonth, setPickerMonth] = useState(8);
   const [pickerYear, setPickerYear] = useState(1990);
@@ -76,9 +74,8 @@ export default function NewMemberScreen() {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const openDatePicker = (target: 'dob' | 'joinDate') => {
-    setDatePickerTarget(target);
-    const curVal = target === 'dob' ? dob : joinDate;
+  const openDatePicker = () => {
+    const curVal = joinDate;
     if (curVal) {
       const parts = toEnglishDigits(curVal).split(/[\/\-\.]/);
       if (parts.length === 3) {
@@ -87,35 +84,27 @@ export default function NewMemberScreen() {
         const y = parseInt(parts[2], 10);
         if (!isNaN(d) && d >= 1 && d <= 31) setPickerDay(d);
         if (!isNaN(m) && m >= 1 && m <= 12) setPickerMonth(m);
-        if (!isNaN(y) && y >= 1930 && y <= 2030) setPickerYear(y);
+        if (!isNaN(y) && y >= 1930 && y <= new Date().getFullYear() + 1) setPickerYear(y);
       }
     } else {
-      if (target === 'dob') {
-        setPickerDay(15);
-        setPickerMonth(8);
-        setPickerYear(1990);
-      } else {
+
         const now = new Date();
         setPickerDay(now.getDate());
         setPickerMonth(now.getMonth() + 1);
         setPickerYear(now.getFullYear());
-      }
     }
     setShowDatePicker(true);
   };
 
   const handleConfirmDate = () => {
-    const dd = pickerDay < 10 ? `0${pickerDay}` : `${pickerDay}`;
+    const validDay = Math.min(pickerDay, new Date(pickerYear, pickerMonth, 0).getDate());
+    const dd = String(validDay).padStart(2,'0');
     const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
     const yyyy = `${pickerYear}`;
     const dateStr = `${dd}/${mm}/${yyyy}`;
     const formatted = isBengali ? toBengaliDigits(dateStr) : dateStr;
 
-    if (datePickerTarget === 'dob') {
-      setDob(formatted);
-    } else {
-      setJoinDate(formatted);
-    }
+    setJoinDate(formatted); validation.clear('joinDate');
     setShowDatePicker(false);
   };
 
@@ -284,28 +273,6 @@ export default function NewMemberScreen() {
           <Text style={styles.helperHint}>{l('Number only; NID photos are not collected.', 'শুধু নম্বর; NID-এর ছবি নেওয়া হয় না।')}</Text>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{l('Date of Birth', 'জন্মতারিখ')}</Text>
-          <View style={styles.inputWithIcon}>
-            <TextInput
-              testID="input-member-dob"
-              style={styles.inputWithIconText}
-              value={dob}
-              onChangeText={setDob}
-              placeholder={l('DD/MM/YYYY', 'দিন/মাস/বছর')}
-              placeholderTextColor={colors.textSecondary}
-            />
-            <TouchableOpacity
-              testID="btn-dob-calendar"
-              style={styles.calendarIconBtn}
-              onPress={() => openDatePicker('dob')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* 2. যোগাযোগ */}
         <Text style={styles.sectionTitle}>{l('Contact Details', 'যোগাযোগ')}</Text>
 
@@ -423,7 +390,7 @@ export default function NewMemberScreen() {
             <TouchableOpacity
               testID="btn-join-date-calendar"
               style={styles.calendarIconBtn}
-              onPress={() => openDatePicker('joinDate')}
+              onPress={() => openDatePicker()}
               activeOpacity={0.7}
             >
               <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
@@ -460,9 +427,7 @@ export default function NewMemberScreen() {
           <View style={styles.datePickerTitleRow}>
             <Ionicons name="calendar" size={20} color={colors.primary} />
             <Text style={styles.datePickerTitle}>
-              {datePickerTarget === 'dob'
-                ? l('Select Date of Birth', 'জন্মতারিখ নির্বাচন করুন')
-                : l('Select Join Date', 'যোগদানের তারিখ নির্বাচন করুন')}
+              {l('Select Join Date', 'যোগদানের তারিখ নির্বাচন করুন')}
             </Text>
           </View>
           <TouchableOpacity
@@ -495,7 +460,7 @@ export default function NewMemberScreen() {
               style={styles.pickerScrollView}
               showsVerticalScrollIndicator={false}
             >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+              {Array.from({ length: new Date(pickerYear, pickerMonth, 0).getDate() }, (_, i) => i + 1).map((d) => {
                 const isSelected = d === pickerDay;
                 return (
                   <TouchableOpacity
@@ -526,7 +491,7 @@ export default function NewMemberScreen() {
                   <TouchableOpacity
                     key={`month-${m}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerMonth(m)}
+                    onPress={() => {setPickerMonth(m);setPickerDay(d=>Math.min(d,new Date(pickerYear,m,0).getDate()));}}
                   >
                     <Text
                       numberOfLines={1}
@@ -547,13 +512,13 @@ export default function NewMemberScreen() {
               style={styles.pickerScrollView}
               showsVerticalScrollIndicator={false}
             >
-              {Array.from({ length: 80 }, (_, i) => 2026 - i).map((y) => {
+              {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => {
                 const isSelected = y === pickerYear;
                 return (
                   <TouchableOpacity
                     key={`year-${y}`}
                     style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                    onPress={() => setPickerYear(y)}
+                    onPress={() => {setPickerYear(y);setPickerDay(d=>Math.min(d,new Date(y,pickerMonth,0).getDate()));}}
                   >
                     <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
                       {isBengali ? toBengaliDigits(y) : y}

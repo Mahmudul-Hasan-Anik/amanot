@@ -1,3 +1,4 @@
+import { roleTitle } from '../../src/lib/displayText';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -47,7 +48,7 @@ export default function PinScreen() {
     const role = useAuthStore.getState().userRole;
     router.replace(role === 'member' ? '/(member)' : '/(admin)/(tabs)');
   };
-  const { l } = useLanguage();
+  const { l, isBengali } = useLanguage();
   const [pinDigits, setPinDigits] = useState<string[]>([]);
   if (REMOTE && (!isAuthenticated || !isValidPhone(phone))) return <Redirect href="/(auth)/login" />;
 
@@ -148,7 +149,7 @@ export default function PinScreen() {
     <SafeAreaView style={styles.container}>
       {__DEV__ && (
         <View style={styles.topBar}>
-          <LanguageToggle />
+          <LanguageToggle compact shortLabels />
         </View>
       )}
 
@@ -163,8 +164,8 @@ export default function PinScreen() {
         </Text>
         <Text style={styles.roleText}>
           {REMOTE
-            ? (phoneRegistered ? (currentUser?.role || '') : l('First login: use the PIN your admin gave you', 'প্রথমবার: অ্যাডমিনের দেওয়া পিন দিন'))
-            : l('President · Super Admin', currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন')}
+            ? (phoneRegistered ? roleTitle(currentUser?.role, isBengali) : l('First login: use the PIN your admin gave you', 'প্রথমবার: অ্যাডমিনের দেওয়া পিন দিন'))
+            : roleTitle(currentUser?.role || 'সভাপতি · সুপার অ্যাডমিন', isBengali)}
         </Text>
 
         {/* PIN Title */}

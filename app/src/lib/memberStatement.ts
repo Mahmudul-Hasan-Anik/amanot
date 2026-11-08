@@ -5,7 +5,7 @@ import { financeNote } from '../i18n/financeLabels';
 /** Full, revision-consistent history only; allocated profit is shown separately. */
 export function buildMemberStatement(member:Member,history:Transaction[],language:'bn'|'en'):Report{
  const l=(en:string,bn:string)=>language==='en'?en:bn;
- const entries=history.filter(t=>t.memberId===member.id&&['deposit','withdrawal','withdrawal_reversal'].includes(t.type)).sort((a,b)=>(a.dateISO||'').localeCompare(b.dateISO||'')||(a.createdAt||'').localeCompare(b.createdAt||'')||a.id.localeCompare(b.id));
+ const entries=history.filter(t=>t.memberId===member.id&&!t.voided&&['deposit','withdrawal','withdrawal_reversal'].includes(t.type)).sort((a,b)=>(a.dateISO||'').localeCompare(b.dateISO||'')||(a.createdAt||'').localeCompare(b.createdAt||'')||a.id.localeCompare(b.id));
  const delta=(t:Transaction)=>Math.round(t.amount*100)*(t.type==='withdrawal'?-1:1);
  const closing=Math.round((member.totalDeposit-(member.profitBalance||0))*100);
  let running=closing-entries.reduce((sum,t)=>sum+delta(t),0);

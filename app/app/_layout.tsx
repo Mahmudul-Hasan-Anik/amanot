@@ -9,10 +9,12 @@ const HindSiliguri_600SemiBold=require('@expo-google-fonts/hind-siliguri/HindSil
 const HindSiliguri_700Bold=require('@expo-google-fonts/hind-siliguri/HindSiliguri_700Bold.ttf');
 import { View, ActivityIndicator, AppState, Platform } from 'react-native';
 import { WebAlertHost } from '../src/components/WebAlertHost';
+import { ToastHost } from '../src/components/Toast';
 
 // react-native-web's Alert.alert does nothing, so errors/confirmations were invisible on web.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  // Global reset on web to prevent black or colored browser focus rings and outlines across the entire app
+  // Keep the native form styling restrained, but retain a clear keyboard-focus
+  // indicator so web users can navigate forms and buttons safely.
   if (typeof document !== 'undefined') {
     const existing = document.getElementById('amanot-global-focus-reset');
     if (!existing) {
@@ -26,12 +28,15 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
           box-shadow: none !important;
           -webkit-tap-highlight-color: transparent !important;
         }
-        input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus,
-        input:focus-visible, textarea:focus-visible, select:focus-visible,
-        *:focus, *:focus-visible {
+        /* Keyboard focus ring for buttons/links only. Text fields always count as
+           focus-visible when clicked, so they are excluded to avoid a green box. */
+        *:focus-visible:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+          outline: 3px solid #0F5E4A !important;
+          outline-offset: 2px !important;
+        }
+        input:focus, input:focus-visible, textarea:focus, textarea:focus-visible,
+        select:focus, select:focus-visible, [contenteditable="true"]:focus-visible {
           outline: none !important;
-          outline-style: none !important;
-          outline-width: 0 !important;
           box-shadow: none !important;
         }
       `;
@@ -152,6 +157,7 @@ export default function RootLayout() {
             <Stack.Screen name="(member)" options={{ headerShown: false }} />
           </Stack>
         )}
+        <ToastHost />
         <WebAlertHost />
     </SafeAreaProvider>
   );

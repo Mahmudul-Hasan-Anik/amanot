@@ -2,16 +2,18 @@ const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),asser
 function load(file,deps){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)}});return exports;}
 const branding=load('src/utils/somitiBranding.ts',{});
 const React={createElement:(type,props,...children)=>({type,props:{...props,children}}),useState:v=>[v,()=>{}],useMemo:f=>f(),useCallback:f=>f};
-const state={somitiInfo:{name:'N11 dfdf',nameEn:'Amanot Somiti'},members:[],approvals:[],investmentProposals:[],withdrawalRequests:[],projects:[],cashAccounts:[]};
+const state={somitiInfo:{name:'N11 dfdf',nameEn:'Amanot Somiti'},members:[],approvals:[],investmentProposals:[],withdrawalRequests:[],projects:[],cashAccounts:[],transactions:[]};
 let bengali=false;
 const theme={colors:{},typography:{fontFamily:{},size:{},lineHeight:{}}};
 const Screen=load('app/(admin)/(tabs)/index.tsx',{
- react:{__esModule:true,default:React,...React},'react-native':{Image:'Image',View:'View',Text:'Text',ScrollView:'Scroll',TouchableOpacity:'Touch',StatusBar:'Status',RefreshControl:'Refresh',StyleSheet:{create:s=>s}},
+ react:{__esModule:true,default:React,...React},'react-native':{Pressable:'Pressable',Image:'Image',View:'View',Text:'Text',ScrollView:'Scroll',TouchableOpacity:'Touch',StatusBar:'Status',RefreshControl:'Refresh',StyleSheet:{create:s=>s}},
  'react-native-safe-area-context':{SafeAreaView:'SafeArea'},'expo-router':{useRouter:()=>({push:()=>{}})},'@expo/vector-icons/Ionicons':{default:'Icon'},
  '../../../src/components/InvestmentApprovalQueue':{InvestmentApprovalQueue:'Investments'},'../../../src/components/WithdrawalApprovalQueue':{WithdrawalApprovalQueue:'Withdrawals'},'../../../src/components/FAB':{FAB:'FAB'},'../../../src/components/Card':{Card:'Card'},
  '../../../src/store/somitiStore':{useSomitiStore:f=>f(state)},'../../../src/i18n/useLanguage':{useLanguage:()=>({l:(en,bn)=>bengali?bn:en,formatMoney:String,formatNum:String})},
  '../../../src/lib/bengali':{BENGALI_MONTHS_FULL:Array(12).fill('Month'),toBengaliDigits:String},'../../../src/theme/colors':theme,'../../../src/theme/typography':theme,
- '../../../src/utils/somitiBranding':branding,'../../../assets/logo-transparent.png':'amanot-logo',
+ '../../../src/utils/somitiBranding':branding,
+ '../../../src/lib/investment':{investmentSchedule:()=>[],isoToday:()=>'2026-01-01',roundMoney:n=>n},'../../../src/lib/ledger':{signedTransactionAmount:t=>t?.amount||0},
+ '../../../src/components/EntryActions':{EntryRow:'EntryRow',EntryActions:'EntryActions'},'../../../src/components/DateField':{formatHumanDate:String},'../../../assets/logo-transparent.png':'amanot-logo',
 }).default;
 const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];
 for(const language of [false,true]){

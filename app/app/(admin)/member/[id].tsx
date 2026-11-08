@@ -31,10 +31,14 @@ import { isSupabaseConfigured } from '../../../src/lib/supabase';
 import { safeBack } from '../../../src/utils/navigation';
 import { toEnglishDigits, toBengaliDigits } from '../../../src/lib/bengali';
 import {useLedgerPage} from '../../../src/hooks/useLedgerPage';
+import {EntryRow,EntryActions} from '../../../src/components/EntryActions';
+import {investmentSchedule,roundMoney} from '../../../src/lib/investment';
+import type {Transaction} from '../../../src/store/somitiStore';
 import {signedTransactionAmount} from '../../../src/lib/ledger';
 import {financeNote} from '../../../src/i18n/financeLabels';
 import {MemberBalanceSummary} from '../../../src/components/MemberBalanceSummary';
 import {MemberLoginPin} from '../../../src/components/MemberLoginPin';
+import { showToast } from '../../../src/components/Toast';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
@@ -42,6 +46,10 @@ export default function MemberProfileScreen() {
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { getMemberById, members, updateMember, deleteMember } = useSomitiStore();
   const withdrawalRequests=useSomitiStore(s=>s.withdrawalRequests);
+  const allProjects=useSomitiStore(s=>s.projects);
+  const changeMemberNumber=useSomitiStore(s=>s.changeMemberNumber);
+  const [numberModal,setNumberModal]=useState(false),[newNumber,setNewNumber]=useState(''),[numberReason,setNumberReason]=useState(''),[numberError,setNumberError]=useState(''),[numberBusy,setNumberBusy]=useState(false);
+  const [openEntry,setOpenEntry]=useState<Transaction|null>(null);
   const { resetMemberPin, customPins, actualRole, currentUser } = useAuthStore();
   const isAdminUser = actualRole === 'super_admin' || actualRole === 'admin';
 
@@ -104,13 +112,13 @@ export default function MemberProfileScreen() {
       fatherName: editFatherName.trim(),
       motherName: editMotherName.trim(),
       phone: editPhone.trim(),
-      address: editAddress.trim() || '[ঠিকানা]',
+      address: editAddress.trim(),
       nomineeName: editNomineeName.trim(),
       nomineeRelation: editNomineeRelation.trim(),
     });
 
     setShowEditModal(false);
-    Alert.alert(l('Success', 'সফল'), l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    showToast(l('Member updated successfully', 'সদস্যের তথ্য সফলভাবে হালনাগাদ হয়েছে'));
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
@@ -134,7 +142,7 @@ export default function MemberProfileScreen() {
     });
 
     setShowFollowupModal(false);
-    Alert.alert(l('Success', 'সফল'), l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
+    showToast(l('Follow-up updated successfully', 'ফলো-আপ তথ্য সফলভাবে হালনাগাদ হয়েছে'));
     }catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
@@ -303,6 +311,8 @@ export default function MemberProfileScreen() {
     type: t.type,
   }));
 
+  const memberInvestments=allProjects.filter(p=>p.contract?.memberId===member.id).map(p=>{const schedule=investmentSchedule(p.contract!,p.returnedAmount);return {p,outstanding:roundMoney(p.contract!.principal+p.contract!.profitAmount-p.returnedAmount),overdue:roundMoney(schedule.filter(i=>i.overdue).reduce((t,i)=>t+i.remaining,0))};});
+
   const infoRows = [
     { label: l("Father's Name", 'পিতার নাম'), value: member.fatherName || '—' },
     { label: l("Mother's Name", 'মাতার নাম'), value: member.motherName || '—' },
@@ -320,7 +330,7 @@ export default function MemberProfileScreen() {
           ? isBengali
             ? member.address
             : toEnglishDigits(member.address)
-          : l('[Address]', '[ঠিকানা]'),
+          : l('Not given', 'দেওয়া হয়নি'),
     },
   ];
 
@@ -419,7 +429,7 @@ export default function MemberProfileScreen() {
           <TouchableOpacity
             testID="member-statement-btn"
             style={styles.actionBtn}
-            onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
+            onPress={() => router.push(`/(admin)/passbook/${member.id}` as any)}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color={colors.text} />
@@ -428,42 +438,36 @@ export default function MemberProfileScreen() {
         </View>
 
         {/* Card: মোট জমা */}
+        <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
+        <View style={styles.entryRow}>
+          {([['add',l('Deposit','জমা নিন'),()=>router.push(`/(admin)/deposit/new?memberId=${member.id}`),true],
+            ...(member.totalDeposit>0?[['arrow-undo-outline',l('Give back','টাকা ফেরত'),()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id,new:'1'}}),false]]:[]),
+            ['trending-up-outline',l('Investment','বিনিয়োগ'),()=>router.push(`/(admin)/investment/new?memberId=${member.id}` as any),false]] as [any,string,()=>void,boolean][]).map(([icon,label,go,main])=>
+            <TouchableOpacity key={label} accessibilityRole="button" onPress={go} activeOpacity={0.85} style={[styles.entryTile,main&&styles.entryTileMain]}>
+              <View style={[styles.entryIcon,main&&styles.entryIconMain]}><Ionicons name={icon} size={20} color={main?colors.primary:colors.primary}/></View>
+              <Text style={[styles.entryLabel,main&&{color:colors.surface}]} numberOfLines={1}>{label}</Text>
+            </TouchableOpacity>)}
+        </View>
+        {memberInvestments.length?<Card style={styles.card}>
+          <Text style={styles.cardSmallTitle}>{l('Investments taken','নেওয়া বিনিয়োগ')}</Text>
+          {memberInvestments.map(({p,outstanding,overdue})=><TouchableOpacity key={p.id} activeOpacity={0.7} onPress={()=>router.push(`/(admin)/project/${p.id}` as any)} style={styles.txnRow}>
+            <View style={{flex:1,paddingRight:8}}><Text style={styles.txnTitle}>{p.contract!.number}</Text><Text style={[styles.txnMeta,overdue>0&&{color:colors.warning}]}>{overdue>0?l(`Overdue ${formatMoney(overdue)}`,`বকেয়া ${formatMoney(overdue)}`):outstanding>0?l('Running','চলমান'):l('Fully paid','পরিশোধিত')}</Text></View>
+            <Text style={styles.txnAmount}>{formatMoney(outstanding)}</Text>
+          </TouchableOpacity>)}
+        </Card>:null}
         {canIssueLoginPin&&<Card style={styles.card}>
           <Text style={styles.cardSmallTitle}>{l('Member app login','সদস্যের অ্যাপ লগইন')}</Text>
           <Text style={[styles.cardSmallTitle,{marginBottom:12}]}>{l('Give this member a temporary PIN to log in with their mobile number.','মোবাইল নম্বর দিয়ে লগইনের জন্য এই সদস্যকে অস্থায়ী PIN দিন।')}</Text>
           <Button testID="member-login-pin-btn" title={l('Give login PIN','লগইন PIN দিন')} variant="outline" onPress={handleResetPin}/>
         </Card>}
-        <Button title={l('Withdrawal requests','উত্তোলনের আবেদন')} variant="outline" onPress={()=>router.push({pathname:'/(admin)/withdrawals',params:{memberId:member.id}})} style={{marginBottom:16}}/>
-        <MemberBalanceSummary member={member} requests={withdrawalRequests}/>
-        <Card style={styles.card}>
-          <Text style={styles.cardSmallTitle}>{l('Profit history','লাভের ইতিহাস')}</Text>
-
-          {/* Overdue Banner */}
-
-
-          {/* Profit 2-columns */}
-          <View style={styles.profitGrid}>
-            <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>{l('Last distributed profit','সর্বশেষ বণ্টিত লাভ')}</Text>
-              <Text style={styles.profitVal}>
-                +{formatMoney(member.profit2025 || 0)}
-              </Text>
-            </View>
-            <View style={styles.profitCol}>
-              <Text style={styles.profitLabel}>{l('This Year (Est.)', 'এ বছর (আনুমানিক)')}</Text>
-              <Text style={styles.profitVal}>
-                +{formatMoney(member.estimatedProfit2026 || 0)}
-              </Text>
-            </View>
-          </View>
-        </Card>
+        {(member.profit2025||0)>0?<Card style={styles.card}><Text style={styles.cardSmallTitle}>{l('Last profit share','সর্বশেষ মুনাফা')}</Text><Text style={styles.profitVal}>+{formatMoney(member.profit2025||0)}</Text></Card>:null}
 
         {/* Card: সাম্প্রতিক লেনদেন */}
         <View style={styles.sectionHeaderFlex}>
-          <Text style={styles.sectionTitle}>{l('Recent Transactions', 'সাম্প্রতিক লেনদেন')}</Text>
+          <Text style={styles.sectionTitle}>{l('Passbook', 'পাসবই')}</Text>
           <TouchableOpacity
             testID="member-view-all-txns"
-            onPress={() => router.push(`/(admin)/statement?memberId=${member.id}`)}
+            onPress={() => router.push(`/(admin)/passbook/${member.id}` as any)}
             activeOpacity={0.7}
           >
             <Text style={styles.viewAllLink}>{l('View All', 'সব দেখুন')}</Text>
@@ -476,27 +480,8 @@ export default function MemberProfileScreen() {
           {!history.loading&&!history.error&&recentTransactions.length === 0 && (
             <Text style={[styles.txnMeta, { paddingVertical: 12 }]}>{l('No transactions yet', 'এখনো কোনো লেনদেন নেই')}</Text>
           )}
-          {recentTransactions.map((txn, index) => (
-            <TouchableOpacity
-              key={index}
-              activeOpacity={0.7}
-              onPress={() => router.push({pathname:'/(admin)/ledger',params:{memberId:member.id}})}
-              style={[
-                styles.txnRow,
-                index === recentTransactions.length - 1 && { borderBottomWidth: 0 },
-              ]}
-            >
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.txnTitle}>{txn.title}</Text>
-                <Text style={styles.txnMeta}>
-                  {txn.date} · {txn.type} {txn.receipt ? `· ${l('Receipt', 'রসিদ')} ${txn.receipt}` : ''}
-                </Text>
-              </View>
-              <Text style={styles.txnAmount}>
-                {formatMoney(txn.amount,{showPlusSign:true})}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(isSupabaseConfigured()?history.rows:[]).filter(t=>t.type!=='reversal').slice(0,10).map((t,index)=><View key={t.id} style={index>0?{borderTopWidth:1,borderTopColor:colors.borderLight}:undefined}><EntryRow entry={t} onPress={()=>t.type==='withdrawal'?router.push({pathname:'/(admin)/withdrawals',params:{requestId:t.id}}):setOpenEntry(t)}/></View>)}
+          {!isSupabaseConfigured()&&recentTransactions.map((txn, index) => (<View key={index} style={styles.txnRow}><View style={{flex:1,paddingRight:8}}><Text style={styles.txnTitle}>{txn.title}</Text><Text style={styles.txnMeta}>{txn.date} · {txn.type}</Text></View><Text style={styles.txnAmount}>{formatMoney(txn.amount,{showPlusSign:true})}</Text></View>))}
         </Card>
 
         {/* Card: ব্যক্তিগত তথ্য */}
@@ -545,18 +530,6 @@ export default function MemberProfileScreen() {
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      {/* Sticky Bottom CTA */}
-      <StickyCTA backgroundColor={colors.bg} style={styles.stickyCTA}>
-        <TouchableOpacity
-          testID="member-collect-deposit-btn"
-          style={styles.bottomPayBtn}
-          onPress={() => router.push(`/(admin)/deposit/new?memberId=${member.id}`)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={20} color={colors.surface} />
-          <Text style={styles.bottomPayBtnText}>{l('Collect Deposit', 'জমা নিন')}</Text>
-        </TouchableOpacity>
-      </StickyCTA>
 
       {/* Edit Member Modal */}
       {showLoginPin&&canIssueLoginPin&&<MemberLoginPin member={member} onIssue={()=>resetMemberPin(member.id)} onClose={()=>setShowLoginPin(false)}/>}
@@ -571,6 +544,7 @@ export default function MemberProfileScreen() {
         </View>
 
         <MemberIdentityFields category={editCategory} number={member.memberNumber || editNumber} onCategory={setEditCategory} onNumber={setEditNumber} existingCode={member.code} locked={!!member.memberNumber || !isAdminUser} legacy={!member.memberNumber&&!isAdminUser}/>
+        {isAdminUser&&member.memberNumber?<TouchableOpacity accessibilityRole="button" onPress={()=>{setNewNumber(member.memberNumber||'');setNumberReason('');setNumberError('');setShowEditModal(false);setNumberModal(true);}} style={{marginTop:-6,marginBottom:12}}><Text style={{color:colors.primary,fontFamily:typography.fontFamily.semiBold}}>{l('Change member number','সদস্য নম্বর বদলান')}</Text></TouchableOpacity>:null}
         <Text style={styles.modalInputLabel}>{l('Member Name', 'সদস্যের পুরো নাম')}</Text>
         <TextInput
           testID="edit-name-input"
@@ -672,11 +646,28 @@ export default function MemberProfileScreen() {
           style={{ marginTop: 16 }}
         />
       </AppModal>
+      <EntryActions entry={openEntry} onClose={()=>{setOpenEntry(null);history.reload();}}/>
+      <AppModal visible={numberModal} onClose={()=>!numberBusy&&setNumberModal(false)}>
+        <Text style={styles.modalTitle}>{l('Change member number','সদস্য নম্বর বদলান')}</Text>
+        <Text style={[styles.txnMeta,{marginVertical:8}]}>{l('Old receipts keep the old number. Receipts and the khata stay linked to the member. The change is kept in the audit log.','পুরনো রসিদে আগের নম্বর থাকবে। রসিদ ও খাতা সদস্যের সাথেই যুক্ত থাকবে। পরিবর্তন অডিট লগে থাকবে।')}</Text>
+        <Text style={styles.modalInputLabel}>{l('New number','নতুন নম্বর')}</Text>
+        <TextInput style={styles.modalInput} value={newNumber} onChangeText={v=>{setNewNumber(toEnglishDigits(v));setNumberError('');}} keyboardType="number-pad"/>
+        <Text style={styles.modalInputLabel}>{l('Reason','কারণ')}</Text>
+        <TextInput style={styles.modalInput} value={numberReason} onChangeText={v=>{setNumberReason(v);setNumberError('');}} placeholder={l('e.g. number in the old khata','যেমন: পুরনো খাতার নম্বর')} placeholderTextColor={colors.textSecondary}/>
+        {numberError?<Text style={{color:colors.warning,marginBottom:8}}>{numberError}</Text>:null}
+        <Button title={l('Save number','নম্বর সংরক্ষণ')} loading={numberBusy} onPress={async()=>{setNumberBusy(true);try{await changeMemberNumber(member.id,newNumber,numberReason);setNumberModal(false);}catch(e:any){setNumberError(e.message);}finally{setNumberBusy(false);}}}/>
+      </AppModal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  entryRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  entryTile: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  entryTileMain: { backgroundColor: colors.primary, borderColor: colors.primary },
+  entryIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  entryIconMain: { backgroundColor: colors.surface },
+  entryLabel: { fontFamily: typography.fontFamily.semiBold, fontSize: 13, lineHeight: 19, color: colors.text },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

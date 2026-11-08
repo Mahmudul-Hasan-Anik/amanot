@@ -14,7 +14,7 @@ export default function Investments(){
   const router=useRouter();const {l,formatMoneyPrecise:formatMoney,formatNum}=useLanguage();
   const projects=useSomitiStore(s=>s.projects),role=useAuthStore(s=>s.actualRole);
   const proposals=useSomitiStore(s=>s.investmentProposals);
-  const canCreate=role==='admin'||role==='super_admin';
+  const canCreate=['admin','super_admin','cashier'].includes(role||'');
   const [query,setQuery]=useState(''),[filter,setFilter]=useState('all');
   const items=useMemo(()=>projects.map(p=>{
     const schedule=p.contract?investmentSchedule(p.contract,p.returnedAmount):[];
@@ -28,8 +28,8 @@ export default function Investments(){
     <View style={styles.header}><Text style={styles.title}>{l('Investments','বিনিয়োগ')}</Text><Text style={styles.muted}>{formatNum(projects.length)} {l('contracts and legacy investments','টি চুক্তি ও পুরোনো বিনিয়োগ')}</Text></View>
     <FlatList data={visible} keyExtractor={item=>item.p.id} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7} contentContainerStyle={styles.content}
       ListHeaderComponent={<>
-        {proposals.filter(p=>p.status!=='disbursed').length?<Text style={styles.name}>{l('Proposals and approvals','প্রস্তাব ও অনুমোদন')}</Text>:null}
-        {proposals.filter(p=>p.status!=='disbursed'&&[p.payload.recipientName,p.payload.phone].join(' ').toLowerCase().includes(query.trim().toLowerCase())).map(p=><Pressable key={p.id} onPress={()=>router.push(('/(admin)/investment/proposal/'+p.id) as any)}><Card><Text style={styles.name}>{p.payload.recipientName}</Text><Text style={styles.value}>{formatMoney(p.payload.principal)}</Text><Text style={styles.muted}>{p.status==='submitted'?l('Awaiting approval','অনুমোদনের অপেক্ষায়'):p.status==='approved'?l('Approved · awaiting disbursement','অনুমোদিত · টাকা প্রদান বাকি'):p.status==='withdrawn'?l('Withdrawn','প্রত্যাহৃত'):l('Rejected','প্রত্যাখ্যাত')}</Text><Text style={styles.muted}>{l('No money deducted','কোনো টাকা কাটা হয়নি')}</Text></Card></Pressable>)}
+        {proposals.filter(p=>['submitted','approved'].includes(p.status)).length?<Text style={styles.name}>{l('Older proposals to finish','পুরনো প্রস্তাব (শেষ করা বাকি)')}</Text>:null}
+        {proposals.filter(p=>['submitted','approved'].includes(p.status)&&[p.payload.recipientName,p.payload.phone].join(' ').toLowerCase().includes(query.trim().toLowerCase())).map(p=><Pressable key={p.id} onPress={()=>router.push(('/(admin)/investment/proposal/'+p.id) as any)}><Card><Text style={styles.name}>{p.payload.recipientName}</Text><Text style={styles.value}>{formatMoney(p.payload.principal)}</Text><Text style={styles.muted}>{p.status==='submitted'?l('Awaiting approval','অনুমোদনের অপেক্ষায়'):p.status==='approved'?l('Approved · awaiting disbursement','অনুমোদিত · টাকা প্রদান বাকি'):p.status==='withdrawn'?l('Withdrawn','প্রত্যাহৃত'):l('Rejected','প্রত্যাখ্যাত')}</Text><Text style={styles.muted}>{l('No money deducted','কোনো টাকা কাটা হয়নি')}</Text></Card></Pressable>)}
 
         <Card><Text style={styles.muted}>{l('Principal outstanding','বাইরে থাকা মূলধন')}</Text><Text style={styles.amount}>{formatMoney(principal)}</Text>
           <View style={styles.row}><View style={{flex:1}}><Text style={styles.muted}>{l('Recognized profit','হিসাবে গণনাকৃত প্রফিট')}</Text><Text style={styles.value}>{formatMoney(profit)}</Text></View>
@@ -42,7 +42,6 @@ export default function Investments(){
       renderItem={({item:{p,overdue,next,status}})=><Pressable accessibilityRole="button" onPress={()=>router.push(`/(admin)/project/${p.id}` as any)}>
         <Card><View style={styles.row}><Text style={styles.name}>{p.name}</Text><Text style={[styles.badge,status==='overdue'&&{color:colors.warning,backgroundColor:colors.warningSoft}]}>{status==='settled'?l('Settled','পরিশোধিত'):status==='overdue'?l('Overdue','বকেয়া'):l('Active','চলমান')}</Text></View>
           <Text style={styles.muted}>{p.contract?`${p.contract.number} · ${p.contract.memberId?l('Member','সদস্য'):l('External recipient','বাইরের ব্যক্তি')}`:l('Previous investment','পুরোনো বিনিয়োগ')}</Text>
-          <View style={styles.row}><Text style={styles.body}>{l('Disbursed','প্রদান')}: {formatMoney(p.investedAmount)}</Text><Text style={styles.body}>{l('Collected','আদায়')}: {formatMoney(p.returnedAmount)}</Text></View>
           {p.contract?<><Text style={styles.value}>{l('Outstanding','মোট বাকি')}: {formatMoney(Math.max(0,p.contract.principal+p.contract.profitAmount-p.returnedAmount))}</Text>
           {next?<Text style={styles.muted}>{l('Next installment','পরবর্তী কিস্তি')}: {next.dueDate} · {formatMoney(next.remaining)}</Text>:null}
           {overdue>0?<Text style={[styles.body,{color:colors.warning}]}>{l('Overdue installments','মেয়াদোত্তীর্ণ কিস্তি')}: {formatMoney(overdue)}</Text>:null}</>:<Text style={styles.value}>{l('Principal outstanding','মূলধন বাকি')}: {formatMoney(p.remainingAmount)}</Text>}

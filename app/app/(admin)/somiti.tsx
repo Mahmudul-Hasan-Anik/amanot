@@ -1,3 +1,4 @@
+import { localDigits, roleTitle } from '../../src/lib/displayText';
 import React, { useState } from 'react';
 import {
   View,
@@ -20,6 +21,7 @@ import { safeBack } from '../../src/utils/navigation';
 import { toBengaliDigits } from '../../src/lib/bengali';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { showToast } from '../../src/components/Toast';
 
 export default function SomitiProfileScreen() {
   const router = useRouter();
@@ -66,10 +68,7 @@ export default function SomitiProfileScreen() {
   const handleSaveEdit = async () => {
     try { await updateSomitiInfo(editForm);
     setIsEditModalOpen(false);
-    Alert.alert(
-      l('Success', 'সফল'),
-      l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।')
-    );} catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
+    showToast(l('Somiti profile updated successfully.', 'সমিতির তথ্য সফলভাবে সংরক্ষিত হয়েছে।'));} catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 
   const handleCall = (phoneNumber: string) => {
@@ -86,52 +85,23 @@ export default function SomitiProfileScreen() {
   };
 
   // Committee members matching Page 23
-  const committeeMembers = [
-    {
-      id: 'c1',
-      name: isBengali ? 'আনোয়ার হোসেন' : 'Anwar Hossain',
-      role: isBengali ? 'সভাপতি' : 'President',
-      initial: isBengali ? 'আ' : 'A',
-      phone: '01711000001',
-      avatarBg: colors.avatarPastels[1].bg,
-      avatarColor: colors.avatarPastels[1].text,
-    },
-    {
-      id: 'c2',
-      name: isBengali ? 'জাহিদ হাসান' : 'Zahid Hasan',
-      role: isBengali ? 'সাধারণ সম্পাদক' : 'General Secretary',
-      initial: isBengali ? 'জ' : 'Z',
-      phone: '01711000002',
-      avatarBg: colors.avatarPastels[0].bg,
-      avatarColor: colors.avatarPastels[0].text,
-    },
-    {
-      id: 'c3',
-      name: isBengali ? 'মাহমুদা খাতুন' : 'Mahmuda Khatun',
-      role: isBengali ? 'কোষাধ্যক্ষ' : 'Treasurer',
-      initial: isBengali ? 'ম' : 'M',
-      phone: '01711000003',
-      avatarBg: colors.avatarPastels[2].bg,
-      avatarColor: colors.avatarPastels[2].text,
-    },
-    {
-      id: 'c4',
-      name: isBengali ? 'হাবিবুর রহমান' : 'Habibur Rahman',
-      role: isBengali ? 'সদস্য' : 'Member',
-      initial: isBengali ? 'হ' : 'H',
-      phone: '01711000004',
-      avatarBg: colors.avatarPastels[1].bg,
-      avatarColor: colors.avatarPastels[1].text,
-    },
-  ];
+  // Committee = members who have a committee title (role_title), not the default general member.
+  const GENERAL_ROLES = ['সাধারণ সদস্য', 'General Member', 'Member', 'সদস্য', ''];
+  const committeeMembers = members
+    .filter((m) => m.status !== 'inactive' && !GENERAL_ROLES.includes((m.role || '').trim()))
+    .map((m, i) => {
+      const pastel = colors.avatarPastels[i % colors.avatarPastels.length];
+      const name = isBengali ? m.name : m.nameEn || m.name;
+      return { id: m.id, name, role: m.role || '', initial: (name || '?').trim().charAt(0), phone: m.phone, avatarBg: pastel.bg, avatarColor: pastel.text };
+    });
 
   const somitiDisplayName = somitiInfo.name || '';
   const somitiInitial = somitiDisplayName.trim().charAt(0) || (isBengali ? 'স' : 'S');
-  const regNoText = somitiInfo.regNo || '';
-  const estYearText = somitiInfo.establishedYear || '';
+  const regNoText = localDigits(somitiInfo.regNo || '', isBengali);
+  const estYearText = localDigits(somitiInfo.establishedYear || '', isBengali);
 
-  const memberCountDisplay = members.length > 0 ? members.length : 100;
-  const projectCountDisplay = projects.length > 0 ? projects.length : 4;
+  const memberCountDisplay = members.length;
+  const projectCountDisplay = projects.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -213,7 +183,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Phone', 'ফোন')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.phone || ''}
+              {localDigits(somitiInfo.phone || '', isBengali)}
             </Text>
           </View>
 
@@ -250,12 +220,17 @@ export default function SomitiProfileScreen() {
         </View>
         <Text style={styles.tenureSub}>
           {l(
-            `Tenure: ${somitiInfo.committeeTenure || ''}`,
-            `মেয়াদ: ${somitiInfo.committeeTenure || ''}`
+            `Tenure: ${localDigits(somitiInfo.committeeTenure || '', false)}`,
+            `মেয়াদ: ${localDigits(somitiInfo.committeeTenure || '', true)}`
           )}
         </Text>
 
         <View style={styles.committeeCard}>
+          {!committeeMembers.length ? (
+            <Text style={styles.memberRole}>
+              {l('No committee members yet. Set a member\'s title from Roles to show them here.', 'এখনো কোনো কমিটি সদস্য নেই। সদস্যের পদবি সেট করলে এখানে দেখাবে।')}
+            </Text>
+          ) : null}
           {committeeMembers.map((m, index) => (
             <View
               key={m.id}
@@ -272,7 +247,7 @@ export default function SomitiProfileScreen() {
 
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{m.name}</Text>
-                <Text style={styles.memberRole}>{m.role}</Text>
+                <Text style={styles.memberRole}>{roleTitle(m.role, isBengali)}</Text>
               </View>
 
               <TouchableOpacity
@@ -303,7 +278,7 @@ export default function SomitiProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{l('Account No.', 'হিসাব নম্বর')}</Text>
             <Text style={styles.infoValue}>
-              {somitiInfo.bankAccountNo || ''}
+              {localDigits(somitiInfo.bankAccountNo || '', isBengali)}
             </Text>
           </View>
 
@@ -349,7 +324,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.name}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, name: t }))}
-                placeholder="[সমিতির নাম]"
+                placeholder={l('Society name', 'সমিতির নাম')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -358,7 +333,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.address}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, address: t }))}
-                placeholder="[অফিসের ঠিকানা]"
+                placeholder={l('Office address', 'অফিসের ঠিকানা')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -367,7 +342,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.phone}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, phone: t }))}
-                placeholder="[ফোন নম্বর]"
+                placeholder={l('Phone number', 'ফোন নম্বর')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -376,7 +351,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.email}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, email: t }))}
-                placeholder="[ইমেইল]"
+                placeholder={l('Email', 'ইমেইল')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -385,7 +360,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.bankName}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, bankName: t }))}
-                placeholder="[ব্যাংকের নাম], [শাখা]"
+                placeholder={l('Bank name, branch', 'ব্যাংকের নাম, শাখা')}
                 placeholderTextColor={colors.textSecondary}
               />
 
@@ -394,7 +369,7 @@ export default function SomitiProfileScreen() {
                 style={styles.modalInput}
                 value={editForm.bankAccountNo}
                 onChangeText={(t) => setEditForm((p) => ({ ...p, bankAccountNo: t }))}
-                placeholder="[হিসাব নম্বর]"
+                placeholder={l('Account number', 'হিসাব নম্বর')}
                 placeholderTextColor={colors.textSecondary}
               />
             </ScrollView>
@@ -576,7 +551,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
     paddingVertical: 12,
   },
   infoLabel: {
@@ -591,6 +567,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.subhead,
     color: colors.text,
     textAlign: 'right',
+    flex: 1,
+    minWidth: 0,
   },
   divider: {
     height: 1,
