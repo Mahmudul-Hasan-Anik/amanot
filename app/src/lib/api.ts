@@ -709,6 +709,9 @@ export const transferCash = (from: string, to: string, amount: number, note?: st
   rpc('transfer_cash_once', { p: {id:requestId,from,to,amount,note:note || ''} });
 
 export const updateSomitiInfo = (p: Record<string, any>) => rpc('update_somiti_info', { p });
+export type LegacyImportResult={members:number;savings:number;investments:number};
+export const importLegacyBackup = (backup: Record<string, any>) =>
+  rpc('import_legacy_backup', { p_backup: backup }) as Promise<LegacyImportResult>;
 
 export const addNotice = (title: string, body: string) => rpc('add_notice', { p_title: title, p_body: body });
 export const deleteNotice = (id: string) => rpc('delete_notice', { p_id: id });

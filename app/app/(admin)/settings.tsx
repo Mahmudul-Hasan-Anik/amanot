@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,6 +24,9 @@ import { colors } from '../../src/theme/colors';
 
 import { typography } from '../../src/theme/typography';
 import { showToast } from '../../src/components/Toast';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as api from '../../src/lib/api';
 
 const FY_MONTHS: [string, string][] = [['January','জানুয়ারি'],['February','ফেব্রুয়ারি'],['March','মার্চ'],['April','এপ্রিল'],['May','মে'],['June','জুন'],['July','জুলাই'],['August','আগস্ট'],['September','সেপ্টেম্বর'],['October','অক্টোবর'],['November','নভেম্বর'],['December','ডিসেম্বর']];
 
@@ -129,6 +133,37 @@ export default function SettingsScreen() {
         'পরিচালক encrypted backup tool দিয়ে ব্যাকআপ তৈরি করেন। এই বোতাম থেকে ব্যাকআপ তৈরি বা আপলোড হয় না।'
       )
     );
+  };
+
+  const importBackup = async () => {
+    if (!REMOTE || !canChangeSociety) {
+      Alert.alert(l('Online owner access required', 'অনলাইন পরিচালক অ্যাক্সেস প্রয়োজন'), l('Sign in as an owner with the online database enabled to import a backup.', 'ব্যাকআপ আনতে অনলাইন ডেটাবেস চালু রেখে পরিচালক হিসেবে সাইন ইন করুন।'));
+      return;
+    }
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true, multiple: false });
+      if (picked.canceled) return;
+      const asset = picked.assets[0];
+      // Expo's native file API is unavailable in a browser.  The web picker
+      // exposes the selected browser File instead.
+      const text = Platform.OS === 'web'
+        ? await (asset.file ? asset.file.text() : (await fetch(asset.uri)).text())
+        : await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });
+      const backup = JSON.parse(text);
+      if (backup?.version !== 1 || !Array.isArray(backup.members) || !Array.isArray(backup.savings)) throw new Error(l('This is not a supported SomitiPro backup file.', 'এটি সমর্থিত SomitiPro ব্যাকআপ ফাইল নয়।'));
+      const investments = Array.isArray(backup.investments) ? backup.investments.length : 0;
+      Alert.alert(
+        l('Import this backup?', 'এই ব্যাকআপ ইমপোর্ট করবেন?'),
+        l(`It will add ${backup.members.length} members, ${backup.savings.length} savings records and ${investments} investments. This works only when the society has no existing financial data.`, `এতে ${backup.members.length} জন সদস্য, ${backup.savings.length}টি সঞ্চয় রেকর্ড ও ${investments}টি বিনিয়োগ যোগ হবে। সমিতিতে আগে কোনো আর্থিক তথ্য না থাকলেই এটি কাজ করবে।`),
+        [{ text: l('Cancel', 'বাতিল'), style: 'cancel' }, { text: l('Import', 'ইমপোর্ট'), style: 'destructive', onPress: async () => {
+          try {
+            const result = await api.importLegacyBackup(backup);
+            await useSomitiStore.getState().syncFromServer();
+            showToast(l(`Imported ${result.members} members, ${result.savings} savings records and ${result.investments} investments.`, `${result.members} জন সদস্য, ${result.savings}টি সঞ্চয় রেকর্ড ও ${result.investments}টি বিনিয়োগ ইমপোর্ট হয়েছে।`));
+          } catch (e: any) { Alert.alert(l('Import failed', 'ইমপোর্ট ব্যর্থ'), e?.message || l('The backup was not changed.', 'ব্যাকআপের কোনো তথ্য পরিবর্তন করা হয়নি।')); }
+        }}]
+      );
+    } catch (e: any) { Alert.alert(l('Cannot read backup', 'ব্যাকআপ পড়া যাচ্ছে না'), e?.message || l('Choose a valid JSON backup file.', 'সঠিক JSON ব্যাকআপ ফাইল বেছে নিন।')); }
   };
 
   return (
@@ -299,6 +334,14 @@ export default function SettingsScreen() {
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </View>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.row} activeOpacity={0.7} disabled={!canChangeSociety} onPress={importBackup}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle}>{l('Data import', 'ডেটা ইমপোর্ট')}</Text>
+              <Text style={styles.rowSub}>{l('Add members, savings and investments to a new society', 'নতুন সমিতিতে সদস্য, সঞ্চয় ও বিনিয়োগ আনুন')}</Text>
+            </View>
+            <Ionicons name="cloud-upload-outline" size={20} color={canChangeSociety ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
