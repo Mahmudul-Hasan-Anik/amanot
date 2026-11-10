@@ -7,6 +7,8 @@ export type InvestmentContract = {
   fatherName: string; motherName: string; contacts: EmergencyContact[];
   principal: number; profitPct: number; profitAmount: number; termMonths: number;
   disbursedDate: string; firstDueDate: string; purpose: string;
+  /** Imported legacy records need their real payment schedule verified first. */
+  legacySchedulePending?: boolean;
   /** Account the money left from (cash = cashier). */
   paymentMethod?: 'cash' | 'bank' | 'bkash' | 'nagad';
 };
@@ -59,7 +61,7 @@ export function investmentSchedule(c: InvestmentContract, collected: number, tod
     const paid = roundMoney(Math.min(amount,Math.max(0,collected-prior)));
     const dueDate=monthDate(c.firstDueDate,i);prior=roundMoney(prior+amount);
     const remaining=roundMoney(amount-paid);
-    return {number:i+1,dueDate,amount,paid,remaining,overdue:remaining>0&&dueDate<today};
+    return {number:i+1,dueDate,amount,paid,remaining,overdue:!c.legacySchedulePending&&remaining>0&&dueDate<today};
   });
 }
 export function normalizeContactPhone(value: string) {

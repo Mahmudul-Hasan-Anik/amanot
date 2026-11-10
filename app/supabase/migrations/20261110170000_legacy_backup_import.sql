@@ -89,7 +89,7 @@ begin
     insert into public.projects(id,somiti_id,name,type,location,status,invested_amount,remaining_amount,start_date,expected_end,created_at)
     values(gen_random_uuid(),v_somiti,v_name,'বিনিয়োগ',coalesce(i->>'permanentAddress',''),'ongoing',v_principal,v_principal,v_created::text,(v_created+make_interval(months=>v_months))::date::text,coalesce(nullif(i->>'createdAt','')::timestamptz,now())) returning id into v_project;
     insert into public.investment_contracts(id,somiti_id,member_id,contract_no,recipient_name,phone,address,nid,father_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,payment_method,request_payload,created_at)
-    values(v_project,v_somiti,v_member,'LEG-I-'||substr(md5(coalesce(i->>'id',i::text)),1,16),v_name,'',coalesce(i->>'permanentAddress',''),coalesce(i->>'nidNumber',''),coalesce(i->>'parentNames',''),coalesce(i->'emergencyContacts','[]'::jsonb),v_principal,round(v_profit*100/v_principal,4),v_profit,v_months,v_created,v_created,'cash',i,coalesce(nullif(i->>'createdAt','')::timestamptz,now()));
+    values(v_project,v_somiti,v_member,'LEG-I-'||substr(md5(coalesce(i->>'id',i::text)),1,16),v_name,'',coalesce(i->>'permanentAddress',''),coalesce(i->>'nidNumber',''),coalesce(i->>'parentNames',''),coalesce(i->'emergencyContacts','[]'::jsonb),v_principal,round(v_profit*100/v_principal,4),v_profit,v_months,v_created,v_created,'cash',i||jsonb_build_object('legacySchedulePending',true),coalesce(nullif(i->>'createdAt','')::timestamptz,now()));
     v_investments:=v_investments+1;
   end loop;
   v_org:=coalesce(p_backup->'organization','{}'::jsonb);

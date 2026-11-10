@@ -20,7 +20,7 @@ export default function Investments(){
     const schedule=p.contract?investmentSchedule(p.contract,p.returnedAmount):[];
     const overdue=roundMoney(schedule.filter(s=>s.overdue).reduce((sum,s)=>sum+s.remaining,0));
     const next=schedule.find(s=>s.remaining>0);
-    return {p,overdue,next,status:p.status==='completed'?'settled':overdue>0||p.status==='delayed'?'overdue':'active'};
+    return {p,overdue,next,status:p.status==='completed'?'settled':p.contract?.legacySchedulePending?'review':overdue>0||p.status==='delayed'?'overdue':'active'};
   }),[projects]);
   const visible=items.filter(({p,status})=>(filter==='all'||filter===status)&&[p.name,p.contract?.number,p.contract?.phone,p.contract?.purpose,p.type].filter(Boolean).join(' ').toLowerCase().includes(query.trim().toLowerCase()));
   const principal=projects.reduce((s,p)=>s+p.remainingAmount,0),profit=projects.reduce((s,p)=>s+p.netProfit,0),overdue=items.reduce((s,i)=>s+i.overdue,0);
@@ -40,10 +40,10 @@ export default function Investments(){
       </>}
       ListEmptyComponent={<Text style={[styles.muted,{textAlign:'center',paddingVertical:40}]}>{l('No investments found','কোনো বিনিয়োগ পাওয়া যায়নি')}</Text>}
       renderItem={({item:{p,overdue,next,status}})=><Pressable accessibilityRole="button" onPress={()=>router.push(`/(admin)/project/${p.id}` as any)}>
-        <Card><View style={styles.row}><Text style={styles.name}>{p.name}</Text><Text style={[styles.badge,status==='overdue'&&{color:colors.warning,backgroundColor:colors.warningSoft}]}>{status==='settled'?l('Settled','পরিশোধিত'):status==='overdue'?l('Overdue','বকেয়া'):l('Active','চলমান')}</Text></View>
+        <Card><View style={styles.row}><Text style={styles.name}>{p.name}</Text><Text style={[styles.badge,status==='overdue'&&{color:colors.warning,backgroundColor:colors.warningSoft}]}>{status==='settled'?l('Settled','পরিশোধিত'):status==='overdue'?l('Overdue','বকেয়া'):status==='review'?l('Schedule review','কিস্তি যাচাই বাকি'):l('Active','চলমান')}</Text></View>
           <Text style={styles.muted}>{p.contract?`${p.contract.number} · ${p.contract.memberId?l('Member','সদস্য'):l('External recipient','বাইরের ব্যক্তি')}`:l('Previous investment','পুরোনো বিনিয়োগ')}</Text>
           {p.contract?<><Text style={styles.value}>{l('Outstanding','মোট বাকি')}: {formatMoney(Math.max(0,p.contract.principal+p.contract.profitAmount-p.returnedAmount))}</Text>
-          {next?<Text style={styles.muted}>{l('Next installment','পরবর্তী কিস্তি')}: {next.dueDate} · {formatMoney(next.remaining)}</Text>:null}
+          {p.contract.legacySchedulePending?<Text style={styles.muted}>{l('Set the actual first due date before using reminders.', 'রিমাইন্ডার দেওয়ার আগে আসল প্রথম কিস্তির তারিখ ঠিক করুন।')}</Text>:next?<Text style={styles.muted}>{l('Next installment','পরবর্তী কিস্তি')}: {next.dueDate} · {formatMoney(next.remaining)}</Text>:null}
           {overdue>0?<Text style={[styles.body,{color:colors.warning}]}>{l('Overdue installments','মেয়াদোত্তীর্ণ কিস্তি')}: {formatMoney(overdue)}</Text>:null}</>:<Text style={styles.value}>{l('Principal outstanding','মূলধন বাকি')}: {formatMoney(p.remainingAmount)}</Text>}
         </Card>
       </Pressable>}/>

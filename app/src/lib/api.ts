@@ -722,10 +722,11 @@ export function mapInvestmentContract(r:any): import('./investment').InvestmentC
   return {id:r.id,memberId:r.member_id||undefined,number:r.contract_no,recipientName:r.recipient_name,
     phone:r.phone,whatsapp:r.whatsapp||'',address:r.address||'',nid:r.nid||'',fatherName:r.father_name||'',motherName:r.mother_name||'',
     contacts:r.emergency_contacts||[],principal:num(r.principal),profitPct:num(r.profit_pct),profitAmount:num(r.profit_amount),
-    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||'',paymentMethod:r.payment_method||'cash'};
+    termMonths:r.term_months,disbursedDate:r.disbursed_date,firstDueDate:r.first_due_date,purpose:r.purpose||'',paymentMethod:r.payment_method||'cash',
+    legacySchedulePending:r.request_payload?.legacySchedulePending===true};
 }
 async function fetchInvestmentContracts():Promise<any[]> {
-  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose,payment_method'); }
+  try { return await allRows('investment_contracts','id,member_id,contract_no,recipient_name,phone,whatsapp,address,nid,father_name,mother_name,emergency_contacts,principal,profit_pct,profit_amount,term_months,disbursed_date,first_due_date,purpose,payment_method,request_payload'); }
   catch(e:any) {
     // Read-only compatibility until the additive contract migration is deployed.
     if(e.code==='42P01'||e.code==='PGRST205'||/Could not find the table.*investment_contracts/.test(e.message||''))return [];
