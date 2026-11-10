@@ -54,17 +54,20 @@ export default function DueListScreen() {
     </View>
     <Text style={st.section}>{l('People', 'কার কত বাকি')}</Text>
     <FlatList scrollEnabled={false} data={rows} keyExtractor={r => r.p.id}
-      renderItem={({ item: { p, late, amount } }) => <Pressable accessibilityRole="button" onPress={() => router.push(`/(admin)/project/${p.id}` as any)} style={st.card}>
-        <View style={st.row}>
+      renderItem={({ item: { p, late, amount } }) => <View style={st.card}>
+        <Pressable accessibilityRole="button" accessibilityLabel={l(`View ${p.contract!.recipientName}'s investment`, `${p.contract!.recipientName}-এর বিনিয়োগ দেখুন`)} onPress={() => router.push(`/(admin)/project/${p.id}` as any)} style={st.personLink}>
+          <View style={st.row}>
           <Avatar name={p.contract!.recipientName} size="md" />
           <View style={{ flex: 1, minWidth: 0 }}><Text style={st.name} numberOfLines={1}>{p.contract!.recipientName}</Text>
             <Text style={st.meta} numberOfLines={2}>{p.contract!.number} · {l(`${formatNum(late.length)} installments · ${formatNum(daysLate(late[0].dueDate))} days late`, `${formatNum(late.length)} কিস্তি · ${formatNum(daysLate(late[0].dueDate))} দিন পার`)}</Text></View>
-          <Text style={st.amount}>{money(amount)}</Text></View>
+            <Text style={st.amount}>{money(amount)}</Text>
+          </View>
+        </Pressable>
         <View style={[st.row, { marginTop: 12 }]}>
           <Button size="sm" style={{ flex: 1 }} title={l('Collect', 'কিস্তি নিন')} onPress={() => router.push(`/(admin)/project/${p.id}?action=collect` as any)} />
           <Button size="sm" style={{ flex: 1 }} variant="outline" title={l('Remind', 'রিমাইন্ডার')} onPress={() => router.push(`/(admin)/project/${p.id}` as any)} />
         </View>
-      </Pressable>} />
+      </View>} />
   </Page>;
 }
 const st = StyleSheet.create({
@@ -85,6 +88,7 @@ const st = StyleSheet.create({
   legendMeta: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
   legendAmount: { fontFamily: typography.fontFamily.bold, fontSize: 14, color: colors.text, minWidth: 80, textAlign: 'right' },
   section: { fontFamily: typography.fontFamily.bold, fontSize: typography.size.base, lineHeight: typography.lineHeight.base, color: colors.text, marginTop: 6, marginBottom: 10 },
+  personLink: { borderRadius: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   name: { fontFamily: typography.fontFamily.semiBold, fontSize: 16, lineHeight: 24, color: colors.text },
   meta: { fontFamily: typography.fontFamily.regular, fontSize: 13, lineHeight: 19, color: colors.textSecondary },
