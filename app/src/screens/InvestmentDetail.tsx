@@ -15,7 +15,7 @@ import { useAuthStore } from '../features/auth/authStore';
 import { useLanguage } from '../i18n/useLanguage';
 import { useLedgerPage } from '../hooks/useLedgerPage';
 import { allocateInvestmentPayment, investmentReminder, investmentSchedule, isoToday, parseInvestmentAmount, roundMoney, validISODate, NewInvestment } from '../lib/investment';
-import { uuid, recordInvestmentReminder, fetchLastInvestmentReminder, recordInvestmentExpense } from '../lib/api';
+import { uuid, recordInvestmentReminder, fetchLastInvestmentReminder, recordInvestmentExpense, nextCollectionReceipt } from '../lib/api';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { cachedQuery } from '../lib/queryCache';
 import { exportReport, Report } from '../utils/reportExport';
@@ -30,12 +30,13 @@ export default function InvestmentDetail({project}:{project:Project}){
   const role=useAuthStore(s=>s.actualRole),identity=useAuthStore(s=>s.currentUser?.id),revision=useSomitiStore(s=>s.dataVersion);
   const history=useLedgerPage({projectId:project.id});
   const [modal,setModal]=useState(''),[allSchedule,setAllSchedule]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const [amount,setAmount]=useState(''),[date,setDate]=useState(isoToday()),[note,setNote]=useState(''),[method,setMethod]=useState<NewInvestment['paymentMethod']>('cash'),[selectAccount,setSelectAccount]=useState(false);
+  const [amount,setAmount]=useState(''),[date,setDate]=useState(isoToday()),[note,setNote]=useState(''),[bookReceiptNo,setBookReceiptNo]=useState(''),[method,setMethod]=useState<NewInvestment['paymentMethod']>('cash'),[selectAccount,setSelectAccount]=useState(false);
   const [receipt,setReceipt]=useState<Transaction|null>(null),[reason,setReason]=useState(''),[target,setTarget]=useState<Transaction|null>(null);
   const [lastReminder,setLastReminder]=useState<string|null>(null);const operation=useRef(uuid());
   const params=useLocalSearchParams<{action?:string}>();const [tab,setTab]=useState<'schedule'|'history'|'info'>('schedule');const [menu,setMenu]=useState(false);
   const canEnter=['admin','super_admin','cashier'].includes(role||'');
   useEffect(()=>{if(params.action==='collect'){setAmount('');setDate(isoToday());setNote('');operation.current=uuid();setModal('collect');}},[params.action]);
+  useEffect(()=>{let live=true;nextCollectionReceipt('installment').then(v=>{if(live)setBookReceiptNo(v);}).catch(()=>{});return()=>{live=false;};},[]);
   const schedule=investmentSchedule(c,project.returnedAmount),outstanding=roundMoney(c.principal+c.profitAmount-project.returnedAmount);
   const overdue=roundMoney(schedule.filter(s=>s.overdue).reduce((sum,s)=>sum+s.remaining,0)),next=schedule.find(s=>s.remaining>0);
   const reminder=investmentReminder(c,project.returnedAmount,society.name,isBengali),value=parseInvestmentAmount(amount);
@@ -46,9 +47,9 @@ export default function InvestmentDetail({project}:{project:Project}){
   const edit=()=>{operation.current=uuid();setError('');};
   const receive=async()=>{
     if(busy)return;
-    if(!allocation||!validISODate(date)||date>isoToday()||date<c.disbursedDate){setError(l('Check the amount and collection date.','আদায়ের টাকা ও তারিখ যাচাই করুন।'));return;}
+    if(!allocation||!validISODate(date)||date>isoToday()||date<c.disbursedDate||!bookReceiptNo.trim()){setError(l('Check the amount, collection date and receipt number.','আদায়ের টাকা, তারিখ ও রশিদ নম্বর যাচাই করুন।'));return;}
     setBusy(true);setError('');
-    try{const t=await collect({id:operation.current,projectId:project.id,amount:value,date,paymentMethod:method,note});setReceipt(t);setModal('receipt');history.reload();}
+    try{const t=await collect({id:operation.current,projectId:project.id,amount:value,date,paymentMethod:method,note,bookReceiptNo:bookReceiptNo.trim()});setReceipt(t);setModal('receipt');history.reload();}
     catch(e:any){setError(e.message);}finally{setBusy(false);}
   };
   const openReminder=async()=>{
@@ -89,7 +90,7 @@ export default function InvestmentDetail({project}:{project:Project}){
       {error&&!modal?<Text style={s.error}>{error}</Text>:null}
       <View style={s.pills}><Text style={s.pill}>{c.memberId?l('Member','সদস্য'):l('Outside person','বাইরের ব্যক্তি')}</Text>
         {overdue>0?<Text style={[s.pill,s.pillWarn]}>{l(`${formatNum(schedule.filter(i=>i.overdue).length)} overdue`,`${formatNum(schedule.filter(i=>i.overdue).length)} কিস্তি বাকি`)}</Text>:outstanding<=0?<Text style={s.pill}>{l('Fully paid','সম্পূর্ণ পরিশোধিত')}</Text>:null}
-        <Text style={[s.muted,{marginLeft:'auto'}]}>{c.number}</Text></View>
+      </View>
       <Card><Text style={s.muted}>{l('Still to collect','মোট বাকি')}</Text><Text style={s.amount}>{formatMoney(outstanding)}</Text>
         <View style={s.bar}><View style={[s.barFill,{width:`${Math.min(100,Math.round(project.returnedAmount/Math.max(1,c.principal+c.profitAmount)*100))}%`}]}/></View>
         <View style={s.row}><Text style={s.muted}>{l('Collected','পেয়েছেন')} {formatMoney(project.returnedAmount)}</Text><Text style={s.muted}>{l('Total','মোট')} {formatMoney(c.principal+c.profitAmount)}</Text></View>
@@ -101,7 +102,7 @@ export default function InvestmentDetail({project}:{project:Project}){
           <View style={{flex:1}}><Text style={s.instTitle}>{l('Installment','কিস্তি')} {formatNum(i.number)}</Text><Text style={[s.muted,i.overdue&&{color:colors.warning}]}>{formatHumanDate(i.dueDate,isBengali)} · {i.remaining===0?l('Paid','পরিশোধিত'):i.overdue?l('Overdue','মেয়াদ পার'):i.paid>0?l('Part paid','আংশিক'):l('Pending','বাকি')}</Text></View>
           <Text style={s.instAmount}>{formatMoney(i.remaining===0?i.amount:i.remaining)}</Text></View>)}
         <Button variant="ghost" title={allSchedule?l('Show less','কম দেখুন'):l('Show all installments','সব কিস্তি দেখুন')} onPress={()=>setAllSchedule(!allSchedule)}/></View>:null}
-      {tab==='history'?<Card>{history.rows.map(t=><View style={s.line} key={t.id}><Text style={s.value}>{t.receiptNo} · {formatMoney(t.amount)}</Text><Text style={s.muted}>{t.dateISO?formatHumanDate(t.dateISO,isBengali):t.date} · {t.paymentMethod}</Text>{t.note?<Text style={s.body}>{t.note}</Text>:null}
+      {tab==='history'?<Card>{history.rows.map(t=><View style={s.line} key={t.id}><Text style={s.value}>{formatMoney(t.amount)}</Text><Text style={s.muted}>{t.dateISO?formatHumanDate(t.dateISO,isBengali):t.date} · {t.paymentMethod}</Text>{t.note?<Text style={s.body}>{t.note}</Text>:null}
         {t.principalPart!==undefined?<Text style={s.body}>{t.investmentReversal||t.investmentPaymentReversed?l('Reversed','বাতিল'):l('Received','আদায়')} · {l('Principal','মূলধন')} {formatMoney(t.principalPart)} · {l('Profit','প্রফিট')} {formatMoney(t.profitPart||0)}</Text>:null}
         {t.type==='profit'&&t.principalPart!==undefined?<View style={s.actions}><Button variant="ghost" size="sm" title={l('View receipt','রশিদ দেখুন')} onPress={()=>{setReceipt(t);setModal('receipt');}}/>{canEnter&&!t.investmentPaymentReversed?<Button variant="ghost" size="sm" title={l('Cancel this collection','এই আদায় বাতিল')} onPress={()=>{setTarget(t);setReason('');edit();setModal('reverse');}}/>:null}</View>:null}</View>)}{!history.loading&&!history.error&&!history.rows.length?<Text style={s.muted}>{l('No transactions','কোনো লেনদেন নেই')}</Text>:null}<LedgerPaging {...history}/></Card>:null}
       {tab==='info'?<Card>
@@ -118,15 +119,16 @@ export default function InvestmentDetail({project}:{project:Project}){
       {text:l('Record related expense','বিনিয়োগের খরচ লিখুন'),onPress:()=>{setAmount('');setNote('');edit();setModal('expense');}},
       {text:l('Statement PDF','স্টেটমেন্ট PDF'),onPress:statement}]}/>
     <Modal visible={!!modal} animationType="slide" onRequestClose={close}><SafeAreaView style={s.root} edges={['top','bottom','left','right']}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
-      <Button variant="ghost" title={l('Close','বন্ধ করুন')} disabled={busy} onPress={close}/><Text style={s.heading}>{modal==='collect'?l('Collect payment','কিস্তি গ্রহণ'):modal==='reminder'?l('Reminder preview','রিমাইন্ডার preview'):modal==='reverse'?l('Reverse payment','আদায় বাতিল'):modal==='expense'?l('Investment expense','বিনিয়োগের খরচ'):l('Payment receipt','আদায়ের রশিদ')}</Text><Text style={s.muted}>{c.recipientName} · {c.number}</Text>{error?<Text accessibilityRole="alert" style={s.error}>{error}</Text>:null}
+      <Button variant="ghost" title={l('Close','বন্ধ করুন')} disabled={busy} onPress={close}/><Text style={s.heading}>{modal==='collect'?l('Collect payment','কিস্তি গ্রহণ'):modal==='reminder'?l('Reminder preview','রিমাইন্ডার preview'):modal==='reverse'?l('Reverse payment','আদায় বাতিল'):modal==='expense'?l('Investment expense','বিনিয়োগের খরচ'):l('Payment receipt','আদায়ের রসিদ')}</Text><Text style={s.muted}>{c.recipientName}</Text>{error?<Text accessibilityRole="alert" style={s.error}>{error}</Text>:null}
       {modal==='collect'?<><Text style={s.body}>{l('Outstanding','মোট বাকি')}: {formatMoney(outstanding)}{next?` · ${l('Next installment','পরবর্তী কিস্তি')} ${formatMoney(next.remaining)}`:''}</Text>
+        <Input label={l('Installment-book receipt no.', 'কিস্তি বইয়ের রশিদ নং')} value={bookReceiptNo} keyboardType="number-pad" onChangeText={setBookReceiptNo} helper={l('Suggested from the last saved installment receipt. Change it to match the book if needed.', 'সর্বশেষ সংরক্ষিত কিস্তি রশিদ থেকে সাজেস্ট করা হয়েছে। বইয়ের নম্বর ভিন্ন হলে বদলান।')} />
         <Input label={l('Amount actually received','যত টাকা পাওয়া গেছে')} value={amount} editable={!busy} keyboardType="decimal-pad" onChangeText={v=>{edit();setAmount(v);}}/>
         <DateField label={l('Collection date','আদায়ের তারিখ')} value={date} max={isoToday()} min={c.disbursedDate} onChange={v=>{edit();setDate(v);}}/><Input label={l('Note','মন্তব্য')} value={note} editable={!busy} onChangeText={v=>{edit();setNote(v);}}/>
         <Button variant="outline" disabled={busy} title={`${l('Receiving account','জমার হিসাব')}: ${accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method}`} onPress={()=>setSelectAccount(true)}/>
         {allocation?<Card><Text style={s.body}>{l('Principal recovered','মূলধন ফেরত')}: {formatMoney(allocation.principalPart)}</Text><Text style={s.body}>{l('Profit received','প্রফিট আদায়')}: {formatMoney(allocation.profitPart)}</Text><Text style={s.value}>{l('Remaining after collection','আদায়ের পর বাকি')}: {formatMoney(roundMoney(outstanding-value))}</Text></Card>:null}<Button title={l('Confirm collection','আদায় নিশ্চিত করুন')} disabled={!allocation} loading={busy} onPress={receive}/></>
       :modal==='expense'?<><Input label={l('Expense amount','খরচের টাকা')} value={amount} editable={!busy} keyboardType="decimal-pad" onChangeText={v=>{edit();setAmount(v);}}/><Input label={l('Description','বিবরণ')} value={note} editable={!busy} onChangeText={v=>{edit();setNote(v);}}/><Button variant="outline" disabled={busy} title={l('Choose payment account','টাকা দেওয়ার হিসাব নির্বাচন')} onPress={()=>setSelectAccount(true)}/><Text style={s.body}>{accounts.find(a=>a.type===(method==='cash'?'cashier':method))?.name||method}</Text><Button title={l('Save expense','খরচ সংরক্ষণ')} loading={busy} onPress={expense}/></>
       :modal==='reminder'?<><Card><Text style={s.body}>{reminder?.text||l('No unpaid installments.','সব কিস্তি পরিশোধিত।')}</Text></Card><Text style={s.muted}>{l('WhatsApp opens with this message. Press Send there. Opening does not confirm delivery.','এই message নিয়ে WhatsApp খুলবে। সেখানে Send চাপুন। খোলা মানে পৌঁছেছে নয়।')}</Text><Button title={l('Open WhatsApp','WhatsApp খুলুন')} disabled={!reminder?.url} loading={busy} onPress={openReminder}/><Button variant="outline" title={l('Share message instead','message শেয়ার করুন')} disabled={!reminder||busy} onPress={()=>Share.share({message:reminder?.text||''}).catch(e=>setError(e.message))}/></>
-      :modal==='reverse'?<><Card><Text style={s.body}>{target?.receiptNo}</Text><Text style={s.error}>{l('This refunds money from the original account and reopens the balance. Only the latest active payment can be reversed.','এতে মূল জমার হিসাব থেকে টাকা ফেরত যাবে এবং বাকি বাড়বে। শুধু সর্বশেষ সক্রিয় আদায় বাতিল করা যাবে।')}</Text><Text style={s.amount}>{formatMoney(target?.amount||0)}</Text></Card><Input label={l('Reason','কারণ')} value={reason} editable={!busy} onChangeText={v=>{edit();setReason(v);}}/><Button variant="danger" title={l('Confirm reversal and refund','বাতিল ও টাকা ফেরত নিশ্চিত করুন')} loading={busy} onPress={undo}/></>
+      :modal==='reverse'?<><Card><Text style={s.error}>{l('This refunds money from the original account and reopens the balance. Only the latest active payment can be reversed.','এতে মূল জমার হিসাব থেকে টাকা ফেরত যাবে এবং বাকি বাড়বে। শুধু সর্বশেষ সক্রিয় আদায় বাতিল করা যাবে।')}</Text><Text style={s.amount}>{formatMoney(target?.amount||0)}</Text></Card><Input label={l('Reason','কারণ')} value={reason} editable={!busy} onChangeText={v=>{edit();setReason(v);}}/><Button variant="danger" title={l('Confirm reversal and refund','বাতিল ও টাকা ফেরত নিশ্চিত করুন')} loading={busy} onPress={undo}/></>
       :modal==='receipt'&&receipt?<><Card><Text style={[s.value,{fontSize:18,marginBottom:6}]}>{l('Receipt no.', 'রশিদ নং')} {receipt.receiptNo}</Text>{report(receipt).rows.slice(1).map(([label,v])=><View style={s.row} key={String(label)}><Text style={s.body}>{label}</Text><Text style={s.value}>{typeof v==='number'?formatMoney(v):v}</Text></View>)}</Card><Button title={l('Share receipt PDF','রশিদ PDF শেয়ার')} onPress={exportReceipt}/><Button variant="outline" title={l('Send on WhatsApp','WhatsApp-এ পাঠান')} onPress={()=>void sendOnWhatsApp(c.whatsapp||c.phone,receiptText({society:society.name,title:'কিস্তি আদায়ের রসিদ',name:c.recipientName,code:c.number,amount:receipt.amount,date:receipt.dateISO||receipt.date,receiptNo:receipt.receiptNo,extra:`মোট বাকি: ${formatMoney(outstanding)}`},formatMoney))}/></>:null}
     </ScrollView></KeyboardAvoidingView><SelectModal visible={selectAccount} title={l('Receiving account','জমার হিসাব')} value={method} options={accounts.filter(a=>['bank','cashier','bkash','nagad'].includes(a.type||'')).map(a=>({value:a.type==='cashier'?'cash':a.type!,label:a.name}))} onClose={()=>setSelectAccount(false)} onSelect={v=>{edit();setMethod(v as NewInvestment['paymentMethod']);}}/></SafeAreaView></Modal>
   </SafeAreaView>;

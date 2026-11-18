@@ -131,7 +131,8 @@ export function mapTransaction(r: any): Transaction {
     voided: r.voided || false,
     reversesTransactionId: r.reverses_transaction_id || undefined,
     id: r.id,
-    receiptNo: r.receipt_no,
+    receiptNo: r.book_receipt_no || r.receipt_no,
+    bookReceiptNo: r.book_receipt_no || undefined,
     memberId: r.member_id || r.project_id || (r.type === 'transfer' ? 'internal' : 'org'),
     memberName: r.party_name,
     memberCode: r.party_code,
@@ -647,6 +648,7 @@ export const recordDeposit = async(d: {
   trxId?: string;
   note?: string;
   date?: string;
+  bookReceiptNo?: string;
 }) => {
   await requireVoluntarySchema();
   if(d.lateFee!==0 || d.baseAmount!==d.totalAmount)throw new Error('বিলম্ব ফি বন্ধ রয়েছে। / Late fees are disabled.');
@@ -660,6 +662,7 @@ export const recordDeposit = async(d: {
     p_payment_method: d.paymentMethod,
     p_trx_id: d.trxId ?? null,
     p_note: d.note ?? null,
+    p_book_receipt_no: d.bookReceiptNo ?? null,
   };
   if (d.date) {
     payload.p_date = d.date;
@@ -674,6 +677,10 @@ export const recordDeposit = async(d: {
   }
   return unwrap(res);
 };
+
+/** Suggested from the last saved physical-book receipt in this series. */
+export const nextCollectionReceipt = async(series: 'savings' | 'installment'): Promise<string> =>
+  String(await rpc('next_collection_receipt', { p_series: series }) || '');
 
 export const addExpense = (d: {
   title: string;

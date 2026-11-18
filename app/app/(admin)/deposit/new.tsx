@@ -2,7 +2,7 @@ import {isoToday,parseInvestmentAmount} from '../../../src/lib/investment';
 import {useFormValidation} from '../../../src/hooks/useFormValidation';
 import {MemberPicker} from '../../../src/components/MemberPicker';
 import {Button} from '../../../src/components/Button';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,7 +19,7 @@ import { toBengaliDigits, BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { todayDMY, parseDMY } from '../../../src/lib/months';
-import { uuid } from '../../../src/lib/api';
+import { uuid, nextCollectionReceipt } from '../../../src/lib/api';
 
 type PaymentMethodType = 'cash' | 'bkash' | 'nagad' | 'bank';
 
@@ -56,6 +56,8 @@ export default function RecordDepositScreen() {
   const presetDate = typeof params.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date.split('-').reverse().join('/') : todayDMY();
   const [depositDate, setDepositDate] = useState(presetDate);
   const [comment, setComment] = useState(typeof params.note==='string'?params.note:'');
+  const [bookReceiptNo, setBookReceiptNo] = useState('');
+  useEffect(() => { let live=true; nextCollectionReceipt('savings').then(v=>{if(live)setBookReceiptNo(v);}).catch(()=>{}); return()=>{live=false;}; }, []);
 
   // DatePicker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -128,6 +130,7 @@ export default function RecordDepositScreen() {
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount=l('Enter a positive amount with at most two decimal places.','দশমিকের পরে সর্বোচ্চ দুই ঘরসহ সঠিক পরিমাণ দিন।');
     }
+    if (!toEnglishDigits(bookReceiptNo).trim()) errors.receipt=l('Enter the receipt number from the savings book.','চাঁদা বইয়ের রশিদ নম্বর লিখুন।');
 
 
     const depositISO = parseDMY(toEnglishDigits(depositDate));
@@ -149,6 +152,7 @@ export default function RecordDepositScreen() {
         trxId: paymentMethod !== 'cash' ? trxId.trim() : undefined,
         note: comment.trim() || l('Deposit', 'জমা'),
         date: depositISO!,
+        bookReceiptNo: toEnglishDigits(bookReceiptNo).trim(),
         sendSMS,
       });
 
@@ -233,6 +237,8 @@ export default function RecordDepositScreen() {
           <View style={styles.greenUnderline} />
 
         </View>
+
+        <View {...validation.fieldProps('receipt')}><Text style={styles.fieldLabel}>{l('Savings-book receipt no.', 'চাঁদা বইয়ের রশিদ নং')}</Text><View style={styles.inputBox}><TextInput value={bookReceiptNo} onChangeText={v=>{setBookReceiptNo(toEnglishDigits(v));validation.clear('receipt');}} keyboardType="number-pad" style={styles.inputText} /></View>{validation.errors.receipt?<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.receipt}</Text>:null}<Text style={styles.receiptHint}>{l('Suggested from the last saved receipt. Change it to match the book if needed.', 'সর্বশেষ সংরক্ষিত রশিদ থেকে সাজেস্ট করা হয়েছে। বইয়ের নম্বর ভিন্ন হলে বদলান।')}</Text></View>
 
         {/* 3. Payment Method */}
         <Text style={styles.sectionTitle}>{l('Payment Method', 'পেমেন্টের মাধ্যম')}</Text>
@@ -580,6 +586,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  receiptHint: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.textSecondary, marginTop: 4, marginBottom: 12 },
   amountSectionLabel: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.size.sm,

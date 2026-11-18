@@ -58,6 +58,8 @@ export interface Transaction {
   investmentDisbursement?: boolean;
   investmentPaymentReversed?: boolean;
   id: string;
+  /** Number printed in the physical collection book, not the internal ID. */
+  bookReceiptNo?: string;
   receiptNo: string;
   memberId: string;
   memberName: string;
@@ -183,6 +185,7 @@ export interface SomitiState {
     trxId?: string;
     note?: string;
     date?: string;
+    bookReceiptNo?: string;
     sendWhatsApp?: boolean;
     sendSMS?: boolean;
   }) => Promise<Transaction>;

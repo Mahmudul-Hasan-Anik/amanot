@@ -18,7 +18,7 @@ export type NewInvestment = Omit<InvestmentContract, 'number' | 'profitAmount'> 
 export type InvestmentProposal = {id:string; status:'submitted'|'approved'|'rejected'|'withdrawn'|'disbursed'; payload:NewInvestment; created_at:string; approved_at?:string; disbursed_at?:string; decision_note:string};
 export type InvestmentPayment = {
   id: string; projectId: string; amount: number; paymentMethod: NewInvestment['paymentMethod'];
-  date: string; note: string;
+  date: string; note: string; bookReceiptNo?: string;
 };
 export const roundMoney = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 export function parseInvestmentAmount(value: string): number {
