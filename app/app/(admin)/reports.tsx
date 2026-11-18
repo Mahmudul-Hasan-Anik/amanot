@@ -11,6 +11,8 @@ import { safeBack } from '../../src/utils/navigation';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { SelectModal } from '../../src/components/SelectModal';
+import { DateField } from '../../src/components/DateField';
+import { isoToday } from '../../src/lib/investment';
 
 interface ReportItem {
   id: string;
@@ -98,10 +100,15 @@ export default function ReportsScreen() {
   const selectedPeriod = periods.find(p=>p.key===month)!;
   const [exporting,setExporting] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [customRange, setCustomRange] = useState(false);
+  const [from, setFrom] = useState(`${month}-01`);
+  const [to, setTo] = useState(isoToday());
+  const period = customRange ? { from, to } : month;
   const handleDownload = async (id:string,format:'PDF'|'CSV') => {
     if(exporting) return;
+    if (customRange && from > to) { Alert.alert(l('Choose a valid date range', 'সঠিক তারিখসীমা বাছুন'), l('The start date must not be after the end date.', 'শুরুর তারিখ শেষ তারিখের পরে হতে পারবে না।')); return; }
     setExporting(true);
-    try { await exportReport(await buildReportForExport(state,id,month,isBengali?'bn':'en'),state.somitiInfo.name,month,format); }
+    try { await exportReport(await buildReportForExport(state,id,period,isBengali?'bn':'en'),state.somitiInfo.name,customRange ? `${from}-${to}` : month,format); }
     catch(e:any) { Alert.alert(l('Export failed','এক্সপোর্ট ব্যর্থ'),e.message); }
     finally {setExporting(false);}
   };
@@ -132,15 +139,22 @@ export default function ReportsScreen() {
         {/* Date Selector Pill */}
         <TouchableOpacity
           style={styles.dateSelectorPill}
-          onPress={() => setMonthPickerOpen(true)}
+          onPress={() => customRange ? setCustomRange(false) : setMonthPickerOpen(true)}
           activeOpacity={0.8}
         >
           <Ionicons name="calendar-outline" size={16} color={colors.text} style={styles.calIcon} />
           <Text style={styles.dateSelectorText}>
-            {isBengali ? selectedPeriod.bn : selectedPeriod.en}
+            {customRange ? `${from} — ${to}` : isBengali ? selectedPeriod.bn : selectedPeriod.en}
           </Text>
           <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.rangeToggle} onPress={() => setCustomRange(value => !value)} activeOpacity={0.8}>
+          <Text style={styles.rangeToggleText}>{customRange ? l('Use monthly report', 'মাসিক রিপোর্ট নিন') : l('Choose date range', 'তারিখসীমা বাছুন')}</Text>
+        </TouchableOpacity>
+        {customRange ? <View style={styles.rangeFields}>
+          <View style={styles.rangeField}><DateField label={l('From date', 'শুরুর তারিখ')} value={from} max={to} onChange={setFrom} /></View>
+          <View style={styles.rangeField}><DateField label={l('To date', 'শেষ তারিখ')} value={to} min={from} max={isoToday()} onChange={setTo} /></View>
+        </View> : null}
 
         {/* 8 Reports Single Card */}
         <View style={styles.reportsCard}>
@@ -266,6 +280,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginRight: 6,
   },
+  rangeToggle: { alignSelf: 'flex-start', marginTop: -8, marginBottom: 12, paddingVertical: 6 },
+  rangeToggleText: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.size.sm, color: colors.primary },
+  rangeFields: { flexDirection: 'row', gap: 10 },
+  rangeField: { flex: 1 },
   reportsCard: {
     backgroundColor: colors.surface,
     borderRadius: 20,

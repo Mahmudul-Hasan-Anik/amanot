@@ -109,7 +109,10 @@ function useAutoSync() {
     const sub = AppState.addEventListener('change', (st) => {
       if (st === 'background') backgroundAt = Date.now();
       if (st === 'active') {
-        if (backgroundAt && Date.now()-backgroundAt>=60000) useAuthStore.getState().lockApp();
+        // One minute made short calls, camera use and date picking discard an
+        // in-progress form.  Keep the PIN boundary, but make it a practical
+        // 15-minute inactivity window.
+        if (backgroundAt && Date.now()-backgroundAt>=15 * 60 * 1000) useAuthStore.getState().lockApp();
         else sync();
       }
     });

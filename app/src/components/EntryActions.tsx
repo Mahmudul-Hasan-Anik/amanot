@@ -50,7 +50,7 @@ export function EntryActions({ entry, onClose }: { entry: Transaction | null; on
   return <AppModal visible={!!entry} onClose={close}>
     <View style={s.head}><Text style={s.title}>{d.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={l('Close', 'বন্ধ')} onPress={close}><Ionicons name="close" size={22} color={colors.text} /></Pressable></View>
     <Text style={s.meta}>{d.detail}</Text>
-    <Text style={s.meta}>{entry.dateISO ? formatHumanDate(entry.dateISO, isBengali) : entry.date} · {entry.receiptNo}</Text>
+    <Text style={s.meta}>{entry.dateISO ? formatHumanDate(entry.dateISO, isBengali) : entry.date}</Text>
     <Text style={[s.amount, entry.voided && { textDecorationLine: 'line-through', color: colors.textSecondary }]}>{money(Math.abs(signedTransactionAmount({ ...entry, voided: false })) || entry.amount)}</Text>
     {entry.voided ? <Text style={s.note}>{l('This entry was cancelled.', 'এই এন্ট্রি বাতিল করা হয়েছে।')}</Text> : null}
     {entry.type === 'deposit' ? <Button variant="outline" title={l('View receipt', 'রশিদ দেখুন')} onPress={() => { close(); router.push(`/(admin)/receipt/${entry.id}` as any); }} /> : null}

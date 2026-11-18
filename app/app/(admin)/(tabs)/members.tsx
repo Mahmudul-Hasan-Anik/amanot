@@ -39,7 +39,9 @@ export default function MembersScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [showSort, setShowSort] = useState(false);
-  const [sortBy, setSortBy] = useState('savings');
+  // The default "all" view is the membership register, so keep its natural
+  // member-number order.  A cashier can still choose savings/name ordering.
+  const [sortBy, setSortBy] = useState('code');
   const sortOptions = [
     { value: 'name', label: l('Name', 'নাম') },
     { value: 'code', label: l('Member ID', 'সদস্য আইডি') },

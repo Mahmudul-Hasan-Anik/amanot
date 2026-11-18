@@ -13,31 +13,35 @@ import { monthRange, signedTransactionAmount } from '../lib/ledger';
 import { exportFilename } from './exportFilename';
 
 export type Report = { title:string; columns:string[]; rows:Array<Array<string|number>>; language?:'bn'|'en' };
-export async function buildReportForExport(state:SomitiState,id:string,month:string,language:'bn'|'en'='bn'):Promise<Report>{
- const remote=isSupabaseConfigured(),range=monthRange(month),year=Number(month.slice(0,4));
+export type ReportPeriod = string | { from: string; to: string };
+const periodRange=(period:ReportPeriod)=>typeof period==='string'?monthRange(period):period;
+const periodYear=(period:ReportPeriod)=>Number((typeof period==='string'?period:period.from).slice(0,4));
+export async function buildReportForExport(state:SomitiState,id:string,period:ReportPeriod,language:'bn'|'en'='bn'):Promise<Report>{
+ const remote=isSupabaseConfigured(),range=periodRange(period),year=periodYear(period);
  let base:any=state;
  if(remote&&['3','6','7','9','all'].includes(id))base={...base,transactions:await fetchTransactionHistory(range)};
  if(remote&&['8','all'].includes(id))base={...base,distributionShares:await fetchDistributionShares(year)};
  if(remote&&id==='1'){
-  const summary=await fetchLedgerSummary(range.from,range.to);const report=buildReport({...state,transactions:[]},id,month,language);
+  const summary=await fetchLedgerSummary(range.from,range.to);const report=buildReport({...state,transactions:[]},id,period,language);
   report.rows=state.members.map(m=>[m.code,m.name,Number(summary.collections[m.id]||0)]);return report;
  }
  if(id==='all'){
-  const reports=['1','2','3','4','5','6','7','8','9'].map(key=>buildReport(base,key,month,language));
+  const reports=['1','2','3','4','5','6','7','8','9'].map(key=>buildReport(base,key,period,language));
   const width=Math.max(...reports.map(r=>r.columns.length));
   return {language,title:language==='en'?'All reports':'সকল রিপোর্ট',columns:[language==='en'?'Report':'রিপোর্ট',...Array.from({length:width},(_,i)=>String(i+1))],rows:reports.flatMap(r=>[[r.title,...r.columns,...Array(width-r.columns.length).fill('')],...r.rows.map(row=>[r.title,...row,...Array(width-row.length).fill('')])])};
  }
- return buildReport(base,id,month,language);
+ return buildReport(base,id,period,language);
 }
-export function buildReport(state:SomitiState,id:string,month:string,language:'bn'|'en'='bn'):Report{
- const l=(en:string,bn:string)=>language==='en'?en:bn,tx=state.transactions.filter(t=>t.dateISO?.startsWith(month)),members=state.members;
+export function buildReport(state:SomitiState,id:string,period:ReportPeriod,language:'bn'|'en'='bn'):Report{
+ const range=periodRange(period),year=periodYear(period);
+ const l=(en:string,bn:string)=>language==='en'?en:bn,tx=state.transactions.filter(t=>!!t.dateISO&&t.dateISO>=range.from&&t.dateISO<=range.to),members=state.members;
  const make=(en:string,bn:string,columns:[string,string][],rows:Report['rows']):Report=>({language,title:l(en,bn),columns:columns.map(c=>l(...c)),rows});
  const signed=signedTransactionAmount;
  if(id==='9'||id==='6')return make(id==='6'?'Cash movements by payment method':'Monthly ledger',id==='6'?'মাধ্যমভিত্তিক টাকা আসা-যাওয়া':'মাসিক লেজার',[['Date','তারিখ'],['Receipt','রসিদ'],['Type','ধরন'],['Description','বিবরণ'],['Amount','পরিমাণ'],['Method','মাধ্যম']],tx.map(t=>[t.dateISO||t.date,t.receiptNo,t.type,financeNote(t.note||t.memberName,language==='bn'),signed(t),t.paymentMethod]));
  if(id==='2')return make('Overdue investment installments (current)','বিনিয়োগের মেয়াদোত্তীর্ণ কিস্তি (বর্তমান)',[['Contract','চুক্তি'],['Recipient','গ্রহীতা'],['Due date','কিস্তির তারিখ'],['Outstanding installment','কিস্তির বাকি'],['Phone','ফোন']],state.projects.flatMap(p=>p.contract?investmentSchedule(p.contract,p.returnedAmount).filter(r=>r.overdue).map(r=>[p.contract!.number,p.name,r.dueDate,r.remaining,p.contract!.phone]):[]));
  if(id==='5')return make('Investment report (current)','বিনিয়োগ রিপোর্ট (বর্তমান)',[['Contract','চুক্তি'],['Recipient','গ্রহীতা'],['Principal','মূলধন'],['Agreed profit','চুক্তির প্রফিট'],['Collected','মোট আদায়'],['Principal outstanding','মূলধন বাকি'],['Realized net profit','আদায়কৃত নিট প্রফিট'],['Total outstanding','মোট বাকি'],['Status','অবস্থা']],state.projects.map(p=>[p.contract?.number||p.id,p.name,p.investedAmount,p.contract?.profitAmount??'',p.returnedAmount,p.remainingAmount,p.netProfit,p.contract?Math.max(0,p.contract.principal+p.contract.profitAmount-p.returnedAmount):p.remainingAmount,p.status]));
  if(id==='8'){
-  const year=Number(month.slice(0,4)),shares=(state as any).distributionShares;
+  const shares=(state as any).distributionShares;
   return make('Approved distribution snapshot · '+year,'অনুমোদিত বণ্টনের snapshot · '+year,[['ID','আইডি'],['Member','সদস্য'],['Year','বছর'],['Savings at approval','অনুমোদনের সময় সঞ্চয়'],['Allocated profit','বণ্টিত লাভ']],shares?shares.map((r:any)=>{const m=members.find(m=>m.id===r.member_id);return [m?.code||r.member_id,m?.name||'—',r.year,Number(r.base_deposit),Number(r.share)]}):members.filter(m=>m.lastProfitYear===year).map(m=>[m.code,m.name,year,'',m.profit2025||0]));
  }
  if(id==='4')return make('Member savings balances (current)','সদস্যদের সঞ্চয়ের ব্যালেন্স (বর্তমান)',[['ID','আইডি'],['Member','সদস্য'],['Category','ক্যাটাগরি'],['Remaining balance','অবশিষ্ট ব্যালেন্স'],['Net withdrawals','নিট উত্তোলন'],['Profit balance','লাভের ব্যালেন্স']],members.map(m=>[m.code,m.name,m.memberCategory||'',m.totalDeposit,m.totalWithdrawn||0,m.profitBalance||0]));
