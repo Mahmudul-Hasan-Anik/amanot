@@ -156,6 +156,17 @@ async function main(){
  await assert.rejects(()=>one('select record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9,$10::date)',[member,[],1,0,1,'cash',null,'closed','00000000-0000-4000-8000-000000000781',today]));
  await as('postgres');await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_022_investments.sql'),'utf8'));
  });
+ await pass('separate physical receipt books suggest the next number and reject duplicates',async()=>{
+  await as('postgres');await sql('delete from profit_distributions where year=extract(year from current_date)::int');
+  const migration=fs.readFileSync(path.join(root,'supabase/migrations/20261118190000_collection_book_receipts.sql'),'utf8');await db.exec(migration);await db.exec(migration);await db.exec(fs.readFileSync(path.join(root,'supabase/deploy_028_collection_book_receipts.sql'),'utf8'));await as('authenticated',owner);
+  const member=(await one('select member_id from profiles where id=$1',[owner])).member_id;
+  assert.equal((await one("select next_collection_receipt('savings') n")).n,'');
+  await one('select record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9,$10::date,$11)',[member,[],1,0,1,'cash',null,'book receipt','00000000-0000-4000-8000-000000000782',today,'1023']);
+  assert.equal((await one("select next_collection_receipt('savings') n")).n,'1024');
+  await assert.rejects(()=>one('select record_deposit($1,$2::text[],$3,$4,$5,$6,$7,$8,$9,$10::date,$11)',[member,[],1,0,1,'cash',null,'duplicate','00000000-0000-4000-8000-000000000783',today,'1023']));
+  await pay({...first,id:'00000000-0000-4000-8000-000000000784',amount:1,note:'book receipt',bookReceiptNo:'2255'});
+  assert.equal((await one("select next_collection_receipt('installment') n")).n,'2256');
+ });
  console.log(checks+' investment database checks passed');
  }finally{await db.close();}
 }

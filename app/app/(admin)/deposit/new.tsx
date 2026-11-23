@@ -238,7 +238,7 @@ export default function RecordDepositScreen() {
 
         </View>
 
-        <View {...validation.fieldProps('receipt')}><Text style={styles.fieldLabel}>{l('Savings-book receipt no.', 'চাঁদা বইয়ের রশিদ নং')}</Text><View style={styles.inputBox}><TextInput value={bookReceiptNo} onChangeText={v=>{setBookReceiptNo(toEnglishDigits(v));validation.clear('receipt');}} keyboardType="number-pad" style={styles.inputText} /></View>{validation.errors.receipt?<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.receipt}</Text>:null}<Text style={styles.receiptHint}>{l('Suggested from the last saved receipt. Change it to match the book if needed.', 'সর্বশেষ সংরক্ষিত রশিদ থেকে সাজেস্ট করা হয়েছে। বইয়ের নম্বর ভিন্ন হলে বদলান।')}</Text></View>
+        <View {...validation.fieldProps('receipt')}><Text style={styles.fieldLabel}>{l('Savings-book receipt no.', 'চাঁদা বইয়ের রশিদ নং')}</Text><View style={styles.inputBox}><TextInput testID="input-book-receipt" value={bookReceiptNo} onChangeText={v=>{setBookReceiptNo(toEnglishDigits(v));validation.clear('receipt');}} keyboardType="number-pad" style={styles.inputText} /></View>{validation.errors.receipt?<Text accessibilityRole="alert" style={{color:colors.danger}}>{validation.errors.receipt}</Text>:null}<Text style={styles.receiptHint}>{l('Suggested from the last saved receipt. Change it to match the book if needed.', 'সর্বশেষ সংরক্ষিত রশিদ থেকে সাজেস্ট করা হয়েছে। বইয়ের নম্বর ভিন্ন হলে বদলান।')}</Text></View>
 
         {/* 3. Payment Method */}
         <Text style={styles.sectionTitle}>{l('Payment Method', 'পেমেন্টের মাধ্যম')}</Text>

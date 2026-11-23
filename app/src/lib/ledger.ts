@@ -13,6 +13,20 @@ export function signedTransactionAmount(t:Pick<Transaction,'type'|'amount'|'inve
  if(t.voided||t.type==='reversal')return 0;
  return t.type==='expense'||t.type==='withdrawal'||t.investmentReversal||t.investmentDisbursement?-t.amount:t.amount;
 }
+
+/** Keep monthly money-out auditable: refunds are not savings withdrawals. */
+export function outgoingBreakdown(rows: Array<Pick<Transaction,'type'|'amount'|'investmentReversal'|'investmentDisbursement'>&{voided?:boolean}>) {
+ const totals={withdrawals:0,expenses:0,investments:0,installmentRefunds:0,other:0};
+ for(const t of rows){
+  const amount=Math.max(0,-signedTransactionAmount(t));if(!amount)continue;
+  if(t.type==='withdrawal')totals.withdrawals+=amount;
+  else if(t.type==='expense')totals.expenses+=amount;
+  else if(t.investmentDisbursement)totals.investments+=amount;
+  else if(t.investmentReversal)totals.installmentRefunds+=amount;
+  else totals.other+=amount;
+ }
+ return totals;
+}
 export function monthRange(month:string) {
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('Invalid month');
   const [year,m]=month.split('-').map(Number);

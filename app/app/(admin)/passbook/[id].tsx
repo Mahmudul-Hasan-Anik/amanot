@@ -9,6 +9,7 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 import { fetchMemberStatementSnapshot } from '../../../src/lib/api';
 import { buildMemberStatement } from '../../../src/lib/memberStatement';
 import { exportReport } from '../../../src/utils/reportExport';
+import { passbookReportText, sendOnWhatsApp } from '../../../src/utils/whatsappReceipt';
 import { formatHumanDate } from '../../../src/components/DateField';
 import { Button } from '../../../src/components/Button';
 import { safeBack } from '../../../src/utils/navigation';
@@ -28,6 +29,7 @@ export default function PassbookScreen() {
   const society = useSomitiStore(s => s.somitiInfo);
   const [data, setData] = useState<{ member: Member; transactions: Transaction[] } | null>(null);
   const [error, setError] = useState('');
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   useEffect(() => {
     let live = true;
     if (!REMOTE) { if (storeMember) setData({ member: storeMember, transactions: storeTx.filter(t => t.memberId === id) }); return; }
@@ -45,6 +47,41 @@ export default function PassbookScreen() {
     } catch (e: any) { problem = e.message; }
   }
   const m = data?.member || storeMember;
+
+  const handleSendWhatsApp = async () => {
+    if (!m || sendingWhatsApp) return;
+    setSendingWhatsApp(true);
+    try {
+      const totalIn = lines.reduce((s, r) => s + (r.inAmt || 0), 0);
+      const totalOut = lines.reduce((s, r) => s + (r.outAmt || 0), 0) || (m.totalWithdrawn || 0);
+      const text = passbookReportText(
+        {
+          society: society.name,
+          name: m.name,
+          code: m.code,
+          phone: m.phone,
+          currentSavings: m.totalDeposit,
+          totalDeposit: totalIn,
+          totalWithdrawn: totalOut,
+          profitBalance: m.profitBalance,
+          lines: lines.map(r => ({
+            date: displayDate(r.date, isBengali),
+            what: r.what,
+            inAmt: r.inAmt,
+            outAmt: r.outAmt,
+            balance: r.balance,
+          })),
+          isBengali,
+        },
+        money
+      );
+      await sendOnWhatsApp(m.whatsapp || m.phone, text);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
   return <SafeAreaView style={s.root}>
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel={l('Back', 'ফিরুন')} onPress={() => safeBack(router, `/(admin)/member/${id}`)} style={{ padding: 8 }}><Ionicons name="arrow-back" size={24} color={colors.text} /></Pressable>
@@ -67,7 +104,24 @@ export default function PassbookScreen() {
         {!lines.length ? <Text style={[s.muted, { padding: 12 }]}>{l('No deposits yet', 'এখনো কোনো জমা নেই')}</Text> : null}
         <Text style={[s.small, { padding: 10 }]}>{l('Balance here is own savings. Distributed profit is shown above, separately.', 'এখানের ব্যালেন্স নিজের জমা। বণ্টিত মুনাফা উপরে আলাদা দেখানো।')}</Text>
       </View> : null}
-      {report && m ? <Button variant="outline" title={l('Download PDF', 'PDF ডাউনলোড')} onPress={() => exportReport(report!, society.name, m.code, 'PDF').catch(e => setError(e.message))} /> : null}
+      {report && m ? (
+        <View style={s.btnGroup}>
+          <Button
+            title={l('Send report on WhatsApp', 'হোয়াটসঅ্যাপে রিপোর্ট পাঠান')}
+            icon={<Ionicons name="logo-whatsapp" size={18} color={colors.surface} style={{ marginRight: 6 }} />}
+            loading={sendingWhatsApp}
+            onPress={handleSendWhatsApp}
+            testID="passbook-whatsapp-btn"
+          />
+          <Button
+            variant="outline"
+            title={l('Download PDF', 'PDF ডাউনলোড')}
+            icon={<Ionicons name="download-outline" size={18} color={colors.text} style={{ marginRight: 6 }} />}
+            onPress={() => exportReport(report!, society.name, m.code, 'PDF').catch(e => setError(e.message))}
+            testID="passbook-pdf-btn"
+          />
+        </View>
+      ) : null}
     </ScrollView>
   </SafeAreaView>;
 }
@@ -78,6 +132,7 @@ const s = StyleSheet.create({
   heroLabel: { fontFamily: typography.fontFamily.medium, fontSize: 13, color: colors.surface, opacity: 0.85 },
   sub: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
+  btnGroup: { gap: 10, marginTop: 4 },
   error: { fontFamily: typography.fontFamily.regular, color: colors.warning, backgroundColor: colors.warningSoft, padding: 12, borderRadius: 12 },
   muted: { fontFamily: typography.fontFamily.regular, fontSize: 13, color: colors.textSecondary },
   summary: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: colors.primary, borderRadius: 20, padding: 20 },

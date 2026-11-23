@@ -38,7 +38,9 @@ begin
   perform require_staff();
   if p_total_amount is null or p_total_amount<=0 or p_base_amount is null or p_base_amount<0 or coalesce(p_late_fee,0)<>0 or p_base_amount<>p_total_amount then raise exception 'জমার হিসাব সঠিক নয় বা বিলম্ব ফি বন্ধ রয়েছে';end if;
   if p_payment_method is null or p_payment_method not in ('cash','bank','bkash','nagad') then raise exception 'পেমেন্ট পদ্ধতি সঠিক নয়';end if;
-  if book_no is null or length(book_no)>50 then raise exception 'চাঁদা বইয়ের রশিদ নম্বর দিন';end if;
+  if book_no is null or book_no !~ '^[0-9]+$' or length(book_no)>50 then raise exception 'চাঁদা বইয়ের সংখ্যার রশিদ নম্বর দিন';end if;
+  book_no:=book_no::numeric::text;
+  perform require_open_investment_date(coalesce(p_date,investment_business_date()));
   select * into m from members where id=p_member_id and deleted_at is null for update;
   if m.id is null then raise exception 'সদস্য পাওয়া যায়নি';end if;
   if p_id is not null then select * into t from transactions where id=p_id;if t.id is not null then return t;end if;end if;
@@ -62,7 +64,7 @@ do $$ declare d text; begin
     d:=replace(d,'amount numeric; principal_part numeric; profit_part numeric; d date; method text; pid uuid; eid uuid;',
       'amount numeric; principal_part numeric; profit_part numeric; d date; method text; pid uuid; eid uuid; book_no text;');
     d:=replace(d,'amount:=(p->>''amount'')::numeric;d:=(p->>''date'')::date;method:=p->>''paymentMethod'';',
-      'amount:=(p->>''amount'')::numeric;d:=(p->>''date'')::date;method:=p->>''paymentMethod'';book_no:=nullif(trim(p->>''bookReceiptNo''),'''');if book_no is null or length(book_no)>50 then raise exception ''কিস্তি বইয়ের রশিদ নম্বর দিন'';end if;');
+      'amount:=(p->>''amount'')::numeric;d:=(p->>''date'')::date;method:=p->>''paymentMethod'';book_no:=nullif(trim(p->>''bookReceiptNo''),'''');if book_no is null or book_no !~ ''^[0-9]+$'' or length(book_no)>50 then raise exception ''কিস্তি বইয়ের সংখ্যার রশিদ নম্বর দিন'';end if;book_no:=book_no::numeric::text;');
     d:=replace(d,'insert into transactions(id,receipt_no,project_id,party_name,party_code,date,amount,type,payment_method,note,created_by,principal_part,profit_part)',
       'insert into transactions(id,receipt_no,book_receipt_no,book_receipt_series,project_id,party_name,party_code,date,amount,type,payment_method,note,created_by,principal_part,profit_part)');
     d:=replace(d,'values(eid,next_receipt(),pid,c.recipient_name,c.contract_no,d,amount,''profit'',method,',

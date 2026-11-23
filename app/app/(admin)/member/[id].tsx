@@ -26,6 +26,10 @@ import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useAuthStore } from '../../../src/features/auth/authStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
 import { isSupabaseConfigured } from '../../../src/lib/supabase';
+import { buildMemberStatement } from '../../../src/lib/memberStatement';
+import { fetchMemberStatementSnapshot } from '../../../src/lib/api';
+import { passbookReportText, sendOnWhatsApp } from '../../../src/utils/whatsappReceipt';
+import { displayDate } from '../../../src/lib/displayText';
 
 
 import { safeBack } from '../../../src/utils/navigation';
@@ -45,6 +49,8 @@ export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams();
   const { l, isBengali, formatMoney, formatNum } = useLanguage();
   const { getMemberById, members, updateMember, deleteMember } = useSomitiStore();
+  const somitiInfo = useSomitiStore(s => s.somitiInfo);
+  const storeTx = useSomitiStore(s => s.transactions);
   const withdrawalRequests=useSomitiStore(s=>s.withdrawalRequests);
   const allProjects=useSomitiStore(s=>s.projects);
   const changeMemberNumber=useSomitiStore(s=>s.changeMemberNumber);
@@ -160,15 +166,77 @@ export default function MemberProfileScreen() {
     }
   };
 
+  const handleSendWhatsAppStatement = async () => {
+    if (!member) return;
+    try {
+      let snapMember = member;
+      let snapTx = storeTx.filter(t => t.memberId === member.id);
+      if (isSupabaseConfigured()) {
+        try {
+          const snapshot = await fetchMemberStatementSnapshot(member.id);
+          snapMember = snapshot.member;
+          snapTx = snapshot.transactions;
+        } catch {
+          snapTx = history.rows;
+        }
+      }
+      const rep = buildMemberStatement(snapMember, snapTx, isBengali ? 'bn' : 'en');
+      const body = rep.rows.slice(1, rep.rows.length - 3);
+      const text = passbookReportText(
+        {
+          society: somitiInfo.name,
+          name: member.name,
+          code: member.code,
+          phone: member.phone,
+          currentSavings: member.totalDeposit,
+          totalDeposit: body.reduce((sum, r) => sum + (Number(r[3]) + Number(r[5]) || 0), 0),
+          totalWithdrawn: body.reduce((sum, r) => sum + (Number(r[4]) || 0), 0) || (member.totalWithdrawn || 0),
+          profitBalance: member.profitBalance,
+          lines: body.map(r => ({
+            date: displayDate(String(r[0]), isBengali),
+            what: String(r[2]),
+            inAmt: Number(r[3]) + Number(r[5]),
+            outAmt: Number(r[4]),
+            balance: Number(r[6]),
+          })),
+          isBengali,
+        },
+        formatMoney
+      );
+      await sendOnWhatsApp(member.whatsapp || member.phone, text);
+    } catch (e: any) {
+      Alert.alert(l('Error', 'ত্রুটি'), e.message);
+    }
+  };
+
   const handleWhatsApp = () => {
     const raw = toEnglishDigits(member.whatsapp || member.phone || '').replace(/[^0-9]/g, '');
     if (!raw) {
       Alert.alert(l('Error', 'ত্রুটি'), l('No valid phone number found', 'মোবাইল নম্বর পাওয়া যায়নি'));
       return;
     }
-    const fullPhone = raw.startsWith('88') ? raw : `88${raw}`;
-    const greeting = l(`Assalamu Alaikum ${displayName}`, `আসসালামু আলাইকুম ${displayName} ভাই`);
-    Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(greeting)}`);
+    Alert.alert(
+      l('WhatsApp', 'হোয়াটসঅ্যাপ'),
+      l('Choose what you want to send on WhatsApp:', 'হোয়াটসঅ্যাপে কী পাঠাতে চান?'),
+      [
+        {
+          text: l('Send Passbook Statement', 'পাসবই স্টেটমেন্ট পাঠান'),
+          onPress: handleSendWhatsAppStatement,
+        },
+        {
+          text: l('Open Chat', 'মেসেজ পাঠান'),
+          onPress: () => {
+            const fullPhone = raw.startsWith('88') ? raw : `88${raw}`;
+            const greeting = l(`Assalamu Alaikum ${displayName}`, `আসসালামু আলাইকুম ${displayName} ভাই`);
+            Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(greeting)}`);
+          },
+        },
+        {
+          text: l('Cancel', 'বাতিল'),
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const handleSMS = () => {
@@ -195,6 +263,10 @@ export default function MemberProfileScreen() {
   };
 
   const memberActions = [
+        {
+          text: l('Send statement on WhatsApp', 'হোয়াটসঅ্যাপে স্টেটমেন্ট পাঠান'),
+          onPress: handleSendWhatsAppStatement,
+        },
         {
           text: l('Share login instructions', 'লগইনের নির্দেশনা শেয়ার করুন'),
           onPress: handleSendWhatsAppLoginInfo,

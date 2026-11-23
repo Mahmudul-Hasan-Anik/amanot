@@ -55,7 +55,8 @@
     "test:deposit-form": "node scripts/test-deposit-form.cjs",
     "test:member-login-pin": "node scripts/test-member-login-pin.cjs",
     "test:form-regressions": "node scripts/test-form-regressions.cjs",
-    "test:digital-khata": "node scripts/test-digital-khata-db.cjs"
+    "test:digital-khata": "node scripts/test-digital-khata-db.cjs",
+    "test:passbook-whatsapp": "node scripts/test-passbook-whatsapp.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/hind-siliguri": "^0.2.3",

@@ -14,11 +14,11 @@ const button=()=>render().find(n=>n.props.testID==='confirm-deposit-btn');
 const amount=()=>render().find(n=>n.props.accessibilityLabel==='Deposit Amount');
 const errors=()=>render().filter(n=>n.props.accessibilityRole==='alert').map(n=>n.props.children.join(''));
 async function main(){
- const submits=button().props.onPress;await submits();assert.equal(writes.length,0);assert.equal(errors().length,1,'Only the amount is required; transaction ID is optional');assert.ok(scrolls.some(s=>s.y===84),'First invalid field revealed');
+ const submits=button().props.onPress;await submits();assert.equal(writes.length,0);assert.equal(errors().length,2,'Amount and physical-book receipt are required; transaction ID is optional');assert.ok(scrolls.some(s=>s.y===84),'First invalid field revealed');
  for(const bad of ['1x2','1.234','0','-1']){amount().props.onChangeText(bad);await button().props.onPress();assert.equal(writes.length,0);assert.ok(errors().some(e=>e.includes('positive amount')));}
- amount().props.onChangeText('১,২০০.৫০');render().find(n=>n.props.placeholder==='BK7X29QM4L').props.onChangeText('TX1');
+ amount().props.onChangeText('১,২০০.৫০');render().find(n=>n.props.testID==='input-book-receipt').props.onChangeText('1024');render().find(n=>n.props.placeholder==='BK7X29QM4L').props.onChangeText('TX1');
  render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText('31/02/2026');await button().props.onPress();assert.ok(errors().some(e=>e.includes('valid DD/MM/YYYY')));
- render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText(months.todayDMY());const submit=button().props.onPress;const pending=submit();await submit();assert.equal(writes.length,1,'Synchronous duplicate tap blocked');assert.equal(button().props.loading,true);assert.equal(writes[0].totalAmount,1200.5);assert.equal(writes[0].lateFee,0);assert.equal(writes[0].months.length,0);
+ render().find(n=>n.props.testID==='input-deposit-date').props.onChangeText(months.todayDMY());const submit=button().props.onPress;const pending=submit();await submit();assert.equal(writes.length,1,'Synchronous duplicate tap blocked');assert.equal(button().props.loading,true);assert.equal(writes[0].totalAmount,1200.5);assert.equal(writes[0].lateFee,0);assert.equal(writes[0].months.length,0);assert.equal(writes[0].bookReceiptNo,'1024');
  finish();await pending;assert.equal(routes.length,1);assert.equal(button().props.loading,false);
  slots.length=0;params={};await button().props.onPress();
  assert.ok(errors().includes('Select a member.'));

@@ -8,7 +8,7 @@ import {LedgerPaging} from '../../src/components/LedgerPaging';
 import {SelectModal} from '../../src/components/SelectModal';
 import {EntryActions,EntryRow} from '../../src/components/EntryActions';
 import {useLanguage} from '../../src/i18n/useLanguage';
-import {monthRange,signedTransactionAmount} from '../../src/lib/ledger';
+import {monthRange,outgoingBreakdown,signedTransactionAmount} from '../../src/lib/ledger';
 import {entryDisplay,EntryKind} from '../../src/lib/entryDisplay';
 import {recentMonths} from '../../src/lib/months';
 import {fetchTransactionHistory} from '../../src/lib/api';
@@ -35,6 +35,8 @@ export default function LedgerScreen(){
     fetchTransactionHistory(range).then(r=>{if(live)setAll(r);},()=>{});return()=>{live=false;};},[month,scoped,storeTx.length]);// eslint-disable-line react-hooks/exhaustive-deps
   const effective=(all||[]).filter(t=>t.type!=='reversal'&&!t.voided);
   const inSum=effective.reduce((s,t)=>s+Math.max(0,signedTransactionAmount(t)),0),outSum=effective.reduce((s,t)=>s+Math.max(0,-signedTransactionAmount(t)),0);
+  const out=outgoingBreakdown(effective);
+  const outRows:[keyof typeof out,string][]=[['withdrawals',l('Savings returned','সঞ্চয় উত্তোলন')],['expenses',l('Expenses','খরচ')],['investments',l('Investment given','বিনিয়োগ প্রদান')],['installmentRefunds',l('Installment refund','কিস্তি refund')],['other',l('Other out','অন্যান্য টাকা বের')]];
   const filters:[('all'|EntryKind),string][]=[['all',l('All','সব')],['deposit',l('Deposits','জমা')],['withdrawal',l('Returns','ফেরত')],['installment',l('Installments','কিস্তি')],['expense',l('Expenses','খরচ')],['fund',l('Money added','টাকা যোগ')]];
   const rows=ledger.rows.filter(t=>t.type!=='reversal'&&(kind==='all'||entryDisplay(t,l,isBengali).kind===kind));
   const monthLabel=isBengali?periods.find(p=>p.key===month)?.bn:periods.find(p=>p.key===month)?.en;
@@ -50,9 +52,10 @@ export default function LedgerScreen(){
       <Pressable accessibilityRole="button" style={s.month} onPress={()=>setPicker(true)}><Ionicons name="calendar-outline" size={16} color={colors.primary}/><Text style={s.monthText}>{monthLabel}</Text><Ionicons name="chevron-down" size={16} color={colors.textSecondary}/></Pressable>
       <View style={s.totals}>
         <View style={s.total}><Text style={s.tLabel} numberOfLines={1}>{l('In','জমা ও আয়')}</Text><Text style={[s.tValue,{color:colors.primary}]} numberOfLines={1} adjustsFontSizeToFit>{all?money(inSum):'…'}</Text></View>
-        <View style={[s.total,s.totalLine]}><Text style={s.tLabel} numberOfLines={1}>{l('Out','খরচ ও ফেরত')}</Text><Text style={[s.tValue,{color:colors.warning}]} numberOfLines={1} adjustsFontSizeToFit>{all?money(outSum):'…'}</Text></View>
+        <View style={[s.total,s.totalLine]}><Text style={s.tLabel} numberOfLines={1}>{l('Total out','মোট টাকা বের')}</Text><Text style={[s.tValue,{color:colors.warning}]} numberOfLines={1} adjustsFontSizeToFit>{all?money(outSum):'…'}</Text></View>
         <View style={[s.total,s.totalLine]}><Text style={s.tLabel} numberOfLines={1}>{l('Net','নিট')}</Text><Text style={s.tValue} numberOfLines={1} adjustsFontSizeToFit>{all?money(inSum-outSum):'…'}</Text></View>
       </View>
+      {all&&outSum>0?<View style={s.outBreakdown}><Text style={s.outTitle}>{l('Money-out breakdown','টাকা বের হওয়ার হিসাব')}</Text>{outRows.filter(([key])=>out[key]>0).map(([key,label])=><View style={s.outRow} key={key}><Text style={s.outLabel}>{label}</Text><Text style={s.outValue}>{money(out[key])}</Text></View>)}</View>:null}
     </View>:null}
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.chipBar}>
       {filters.map(([key,label])=><Pressable key={key} accessibilityRole="radio" accessibilityState={{checked:kind===key}} onPress={()=>setKind(key)} style={[s.chip,kind===key&&s.chipOn]}><Text style={[s.chipText,kind===key&&s.chipTextOn]}>{label}</Text></Pressable>)}
@@ -86,6 +89,11 @@ const s=StyleSheet.create({
   total:{flex:1,alignItems:'center',paddingHorizontal:6},totalLine:{borderLeftWidth:1,borderLeftColor:colors.border},
   tLabel:{fontFamily:typography.fontFamily.regular,fontSize:12,lineHeight:18,color:colors.textSecondary},
   tValue:{fontFamily:typography.fontFamily.bold,fontSize:16,lineHeight:24,color:colors.text},
+  outBreakdown:{backgroundColor:colors.warningSoft,borderRadius:12,paddingHorizontal:14,paddingVertical:10,gap:5},
+  outTitle:{fontFamily:typography.fontFamily.semiBold,fontSize:13,lineHeight:19,color:colors.text},
+  outRow:{flexDirection:'row',justifyContent:'space-between',gap:12},
+  outLabel:{fontFamily:typography.fontFamily.regular,fontSize:13,lineHeight:19,color:colors.textSecondary,flex:1},
+  outValue:{fontFamily:typography.fontFamily.semiBold,fontSize:13,lineHeight:19,color:colors.warning},
   chipBar:{flexGrow:0,marginHorizontal:-16,marginBottom:6},
   chips:{paddingHorizontal:16,gap:8,paddingVertical:8,alignItems:'center'},
   chip:{paddingHorizontal:14,paddingVertical:7,borderRadius:16,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border},

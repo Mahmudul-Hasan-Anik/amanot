@@ -22,6 +22,7 @@ function fixture(role='cashier',memberView=false,status=null){
 async function main(){
  assert.equal(withdrawal.withdrawalAvailable(member,[{...request,status:'approved'}]),15000,'deposit and profit are both withdrawable');
  assert.equal(ledger.signedTransactionAmount({type:'withdrawal',amount:5000}),-5000);assert.equal(ledger.signedTransactionAmount({type:'withdrawal',amount:5000,voided:true}),0);
+ const breakdown=ledger.outgoingBreakdown([{type:'withdrawal',amount:110000},{type:'transfer',amount:5000,investmentReversal:true}]);assert.equal(breakdown.withdrawals,110000);assert.equal(breakdown.installmentRefunds,5000);assert.equal(breakdown.expenses,0);
  assert.equal(fixture('member',true).button('Give savings back'),undefined,'members cannot request or record withdrawals');
  const f=fixture('cashier');f.button('Give savings back').props.onPress();
  for(const value of ['','abc','NaN','1.234']){f.picker().props.onSelect('m');f.input('Amount').props.onChangeText(value);await f.button('Save').props.onPress();assert.equal(f.calls.length,0);}
