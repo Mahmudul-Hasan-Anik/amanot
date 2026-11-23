@@ -10,6 +10,22 @@ const native={View:'View',Text:'Text',TextInput:'Input',Pressable:'Press',Scroll
 async function main(){
  for(const [category,prefix] of [['general','M'],['shareholder','S'],['director','D']])assert.equal(identity.memberCode(category,'০০২০২০০১'),prefix+'-00202001');
  for(const number of ['', 'a1','1-2','1.2','-1'])assert.throws(()=>identity.memberCode('general',number));assert.throws(()=>identity.memberCode('', '1'));assert.equal(identity.legacyMemberNumber('SM-003'),'003');
+
+ const sampleMembers = [
+   { code: 'D-2020023' },
+   { code: 'M-2020008' },
+   { code: 'D-2020006' },
+   { code: 'D-2020007' },
+   { code: 'D-2020040' },
+ ];
+ sampleMembers.sort(identity.compareMembersById);
+ assert.deepEqual(sampleMembers.map(m => m.code), [
+   'D-2020006',
+   'D-2020007',
+   'M-2020008',
+   'D-2020023',
+   'D-2020040',
+ ]);
  const h=harness();const Fields=load('src/components/MemberIdentityFields.tsx',{'react':{__esModule:true,default:h.React,...h.React},'react-native':native,'./SelectModal':{SelectModal:'Select'},'../lib/memberIdentity':identity,'../lib/bengali':digits,'../i18n/useLanguage':{useLanguage:()=>lang},'../theme/colors':theme,'../theme/typography':theme}).MemberIdentityFields;
  let tree=Fields({category:'shareholder',number:'00202001',onCategory:()=>{},locked:true});assert.equal(nodes(tree).find(n=>n.props.testID==='member-number-input').props.editable,false);assert.equal(nodes(tree).find(n=>n.props.testID==='member-id-preview').props.children[0],'S-00202001');
  h.reset();tree=Fields({category:'',number:'003',onCategory:()=>{},locked:true,legacy:true,existingCode:'SM-003'});assert.equal(nodes(tree).find(n=>n.props.testID==='member-category-select').props.disabled,true);

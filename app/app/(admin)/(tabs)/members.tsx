@@ -18,7 +18,7 @@ import { Card } from '../../../src/components/Card';
 import { Avatar } from '../../../src/components/Avatar';
 import { SearchBar } from '../../../src/components/SearchBar';
 import { FilterChip } from '../../../src/components/FilterChip';
-import {MEMBER_CATEGORIES} from '../../../src/lib/memberIdentity';
+import { MEMBER_CATEGORIES, compareMembersById } from '../../../src/lib/memberIdentity';
 import { Member } from '../../../src/mocks/mockData';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useLanguage } from '../../../src/i18n/useLanguage';
@@ -70,7 +70,7 @@ export default function MembersScreen() {
       return true;
     }).sort((a, b) => {
       if (sortBy === 'savings') return b.totalDeposit-a.totalDeposit;
-      if (sortBy === 'code') return a.code.localeCompare(b.code, 'en', { numeric: true });
+      if (sortBy === 'code') return compareMembersById(a, b);
       return a.name.localeCompare(b.name, language);
     });
   }, [members, searchQuery, activeFilter, sortBy, language]);

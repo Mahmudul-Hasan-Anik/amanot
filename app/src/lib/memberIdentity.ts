@@ -13,3 +13,40 @@ export function memberCode(category:MemberCategory | '',number:string) {
   if(!type || !/^[0-9]+$/.test(clean)) throw new Error('সদস্যের category ও শুধু সংখ্যায় member number দিন। / Select a category and enter a digits-only member number.');
   return `${type.prefix}-${clean}`;
 }
+
+export function compareMemberCodes(codeA: string, codeB: string): number {
+  const numA = toEnglishDigits(codeA || '').replace(/\D/g, '');
+  const numB = toEnglishDigits(codeB || '').replace(/\D/g, '');
+  if (numA && numB && numA !== numB) {
+    try {
+      const bA = BigInt(numA);
+      const bB = BigInt(numB);
+      if (bA !== bB) return bA < bB ? -1 : 1;
+    } catch {
+      const cmp = numA.localeCompare(numB, 'en', { numeric: true });
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return (codeA || '').localeCompare(codeB || '', 'en', { numeric: true });
+}
+
+export function compareMembersById(
+  a: { code?: string; memberNumber?: string },
+  b: { code?: string; memberNumber?: string }
+): number {
+  const rawA = a.memberNumber || a.code || '';
+  const rawB = b.memberNumber || b.code || '';
+  const numA = toEnglishDigits(rawA).replace(/\D/g, '');
+  const numB = toEnglishDigits(rawB).replace(/\D/g, '');
+  if (numA && numB && numA !== numB) {
+    try {
+      const bA = BigInt(numA);
+      const bB = BigInt(numB);
+      if (bA !== bB) return bA < bB ? -1 : 1;
+    } catch {
+      const cmp = numA.localeCompare(numB, 'en', { numeric: true });
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return (a.code || '').localeCompare(b.code || '', 'en', { numeric: true });
+}

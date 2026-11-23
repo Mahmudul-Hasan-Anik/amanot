@@ -19,6 +19,7 @@ import { safeBack } from '../../src/utils/navigation';
 import { AppModal } from '../../src/components/AppModal';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
+import { compareMembersById } from '../../src/lib/memberIdentity';
 
 const ROLES: { key: string; en: string; bn: string; descEn: string; descBn: string; title: string }[] = [
   { key: 'super_admin', en: 'Super Admin', bn: 'সুপার অ্যাডমিন', descEn: 'Everything, incl. roles', descBn: 'সব কিছু, রোল পরিবর্তনসহ', title: 'সভাপতি · সুপার অ্যাডমিন' },
@@ -49,7 +50,7 @@ export default function RolesScreen() {
     const order = ROLES.map((r) => r.key);
     return members
       .filter((m) => !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || m.phone.includes(q))
-      .sort((a, b) => order.indexOf(roleOf(a)) - order.indexOf(roleOf(b)) || a.code.localeCompare(b.code));
+      .sort((a, b) => order.indexOf(roleOf(a)) - order.indexOf(roleOf(b)) || compareMembersById(a, b));
   }, [members, query]);
 
   const choose = (roleKey: string) => {
