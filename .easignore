@@ -20,6 +20,7 @@ state/
 **/*.dump
 private-backups/
 .backup-rehearsal/
+docs/
 app/supabase/
 app/scripts/
 **/*.md
