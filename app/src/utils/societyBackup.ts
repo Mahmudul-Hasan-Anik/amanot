@@ -10,6 +10,13 @@ export interface SocietyBackupData {
   version: 1;
   app: 'Amanot';
   exportedAt: string;
+  organization?: {
+    id?: string;
+    orgName: string;
+    brandPrimaryColor?: string;
+    directorNames?: string[];
+    directorSharePercent?: number;
+  };
   somiti: {
     id?: string;
     name: string;
@@ -26,11 +33,17 @@ export interface SocietyBackupData {
     whatsappNumber: string;
     phone: string;
     whatsapp?: string;
+    memberIdNumber: string;
     memberNumber: string;
     code: string;
+    role: 'D' | 'M';
     category: string;
     address?: string;
+    nidNumber?: string;
     nid?: string;
+    nomineeName?: string;
+    nomineePhone?: string;
+    fatherName?: string;
     totalDeposit: number;
     totalWithdrawn?: number;
     profitBalance?: number;
@@ -43,21 +56,32 @@ export interface SocietyBackupData {
     memberName?: string;
     amount: number;
     date: string;
+    paymentDate: string;
+    month?: string;
+    receiverName?: string;
     method: string;
     receiptNo?: string;
+    receiptNumber?: string;
     bookReceiptNo?: string;
     note?: string;
   }>;
   investments: Array<{
     id: string;
+    investorName: string;
     recipientName: string;
     name: string;
+    totalAmount: number;
     principal: number;
+    profitAmount: number;
     profitPct?: number;
-    profitAmount?: number;
+    tenureMonths: number;
     termMonths?: number;
     disbursedDate?: string;
     firstDueDate?: string;
+    permanentAddress?: string;
+    nidNumber?: string;
+    parentNames?: string;
+    emergencyContacts?: any[];
     phone?: string;
     whatsapp?: string;
     returnedAmount?: number;
@@ -123,6 +147,13 @@ export async function buildSocietyBackup(state: SomitiState): Promise<SocietyBac
     version: 1,
     app: 'Amanot',
     exportedAt: new Date().toISOString(),
+    organization: {
+      id: (state.somitiInfo as any).id || 'org-amanot',
+      orgName: state.somitiInfo.name,
+      brandPrimaryColor: (state.somitiInfo as any).brandPrimaryColor || '#1C2331',
+      directorNames: state.members.filter(m => m.memberCategory === 'director').map(m => m.name),
+      directorSharePercent: Number((state.somitiInfo as any).profitManagementPct || 20),
+    },
     somiti: {
       id: (state.somitiInfo as any).id,
       name: state.somitiInfo.name,
@@ -133,51 +164,78 @@ export async function buildSocietyBackup(state: SomitiState): Promise<SocietyBac
       totalFund: state.somitiInfo.totalFund,
       cashAndBank: state.somitiInfo.cashAndBank,
     },
-    members: state.members.map(m => ({
-      id: m.id,
-      name: m.name,
-      whatsappNumber: m.phone || m.whatsapp || '',
-      phone: m.phone,
-      whatsapp: m.whatsapp,
-      memberNumber: m.code,
-      code: m.code,
-      category: m.memberCategory || 'general',
-      address: m.address,
-      nid: m.nid,
-      totalDeposit: m.totalDeposit,
-      totalWithdrawn: m.totalWithdrawn || 0,
-      profitBalance: m.profitBalance || 0,
-      joiningDate: m.joinDate,
-      status: m.status || 'active',
-    })),
+    members: state.members.map(m => {
+      const numPart = (m.memberNumber || m.code || '').replace(/\D/g, '');
+      const isDirector = m.memberCategory === 'director';
+      return {
+        id: m.id,
+        name: m.name,
+        whatsappNumber: m.phone || m.whatsapp || '',
+        phone: m.phone,
+        whatsapp: m.whatsapp,
+        memberIdNumber: numPart || m.code,
+        memberNumber: m.code,
+        code: m.code,
+        role: (isDirector ? 'D' : 'M') as 'D' | 'M',
+        category: m.memberCategory || 'general',
+        address: m.address,
+        nidNumber: m.nid || '',
+        nid: m.nid,
+        nomineeName: m.nomineeName,
+        nomineePhone: m.nomineePhone,
+        fatherName: m.fatherName,
+        totalDeposit: m.totalDeposit,
+        totalWithdrawn: m.totalWithdrawn || 0,
+        profitBalance: m.profitBalance || 0,
+        joiningDate: m.joinDate,
+        status: m.status || 'active',
+      };
+    }),
     savings: depositTxs.map(t => ({
       id: t.id,
       memberId: t.memberId,
       memberName: t.memberName,
       amount: t.amount,
       date: t.dateISO || t.date,
+      paymentDate: t.dateISO || t.date,
+      month: (t.months && t.months[0]) || (t.dateISO ? t.dateISO.slice(0, 7) : ''),
+      receiverName: t.note || 'সঞ্চয় জমা',
       method: t.paymentMethod,
       receiptNo: t.receiptNo,
+      receiptNumber: t.bookReceiptNo || t.receiptNo,
       bookReceiptNo: t.bookReceiptNo,
       note: t.note,
     })),
-    investments: state.projects.map(p => ({
-      id: p.id,
-      recipientName: p.contract?.recipientName || p.name,
-      name: p.name,
-      principal: p.contract?.principal || p.investedAmount || 0,
-      profitPct: p.contract?.profitPct,
-      profitAmount: p.contract?.profitAmount,
-      termMonths: p.contract?.termMonths,
-      disbursedDate: p.contract?.disbursedDate || p.startDate,
-      firstDueDate: p.contract?.firstDueDate,
-      phone: p.contract?.phone,
-      whatsapp: p.contract?.whatsapp,
-      returnedAmount: p.returnedAmount || 0,
-      remainingAmount: p.remainingAmount !== undefined ? p.remainingAmount : (p.investedAmount || 0),
-      status: p.status,
-      purpose: p.contract?.purpose,
-    })),
+    investments: state.projects.map(p => {
+      const principal = p.contract?.principal || p.investedAmount || 0;
+      const profit = p.contract?.profitAmount || (principal && p.contract?.profitPct ? Math.round(principal * p.contract.profitPct / 100) : 0);
+      const recipient = p.contract?.recipientName || p.name;
+      return {
+        id: p.id,
+        memberId: p.contract?.memberId || '',
+        investorName: recipient,
+        recipientName: recipient,
+        name: p.name,
+        totalAmount: principal + profit,
+        principal,
+        profitAmount: profit,
+        profitPct: p.contract?.profitPct,
+        tenureMonths: p.contract?.termMonths || 12,
+        termMonths: p.contract?.termMonths || 12,
+        disbursedDate: p.contract?.disbursedDate || p.startDate,
+        firstDueDate: p.contract?.firstDueDate,
+        permanentAddress: p.contract?.address || '',
+        nidNumber: p.contract?.nid || '',
+        parentNames: p.contract?.fatherName || '',
+        emergencyContacts: p.contract?.contacts || [],
+        phone: p.contract?.phone,
+        whatsapp: p.contract?.whatsapp,
+        returnedAmount: p.returnedAmount || 0,
+        remainingAmount: p.remainingAmount !== undefined ? p.remainingAmount : (p.investedAmount || 0),
+        status: p.status,
+        purpose: p.contract?.purpose,
+      };
+    }),
     transactions: txs.map(t => ({
       id: t.id,
       date: t.dateISO || t.date,

@@ -154,24 +154,32 @@ async function testBackupBundle() {
   assert.equal(backup.version, 1, 'Backup version must be 1');
   assert.equal(backup.app, 'Amanot');
   assert.equal(backup.somiti.name, 'আমানত সঞ্চয় ও ঋণদান সমবায় সমিতি');
+  assert.equal(backup.organization.orgName, 'আমানত সঞ্চয় ও ঋণদান সমবায় সমিতি');
   assert.ok(backup.exportedAt);
 
   // 2. Members & SomitiPro compatibility
   assert.equal(backup.members.length, 2);
   assert.equal(backup.members[0].name, 'মো: আইয়ুব');
   assert.equal(backup.members[0].whatsappNumber, '01860141343');
+  assert.equal(backup.members[0].memberIdNumber, '2020004');
   assert.equal(backup.members[0].code, 'D-2020004');
+  assert.equal(backup.members[0].role, 'D');
   assert.equal(backup.members[0].category, 'director');
 
   // 3. Savings
   assert.equal(backup.savings.length, 1);
   assert.equal(backup.savings[0].amount, 2000);
   assert.equal(backup.savings[0].memberId, 'm1');
+  assert.equal(backup.savings[0].paymentDate, '2026-10-01');
 
   // 4. Investments
   assert.equal(backup.investments.length, 1);
+  assert.equal(backup.investments[0].investorName, 'নোমান');
   assert.equal(backup.investments[0].recipientName, 'নোমান');
   assert.equal(backup.investments[0].principal, 50000);
+  assert.equal(backup.investments[0].profitAmount, 5000);
+  assert.equal(backup.investments[0].totalAmount, 55000);
+  assert.equal(backup.investments[0].tenureMonths, 10);
 
   // 5. Transactions, Expenses & Accounts
   assert.equal(backup.transactions.length, 2);
@@ -184,6 +192,34 @@ async function testBackupBundle() {
   assert.equal(backup.summary.totalInvestments, 1);
   assert.equal(backup.summary.totalTransactions, 2);
   assert.equal(backup.summary.totalExpenses, 1);
+
+  // 7. Full data-import compatibility simulation (matches import_legacy_backup SQL function)
+  assert.equal(backup.version, 1);
+  assert.ok(Array.isArray(backup.members));
+  assert.ok(Array.isArray(backup.savings));
+  assert.ok(Array.isArray(backup.investments));
+
+  const memberMap = new Set();
+  for (const m of backup.members) {
+    assert.ok(m.id && m.name && m.whatsappNumber, 'Member requires id, name and whatsappNumber');
+    assert.ok(m.memberIdNumber, 'Member requires numeric memberIdNumber for ID preservation');
+    assert.ok(m.role === 'D' || m.role === 'M', 'Role must be D or M');
+    memberMap.add(m.id);
+  }
+
+  for (const s of backup.savings) {
+    assert.ok(memberMap.has(s.memberId), 'Savings record must reference a valid memberId');
+    assert.ok(s.amount > 0, 'Savings amount must be positive');
+    assert.ok(s.paymentDate, 'paymentDate must be present for preserving transaction date');
+  }
+
+  for (const i of backup.investments) {
+    const v_principal = Number(i.totalAmount) - Number(i.profitAmount);
+    assert.ok(v_principal > 0, 'Principal must compute positive from totalAmount - profitAmount');
+    assert.ok(Number(i.profitAmount) >= 0, 'profitAmount must be non-negative');
+    assert.ok(i.investorName, 'investorName must be present');
+    assert.ok(i.tenureMonths >= 1, 'tenureMonths must be at least 1');
+  }
 
   // 7. JSON serialization roundtrip
   const serialized = JSON.stringify(backup);
