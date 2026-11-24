@@ -20,7 +20,6 @@ import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { Card } from '../../../src/components/Card';
 import { Button } from '../../../src/components/Button';
-import { StickyCTA } from '../../../src/components/StickyCTA';
 import { AppModal } from '../../../src/components/AppModal';
 import { useSomitiStore } from '../../../src/store/somitiStore';
 import { useAuthStore } from '../../../src/features/auth/authStore';

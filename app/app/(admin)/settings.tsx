@@ -46,8 +46,6 @@ export default function SettingsScreen() {
     setUseBengaliDigits,
     expenseApprovalLimit: localLimit,
     setExpenseApprovalLimit,
-    accountingYear,
-    setAccountingYear,
 
   } = useLanguage();
 
@@ -63,14 +61,6 @@ export default function SettingsScreen() {
   const expenseApprovalLimit = pick('expenseApprovalLimit', localLimit);
   const saveSetting = async (key: string, value: number) => {
     try { if (REMOTE) await updateSomitiInfo({ [key]: value } as any); }
-    catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
-  };
-
-  // Auto-approve toggle state (defaults to true per user directive)
-  const [autoApprove, setAutoApprove] = useState((somitiInfo as any).autoApproveEnabled !== false);
-
-  const handleToggleAutoApprove = async (val: boolean) => {
-    try {await updateSomitiInfo({ autoApproveEnabled: val, autoApproveThreshold: expenseApprovalLimit } as any);setAutoApprove(val);}
     catch(e:any){Alert.alert(l('Save failed','সংরক্ষণ ব্যর্থ'),e.message);}
   };
 

@@ -3,7 +3,7 @@ import { RemoteDataState } from '../../src/components/RemoteDataState';
 import { fetchLedgerSummary } from '../../src/lib/api';
 import { emptyLedgerSummary } from '../../src/lib/ledger';
 import { EntryRow, EntryActions } from '../../src/components/EntryActions';
-import { financeLabel, financeNote, financeDate } from '../../src/i18n/financeLabels';
+import { financeLabel, financeNote } from '../../src/i18n/financeLabels';
 import { Card } from '../../src/components/Card';
 import React, { useState, useMemo, useRef } from 'react';
 import {
@@ -71,7 +71,6 @@ function AppModal({ visible, onClose, children, animationType = 'fade' }: AppMod
 }
 
 const MONTHS_LIST = recentMonths(12);
-const paymentLabel = (method: string, bn: boolean) => ({cash:bn?'নগদ':'Cash',bank:bn?'ব্যাংক':'Bank',bkash:'bKash',nagad:'Nagad'}[method] || financeLabel(method,bn));
 const accountLabel = (account: CashAccount, bn: boolean) => (({bank:bn?'ব্যাংক হিসাব':'Bank Account',cashier:bn?'হাতে নগদ (কোষাধ্যক্ষ)':'Cash in hand (cashier)',field:bn?'মাঠকর্মীর হাতে':'Cash with Field Worker',bkash:bn?'বিকাশ':'bKash',nagad:bn?'নগদ (মোবাইল)':'Nagad (mobile)'} as Record<string,string>)[account.type || ''] || financeLabel(account.name,bn));
 
 export default function FinanceScreen() {

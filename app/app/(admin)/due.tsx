@@ -5,7 +5,6 @@ import { Page } from '../../src/components/Page';
 import { Button } from '../../src/components/Button';
 import { Avatar } from '../../src/components/Avatar';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { formatHumanDate } from '../../src/components/DateField';
 import { useSomitiStore } from '../../src/store/somitiStore';
 import { useLanguage } from '../../src/i18n/useLanguage';
 import { investmentSchedule, isoToday, roundMoney } from '../../src/lib/investment';

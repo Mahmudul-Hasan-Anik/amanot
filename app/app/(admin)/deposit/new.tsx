@@ -13,7 +13,6 @@ import { useLanguage } from '../../../src/i18n/useLanguage';
 import { safeBack } from '../../../src/utils/navigation';
 import { AppModal } from '../../../src/components/AppModal';
 import { Avatar } from '../../../src/components/Avatar';
-import { Checkbox } from '../../../src/components/Checkbox';
 import { toEnglishDigits } from '../../../src/lib/money';
 import { toBengaliDigits, BENGALI_MONTHS_FULL } from '../../../src/lib/bengali';
 import { colors } from '../../../src/theme/colors';
@@ -104,7 +103,7 @@ export default function RecordDepositScreen() {
   };
 
   // Notification delivery methods
-  const [sendSMS, setSendSMS] = useState(false);
+  const sendSMS = false;
 
   const [customAmount,setCustomAmount]=useState(typeof params.amount==='string'?params.amount:'');
   const handleSelectMember=(id:string)=>{setSelectedMemberId(id);validation.clear('member');setShowMemberModal(false);setCustomAmount('');requestId.current=uuid();};

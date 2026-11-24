@@ -10,7 +10,6 @@ import { fetchMemberStatementSnapshot } from '../../../src/lib/api';
 import { buildMemberStatement } from '../../../src/lib/memberStatement';
 import { exportReport } from '../../../src/utils/reportExport';
 import { passbookReportText, sendOnWhatsApp } from '../../../src/utils/whatsappReceipt';
-import { formatHumanDate } from '../../../src/components/DateField';
 import { Button } from '../../../src/components/Button';
 import { safeBack } from '../../../src/utils/navigation';
 import { colors } from '../../../src/theme/colors';

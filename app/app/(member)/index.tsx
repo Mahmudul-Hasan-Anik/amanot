@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Linking, Alert, Share } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -12,7 +12,6 @@ import { bnDate } from '../../src/lib/api';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import {useLedgerPage} from '../../src/hooks/useLedgerPage';
-import {Button} from '../../src/components/Button';
 import {formatHumanDate} from '../../src/components/DateField';
 import {MemberBalanceSummary} from '../../src/components/MemberBalanceSummary';
 import {somitiName} from '../../src/utils/somitiBranding';
@@ -40,30 +39,6 @@ export default function MemberDashboardScreen() {
   };
 
   const history=useLedgerPage({memberId:member.id},!!member.id);
-
-  const handleCopy = async (text: string, label: string) => {
-    if (!text) return;
-    try { await Share.share({ message: `${label}: ${text}` }); }
-    catch (e: any) { Alert.alert(l('Sharing failed', 'শেয়ার ব্যর্থ'), e.message); }
-  };
-
-  const handleCallHelpline = () => {
-    const num = (somitiInfo as any).helpline || somitiInfo.phone;
-    if (!num) { Alert.alert(l('Contact unavailable', 'যোগাযোগ নম্বর দেওয়া নেই')); return; }
-    Linking.openURL(`tel:${num}`).catch(() => {});
-  };
-
-  const handleWhatsAppHelpline = () => {
-    if (!somitiInfo.phone) { Alert.alert(l('Contact unavailable', 'যোগাযোগ নম্বর দেওয়া নেই')); return; }
-    const raw = somitiInfo.phone
-      .replace(/[০-৯]/g, (c: string) => String('০১২৩৪৫৬৭৮৯'.indexOf(c)))
-      .replace(/\D/g, '');
-    const num = raw.startsWith('88') ? raw : `88${raw}`;
-    const msg = encodeURIComponent(
-      `আসসালামু আলাইকুম। আমি ${member.name} (আইডি: ${member.code})। আমার কিস্তি সংক্রান্ত তথ্য জানতে যোগাযোগ করছি।`
-    );
-    Linking.openURL(`https://wa.me/${num}?text=${msg}`).catch(() => {});
-  };
 
   return (
     <SafeAreaView style={styles.container}>
