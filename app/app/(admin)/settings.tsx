@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -27,13 +28,14 @@ import { showToast } from '../../src/components/Toast';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as api from '../../src/lib/api';
+import { exportSocietyBackupJson, exportSocietyBackupCsv } from '../../src/utils/societyBackup';
 
 const FY_MONTHS: [string, string][] = [['January','জানুয়ারি'],['February','ফেব্রুয়ারি'],['March','মার্চ'],['April','এপ্রিল'],['May','মে'],['June','জুন'],['July','জুলাই'],['August','আগস্ট'],['September','সেপ্টেম্বর'],['October','অক্টোবর'],['November','নভেম্বর'],['December','ডিসেম্বর']];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout } = useAuthStore();
-  const { resetAllData, somitiInfo, updateSomitiInfo } = useSomitiStore();
+  const { resetAllData, somitiInfo, updateSomitiInfo, members = [] } = useSomitiStore();
   const {
     language,
     useBengaliDigits,
@@ -79,6 +81,8 @@ export default function SettingsScreen() {
   const [memberSeesProfit, setMemberSeesProfit] = useState(info.memberSeesProfit !== false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [exportingBackup, setExportingBackup] = useState(false);
 
   const handleResetData = async () => {
     if (REMOTE) {
@@ -125,14 +129,38 @@ export default function SettingsScreen() {
     );
   };
 
+  const getFullState = () => (typeof useSomitiStore.getState === 'function' ? useSomitiStore.getState() : { somitiInfo, members, transactions: [], cashAccounts: [], expenses: [], projects: [] } as any);
+
+  const handleExportJson = async () => {
+    if (exportingBackup) return;
+    setExportingBackup(true);
+    try {
+      const res = await exportSocietyBackupJson(getFullState());
+      setShowBackupModal(false);
+      showToast(l(`Downloaded backup (${res.count} members)`, `ব্যাকআপ ডাউনলোড হয়েছে (${res.count} জন সদস্য)`));
+    } catch (e: any) {
+      Alert.alert(l('Backup failed', 'ব্যাকআপ ব্যর্থ'), e?.message || l('Could not generate backup', 'ব্যাকআপ তৈরি করা যায়নি'));
+    } finally {
+      setExportingBackup(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    if (exportingBackup) return;
+    setExportingBackup(true);
+    try {
+      const res = await exportSocietyBackupCsv(getFullState());
+      setShowBackupModal(false);
+      showToast(l(`Downloaded data spreadsheet (${res.count} records)`, `স্প্রেডশীট ডাউনলোড হয়েছে (${res.count}টি রেকর্ড)`));
+    } catch (e: any) {
+      Alert.alert(l('Export failed', 'এক্সপোর্ট ব্যর্থ'), e?.message || l('Could not export spreadsheet', 'স্প্রেডশীট তৈরি করা যায়নি'));
+    } finally {
+      setExportingBackup(false);
+    }
+  };
+
   const handleBackupNow = () => {
-    Alert.alert(
-      l('Backup Status', 'ব্যাকআপ অবস্থা'),
-      l(
-        'Backups are created by the owner using the encrypted backup tool. This button does not create or upload a backup.',
-        'পরিচালক encrypted backup tool দিয়ে ব্যাকআপ তৈরি করেন। এই বোতাম থেকে ব্যাকআপ তৈরি বা আপলোড হয় না।'
-      )
-    );
+    setShowBackupModal(true);
   };
 
   const importBackup = async () => {
@@ -327,12 +355,14 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
             onPress={handleBackupNow}
           >
-            <Text style={styles.rowTitle}>{l('Backup', 'ব্যাকআপ')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valText}>
-                {l('Owner managed', 'পরিচালকের দায়িত্বে')}
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle}>{l('Backup', 'ব্যাকআপ')}</Text>
+              <Text style={styles.rowSub}>
+                {l('Download complete society database (JSON / Excel)', 'সম্পূর্ণ ডেটাবেজের ব্যাকআপ ফাইল ডাউনলোড করুন')}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </View>
+            <View style={styles.rowRight}>
+              <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
             </View>
           </TouchableOpacity>
           <View style={styles.divider} />
@@ -492,6 +522,84 @@ export default function SettingsScreen() {
               onPress={() => setShowApprovalModal(false)}
             >
               <Text style={styles.modalCancelText}>{l('Cancel', 'বাতিল')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Backup Modal */}
+      <Modal visible={showBackupModal} transparent animationType="fade" onRequestClose={() => setShowBackupModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 440 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle} numberOfLines={1}>{l('Society Backup', 'সমিতির ব্যাকআপ')}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>{somitiInfo.name}</Text>
+              </View>
+            </View>
+
+            <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: 12, padding: 12, marginBottom: 16, gap: 4 }}>
+              <Text style={{ fontFamily: typography.fontFamily.semiBold, fontSize: 13, color: colors.text }}>
+                {l('Current Records', 'বর্তমান তথ্য সংক্ষেপ')}:
+              </Text>
+              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: 12, color: colors.textSecondary }}>
+                • {l('Members', 'সদস্য')}: {formatNum(members.length)} {l('people', 'জন')} · {l('Fund', 'মোট তহবিল')}: {formatMoney(somitiInfo.totalFund || 0)}
+              </Text>
+              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: 12, color: colors.textSecondary }}>
+                • {l('All savings, investments, transactions & accounts included', 'সকল সঞ্চয়, বিনিয়োগ, লেনদেন ও হিসাবের রেকর্ড অন্তর্ভুক্ত')}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalOption, { paddingVertical: 14, gap: 12 }]}
+              disabled={exportingBackup}
+              onPress={handleExportJson}
+            >
+              <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalOptionText, { fontFamily: typography.fontFamily.semiBold }]}>
+                  {l('Download Full Backup (JSON)', 'সম্পূর্ণ ব্যাকআপ (JSON) ডাউনলোড')}
+                </Text>
+                <Text style={[styles.rowSub, { marginTop: 2 }]}>
+                  {l('Complete database copy for backup & restore', 'ভবিষ্যতে রিস্টোর বা নিরাপদে রাখার ফাইল')}
+                </Text>
+              </View>
+              <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalOption, { paddingVertical: 14, gap: 12 }]}
+              disabled={exportingBackup}
+              onPress={handleExportCsv}
+            >
+              <Ionicons name="grid-outline" size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalOptionText, { fontFamily: typography.fontFamily.semiBold }]}>
+                  {l('Download Spreadsheet (CSV)', 'এক্সেল / স্প্রেডশীট (CSV) ডাউনলোড')}
+                </Text>
+                <Text style={[styles.rowSub, { marginTop: 2 }]}>
+                  {l('Readable member and transaction tables', 'এক্সেল বা কম্পিউটারে সহজে দেখার জন্য')}
+                </Text>
+              </View>
+              <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {exportingBackup && (
+              <View style={{ paddingVertical: 8, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.rowSub, { marginTop: 4 }]}>{l('Preparing backup file…', 'ব্যাকআপ ফাইল প্রস্তুত হচ্ছে…')}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              disabled={exportingBackup}
+              onPress={() => setShowBackupModal(false)}
+            >
+              <Text style={styles.modalCancelText}>{l('Close', 'বন্ধ করুন')}</Text>
             </TouchableOpacity>
           </View>
         </View>

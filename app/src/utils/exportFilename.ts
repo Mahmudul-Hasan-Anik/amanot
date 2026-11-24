@@ -1,5 +1,5 @@
 /** Keep readable Bengali/English names, removing filesystem-reserved characters. */
-export function exportFilename(parts: Array<string | number | undefined>, extension: 'pdf' | 'csv', now = new Date()): string {
+export function exportFilename(parts: Array<string | number | undefined>, extension: 'pdf' | 'csv' | 'json', now = new Date()): string {
   const clean = (value: string | number) => String(value).normalize('NFKC')
     .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, '-')
     .replace(/\s+/g, '-').replace(/[-.]+$/g, '').replace(/^-+/g, '').slice(0, 60);

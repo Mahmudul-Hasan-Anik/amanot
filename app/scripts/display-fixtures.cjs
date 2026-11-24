@@ -14,5 +14,11 @@ exports.displayFixture=(name,deps)=>{
     const key=Object.keys(deps||{}).find(k=>k.endsWith('store/somitiStore'));const store=key&&deps[key];
     return {useCashAccounts:()=>store&&store.useSomitiStore?store.useSomitiStore(s=>s.cashAccounts):[]};
   }
+  if(/utils\/societyBackup$/.test(name)) {
+    return {
+      exportSocietyBackupJson: async () => ({ filename: 'mock.json', count: 0 }),
+      exportSocietyBackupCsv: async () => ({ filename: 'mock.csv', count: 0 }),
+    };
+  }
   return undefined;
 };
